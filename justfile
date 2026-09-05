@@ -2,480 +2,332 @@ set dotenv-required := true
 
 ### VERIFY ###
 
-# The one pre-commit / CI command: builds, vets, and tests every module,
-# including the CONVENTIONS.md walks in tools/conventions (a dev-only module,
-# outside the root `go test ./...` surface -- this recipe is what runs them).
+# Build, vet, and race-test every Go module, including the conventions checks.
 verify:
-  go build ./... && go vet ./... && go test -race ./...
-  cd cmd/vulkan && go build ./... && go vet ./...
-  cd otelvulkan && go build ./... && go vet ./...
-  cd examples && go build ./...
-  cd bench && go build ./...
-  cd tools && go test -race ./...
+    go build ./... && go vet ./... && go test -race ./...
+    cd cmd/vulkan && go build ./... && go vet ./...
+    cd otelvulkan && go build ./... && go vet ./...
+    cd examples && go build ./...
+    cd bench && go build ./...
+    cd tools && go test -race ./...
 
-# compat lab (release checkpoints only, needs the dev DB): drives the PINNED
-# prior release's public API against a database the working tree migrated --
-# the empirical check that declared compatibility matches observed. Until two
-# releases exist, tools/compat/go.mod replaces vulkan with the working tree,
-# so this is a dry-run of the harness itself (pinned == working tree, verdict
-# round-trip). At a checkpoint: `git worktree add` the prior tag, repoint the
-# replace (see tools/compat/go.mod), and pass expect from the working tree's
-# registry verdict: round-trip when every step past the pinned build declares
-# MinCompatibleVersion <= it, refused otherwise.
+# Check a release's pinned public API against the working schema.
 compat-lab expect="round-trip":
-  cd tools/compat && go run . -expect={{ expect }}
+    cd tools/compat && go run . -expect={{ expect }}
 
 ### DATABASE ###
 
+# Start the development PostgreSQL database in the foreground.
 database-up:
-  docker-compose -f ./scripts/database/docker-compose.yaml up
+    docker-compose -f scripts/database/docker-compose.yaml up
 
+# Stop the development PostgreSQL database without deleting its volume.
 database-down:
-  docker-compose -f ./scripts/database/docker-compose.yaml down
+    docker-compose -f scripts/database/docker-compose.yaml down
 
+# Stop the development database and delete all of its data.
 database-delete:
-  docker-compose -f ./scripts/database/docker-compose.yaml down -v
+    docker-compose -f scripts/database/docker-compose.yaml down -v
 
-# dev bootstrap: stands up the control-plane schema in Go (RegisterSystem).
-# Idempotent -- safe to re-run.
+# Register the system in the development database. Safe to run repeatedly.
 system-register:
-  go run examples/phase_1/systemregister/main.go
+    go run examples/phase_1/systemregister/main.go
 
 ### SCHEMA ###
 
-# live-schema snapshot + interactive ER diagram. Needs the dev DB up with the
-# system registered (`just system-register` -- its first reserved topic owns
-# the *_1 family scripts/database/tbls.yml documents; every family shares the
-# same DDL). tbls (brew install k1LoW/tap/tbls) reads the live schema; Liam
-# ERD renders it explorable. Output is all under bin/schema/ (gitignored):
-# per-table markdown + SVGs, schema.json, and the erd/ site.
+# Generate a gitignored ER diagram from a registered development database.
 schema-diagram:
-  tbls doc -c scripts/database/tbls.yml --force
-  tbls out -c scripts/database/tbls.yml -t json -o bin/schema/schema.json
-  npx --yes @liam-hq/cli erd build --format tbls --input bin/schema/schema.json
-  rm -rf bin/schema/erd && mv dist bin/schema/erd
-  @echo "open with: just schema-diagram-serve"
+    tbls doc -c scripts/database/tbls.yml --force
+    tbls out -c scripts/database/tbls.yml -t json -o bin/schema/schema.json
+    npx --yes @liam-hq/cli erd build --format tbls --input bin/schema/schema.json
+    rm -rf bin/schema/erd && mv dist bin/schema/erd
+    @echo "open with: just schema-diagram-serve"
 
+# Serve the generated ER diagram at http://localhost:8377.
 schema-diagram-serve:
-  python3 -m http.server 8377 -d bin/schema/erd
+    python3 -m http.server 8377 -d bin/schema/erd
 
-# fresh-run flow: recreate the dev DB, register the system (which creates the
-# reserved topics and their families), then snapshot. DESTROYS all dev DB data.
+# Recreate the development database, register the system, then generate its ER diagram.
 schema-diagram-fresh:
-  docker-compose -f ./scripts/database/docker-compose.yaml down -v
-  docker-compose -f ./scripts/database/docker-compose.yaml up -d --wait postgres
-  just system-register
-  just schema-diagram
+    docker-compose -f scripts/database/docker-compose.yaml down -v
+    docker-compose -f scripts/database/docker-compose.yaml up -d --wait postgres
+    just system-register
+    just schema-diagram
 
-### TESTING ###
+### EXAMPLES ###
 
-# EX: just consume
+# Run the phase-1 consumer example. EX: just consume learning.v1 0.1 1.0 0.0 -1
 consume group="learning.v1" processorsleep="0.1" shutdownsleep="1.0" failrate="0.0" crashafter="-1":
-  go run examples/phase_1/consumer/main.go -group={{ group }} -processor-sleep={{ processorsleep }} -shutdown-sleep={{ shutdownsleep }} -fail-rate={{ failrate }} -crash-after={{ crashafter }}
+    go run examples/phase_1/consumer/main.go -group={{ group }} -processor-sleep={{ processorsleep }} -shutdown-sleep={{ shutdownsleep }} -fail-rate={{ failrate }} -crash-after={{ crashafter }}
 
-# EX: just produce 3
+# Produce messages with the phase-1 producer example. EX: just produce 3
 produce count="1":
-  go run examples/phase_1/producer/main.go -count={{ count }}
+    go run examples/phase_1/producer/main.go -count={{ count }}
 
-# build a lab binary into bin/ (EX: just build-lab reclaimlab)
+### LABS: BUILD ###
+
+# Build a lab binary in bin/. EX: just build-lab reclaimlab
 build-lab lab:
-  go build -o bin/{{ lab }} examples/phase_1/{{ lab }}/main.go
+    go build -o bin/{{ lab }} examples/phase_1/{{ lab }}/main.go
 
-# Phase 6.5b lab: crash mid-range, recover. Deterministic, self-verifying,
-# self-seeding -- registers its own topic and publishes its own backlog.
+### LABS: CONSUMERS, DECLARATIONS, AND WORKERS ###
+
+# Verify recovery after a consumer crashes while processing a message range.
 reclaim-lab:
-  go run examples/phase_1/reclaimlab/main.go
+    go run examples/phase_1/reclaimlab/main.go
 
-# Phase 6.5c lab: committed pins on a failing message, jumps past it once resolved.
-# Deterministic, self-verifying, self-seeding -- registers its own topic and
-# publishes its own backlog.
+# Verify a failing message holds the committed cursor until it resolves.
 exception-lab:
-  go run examples/phase_1/exceptionlab/main.go
+    go run examples/phase_1/exceptionlab/main.go
 
+# Verify consumer-group declaration defaults, validation, and replacement.
 group-config-lab:
-  go run examples/phase_1/groupconfiglab/main.go
+    go run examples/phase_1/groupconfiglab/main.go
 
+# Verify declaration outcomes reported by consumer registration.
 outcome-lab:
-  go run examples/phase_1/outcomelab/main.go
+    go run examples/phase_1/outcomelab/main.go
 
+# Verify ordered delivery and its key lease behavior.
 ordered-lab:
-  go run examples/phase_1/orderedlab/main.go
+    go run examples/phase_1/orderedlab/main.go
 
-# routing lab: bindings gate what a group receives, not what gets claimed.
-# Deterministic, self-verifying, self-seeding -- registers its own topic and
-# publishes its own messages.
+# Verify bindings choose which messages a group receives.
 routing-lab:
-  go run examples/phase_1/routinglab/main.go
+    go run examples/phase_1/routinglab/main.go
 
-# binding lifecycle lab: sets declared at consumer Register -- same-set join,
-# a divergent set waiting on a live incumbent, and the dead-fleet swap that
-# ends the wait, consuming under the new set.
+# Verify same-set joins, divergent-set waits, and replacement after a fleet exits.
 binding-lab:
-  go run examples/phase_1/bindinglab/main.go
+    go run examples/phase_1/bindinglab/main.go
 
-# Phase 8a lab (a): id-range partitioning prunes claim reads to 1-2 partitions.
-# Self-contained -- registers its own topic at a lab-scale partition width
-# (Phase 8b made partition width a per-topic Register() param, so no more
-# schema-swap/data-wipe of a shared message_log); the topic is destroyed on exit.
-partition-lab:
-  go run examples/phase_1/partitionlab/main.go
-
-# Phase 8a lab (b): a dropped partition is a hole a lagging cursor walks over
-# empty, not a stall; the drop floor refuses the drop until committed past it
-# or waived. Same per-topic isolation as partition-lab, no shared-table caveat.
-drop-floor-lab:
-  go run examples/phase_1/dropfloorlab/main.go
-
-# Phase 8a lab (c): the low-volume tail -- a partition too small to ever earn
-# a whole-partition drop still sheds its expired prefix via the sweep.
-# Registers its own topic at the real migration-shipped partition width, so
-# it never rolls to a second partition -- exactly the condition the sweep covers.
-sweep-lab:
-  go run examples/phase_1/sweeplab/main.go
-
-# Phase 8b's own lab: proves per-topic tables/sequences are independent, a
-# lagging group's floor stays inside its own topic, routing still works
-# scoped to one topic, two slices sharing one topic still share its floor
-# (deliberately not fixed), and an unregistered topic id fails clearly.
-topic-lab:
-  go run examples/phase_1/topiclab/main.go
-
-reserved-topic-lab:
-  go run examples/phase_1/reservedtopiclab/main.go
-
+# Verify consumer routines abandoned during a snapshot are recorded correctly.
 abandoned-routine-snapshot-lab:
-  go run examples/phase_1/abandonedroutinesnapshotlab/main.go
+    go run examples/phase_1/abandonedroutinesnapshotlab/main.go
 
-metrics-lab:
-  go run examples/phase_1/metricslab/main.go
-
-# metrics collector lab: a full-size collection pass under -race (topic
-# fan-out under TopicConcurrency, each group's measurements produced
-# concurrently on one ProducerInstance), latest/history read through the
-# public handles the CLI uses, and a real `vulkan manager run
-# --metrics-address` process scraped over HTTP.
-metrics-collector-lab:
-  go build -o bin/vulkan ./cmd/vulkan
-  go run -race examples/phase_1/metricscollectorlab/main.go
-
+# Verify expired messages and abandoned routines are reported by maintenance work.
 abandoned-events-lab:
-  go run examples/phase_1/abandonedeventslab/main.go
+    go run examples/phase_1/abandonedeventslab/main.go
 
+# Verify maintenance-worker polling backs off when no work is available.
 duty-backoff-lab:
-  go run examples/phase_1/dutybackofflab/main.go
+    go run examples/phase_1/dutybackofflab/main.go
 
-# default-alert lab: RegisterSystem seeding + declared thresholds applying,
-# every classify arm (edge WARN, quiet hold, repeat republish refreshing the
-# head, silent severity change, resolve INFO), the live partition_count
-# executor end to end, and per-topic isolation around a corrupted head.
-alert-lab:
-  go run examples/phase_1/alertlab/main.go
-
-# schema lab: a schema is one installation -- two clients on two schemas in
-# one database register the same topic name, hold their own tables and
-# messages, and neither read crosses the boundary; an unregistered schema
-# reads an absence rather than the neighbour's rows.
-schema-lab:
-  go run examples/phase_1/schemalab/main.go
-
-# worker liveness alert: a produce-only Register warns VK0063 naming the
-# unclaimed topic_janitor and goes silent under a live consumer; the
-# scheduled check publishes an active alert naming the group's
-# message_consumer and resolves it once the consumer is back.
+# Verify a produce-only deployment warns, and a live consumer resolves that alert.
 worker-liveness-lab:
-  go run examples/phase_1/workerlivenesslab/main.go
+    go run examples/phase_1/workerlivenesslab/main.go
 
-# cron lab: registration validation (charset, Feb-29, timeout-vs-rate),
-# owner cascade vs standalone survival, produce-once newest-due walk, v7
-# dedupe on a re-backdated scheduled time, suspend/unsuspend, a poisoned row
-# skipped while siblings produce, defer behind a running request, run-now
-# default-allow vs cfg-defer, run-now superseding a pending unclaimed
-# request, and consumer end-to-end with per-group status + request listing.
-schedule-lab:
-  go run examples/phase_1/schedulelab/main.go
-
-# Schedule(ctx) runs the system manager, so two concurrent runs in one process
-# are both admitted and the manager row's claim gate admits one reconcile loop
-# between them. Also proves RegisterSchedule returns the handle whose Get reads
-# the declared row.
-schedule-concurrency-lab:
-  go run examples/phase_1/scheduleconcurrencylab/main.go
-
-key-lease-lab:
-  go run examples/phase_1/keyleaselab/main.go
-
-exclusive-lab:
-  go run examples/phase_1/exclusivelab/main.go
-
-# log compaction lab: latest-per-key survives a claim, older rows stay
-# physically present, a delivered version isn't retroactively unsent, the
-# crash/reclaim race gives a superseded row zero delivery while its successor
-# still gets its own, tombstones are a pure app convention on both paths, and
-# unkeyed reads never pay the compaction subplan's cost.
-compaction-lab:
-  go run examples/phase_1/compactionlab/main.go
-
-# CompactionRank lab: a rank-100 pin ignores every normal-rank update after
-# it even at a higher id, a -1 backfill write never beats a live rank-0
-# write regardless of arrival order (the bridge's exact interleaving, both
-# orderings), and every losing row stays physically present but never claimed.
-compaction-rank-lab:
-  go run examples/phase_1/compactionranklab/main.go
-
-# log compaction width/planner lab: measures whether proving a row IS the
-# latest for its key (no early termination) actually costs more partition
-# scans than proving it ISN'T (can stop at the first match) -- and whether a
-# coarser PartitionSize collapses that cost. Registers two identically-seeded
-# topics differing only in PartitionSize, EXPLAIN ANALYZEs both cases on each.
-compaction-width-lab:
-  go run examples/phase_1/compactionwidthlab/main.go
-
-# log compaction SCALE lab: how bad "prove a negative" gets as a topic's
-# history grows -- the backlog-replay worst case, not the small A/B width
-# comparison compaction-width-lab runs. One never-superseded row is
-# re-measured fresh at each checkpoint as more partitions/rows pile up
-# behind it, tracking a genuine growth curve (partitions touched + wall
-# clock) instead of one snapshot.
-compaction-scale-lab:
-  go run examples/phase_1/compactionscalelab/main.go
-
-# compaction_head correctness lab: N goroutines publish to the SAME key at once,
-# proving the write path's id-guard converges to the true max regardless of
-# commit order -- plus the O(1) counterpart to compaction-scale-lab's linear
-# curve, same checkpoints, EXPLAIN ANALYZEing the NEW compaction_head lookup
-# instead of the old scan. Touched partitions must stay flat at every size.
-compaction-head-race-lab:
-  go run examples/phase_1/compactionheadracelab/main.go
-
-# compaction_head + retention lab: does 8a's retention correctly garbage collect
-# compaction_head when it reaps a compacted key's last surviving row? Covers both
-# janitor paths (dropPartition's whole-partition removal, sweepBatch's
-# individually-expired-row reap) and confirms a key touched inside the ttl
-# window survives every pass untouched, either path.
-compaction-head-retention-lab:
-  go run examples/phase_1/compactionheadretentionlab/main.go
-
-# compaction_head write-cost lab: quantifies the tradeoff -- an O(1) read path
-# cost a second write on every keyed publish. Sequential/uncontended cost vs.
-# an unkeyed baseline, hot-key lock contention under concurrency (many
-# distinct keys vs. all publishers hammering ONE key), and the dead-tuple
-# growth that contention leaves behind for autovacuum.
-compaction-head-write-lab:
-  go run examples/phase_1/compactionheadwritelab/main.go
-
-# compaction-key deadlock lab: concurrent batched Produce over one hot key
-# pool raises zero deadlocks (the batcher's ascending key sort holds across
-# batchers), while two reverse-ordered InTransaction callers raise exactly
-# one 40P01 -- classified transient, landed by the caller-side rerun the
-# InTransaction docs require. Heads converge to the max id either way.
-compaction-deadlock-lab:
-  go run examples/phase_1/compactiondeadlocklab/main.go
-
-# idempotency_keys lab: does AppendMessage's retry-safety claim gate actually
-# prevent a double-publish, and does its cleanup actually drain it? Covers a
-# retried AppendMessage under the same key (must land exactly once), distinct
-# keys (must never collide), an unset key (must protect only within one
-# call, not dedupe separate publishes), the sweep (expired claims drained in
-# bounded batches, live ones survive), and IdempotencyKeyTTL surviving a
-# topic re-registration unchanged.
-idempotency-keys-lab:
-  go run examples/phase_1/idempotencykeyslab/main.go
-
-# idempotency_keys growth lab: the sustained-throughput/storage axis of the
-# claim-gate tradeoff. Measures relative storage overhead vs. message_log
-# with no sweep running, then proves the janitor's real sweep cadence keeps
-# the table's steady-state size bounded near Little's Law's rate*ttl instead
-# of growing toward the full published count, and drains to zero afterward.
-idempotency-keys-growth-lab:
-  go run examples/phase_1/idempotencykeysgrowthlab/main.go
-
-# idempotency_keys race lab: N goroutines sharing one idempotency key must
-# land exactly once under true concurrency (not just sequential retries),
-# and N goroutines each with their own distinct key must all land -- mirrors
-# compactionheadracelab's concurrent-race precedent.
-idempotency-keys-race-lab:
-  go run examples/phase_1/idempotencykeysracelab/main.go
-
-# DeleteTopic cascade lab: seeds a row in every topic_id-scoped table
-# (cursors, leases, bindings, compaction_head) plus the per-topic deliveries and
-# idempotency_keys tables -- including a still-open lease and an unclaimed
-# deliveries row, not just the already-resolved case -- then confirms
-# Destroy cleans up all of them, not just message_log and the topics row
-# itself.
-delete-topic-lab:
-  go run examples/phase_1/deletetopiclab/main.go
-
-# destroy-system lab: DestroySystem is RegisterSystem's inverse [0514] --
-# a registered user topic and a running consumer each refuse the unforced
-# destroy (worker guard outranks the topic guard), the clean destroy drops
-# every control-plane table, and RegisterSystem stands the schema back up.
-destroy-system-lab:
-  go run examples/phase_1/destroysystemlab/main.go
-
-# register idempotency lab: re-registering a topic is idempotent (same config
-# resolves to the same topic, not an error) and a conflicting config is
-# rejected with ErrTopicConfigMismatch -- guards the created_at/updated_at
-# struct-equality edge in topic.upsertTopic. Self-seeding, destroyed on exit.
-register-idempotency-lab:
-  go run examples/phase_1/registeridempotencylab/main.go
-
-# delivery_log lab: a fresh failure logs exactly one row (right attempt
-# number + error), a success logs none, and two retries of the same message
-# append two MORE distinct rows (attempt=1, attempt=2) rather than
-# overwriting -- the (consumer_group, message_id, attempt) PK makes that
-# structural, not incidental. Also covers the opt-out (DisableDeliveryLog
-# skips table creation and every write) and retention (dropPartition/
-# sweepBatch drain delivery_log the same as they already drain delivery_<id>).
-delivery-log-lab:
-  go run examples/phase_1/deliveryloglab/main.go
-
-# Phase 9 lab: graceful-shutdown lease truncation. A shutdown signal mid-range
-# stops CursorClaim from taking on new messages, but everything already
-# resolved (successes + a parked exception) survives and the lease narrows to
-# just the untouched suffix -- confirms the resolved prefix is never
-# redelivered, committed's exception-blocker and lease-narrowing terms
-# combine correctly via LEAST, and the untouched suffix reclaims on its own.
-shutdown-truncation-lab:
-  go run examples/phase_1/shutdowntruncationlab/main.go
-
-# Phase 10 lab: measures the lazy-vs-synchronous AdvanceCommitted tradeoff.
-# Staleness (time from Commit to `committed` reflecting it: periodic roller
-# tick vs. calling AdvanceCommitted synchronously right after Commit), fixed
-# per-op cost of the extra round trip uncontended, and the contention cost of
-# a synchronous call hammering the same (group, topic) cursors row Commit
-# itself never touches today.
-rollup-lab:
-  go run examples/phase_1/rolluplab/main.go
-
-# multi-target transactional enqueue lab: two targets published inside one
-# producer.InTransaction closure commit together, a failure on either rolls
-# back both (not just the failing one), a missing-partition self-heal on one
-# target never touches the other's already-made insert or reruns a caller
-# side effect between the two calls, a Commit-time failure surfaces
-# completely unclassified (no common.Error wrapping -- retrying is
-# the caller's decision), and rerunning the closure under caller-supplied
-# IdempotencyKeys dedups every target instead of double-publishing.
-multi-target-lab:
-  go run examples/phase_1/multitargetlab/main.go
-
-# invariant lab: the migrate engine's guarantees under a fixture registry (the
-# real registries are empty) -- migrate-to-N == fresh-create-at-N via an
-# information_schema diff, up->down->up reversibility, and Up/Down idempotency
-# under an ambiguous-commit re-run. The linear-history teeth golang-migrate's
-# file layout used to give for free. Borrows the system entity against scratch
-# tables, resets to baseline on exit.
-invariant-lab:
-  go run examples/phase_1/invariantlab/main.go
-
-# schema gate lab: a producer/consumer refuses to Register when the db's system
-# or topic schema carries a breaking step past this build (additive skew is
-# allowed -- the rolling-deploy window), and each topic family gates on its own
-# rows. Fail fast with an operator-actionable message; the upgrade tripwire.
-schema-gate-lab:
-  go run examples/phase_1/schemagatelab/main.go
-
-# producer batch lab: the batched payload-only Produce path. Concurrent
-# callers share transactions (xmin-proven) and land exactly once, a
-# caller-keyed call routes per-call and dedups, a poisoned/unencodable
-# payload fails only its own caller, hot compaction keys never deadlock
-# across concurrent batches, bursts self-heal missing partitions, and a
-# timing pass (batched vs per-call at equal concurrency, plus a saturated
-# batched arm) reports what the fsync amortization actually buys in-library.
-producer-batch-lab:
-  go run examples/phase_1/producerbatchlab/main.go
-
-# create-ahead lab: every append path (per-call, batched, in-tx) creates the
-# next partition at the 80% trigger point -- polled into existence before the
-# boundary, zero heal warns, ids contiguous (no burned boundary id), exactly
-# one partition ahead.
-create-ahead-lab:
-  go run examples/phase_1/createaheadlab/main.go
-
-# worker claim lab: N consumers on one topic coordinate through worker claims --
-# target-1 rows (janitor, cursor advancer) hold exactly one live instance (not N),
-# failover to a survivor within a reconcile tick when consumers die, and full
-# release when the last exits.
+# Verify maintenance-worker claims, failover, and final release across consumers.
 worker-claim-lab:
-  go run examples/phase_1/workerclaimlab/main.go
+    go run examples/phase_1/workerclaimlab/main.go
 
-# Consume carries the deployment's upkeep: two sessions on one client hold ONE
-# live system manager instance between them, the claim moves to another process
-# when its holder leaves, target_instances = 0 suspends it deployment-wide with
-# VK0035, DisableManager runs none, and an explicit RunManager beside a Consume
-# is still one claim. Registers its own topic, destroys it on exit.
+# Verify Consume shares one system-manager instance and its claim across sessions.
 manager-autorun-lab:
-  go run examples/phase_1/managerautorunlab/main.go
+    go run examples/phase_1/managerautorunlab/main.go
 
-# Phase 14a chunk 7 lab: the end-to-end bridge pattern proof -- a user-space
-# consumer group transforms+re-produces v1's compacted winners into a newly
-# registered v2 at CompactionRank -1 while live producers write straight to
-# v2 at rank 0. Confirms zero-pause (live always beats the bridge, either
-# arrival order), a crashed-and-restarted bridge resumes from its cursor with
-# no duplicate rows, and that drain telegraphing never calls a compacted
-# topic safe on its own even once this lab proves it actually is -- that
-# stays an operator call. Registers both versions, destroys both on exit.
+# Verify graceful shutdown narrows a lease to the unprocessed message suffix.
+shutdown-truncation-lab:
+    go run examples/phase_1/shutdowntruncationlab/main.go
+
+# Measure lazy versus synchronous advancement of a consumer group's committed cursor.
+rollup-lab:
+    go run examples/phase_1/rolluplab/main.go
+
+# Verify exclusive consumer-group behavior.
+exclusive-lab:
+    go run examples/phase_1/exclusivelab/main.go
+
+# Verify per-key leases prevent concurrent ordered delivery.
+key-lease-lab:
+    go run examples/phase_1/keyleaselab/main.go
+
+### LABS: TOPICS, RETENTION, AND SCHEMA ###
+
+# Verify partitions prune claim reads to the relevant message-id range.
+partition-lab:
+    go run examples/phase_1/partitionlab/main.go
+
+# Verify a lagging cursor passes a dropped partition without stalling.
+drop-floor-lab:
+    go run examples/phase_1/dropfloorlab/main.go
+
+# Verify retention sweeps an expired prefix that cannot justify a partition drop.
+sweep-lab:
+    go run examples/phase_1/sweeplab/main.go
+
+# Verify per-topic tables, cursors, routing, and retention are isolated by topic.
+topic-lab:
+    go run examples/phase_1/topiclab/main.go
+
+# Verify users cannot alter the system's reserved topics.
+reserved-topic-lab:
+    go run examples/phase_1/reservedtopiclab/main.go
+
+# Verify topic registration is idempotent and rejects a conflicting configuration.
+register-idempotency-lab:
+    go run examples/phase_1/registeridempotencylab/main.go
+
+# Verify topic destruction clears every topic-scoped control-plane and message row.
+delete-topic-lab:
+    go run examples/phase_1/deletetopiclab/main.go
+
+# Verify system destruction refuses unsafe states and leaves a fresh registration possible.
+destroy-system-lab:
+    go run examples/phase_1/destroysystemlab/main.go
+
+# Verify independent installations can share one database through separate schemas.
+schema-lab:
+    go run examples/phase_1/schemalab/main.go
+
+# Verify producers and consumers reject database versions this build cannot support.
+schema-gate-lab:
+    go run examples/phase_1/schemagatelab/main.go
+
+# Verify the migration registry is reversible, idempotent, and matches fresh creation.
+invariant-lab:
+    go run examples/phase_1/invariantlab/main.go
+
+# Verify a user-space bridge moves compacted winners from one message schema to another.
 schema-evolution-lab:
-  go run examples/phase_1/schemaevolutionlab/main.go
+    go run examples/phase_1/schemaevolutionlab/main.go
 
-# EX: just peek 1
+### LABS: PRODUCERS AND DELIVERY RECORDS ###
+
+# Verify idempotency keys deduplicate retries and the janitor removes expired claims.
+idempotency-keys-lab:
+    go run examples/phase_1/idempotencykeyslab/main.go
+
+# Measure idempotency-key storage growth and verify its steady-state cleanup bound.
+idempotency-keys-growth-lab:
+    go run examples/phase_1/idempotencykeysgrowthlab/main.go
+
+# Verify concurrent calls sharing one idempotency key produce exactly one message.
+idempotency-keys-race-lab:
+    go run examples/phase_1/idempotencykeysracelab/main.go
+
+# Verify batched production shares transactions without cross-caller failure or deadlock.
+producer-batch-lab:
+    go run examples/phase_1/producerbatchlab/main.go
+
+# Verify every production path creates the next partition before the boundary.
+create-ahead-lab:
+    go run examples/phase_1/createaheadlab/main.go
+
+# Verify two in-transaction targets commit or roll back together.
+multi-target-lab:
+    go run examples/phase_1/multitargetlab/main.go
+
+# Verify failures append delivery records, respecting opt-out and retention.
+delivery-log-lab:
+    go run examples/phase_1/deliveryloglab/main.go
+
+### LABS: COMPACTION ###
+
+# Verify a compacted topic delivers only its latest eligible message per key.
+compaction-lab:
+    go run examples/phase_1/compactionlab/main.go
+
+# Verify compaction ranks keep pinned or bridge messages from being superseded.
+compaction-rank-lab:
+    go run examples/phase_1/compactionranklab/main.go
+
+# Measure the partition-scan cost of finding the latest message for a key.
+compaction-width-lab:
+    go run examples/phase_1/compactionwidthlab/main.go
+
+# Measure how latest-message lookup cost grows with compacted-topic history.
+compaction-scale-lab:
+    go run examples/phase_1/compactionscalelab/main.go
+
+# Verify concurrent production converges compaction heads to the highest message id.
+compaction-head-race-lab:
+    go run examples/phase_1/compactionheadracelab/main.go
+
+# Verify retention removes a compaction head only after its key has no surviving message.
+compaction-head-retention-lab:
+    go run examples/phase_1/compactionheadretentionlab/main.go
+
+# Measure compaction-head write cost, hot-key contention, and dead-tuple growth.
+compaction-head-write-lab:
+    go run examples/phase_1/compactionheadwritelab/main.go
+
+# Verify batched production avoids hot-key deadlocks while caller transactions surface them.
+compaction-deadlock-lab:
+    go run examples/phase_1/compactiondeadlocklab/main.go
+
+### LABS: METRICS, ALERTS, AND SCHEDULES ###
+
+# Verify stored metric reads and the CLI's metrics surface.
+metrics-lab:
+    go run examples/phase_1/metricslab/main.go
+
+# Verify concurrent metric collection and an HTTP scrape from a manager process.
+metrics-collector-lab:
+    go build -o bin/vulkan cmd/vulkan
+    go run -race examples/phase_1/metricscollectorlab/main.go
+
+# Verify built-in alert thresholds classify, refresh, change severity, and resolve.
+alert-lab:
+    go run examples/phase_1/alertlab/main.go
+
+# Verify cron validation, schedule lifecycle, production, and consumer delivery.
+schedule-lab:
+    go run examples/phase_1/schedulelab/main.go
+
+# Verify concurrent Schedule calls run only one system-manager reconciliation loop.
+schedule-concurrency-lab:
+    go run examples/phase_1/scheduleconcurrencylab/main.go
+
+### INSPECT ###
+
+# List the messages stored for one topic. EX: just peek 1
 peek topic_id:
-  psql "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable" \
-    -c "SELECT * FROM message_log_{{ topic_id }} ORDER BY id;"
+    psql "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable" \
+      -c "SELECT * FROM message_log_{{ topic_id }} ORDER BY id;"
 
+# List rows in the example users table.
 peek-users:
-  psql "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable" \
-    -c "SELECT * FROM users ORDER BY id;"
+    psql "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable" \
+      -c "SELECT * FROM users ORDER BY id;"
 
-# Phase 5 health metric: per-group lag = log head − cursor position, scoped to one topic.
-# Run two groups, slow one with -processorsleep, watch their lags diverge.
-# EX: just lag 1
+# List each group cursor and its distance from a topic's message-log head. EX: just lag 1
 lag topic_id:
-  psql "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable" \
-    -c "SELECT g.name AS consumer_group, c.claimed, COALESCE((SELECT max(id) FROM message_log_{{ topic_id }}), 0) AS head, COALESCE((SELECT max(id) FROM message_log_{{ topic_id }}), 0) - c.claimed AS lag FROM consumer_group_cursor_{{ topic_id }} c JOIN consumer_group_config g ON g.id = c.consumer_group_id ORDER BY lag DESC;"
+    psql "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable" \
+      -c "SELECT g.name AS consumer_group, c.claimed, COALESCE((SELECT max(id) FROM message_log_{{ topic_id }}), 0) AS head, COALESCE((SELECT max(id) FROM message_log_{{ topic_id }}), 0) - c.claimed AS lag FROM consumer_group_cursor_{{ topic_id }} c JOIN consumer_group_config g ON g.id = c.consumer_group_id ORDER BY lag DESC;"
 
 ### DOC SITE (https://vulkan-5ss.pages.dev) ###
 
+# Start the documentation site in development mode.
 site-dev:
-  cd website && npm run dev
+    cd website && npm run dev
 
-# the site's sibling of `just verify`: prettier, eslint, stylelint,
-# astro check + svelte-check, remark-lint, vale, vitest. Each regenerate+diff
-# is a drift guard -- the committed data must be what this build produces, so a
-# change that skips the regenerate step fails here.
+# Regenerate site data, require it to be committed, then run every site check.
 site-verify:
-  just site-compat
-  git diff --exit-code --stat website/src/data/compat.json
-  just site-codes
-  git diff --exit-code --stat website/src/data/codes.json
-  cd website && npm run verify
+    just site-compat
+    git diff --exit-code --stat website/src/data/compat.json
+    just site-codes
+    git diff --exit-code --stat website/src/data/codes.json
+    cd website && npm run verify
 
-# regenerate the compatibility matrix the migrations guide renders. Every
-# verdict comes from migrate.ClassifySchemaSupport -- the call the library
-# makes at Register -- so the page never holds a second copy of the gate.
+# Regenerate the migration compatibility matrix rendered by the documentation site.
 site-compat:
-  cd tools && go run ./compatexport -out ../website/src/data/compat.json
+    cd tools && go run ./compatexport -out ../website/src/data/compat.json
 
-# regenerate the VK-code records the site reads: the diagnose queries it
-# renders, and the declaration each error page's frontmatter is checked
-# against (website/src/data/codes.test.ts).
+# Regenerate the documentation site's Vulkan error-code records.
 site-codes:
-  cd tools && go run ./codeexport -out ../website/src/data/codes.json
+    cd tools && go run ./codeexport -out ../website/src/data/codes.json
 
-# build + serve the built site (search needs the built Pagefind index)
+# Build and serve the documentation site, including its Pagefind index.
 site-preview:
-  cd website && npm run build && npm run preview
+    cd website && npm run build && npm run preview
 
+# Start the documentation site's component explorer at http://localhost:6006.
 site-storybook:
-  cd website && ./node_modules/.bin/storybook dev -p 6006
+    cd website && ./node_modules/.bin/storybook dev -p 6006
 
+# Build and deploy the documentation site to its main branch.
 site-deploy:
-  cd website && npm run build && ./node_modules/.bin/wrangler pages deploy dist --project-name vulkan --branch main
+    cd website && npm run build && ./node_modules/.bin/wrangler pages deploy dist --project-name vulkan --branch main
 
-# freeze the current build at a permanent version alias
-# (<slug>.vulkan-5ss.pages.dev). Runs beside site-deploy at a release
-# checkpoint, after the same change bumps src/site.ts docsVersion and adds
-# the release's row to public/versions.json. A frozen alias is never
-# deployed to again; its version list stays current because every build
-# fetches /versions.json from the live origin at read time.
+# Freeze a release site at a permanent version alias; aliases never change.
 site-freeze slug:
-  cd website && npm run build && ./node_modules/.bin/wrangler pages deploy dist --project-name vulkan --branch {{slug}}
+    cd website && npm run build && ./node_modules/.bin/wrangler pages deploy dist --project-name vulkan --branch {{ slug }}
