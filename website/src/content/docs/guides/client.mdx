@@ -320,6 +320,82 @@ row as sugar over `Scheduler(name).Get(ctx)` would fit; it was left out
 to keep one read path, and I'm not sure that is the right call for
 scripts.
 
+<ThreadAside label="PROPOSED" title="Locking a compaction head">
+`CompactionHead` reads the current value. The proposed
+`LockCompactionHead` ensures the message key has a lockable row and holds that
+row `FOR UPDATE` until the caller's transaction commits or rolls back. A new
+key returns a nil head, but it is locked: another transaction running the same
+locked update waits and then reads the first transaction's value.
+
+```go
+type DeviceConfig struct {
+	DeviceId string `json:"device_id"`
+	Restarts int    `json:"restarts"`
+}
+
+func (DeviceConfig) SchemaVersion() int { return 1 }
+
+devices := client.Topic[DeviceConfig]("devices.config")
+if _, err := devices.Register(ctx, &vulkan.TopicConfig{
+	EmptyCompactionHeadTTL: time.Hour,
+}); err != nil {
+	return err
+}
+
+configs, err := devices.Producer().Register(ctx, nil)
+if err != nil {
+	return err
+}
+compaction, err := vulkan.NewCompactionOptions(0)
+if err != nil {
+	return err
+}
+
+device := devices.Key("dev-7")
+if err := client.InTransaction(ctx, func(ctx context.Context, tx vulkan.Tx) error {
+	head, err := device.LockCompactionHead(ctx, tx)
+	if err != nil {
+		return err
+	}
+
+	next := DeviceConfig{DeviceId: "dev-7"}
+	if head != nil {
+		next = *head.Message
+	}
+	next.Restarts++
+
+	_, err = configs.ProduceInTx(ctx, tx, &next, &vulkan.ProduceOptions{
+		MessageKey: "dev-7",
+		Compaction: compaction,
+	})
+	return err
+}); err != nil {
+	return err
+}
+```
+
+For `devices.config` topic id `41`, two transactions starting with no
+`"dev-7"` value do not both calculate from zero. The first creates and locks
+the null-head row, writes message `901` with `Restarts=1`, and commits. The
+second then locks that same row, reads message `901`, and writes message `902`
+with `Restarts=2`.
+
+The key handle resolves `devices.config` through the supplied `tx` before it
+names `compaction_head_41`; the lookup and row lock never use different
+database snapshots. Lock multiple keys in the same order in every transaction
+to avoid the usual row-lock deadlock.
+
+`EmptyCompactionHeadTTL` defaults to one hour and must be positive. It is how
+long a row with no head may go without another lock before the topic janitor
+can delete it. The janitor skips a row while a transaction holds its lock, and
+the TTL never applies once the row points at a head. `TopicSnapshot` reports
+`CompactionRowsWithoutHead` and `OldestCompactionRowWithoutHeadAge`; zero age
+means there are none.
+
+This surface does not ship yet. Today the locked read is
+`ProducerInstance.GetCompactionHeadInTx` and it cannot lock a missing key.
+</ThreadAside>
+
 ## Admin, resource by resource
 
 Every block reads the same way: list the collection, name one, read

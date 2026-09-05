@@ -4,4 +4,86 @@ Sliding window of in-flight work only. Future work lives in ROADMAP.md;
 shipped work in HISTORY.md; decision rationale in DECISIONS.md ->
 docs/decisions/.
 
-Nothing in flight.
+## A missing compaction head has a lockable row [0659]
+
+Invariant: one `compaction_head_<topic_id>` row is the lockable identity for a
+message key participating in compaction. Its three head fields are either all
+null or all present. A transactional lock composes first writes as well as
+updates; TTL cleanup may remove an inactive null-head row but is never required
+for correctness.
+
+Settled this session, do not reopen: nullable head fields plus `created_at` and
+`updated_at`; a positive one-hour defaulted topic TTL; bounded janitor cleanup
+with `FOR UPDATE SKIP LOCKED`; headless-row count and oldest age in topic
+observability; `KeyHandle.LockCompactionHead(ctx, tx)` owns the public lock;
+`ProducerInstance.GetCompactionHeadInTx` is deleted. Pre-v1 means both v1
+baselines change in place and existing databases are recreated, not migrated.
+
+Build order -- keep each chunk green with the listed foreground checks before
+starting the next:
+
+1. **The doc-site proposal.** DRAFTED 2026-09-05; awaiting user review. The
+   Proposed contract is in the client guide:
+   the `CompactionHead` / `LockCompactionHead` pair, nil for a locked row with
+   no head, transaction-consistent topic resolution, `EmptyCompactionHeadTTL`
+   and its one-hour default, and the full scenario 05 read-modify-write. Review
+   that page before code; keep it labeled Proposed until chunk 8 is green.
+   Check: targeted Prettier, Remark, Vale, and website build.
+2. **Config and fresh-schema baseline.** Add `EmptyCompactionHeadTTL` to
+   `TopicConfig`, `Topic`, the controller row/adapters, every get/list/register/
+   replace/config-log query, CLI config output, and both `topic_config` baseline
+   tables with a one-hour database default. Change `compaction_head` baseline
+   DDL: the three head columns become nullable as one unit, add the all-null or
+   all-present check, and add `created_at` / `updated_at`. Add config-default,
+   validation, and round-trip coverage. No system/topic migration registry
+   entries. Checks: build and `go test -race` on topic, system, admin, and CLI
+   packages; schema and registration labs against a fresh database.
+3. **One internal ensure-and-lock path.** Move the transactional operation into
+   the compaction domain. Its datastore loop selects the key row `FOR UPDATE`,
+   refreshes `updated_at` when the found row has no head, inserts a null-head
+   row `ON CONFLICT DO NOTHING` when absent, and repeats only after losing that
+   insert/delete race. Use pointer fields only on the table-exact row that can
+   carry nulls. Add focused validation and adapter tests. Checks: build and
+   `go test -race` on compaction, produce, topic, and admin packages.
+4. **Every existing head consumer handles null.** Change the produce upsert to
+   advance `head_id IS NULL` and set `updated_at` whenever the winner changes.
+   Audit every compaction-head query: ordinary head/list reads keep inner-join
+   materialized-only behavior; `IsCompacted` ignores null heads; rank,
+   retention, key leases, schedule status, schema health, and metrics neither
+   scan null into a scalar nor classify a null row as a head. Checks:
+   compaction, compaction-rank, compaction-head-race, compaction-head-retention,
+   key-lease, and schema-evolution labs.
+5. **Public handle move.** Add
+   `Topic[Message](name).Key(messageKey).LockCompactionHead(ctx, tx)` and route
+   it through admin -> topic controller -> compaction controller. Resolve and
+   schema-gate the topic through the supplied transaction, never the pool.
+   Delete `GetCompactionHeadInTx` at every producer layer and facade; update
+   the facade tests. Checks: build, `go test -race ./pkg/vulkan ./pkg/admin
+   ./pkg/compaction/... ./pkg/produce/...`, and examples module build.
+6. **Topic-janitor TTL.** Add one `SweepExpiredEmptyCompactionHeads` controller
+   and datastore path using the topic's TTL and the existing sweep batch size.
+   Select expired `head_id IS NULL` rows in `updated_at` order with `FOR UPDATE
+   SKIP LOCKED`, delete that bounded set, and log only a nonzero count at Debug.
+   Call it from the existing topic-janitor sweep; add no worker or loop. Checks:
+   topic-janitor race tests plus retention and sweep labs.
+7. **Point-in-time observability.** Extend `TopicSnapshot` and its one metrics
+   query with `CompactionRowsWithoutHead` and
+   `OldestCompactionRowWithoutHeadAge`; zero age means none. Keep the existing
+   `Compacted` metric tied to a materialized head, and add no second query or
+   built-in time series without a consumer. Checks: metrics controller race
+   tests, metrics lab, and metrics-collector lab.
+8. **The one live concurrency lab and scenario 05.** Add a focused lab that
+   proves: two transactions first-increment one absent key to 2; an ordinary
+   compacted produce fills a locked null-head row; committing without produce
+   leaves a row the TTL later removes; a non-null head never expires; and both
+   janitor-first and locker-first races converge without a missing lock or
+   blocked sweep. Rewrite playground scenario 05 around named topic/key
+   handles and `LockCompactionHead`; run the lab under `-race` and build every
+   example.
+9. **Review-ready closeout.** Remove Proposed from the client guide and update
+   table design, config reference, playground scorecard, and [0659] only where
+   implementation discovered a real consequence. Recreate the database, run
+   the full fresh-DB lab suite once, `just verify`, and the website build. At a
+   release checkpoint also run the prior-tag compatibility lab and update the
+   migration compatibility table. Move the shipped summary to HISTORY, remove
+   this TODO window and the [0659] ROADMAP item.

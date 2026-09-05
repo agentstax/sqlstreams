@@ -1,15 +1,9 @@
 # Public API
 
-05 - head, err := configs.GetCompactionHeadInTx(ctx, tx, "dev-7")
-this feels out of place like it should be done in a different way
-problem is we established this get pattern client.Topic[DeviceConfig](registered.Name).Key("dev-7").CompactionHead(ctx)
-but then don't use the same shape
+09 and 11 - need to review again and make sure code makes sense and clearly outlines what it intends to describe.
 
-09 - need to look at this more and understand it. The code shape looks fine but the thing we are trying to show is not
-necessarly apparent from just the code
-
-11 - same deal as 09. Code shape looks fine but I think we can likely organize the code to better show what we are trying
-to convey
+should ideally come up with one or two 'fake scenarios' that all the example playgrounds can follow so
+it is conceptually easier to follow along each
 
 # Docs
 

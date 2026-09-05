@@ -6,6 +6,8 @@ phase: "pre-v1"
 
 # A missing compaction head has a lockable row
 
+Amends [0530].
+
 **Context.** The transactional compaction-head read locks the existing
 `compaction_head_<topic_id>` row `FOR UPDATE`. No row exists for a new message
 key, so two transactions can both read absence, calculate from the same empty
@@ -42,7 +44,8 @@ generated table, so one operation never splits across database snapshots.
 
 **Consequences.** Every compaction-head query must handle the all-null state;
 ordinary head reads and lists continue returning only materialized heads.
-Topic-table migrations add the columns and constraint. The build needs a live
+Pre-v1, the system and topic v1 baselines change in place; no migration step is
+created, and an existing database must be recreated. The build needs a live
 race proving two first updates compose, plus janitor-versus-reader cases where
 each side obtains the row lock first. Scenario 05 names its topic and key
 handles once, locks through the key, then produces through its registered
