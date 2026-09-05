@@ -5,6 +5,34 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-05 — Alerts are first-class resources on the client [0649]
+
+`System().Alerts()`, `Topic(...).Alerts()`, and `Topic(...).Group(...).Alerts()`
+are no-I/O scope handles with the metrics grammar: `Definitions()` lists the
+scope's built-ins, `Latest` lists the current alert per (name, owner), and
+`Alert(name)` names one alert with the owner bound by the tree. The three
+built-ins are all topic-owned, so the topic handle carries the typed
+selectors `PartitionCount`, `CompactionReadCost`, `WorkerLiveness`. Each
+selector returns one `AlertHandle`: `Latest` is the current alert or
+`(nil, nil)`, `History` is retained alerts newest first, both bare `*Alert`.
+`Alert.At` is the observation time. The message key stays
+`<name>/<owner-kind>/<owner-id>`; verbs resolve names to ids when called
+through admin's new `SystemOwner` / `TopicOwner` / `GroupOwner`, which also
+replaced five inline copies of that lookup, so a destroyed owner reads as
+not-found. `SystemHandle.Alerts(ctx)`, `SystemHandle.Alert(messageKey)`, and
+every `MessageKey()` handle accessor are gone.
+
+Built-in alerts are declared once: `DiagnosticAlert` is the registry's
+fourth kind, `pkg/alert/alerts.go` holds VK0094-VK0096 (the name consts left
+the check controllers), `AlertDefinition` is the defensive view, and the
+checks build name and severity from the declaration. `vulkan explain`, the
+code export, the conventions walks, and three docs pages carry the kind.
+The CLI gained `alert list --topic/--group` and `alert get`.
+
+Verified with the verify chain and the full fresh-DB suite (49/49), the
+latter run in two halves around a justfile deletion mid-run. No migration;
+the compatibility table is unchanged.
+
 ## 2026-09-05 — Metrics are first-class resources on the client [0647][0648]
 
 `System().Metrics()`, `Topic(...).Metrics()`, and

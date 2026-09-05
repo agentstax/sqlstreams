@@ -559,7 +559,6 @@ turn an old collected value into live state.
 
 ## Alerts
 
-<ThreadAside label="PROPOSED" title="Alerts as resources">
 An alert is a retained message on `__system.alerts` about one resource,
 keyed by the alert's name and its owner. Alerts take the metrics grammar:
 `Latest(ctx)` reads the newest retained one, `History(ctx, limit)` reads
@@ -644,8 +643,6 @@ with a later topic that reuses the name.
 retained under the key. `History` requires a positive limit and returns an
 empty slice for that same absence.
 
-</ThreadAside>
-
 ## Where the old verbs went
 
 | before (`MessageAdmin`) | now |
@@ -670,7 +667,7 @@ empty slice for that same absence.
 | `DestroySchedule` | `Scheduler.Destroy` |
 | `RegisterSystem` | `client.System().Register` |
 | `GetSystem` / `MigrateSystem` / `DestroySystem` | `client.System().Get` / `.Migrate` / `.Destroy` |
-| `ListAlerts` | `client.System().Alerts().Latest(ctx)` (proposed) |
+| `ListAlerts` | `client.System().Alerts().Latest(ctx)`; one owner's alerts are `Topic.Alerts().Latest` / `Group.Alerts().Latest` |
 | `ListMeasurements` / `ListMeasurementMessages` | `client.System().Metrics().Latest(ctx)`; a typed metric selector's `History(ctx, limit)` |
 | `CompactionController.GetHead` / `ListKeyMessages` | `Topic.Key(k).CompactionHead` / `Topic.Key(k).Messages` |
 | `CompactionController.ListHeads` | `Topic.CompactionHeads` |

@@ -21,11 +21,14 @@ rewrite-to-the-real-API pass 2026-08-22 [0581], the board rebuild
 2026-08-23 [0582] [0583] [0584], the consumer-flow sandbox 2026-08-25
 [0585] [0586] [0587]. All three are in HISTORY.md.
 
-- **Alerts as first-class handles** -- the metrics shape [0647][0648]
-  applied to alerts: one declaration catalog (VK0094-VK0096), `Alerts()`
-  scope handles with `Definitions()`, typed selectors, `Alert(name)` on
-  every scope, and `Latest`/`History` returning bare `*Alert` with `At`.
-  Expanded in docs/TODO.md.
+- **Doc-site sitemap and search-engine submission** -- add Astro's official
+  sitemap integration so every canonical static route is emitted at build
+  time, advertise the generated sitemap from `robots.txt`, and verify the
+  deployed files contain only the live origin's canonical URLs. Then verify
+  the canonical site property in Google Search Console and Bing Webmaster
+  Tools, submit the sitemap in each service (or import the verified Google
+  property into Bing), and record the exact operator steps and initial
+  indexing result so a future domain move or deployment can repeat them.
 - **CLI builds topic owners by hand** -- `cmd/vulkan/internal/cli/migrate.go`
   composes `common.NewTopicOwner` from `GetTopic` rows twice; admin now
   owns that resolution (`SystemOwner` / `TopicOwner` / `GroupOwner`,
@@ -224,6 +227,11 @@ stay revisable, text polish (naming/errors/logging/comments) last.
 Pre-v1 — the 14b public-API pass, then measurement, evaluation, and
 documentation; the latter want a surface that has stopped moving.
 
+- **`diagnostic.MetricScope` -> `diagnostic.Scope`** — alerts share the
+  metric scope type since [0649], so its name is stale. The rename touches
+  the diagnostic package, both definition views, the explain document, the
+  code export, and the site's record types; deferred from the alerts
+  close-out because that diff is wider than the work it rides on.
 - **Proposal pages for public discussion** — give substantial ideas a specific
   page that states the proposal and links a discussion where readers can leave
   thoughts, rather than making an issue or a finished documentation page carry

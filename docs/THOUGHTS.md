@@ -1,8 +1,5 @@
 # Public API
 
-consider getting rid of admin after client looks and feels good
-- would need to make client init lots of other things (which is fine)
-
 # Doc
 
 SEO for markdown - tags
@@ -22,8 +19,6 @@ need to make sure we do some manual testing for cli, metrics and alerts
 need another review to make sure we are not logging any sensitive information like payload
 
 # Other
-
-cleanup justfile
 
 we need a long 1hr repeatable live test:
 - spins up db, multi producer and multi consumers (built images)
