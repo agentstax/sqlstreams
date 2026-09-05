@@ -60,6 +60,12 @@ describe('error pages against the declarations', () => {
 			expect(frontmatter['kind'], `${code} kind`).toBe(record.kind);
 		}
 	});
+
+	it('keeps the derived meta description out of page frontmatter', () => {
+		for (const [code, frontmatter] of pages()) {
+			expect(frontmatter['description'], `${code} description`).toBeUndefined();
+		}
+	});
 });
 
 // An event's declared message is the static clause plus its consequence

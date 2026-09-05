@@ -5,6 +5,19 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-05 — Code-page search snippets come from their facts [0655]
+
+All 96 error, event, metric, and alert pages now derive their meta description
+from the same `CodeThreadData` used by the visible facts panel. Each description
+names the code, classification, and consequence; an error with a declared fix
+appends it. Code-page frontmatter still carries no separate description, and a
+collection test now enforces that boundary.
+
+Verified representative generated metadata for VK0005, VK0041, VK0067, and
+VK0094, and confirmed all 96 generated code pages carry the derived shape.
+Targeted Vitest and Prettier checks, ESLint, Astro check, the website build,
+the decision convention test, and `git diff --check` pass.
+
 ## 2026-09-05 — Every doc-site result title carries the site name [0654]
 
 The shared Astro layout now renders every HTML document title as

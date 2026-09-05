@@ -15,7 +15,7 @@ export const collections = {
 			description: z
 				.string()
 				.optional()
-				.describe('the meta description; title stands in when absent'),
+				.describe('the meta description for ordinary threads; code pages derive theirs'),
 			kind: z
 				.enum(['error', 'event', 'metric', 'alert'])
 				.optional()

@@ -85,3 +85,8 @@ export function codeThreadData(entry: DocsEntry): CodeThreadData {
 		}
 	}
 }
+
+export function codeMetaDescription(thread: CodeThreadData): string {
+	const facts = `Code ${thread.code} · ${thread.classification} — ${thread.consequence}`;
+	return thread.fix === null ? facts : `${facts} · Fix: ${thread.fix}`;
+}

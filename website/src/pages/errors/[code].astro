@@ -5,7 +5,7 @@ import ErrorThreadLayout from '../../layouts/ErrorThreadLayout.astro';
 import { boardHref, isErrorThread, threadCode } from '../_board/boards';
 import { siteThreads } from '../_board/threads';
 import { threadData } from '../_thread/thread';
-import { codeThreadData } from '../_thread/code';
+import { codeMetaDescription, codeThreadData } from '../_thread/code';
 import { diagnoseQueries, fixPlaceholders, pastePlaceholders } from '../_thread/diagnose';
 
 export const getStaticPaths = (async () => {
@@ -33,11 +33,12 @@ const threads = siteThreads(docs, decisions);
 const { Content } = await render(entry);
 const data = threadData(thread, threads);
 const codeThread = codeThreadData(entry);
+const description = codeMetaDescription(codeThread);
 ---
 
 <ErrorThreadLayout
 	title={entry.data.title}
-	description={entry.data.description ?? entry.data.title}
+	description={description}
 	boardTitle={data.board.title}
 	boardHref={boardHref(data.board)}
 	editHref={data.editHref}

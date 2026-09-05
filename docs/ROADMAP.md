@@ -21,9 +21,6 @@ rewrite-to-the-real-API pass 2026-08-22 [0581], the board rebuild
 2026-08-23 [0582] [0583] [0584], the consumer-flow sandbox 2026-08-25
 [0585] [0586] [0587]. All three are in HISTORY.md.
 
-- **Code-page search snippets** -- derive each code page's meta description
-  from its existing code, classification, consequence, and fix rather than
-  adding a second hand-maintained description.
 - **Doc-site indexing boundary** -- keep the visitor-specific `/search/` and
   `/whats-new/` utility pages out of both the search-engine index and the
   sitemap. Do not add meta keywords or thin tag archive pages.
