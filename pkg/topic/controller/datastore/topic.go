@@ -23,6 +23,12 @@ func (d *TopicDatastore) Get(ctx context.Context, name string) (*TopicConfigRow,
 	return topicConfigRow, err
 }
 
+// GetInTx resolves a topic by name through tx. Returns (nil, nil) if name is
+// not found.
+func (d *TopicDatastore) GetInTx(ctx context.Context, tx datastore.Tx, name string) (*TopicConfigRow, error) {
+	return d.get(ctx, tx, name)
+}
+
 func (d *TopicDatastore) get(ctx context.Context, q datastore.Querier, name string) (*TopicConfigRow, error) {
 	sql := fmt.Sprintf(`
 		-- vulkan: topic.get

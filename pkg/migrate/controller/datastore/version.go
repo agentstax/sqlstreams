@@ -18,13 +18,18 @@ func (d *MigrateDatastore) SystemSchemaState(ctx context.Context, systemId int64
 	var state *SchemaStateRow
 	err := d.DatastoreRetry.Wrap(ctx, func() error {
 		var err error
-		state, err = d.systemSchemaState(ctx, systemId)
+		state, err = d.systemSchemaState(ctx, d.Datastore.Pool, systemId)
 		return err
 	})
 	return state, err
 }
 
-func (d *MigrateDatastore) systemSchemaState(ctx context.Context, systemId int64) (*SchemaStateRow, error) {
+// SystemSchemaStateInTx reads the system's version facts through tx.
+func (d *MigrateDatastore) SystemSchemaStateInTx(ctx context.Context, tx datastore.Tx, systemId int64) (*SchemaStateRow, error) {
+	return d.systemSchemaState(ctx, tx, systemId)
+}
+
+func (d *MigrateDatastore) systemSchemaState(ctx context.Context, q datastore.Querier, systemId int64) (*SchemaStateRow, error) {
 	sql := fmt.Sprintf(`
 		-- vulkan: migrate.systemSchemaState
 		WITH successes AS (
@@ -52,7 +57,7 @@ func (d *MigrateDatastore) systemSchemaState(ctx context.Context, systemId int64
 	`, d.Datastore.Schema)
 
 	var state SchemaStateRow
-	if err := d.Datastore.Pool.QueryRow(ctx, sql, systemId).Scan(&state.Version, &state.MinCompatibleVersion); err != nil {
+	if err := q.QueryRow(ctx, sql, systemId).Scan(&state.Version, &state.MinCompatibleVersion); err != nil {
 		return nil, registrationError(err)
 	}
 	return &state, nil
@@ -65,13 +70,18 @@ func (d *MigrateDatastore) TopicSchemaState(ctx context.Context, topicId int64) 
 	var state *SchemaStateRow
 	err := d.DatastoreRetry.Wrap(ctx, func() error {
 		var err error
-		state, err = d.topicSchemaState(ctx, topicId)
+		state, err = d.topicSchemaState(ctx, d.Datastore.Pool, topicId)
 		return err
 	})
 	return state, err
 }
 
-func (d *MigrateDatastore) topicSchemaState(ctx context.Context, topicId int64) (*SchemaStateRow, error) {
+// TopicSchemaStateInTx reads the topic's version facts through tx.
+func (d *MigrateDatastore) TopicSchemaStateInTx(ctx context.Context, tx datastore.Tx, topicId int64) (*SchemaStateRow, error) {
+	return d.topicSchemaState(ctx, tx, topicId)
+}
+
+func (d *MigrateDatastore) topicSchemaState(ctx context.Context, q datastore.Querier, topicId int64) (*SchemaStateRow, error) {
 	sql := fmt.Sprintf(`
 		-- vulkan: migrate.topicSchemaState
 		WITH successes AS (
@@ -99,7 +109,7 @@ func (d *MigrateDatastore) topicSchemaState(ctx context.Context, topicId int64) 
 	`, d.Datastore.Schema)
 
 	var state SchemaStateRow
-	if err := d.Datastore.Pool.QueryRow(ctx, sql, topicId).Scan(&state.Version, &state.MinCompatibleVersion); err != nil {
+	if err := q.QueryRow(ctx, sql, topicId).Scan(&state.Version, &state.MinCompatibleVersion); err != nil {
 		return nil, registrationError(err)
 	}
 	return &state, nil

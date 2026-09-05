@@ -381,9 +381,9 @@ second then locks that same row, reads message `901`, and writes message `902`
 with `Restarts=2`.
 
 The key handle resolves `devices.config` through the supplied `tx` before it
-names `compaction_head_41`; the lookup and row lock never use different
-database snapshots. Lock multiple keys in the same order in every transaction
-to avoid the usual row-lock deadlock.
+names `compaction_head_41`; the lookup and row lock stay inside the same
+database transaction. Lock multiple keys in the same order in every
+transaction to avoid the usual row-lock deadlock.
 
 `EmptyCompactionHeadTTL` defaults to one hour and must be positive. It is how
 long a row with no head may go without another lock before the topic janitor
@@ -392,8 +392,8 @@ the TTL never applies once the row points at a head. `TopicSnapshot` reports
 `CompactionRowsWithoutHead` and `OldestCompactionRowWithoutHeadAge`; zero age
 means there are none.
 
-This surface does not ship yet. Today the locked read is
-`ProducerInstance.GetCompactionHeadInTx` and it cannot lock a missing key.
+This surface remains Proposed until its concurrency lab and janitor behavior
+are complete.
 </ThreadAside>
 
 ## Admin, resource by resource

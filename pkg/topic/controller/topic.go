@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/agentstax/vulkan/pkg/common"
+	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
 	"github.com/agentstax/vulkan/pkg/topic"
 )
 
@@ -16,6 +17,23 @@ func (c *TopicController) Get(ctx context.Context, name string) (*topic.Topic, e
 	}
 
 	found, err := c.datastore.Get(ctx, name)
+	if err != nil || found == nil {
+		return nil, err
+	}
+	return toTopic(found)
+}
+
+// GetInTx resolves a topic by name through tx. Returns (nil, nil) if name is
+// not found.
+func (c *TopicController) GetInTx(ctx context.Context, tx iDatastore.Tx, name string) (*topic.Topic, error) {
+	if tx == nil {
+		return nil, errors.New("tx must not be nil")
+	}
+	if name == "" {
+		return nil, errors.New("name is required")
+	}
+
+	found, err := c.datastore.GetInTx(ctx, tx, name)
 	if err != nil || found == nil {
 		return nil, err
 	}

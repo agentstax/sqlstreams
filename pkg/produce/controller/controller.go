@@ -4,7 +4,6 @@ import (
 	"errors"
 
 	"github.com/agentstax/vulkan/pkg/common/logging"
-	compactioncontroller "github.com/agentstax/vulkan/pkg/compaction/controller"
 	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
 	"github.com/agentstax/vulkan/pkg/produce/controller/datastore"
 )
@@ -13,7 +12,6 @@ type ProduceController struct {
 	Logger logging.Logger
 
 	datastore *datastore.ProduceDatastore
-	heads     *compactioncontroller.CompactionController
 }
 
 func NewProduceController(ds *iDatastore.PostgresDatastore, logger logging.Logger) (*ProduceController, error) {
@@ -28,14 +26,8 @@ func NewProduceController(ds *iDatastore.PostgresDatastore, logger logging.Logge
 	if err != nil {
 		return nil, err
 	}
-	compactionController, err := compactioncontroller.NewCompactionController(ds, logger)
-	if err != nil {
-		return nil, err
-	}
-
 	return &ProduceController{
 		Logger:    logger,
 		datastore: produceDatastore,
-		heads:     compactionController,
 	}, nil
 }

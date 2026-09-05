@@ -5,8 +5,26 @@ import (
 
 	"github.com/agentstax/vulkan/pkg/common"
 	"github.com/agentstax/vulkan/pkg/compaction"
+	"github.com/agentstax/vulkan/pkg/datastore"
 	"github.com/agentstax/vulkan/pkg/topic"
 )
+
+// LockCompactionHead resolves and schema-gates topicName through tx, then
+// ensures and locks messageKey's compaction-head row until tx resolves. It
+// returns nil when the locked row has no head.
+func (a *MessageAdmin) LockCompactionHead[Message common.Versioned](ctx context.Context, tx datastore.Tx, topicName string, messageKey string) (*common.StoredMessage[Message], error) {
+	found, err := a.topicController.GetInTx(ctx, tx, topicName)
+	if err != nil {
+		return nil, err
+	}
+	if found == nil {
+		return nil, topic.ErrTopicNotFound.With("topic", topicName)
+	}
+	if err := a.topicController.AssertSchemaSupportedInTx(ctx, tx, found.SystemId, found.Id); err != nil {
+		return nil, err
+	}
+	return a.heads.LockHead[Message](ctx, tx, found.Id, messageKey)
+}
 
 // GetCompactionHead returns messageKey's current compaction head.
 // Returns ErrTopicNotFound when the topic isn't registered and

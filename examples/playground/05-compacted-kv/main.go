@@ -6,17 +6,16 @@
 //
 // Concepts held before domain code (14): the 5 from scenario 01, plus
 // MessageKey, CompactionOptions (+NewCompactionOptions), Rank,
-// InTransaction, GetCompactionHeadInTx, ProduceInTx, Message, and the Topic
-// and Key handles for reads outside a transaction.
+// InTransaction, LockCompactionHead, ProduceInTx, Message, and the Topic and
+// Key handles.
 //
 // Traps hit:
 //   - "Compacted" is a per-message option, not a topic property: every
 //     produce must pass Compaction or the message silently is not one
 //     version of the key -- it is its own message forever.
-//   - The Key handle owns reads outside a transaction; the producer owns
-//     GetCompactionHeadInTx because that read locks the head in the caller's
-//     transaction for the following ProduceInTx.
-//   - CAS exists only as a pattern: InTransaction + GetCompactionHeadInTx
+//   - The Key handle owns both ordinary and transactional head reads; the
+//     latter locks the head in the caller's transaction for ProduceInTx.
+//   - CAS exists only as a pattern: InTransaction + LockCompactionHead
 //     (FOR UPDATE) + ProduceInTx. Nothing named Update/Put says so.
 //   - Rank is a commitment, not a hint; the zero value (arrival order) is
 //     what most users want and NewCompactionOptions(0) reads like "no rank".
@@ -69,6 +68,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	device := client.Topic[DeviceConfig](registered.Name).Key("dev-7")
 
 	// Put
 	_, err = configs.Produce(ctx, &DeviceConfig{DeviceId: "dev-7", Interval: 30},
@@ -78,7 +78,7 @@ func run() error {
 	}
 
 	// Get (outside a transaction) -- the topic handle's read
-	current, err := client.Topic[DeviceConfig](registered.Name).Key("dev-7").CompactionHead(ctx)
+	current, err := device.CompactionHead(ctx)
 	if err != nil {
 		return err
 	}
@@ -86,7 +86,7 @@ func run() error {
 
 	// Update (compare-and-set): lock the head, write the next version
 	if err := client.InTransaction(ctx, func(ctx context.Context, tx vulkan.Tx) error {
-		head, err := configs.GetCompactionHeadInTx(ctx, tx, "dev-7")
+		head, err := device.LockCompactionHead(ctx, tx)
 		if err != nil {
 			return err
 		}
@@ -99,7 +99,7 @@ func run() error {
 	}
 
 	// History
-	versions, err := client.Topic[DeviceConfig](registered.Name).Key("dev-7").Messages(ctx, 10)
+	versions, err := device.Messages(ctx, 10)
 	if err != nil {
 		return err
 	}

@@ -54,12 +54,12 @@ starting the next:
    scan null into a scalar nor classify a null row as a head. Checks:
    compaction, compaction-rank, compaction-head-race, compaction-head-retention,
    key-lease, and schema-evolution labs.
-5. **Public handle move.** Add
-   `Topic[Message](name).Key(messageKey).LockCompactionHead(ctx, tx)` and route
-   it through admin -> topic controller -> compaction controller. Resolve and
-   schema-gate the topic through the supplied transaction, never the pool.
-   Delete `GetCompactionHeadInTx` at every producer layer and facade; update
-   the facade tests. Checks: build, `go test -race ./pkg/vulkan ./pkg/admin
+5. **Public handle move.** DONE 2026-09-05. Added
+   `Topic[Message](name).Key(messageKey).LockCompactionHead(ctx, tx)` and routed
+   it through admin -> topic controller -> compaction controller. Topic
+   resolution and schema gating use the supplied transaction, never the pool.
+   Deleted `GetCompactionHeadInTx` at every producer layer and facade; updated
+   the facade tests. Checks passed: build, `go test -race ./pkg/vulkan ./pkg/admin
    ./pkg/compaction/... ./pkg/produce/...`, and examples module build.
 6. **Topic-janitor TTL.** Add one `SweepExpiredEmptyCompactionHeads` controller
    and datastore path using the topic's TTL and the existing sweep batch size.

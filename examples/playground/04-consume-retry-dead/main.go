@@ -11,7 +11,8 @@
 // Traps hit:
 //   - ClientConfig.Retry is the client's own Postgres retry;
 //     ConsumerConfig.Message.Retry is message redelivery. Both are
-//     *vulkan.RetryPolicy, one config apart.
+//     *vulkan.RetryPolicy, so a curve meant for one type-checks in the
+//     other; only the field comments separate them.
 //   - Reading which attempt this is needs MetaFromContext -- the comma-ok
 //     is always true inside a handler, yet every handler writes it.
 //   - There is no dead-letter read verb on the consumer or admin; "what is

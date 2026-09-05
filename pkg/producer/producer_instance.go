@@ -218,13 +218,6 @@ func (p *ProducerInstance[Message]) ProduceFuncInTx(ctx context.Context, tx iDat
 	return NewProduceResult(appended.Message, appended.Id, appended.Duplicate)
 }
 
-// GetCompactionHeadInTx returns the current compaction head under messageKey,
-// ensuring and locking its row FOR UPDATE until tx resolves. It returns nil
-// when the locked key has no head.
-func (p *ProducerInstance[Message]) GetCompactionHeadInTx(ctx context.Context, tx iDatastore.Tx, messageKey string) (*common.StoredMessage[Message], error) {
-	return p.controller.GetCompactionHeadInTx[Message](ctx, tx, p.Topic.Id, messageKey)
-}
-
 // warnSlowProduce logs one line when a produce entry point ran past the
 // configured threshold -- slowness is its own fact, logged whatever the
 // call's outcome.

@@ -53,9 +53,3 @@ func (p *ProducerInstance[Message]) ProduceInTx(ctx context.Context, tx Tx, mess
 func (p *ProducerInstance[Message]) ProduceFuncInTx(ctx context.Context, tx Tx, producerFunc ProducerFunc[Message], options *ProduceOptions) (*ProduceResult[Message], error) {
 	return p.instance.ProduceFuncInTx(ctx, tx, producerFunc, options)
 }
-
-// GetCompactionHeadInTx reads messageKey's compaction head under tx, ensuring
-// and locking its row until tx resolves; nil when it has no head.
-func (p *ProducerInstance[Message]) GetCompactionHeadInTx(ctx context.Context, tx Tx, messageKey string) (*StoredMessage[Message], error) {
-	return p.instance.GetCompactionHeadInTx(ctx, tx, messageKey)
-}

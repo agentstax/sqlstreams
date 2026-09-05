@@ -2,9 +2,11 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/agentstax/vulkan/pkg/common"
+	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
 	"github.com/agentstax/vulkan/pkg/migrate"
 	"github.com/agentstax/vulkan/pkg/migrate/controller/datastore"
 	systemMigrations "github.com/agentstax/vulkan/pkg/system/migrations"
@@ -38,6 +40,34 @@ func (c *Controller) AssertTopicSchemaSupported(ctx context.Context, systemId in
 	state, err := c.datastore.TopicSchemaState(ctx, topicId)
 	if err != nil {
 		return err // ErrNotRegistered, or a real db error
+	}
+	return assertVersionSupported(common.OwnerTopic, state, topicMigrations.Version())
+}
+
+// AssertTopicSchemaSupportedInTx gates a topic-owned caller through tx, so
+// schema compatibility and the caller's following work share one transaction.
+func (c *Controller) AssertTopicSchemaSupportedInTx(ctx context.Context, tx iDatastore.Tx, systemId int64, topicId int64) error {
+	if tx == nil {
+		return errors.New("tx must not be nil")
+	}
+	if systemId <= 0 {
+		return fmt.Errorf("systemId must be > 0, got %d", systemId)
+	}
+	if topicId <= 0 {
+		return fmt.Errorf("topicId must be > 0, got %d", topicId)
+	}
+
+	state, err := c.datastore.SystemSchemaStateInTx(ctx, tx, systemId)
+	if err != nil {
+		return err
+	}
+	if err := assertVersionSupported(common.OwnerSystem, state, systemMigrations.Version()); err != nil {
+		return err
+	}
+
+	state, err = c.datastore.TopicSchemaStateInTx(ctx, tx, topicId)
+	if err != nil {
+		return err
 	}
 	return assertVersionSupported(common.OwnerTopic, state, topicMigrations.Version())
 }
