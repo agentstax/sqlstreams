@@ -320,12 +320,12 @@ row as sugar over `Scheduler(name).Get(ctx)` would fit; it was left out
 to keep one read path, and I'm not sure that is the right call for
 scripts.
 
-<ThreadAside label="PROPOSED" title="Locking a compaction head">
-`CompactionHead` reads the current value. The proposed
-`LockCompactionHead` ensures the message key has a lockable row and holds that
-row `FOR UPDATE` until the caller's transaction commits or rolls back. A new
-key returns a nil head, but it is locked: another transaction running the same
-locked update waits and then reads the first transaction's value.
+<ThreadAside label="NOTE" title="Locking a compaction head">
+`CompactionHead` reads the current value. `LockCompactionHead` ensures the
+message key has a lockable row and holds that row `FOR UPDATE` until the
+caller's transaction commits or rolls back. A new key returns a nil head, but
+it is locked: another transaction running the same locked update waits and
+then reads the first transaction's value.
 
 ```go
 type DeviceConfig struct {
@@ -391,9 +391,6 @@ can delete it. The janitor skips a row while a transaction holds its lock, and
 the TTL never applies once the row points at a head. `TopicSnapshot` reports
 `CompactionRowsWithoutHead` and `OldestCompactionRowWithoutHeadAge`; zero age
 means there are none.
-
-This surface remains Proposed until its concurrency lab and janitor behavior
-are complete.
 </ThreadAside>
 
 ## Admin, resource by resource
@@ -468,9 +465,9 @@ names it, `CompactionHead` reads the key's winning message and returns
 it, and `Messages` reads the retained history newest first. The key is
 a message property with two readers, compaction and the concurrency
 policy, which is why the handle is named for the key: the lease facts
-belong on the same handle when they get a read. The head used to be read inside a transaction on the producer
-instance and outside one on a separate `CompactionController` keyed by
-topic id, two objects for one fact. `orders.CompactionHeads` lists
+belong on the same handle when they get a read. `LockCompactionHead`
+ensures and locks that key's row in a supplied transaction, returning nil
+when the row has no materialized head. `orders.CompactionHeads` lists
 every key's head on the topic, all of them: a topic can hold a million
 keys, and a limit without a cursor would only be a peek, so paging is
 left until a workload asks for it.

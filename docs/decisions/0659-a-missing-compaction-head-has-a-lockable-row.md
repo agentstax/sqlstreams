@@ -30,9 +30,9 @@ so every writer coordinates through one PostgreSQL row-lock mechanism.
 
 `TopicConfig` declares a positive defaulted TTL for headless rows. The topic
 janitor deletes bounded batches where `head_id IS NULL` and `updated_at` is
-older than the cutoff, selecting `FOR UPDATE SKIP LOCKED`; an active key is
-never waited on or deleted. Correctness never depends on cleanup running: a
-deleted row is safely recreated by the transactional-read loop. Topic
+older than the cutoff through a partial index and `FOR UPDATE SKIP LOCKED`;
+active keys are neither waited on nor deleted. Cleanup is optional: a deleted
+row is safely recreated by the transactional-read loop. Topic
 observability reports the headless-row count and oldest age.
 
 The public operation is
@@ -42,7 +42,7 @@ The key handle owns both head reads: `CompactionHead(ctx)` is the plain read;
 message when the row has no head. The producer instance loses
 `GetCompactionHeadInTx`; it continues to own `ProduceInTx`. The locked path
 resolves the topic name through the supplied transaction before touching its
-generated table, so one operation never splits across database snapshots.
+generated table, so one operation never splits across database transactions.
 
 **Consequences.** Every compaction-head query must handle the all-null state;
 ordinary head reads and lists continue returning only materialized heads.

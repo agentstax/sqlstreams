@@ -4,7 +4,7 @@
 // current value, write a new one, and increment a counter safely under
 // concurrent writers (read-modify-write).
 //
-// Concepts held before domain code (14): the 5 from scenario 01, plus
+// Concepts held before domain code (15): the 5 from scenario 01, plus
 // MessageKey, CompactionOptions (+NewCompactionOptions), Rank,
 // InTransaction, LockCompactionHead, ProduceInTx, Message, and the Topic and
 // Key handles.

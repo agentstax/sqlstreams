@@ -43,7 +43,8 @@ names the family's physical tables. A payload schema bump is not a
 new row here — the version sits on each `message_log` row
 ([schema versions](/guides/schema-versions/)). `partition_size` is immutable
 after creation because the log's partition boundaries depend on it
-staying fixed.
+staying fixed. `empty_compaction_head_ttl_ns` bounds how long an idle,
+headless compaction-key row remains before the topic janitor may sweep it.
 
 The fleet and history tables hang off the spine with one shared
 pattern: `worker_config`, `schedule_config`, and `migration_log` each
@@ -76,9 +77,14 @@ Suffix `1` throughout — the topic's id from the catalog.
   and a sparse `options` document.
 - **`idempotency_key_1`** — produce dedup. The caller's key, resolved
   to a uuid, is the primary key; rows expire on a TTL sweep.
-- **`compaction_head_1`** — one row per compacted message key naming
-  the key's winning message id, upserted in the same transaction as
-  every compacted produce.
+- **`compaction_head_1`** — the durable row-lock identity for one compacted
+  message key. Its head id, schema version, and rank are either all present,
+  naming the winner, or all NULL while the key has a lock but no head.
+  `created_at` records the identity's creation; `updated_at` moves when the
+  head changes or an empty row is locked again. Compacted produce upserts the
+  winner in its transaction, and the janitor uses the partial
+  `(updated_at, compaction_key) WHERE head_id IS NULL` index to find expired
+  empty rows without scanning materialized heads.
 - **`exception_queue_1`** — deliveries off the mainline path,
   `PRIMARY KEY (consumer_group_id, message_id)`: status, the message's
   key and the concurrency policy the group resolved for it, attempts,

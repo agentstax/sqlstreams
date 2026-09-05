@@ -106,4 +106,12 @@ claim row. If you mint keys yourself on a hot path, prefer UUIDv7
 strings — random-shaped keys cost extra WAL once the claim table is
 millions of rows deep. A caller-supplied key also locks that key for
 the length of the transaction it runs in, so keep transactions that
-reuse keys short.
+reuse keys short. A caller-supplied key also takes the call
+out of batching: it runs in its own transaction, so a producer that
+keys every message has left the batch path under load.
+
+The claim lives for `TopicConfig.IdempotencyKeyTTL`, one hour by
+default, then the topic janitor sweeps it. A retry that arrives after
+that window is a new message, not a duplicate, and nothing logs it.
+Size the TTL to your upstream's retry horizon: a webhook provider
+that retries for three days needs a three-day TTL on that topic.
