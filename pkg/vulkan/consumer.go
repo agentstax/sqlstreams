@@ -38,7 +38,7 @@ func (h *ConsumerHandle[Message]) Register(ctx context.Context, cfg *ConsumerCon
 		cfg.Logger = h.client.Logger
 	}
 	if cfg.Retry == nil {
-		cfg.Retry = h.client.Config.Retry
+		cfg.Retry = h.client.ds.Retry
 	}
 
 	instance, err := h.client.consumer.Register[Message](ctx, h.name, h.topicName, cfg)

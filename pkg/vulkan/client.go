@@ -46,20 +46,19 @@ func NewClient(ctx context.Context, pool *pgxpool.Pool, cfg *ClientConfig) (*Cli
 		return nil, err
 	}
 
-	ds, err := datastore.NewPostgresDatastore(ctx, pool, &datastore.PostgresDatastoreConfig{Schema: cfg.Schema})
+	ds, err := datastore.NewPostgresDatastore(ctx, pool, &datastore.PostgresDatastoreConfig{
+		Schema: cfg.Schema,
+		Logger: cfg.Logger,
+		Retry:  cfg.Retry,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	// bind logger args with schema
-	// set to local var don't overwrite cfg.Logger otherwise multiple
-	// NewClient calls add multiple schema args
-	logger := logging.NewPipelineLogger(cfg.Logger, &logging.PipelineLoggerConfig{Args: []any{"schema", ds.Schema}})
-
 	messageAdmin, err := admin.NewMessageAdmin(ds, &admin.MessageAdminConfig{
 		AllowDestroy: cfg.AllowDestroy,
-		Logger:       logger,
-		Retry:        cfg.Retry,
+		Logger:       ds.Logger,
+		Retry:        ds.Retry,
 	})
 	if err != nil {
 		return nil, err
@@ -79,8 +78,8 @@ func NewClient(ctx context.Context, pool *pgxpool.Pool, cfg *ClientConfig) (*Cli
 	}
 
 	systemManager, err := systemmanager.NewSystemManager(ds, &systemmanager.SystemManagerConfig{
-		Logger: logger,
-		Retry:  cfg.Retry,
+		Logger: ds.Logger,
+		Retry:  ds.Retry,
 	})
 	if err != nil {
 		return nil, err
@@ -88,7 +87,7 @@ func NewClient(ctx context.Context, pool *pgxpool.Pool, cfg *ClientConfig) (*Cli
 
 	return &Client{
 		Config:    cfg,
-		Logger:    logger,
+		Logger:    ds.Logger,
 		ds:        ds,
 		admin:     messageAdmin,
 		consumer:  messageConsumer,

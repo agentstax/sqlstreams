@@ -1,9 +1,6 @@
 package vulkan
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/agentstax/vulkan/pkg/common"
 	"github.com/agentstax/vulkan/pkg/common/logging"
 	"github.com/agentstax/vulkan/pkg/datastore"
@@ -33,27 +30,29 @@ type ClientConfig struct {
 	// database role without DDL rights (the topic janitor runs DDL).
 	DisableManager bool
 
-	Logger logging.Logger      // pass your own *slog.Logger or anything satisfying logging.Logger. Default: text lines to stderr, warn level and up.
-	Retry  *common.RetryPolicy // transient-error retry policy for the client's own Postgres calls -- never a message's redelivery. Default: common.NewDefaultRetryPolicy().
+	// Logger - your own *slog.Logger or anything satisfying logging.Logger.
+	// Held once on the datastore NewClient builds; no config below the
+	// client carries one.
+	// Default: text lines to stderr, warn level and up.
+	Logger logging.Logger
+
+	// Retry - transient-error retry policy for every Postgres call the
+	// client makes, never a message's redelivery. Held once, like Logger.
+	// Default: common.NewDefaultRetryPolicy().
+	Retry *common.RetryPolicy
 }
 
+// WithDefaults fills Schema; Logger and Retry resolve in
+// PostgresDatastoreConfig, their single owner.
 func (c *ClientConfig) WithDefaults() *ClientConfig {
 	if c.Schema == "" {
 		c.Schema = datastore.DefaultSchema
 	}
-	if c.Logger == nil {
-		c.Logger = logging.NewDefaultLogger(os.Stderr)
-	}
-	c.Logger = logging.NewPipelineLogger(c.Logger, &logging.PipelineLoggerConfig{Buffer: true})
-	c.Retry = c.Retry.WithDefaults()
 	return c
 }
 
 // Validate runs after WithDefaults -- anything still out of range here was
 // set by the caller, not left unset.
 func (c *ClientConfig) Validate() error {
-	if err := c.Retry.Validate(); err != nil {
-		return fmt.Errorf("Retry: %w", err)
-	}
 	return nil
 }

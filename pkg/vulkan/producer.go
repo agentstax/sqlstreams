@@ -25,7 +25,7 @@ func (p *ProducerHandle[Message]) Register(ctx context.Context, cfg *ProducerCon
 		cfg.Logger = p.client.Logger
 	}
 	if cfg.Retry == nil {
-		cfg.Retry = p.client.Config.Retry
+		cfg.Retry = p.client.ds.Retry
 	}
 
 	instance, err := p.client.producer.Register[Message](ctx, p.topicName, cfg)

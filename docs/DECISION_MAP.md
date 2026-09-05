@@ -19,9 +19,9 @@ are in `docs/DECISIONS.md`. A new record adds its number to its line.
 - schedules, cron, missed runs, job status: 0461-0473 0621
 - alerts, checks, __system.alerts, repeat interval: 0481-0490 0516 0520 0627 0649
 - circuit breaker, error_class, reconciliation: 0502-0506
-- packages, layers, seams, naming, receivers, file layout, configs, constructors: 0441-0451 0507-0510 0528-0549 0555-0557 0643-0646
+- packages, layers, seams, naming, receivers, file layout, configs, constructors: 0441-0451 0507-0510 0528-0549 0555-0557 0643-0646 0657
 - declarations: newest-wins, CLI never writes config, worker metadata: 0515-0521 0626
-- client shape, handles, Register, lifecycle ctx, shutdown: 0361-0377 0625 0633-0646
+- client shape, handles, Register, lifecycle ctx, shutdown: 0361-0377 0625 0633-0646 0657
 - CLI: nested module, flags, --output json: 0354-0355 0576
 - doc site: board, sandbox, versioning, voice, cookie, errors, links: 0581-0610 0651
 - rejected/reverted (do not re-suggest): 0270 latest_key backfill, 0379 PartitionsAhead, 0591 pglite prefetch, 0594 byte ceilings

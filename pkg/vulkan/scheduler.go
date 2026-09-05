@@ -33,7 +33,7 @@ func (s *SchedulerHandle) Register[Message Versioned](ctx context.Context, topic
 		cfg.Logger = s.client.Logger
 	}
 	if cfg.Retry == nil {
-		cfg.Retry = s.client.Config.Retry
+		cfg.Retry = s.client.ds.Retry
 	}
 	instance, err := s.client.scheduler.Register[Message](ctx, s.name, topicName, cron, payload, cfg)
 	if err != nil {
