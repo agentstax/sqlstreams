@@ -12,18 +12,31 @@ import (
 )
 
 func newAlertListCmd(g *globalFlags) *cobra.Command {
-	var quiet bool
+	var (
+		quiet     bool
+		topicName string
+		groupName string
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List the current alert per (alert, owner)",
-		Args:  cobra.NoArgs,
+		Long: `List the current retained alert per (alert, owner), active or resolved:
+every owner by default, one topic's with --topic, one consumer group's with
+--topic and --group.`,
+		Example: `  vulkan alert list
+  vulkan alert list --topic orders.created
+  vulkan alert list --topic orders.created --group billing`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 			out := cmd.OutOrStdout()
 
 			if quiet && g.jsonOutput() {
 				return failUsage("--quiet and --output json cannot be combined")
+			}
+			if groupName != "" && topicName == "" {
+				return failUsage("--group requires --topic")
 			}
 
 			client, closeClient, err := openClient(ctx, g.databaseURL, g.schema, slog.LevelError)
@@ -32,7 +45,15 @@ func newAlertListCmd(g *globalFlags) *cobra.Command {
 			}
 			defer closeClient()
 
-			alerts, err := client.System().Alerts().Latest(ctx)
+			var alerts []*vulkan.Alert
+			switch {
+			case groupName != "":
+				alerts, err = client.Topic[vulkan.RawPayload](topicName).Group(groupName).Alerts().Latest(ctx)
+			case topicName != "":
+				alerts, err = client.Topic[vulkan.RawPayload](topicName).Alerts().Latest(ctx)
+			default:
+				alerts, err = client.System().Alerts().Latest(ctx)
+			}
 			if err != nil {
 				return translateAdminError(err)
 			}
@@ -53,6 +74,8 @@ func newAlertListCmd(g *globalFlags) *cobra.Command {
 
 	f := cmd.Flags()
 	f.BoolVarP(&quiet, "quiet", "q", false, "alert and owner only, one per line (for scripts)")
+	f.StringVar(&topicName, "topic", "", "only alerts owned by this topic")
+	f.StringVar(&groupName, "group", "", "only alerts owned by this consumer group; needs --topic")
 	return cmd
 }
 

@@ -11,6 +11,7 @@ func newAlertCmd(g *globalFlags) *cobra.Command {
 	}
 
 	cmd.AddCommand(newAlertListCmd(g))
+	cmd.AddCommand(newAlertGetCmd(g))
 
 	return cmd
 }

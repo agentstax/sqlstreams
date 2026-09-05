@@ -152,7 +152,7 @@ Give alerts the shape metrics got in [0647][0648]: one declaration catalog,
 - Update callers: `cmd/vulkan/internal/cli/alert_list.go`,
   `examples/playground/13-alert-consumer`, `examples/phase_1/workerlivenesslab`.
 
-### 5. CLI
+### 5. CLI — done 2026-09-05
 
 - `vulkan alert list [--topic <name> [--group <name>]]` reads the scope's
   `Latest`; the table gains `at`. `--quiet` keeps printing name and owner.
