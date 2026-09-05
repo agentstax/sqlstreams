@@ -46,6 +46,11 @@ rewrite-to-the-real-API pass 2026-08-22 [0581], the board rebuild
     `Consume` blocks, so a defer cannot be the shutdown trigger, and the
     only alternative is the library trapping process-global signals --
     which controller-runtime, Temporal, and net/http all decline to do.
+- **A missing compaction head has a lockable row** [0659] -- scenario 05's
+  existing-row `FOR UPDATE` does not serialize two read-modify-writes when the
+  message key has no row yet. The nullable-head row, its topic-janitor TTL, and
+  `Topic[Message](name).Key(messageKey).LockCompactionHead(ctx, tx)` are
+  settled; the producer instance loses `GetCompactionHeadInTx`.
 - **Library work the doc pass surfaced.**
   - **DefaultProducer / DefaultConsumer** for easier quickstarts, with
     comments and maybe a log line recommending against production use.

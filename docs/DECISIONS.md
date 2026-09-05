@@ -411,3 +411,4 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0656 2026-09-05 accepted (pre-v1) — Search-engine indexing has one path policy
 - 0657 2026-09-05 accepted (pre-v1) — The datastore holds Logger and Retry once
 - 0658 2026-09-05 accepted (pre-v1) — Built-in alert config names the alert, not its scheduled work
+- 0659 2026-09-05 accepted (pre-v1) — A missing compaction head has a lockable row
