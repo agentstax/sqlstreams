@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/agentstax/vulkan/pkg/common"
 	"github.com/agentstax/vulkan/pkg/consume"
 	"github.com/agentstax/vulkan/pkg/topic"
 	"github.com/agentstax/vulkan/pkg/worker"
@@ -40,7 +39,7 @@ func (a *MessageAdmin) ListGroups(ctx context.Context, topicName string) ([]*con
 // ListGroupWorkers lists the group's worker rows -- its stored config.
 // Returns ErrTopicNotFound / ErrGroupNotFound when either side is missing.
 func (a *MessageAdmin) ListGroupWorkers(ctx context.Context, topicName string, groupName string) ([]*worker.Worker, error) {
-	groupOwner, err := a.groupOwner(ctx, topicName, groupName)
+	groupOwner, err := a.GroupOwner(ctx, topicName, groupName)
 	if err != nil {
 		return nil, err
 	}
@@ -57,36 +56,6 @@ func (a *MessageAdmin) ListGroupWorkers(ctx context.Context, topicName string, g
 		}
 	}
 	return workers, nil
-}
-
-// groupOwner resolves the group registered under groupName on topic
-// topicName to its owner. Returns ErrTopicNotFound /
-// ErrGroupNotFound when either side is missing.
-func (a *MessageAdmin) groupOwner(ctx context.Context, topicName string, groupName string) (*common.Owner, error) {
-	if topicName == "" {
-		return nil, errors.New("topic name is required")
-	}
-	if groupName == "" {
-		return nil, errors.New("group name is required")
-	}
-
-	found, err := a.topicController.Get(ctx, topicName)
-	if err != nil {
-		return nil, err
-	}
-	if found == nil {
-		return nil, topic.ErrTopicNotFound.With("topic", topicName)
-	}
-
-	group, err := a.consumerController.GetGroup(ctx, found.Id, groupName)
-	if err != nil {
-		return nil, err
-	}
-	if group == nil {
-		return nil, consume.ErrGroupNotFound.With("group", groupName, "topic", topicName)
-	}
-
-	return common.NewConsumerGroupOwner(found.SystemId, found.Id, group.Id, group.Name)
 }
 
 // DestroyGroup permanently deletes the consumer group registered under
@@ -106,36 +75,19 @@ func (a *MessageAdmin) DestroyGroup(ctx context.Context, topicName string, group
 	if options == nil {
 		options = &DestroyOptions{}
 	}
-	if topicName == "" {
-		return errors.New("topic name is required")
-	}
-	if groupName == "" {
-		return errors.New("group name is required")
-	}
 
-	found, err := a.topicController.Get(ctx, topicName)
+	owner, err := a.GroupOwner(ctx, topicName, groupName)
 	if err != nil {
 		return err
-	}
-	if found == nil {
-		return topic.ErrTopicNotFound.With("topic", topicName)
-	}
-
-	group, err := a.consumerController.GetGroup(ctx, found.Id, groupName)
-	if err != nil {
-		return err
-	}
-	if group == nil {
-		return consume.ErrGroupNotFound.With("group", groupName, "topic", topicName)
 	}
 
 	if !options.Force {
-		if err := a.assertGroupIdle(ctx, found.Id, group.Id, group.Name); err != nil {
+		if err := a.assertGroupIdle(ctx, owner.TopicId, owner.ConsumerGroupId, owner.Name); err != nil {
 			return err
 		}
 	}
 
-	return a.consumerController.DeleteGroup(ctx, found.Id, group.Id, group.Name)
+	return a.consumerController.DeleteGroup(ctx, owner.TopicId, owner.ConsumerGroupId, owner.Name)
 }
 
 // assertGroupIdle is DestroyGroup's guard: nothing is consuming on the

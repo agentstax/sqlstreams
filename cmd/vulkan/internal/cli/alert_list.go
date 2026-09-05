@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"text/tabwriter"
 
-	"github.com/agentstax/vulkan/pkg/alert"
 	"github.com/agentstax/vulkan/pkg/common"
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 	"github.com/spf13/cobra"
@@ -33,23 +32,20 @@ func newAlertListCmd(g *globalFlags) *cobra.Command {
 			}
 			defer closeClient()
 
-			heads, err := client.System().Alerts(ctx)
+			alerts, err := client.System().Alerts().Latest(ctx)
 			if err != nil {
 				return translateAdminError(err)
 			}
 
 			if g.jsonOutput() {
-				if heads == nil {
-					heads = make([]*vulkan.StoredMessage[alert.Alert], 0)
-				}
-				writeJSON(out, heads)
+				writeJSON(out, alerts)
 				return nil
 			}
 
 			if quiet {
-				printAlertKeys(out, heads)
+				printAlertKeys(out, alerts)
 			} else {
-				printAlertsTable(out, heads)
+				printAlertsTable(out, alerts)
 			}
 			return nil
 		},
@@ -65,27 +61,26 @@ func ownerCell(owner *common.Owner) string {
 	return fmt.Sprintf("%s/%s", owner.Kind(), owner.Name)
 }
 
-func printAlertKeys(w io.Writer, heads []*vulkan.StoredMessage[alert.Alert]) {
-	for _, head := range heads {
-		fmt.Fprintf(w, "%s %s\n", head.Message.Name, ownerCell(head.Message.Owner))
+func printAlertKeys(w io.Writer, alerts []*vulkan.Alert) {
+	for _, published := range alerts {
+		fmt.Fprintf(w, "%s %s\n", published.Name, ownerCell(published.Owner))
 	}
 }
 
-func printAlertsTable(w io.Writer, heads []*vulkan.StoredMessage[alert.Alert]) {
-	if len(heads) == 0 {
+func printAlertsTable(w io.Writer, alerts []*vulkan.Alert) {
+	if len(alerts) == 0 {
 		fmt.Fprintln(w, "no alerts published")
 		return
 	}
 
 	tw := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
 	fmt.Fprintln(tw, "NAME\tOWNER\tSTATUS\tSEVERITY\tSINCE\tMESSAGE")
-	for _, head := range heads {
-		published := head.Message
+	for _, published := range alerts {
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
 			published.Name, ownerCell(published.Owner), published.Status,
-			published.Severity, timeCell(head.CreatedAt), published.Message)
+			published.Severity, timeCell(published.At), published.Message)
 	}
 	tw.Flush()
 
-	fmt.Fprintf(w, "\n%s\n", pluralize(len(heads), "alert"))
+	fmt.Fprintf(w, "\n%s\n", pluralize(len(alerts), "alert"))
 }

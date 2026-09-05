@@ -19,10 +19,6 @@ func (t *TopicHandle[Message]) Key(messageKey string) *KeyHandle[Message] {
 	return &KeyHandle[Message]{topicName: t.name, messageKey: messageKey, client: t.client}
 }
 
-func (k *KeyHandle[Message]) MessageKey() string {
-	return k.messageKey
-}
-
 // CompactionHead returns the key's current compaction head, or
 // ErrCompactionHeadNotFound if no compacted message was produced under it.
 func (k *KeyHandle[Message]) CompactionHead(ctx context.Context) (*StoredMessage[Message], error) {

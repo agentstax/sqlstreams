@@ -2,43 +2,78 @@ package vulkan
 
 import (
 	"context"
-	"errors"
+	"fmt"
 
 	"github.com/agentstax/vulkan/pkg/alert"
+	"github.com/agentstax/vulkan/pkg/common"
 )
 
-// AlertHandle is one alert message key plus the client, holding no row.
+// AlertHandle names one alert on one owner, holding no database row.
 type AlertHandle struct {
-	messageKey string
-	client     *Client
+	name      string
+	topicName string // "" for a system-owned alert
+	groupName string // "" unless the owner is a consumer group
+	client    *Client
 }
 
-// Alerts returns every current alert, ordered by message key.
-func (s *SystemHandle) Alerts(ctx context.Context) ([]*StoredMessage[Alert], error) {
-	return s.client.admin.ListAlerts(ctx)
+func newAlertHandle(client *Client, name string, topicName string, groupName string) *AlertHandle {
+	return &AlertHandle{name: name, topicName: topicName, groupName: groupName, client: client}
 }
 
-// Alert names an alert by its message key. No I/O and no failure -- each verb
-// on the handle resolves the key when called.
-func (s *SystemHandle) Alert(messageKey string) *AlertHandle {
-	return &AlertHandle{messageKey: messageKey, client: s.client}
-}
+// Latest returns the current alert, active or resolved, or nil if no
+// retained alert has its key.
+func (a *AlertHandle) Latest(ctx context.Context) (*Alert, error) {
+	messageKey, err := a.messageKey(ctx)
+	if err != nil {
+		return nil, err
+	}
 
-func (a *AlertHandle) MessageKey() string {
-	return a.messageKey
-}
-
-// Get returns the alert's current value, or nil if no retained message has the
-// key.
-func (a *AlertHandle) Get(ctx context.Context) (*StoredMessage[Alert], error) {
-	head, err := a.client.Topic[Alert](alert.TopicName).Key(a.messageKey).CompactionHead(ctx)
-	if errors.Is(err, ErrCompactionHeadNotFound) {
+	stored, err := a.client.admin.GetAlert(ctx, messageKey)
+	if err != nil {
+		return nil, err
+	}
+	if stored == nil {
 		return nil, nil
 	}
-	return head, err
+	return stored.Message, nil
 }
 
-// Messages returns the alert's retained values, newest first.
-func (a *AlertHandle) Messages(ctx context.Context, limit int) ([]*StoredMessage[Alert], error) {
-	return a.client.Topic[Alert](alert.TopicName).Key(a.messageKey).Messages(ctx, limit)
+// History returns the alert's retained messages newest first. limit must be
+// positive.
+func (a *AlertHandle) History(ctx context.Context, limit int) ([]*Alert, error) {
+	if limit <= 0 {
+		return nil, fmt.Errorf("limit must be > 0, got %d", limit)
+	}
+
+	messageKey, err := a.messageKey(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	stored, err := a.client.admin.ListAlertMessages(ctx, messageKey, limit)
+	if err != nil {
+		return nil, err
+	}
+	return unwrapMessages(stored), nil
+}
+
+// messageKey resolves the owner the handle's names address and hands it
+// to the one composer.
+func (a *AlertHandle) messageKey(ctx context.Context) (string, error) {
+	owner, err := a.owner(ctx)
+	if err != nil {
+		return "", err
+	}
+	return alert.MessageKey(a.name, owner)
+}
+
+func (a *AlertHandle) owner(ctx context.Context) (*common.Owner, error) {
+	switch {
+	case a.groupName != "":
+		return a.client.admin.GroupOwner(ctx, a.topicName, a.groupName)
+	case a.topicName != "":
+		return a.client.admin.TopicOwner(ctx, a.topicName)
+	default:
+		return a.client.admin.SystemOwner(ctx)
+	}
 }

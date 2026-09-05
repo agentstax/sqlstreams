@@ -104,7 +104,7 @@ func TestMetricHandleConstructorsPerformNoIO(t *testing.T) {
 	}
 }
 
-func TestUnwrapMeasurementsRemovesStorageEnvelopes(t *testing.T) {
+func TestUnwrapMessagesRemovesStorageEnvelopes(t *testing.T) {
 	first := &Measurement{Name: "first"}
 	second := &Measurement{Name: "second"}
 	stored := []*StoredMessage[Measurement]{
@@ -112,11 +112,11 @@ func TestUnwrapMeasurementsRemovesStorageEnvelopes(t *testing.T) {
 		{Id: 73, Message: second, MessageKey: "second"},
 	}
 
-	measurements := unwrapMeasurements(stored)
+	measurements := unwrapMessages(stored)
 	if len(measurements) != 2 || measurements[0] != first || measurements[1] != second {
 		t.Fatalf("measurements = %+v", measurements)
 	}
-	empty := unwrapMeasurements(nil)
+	empty := unwrapMessages[Measurement](nil)
 	if empty == nil || len(empty) != 0 {
 		t.Fatalf("empty measurements = %#v", empty)
 	}

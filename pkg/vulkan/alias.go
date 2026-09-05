@@ -101,6 +101,7 @@ type (
 	MetricScope                   = diagnostic.MetricScope
 	MetricUnit                    = metrics.MetricUnit
 	Alert                         = alert.Alert
+	AlertDefinition               = alert.AlertDefinition
 	AlertStatus                   = alert.AlertStatus
 	AlertSeverity                 = alert.AlertSeverity
 )

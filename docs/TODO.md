@@ -123,7 +123,7 @@ Give alerts the shape metrics got in [0647][0648]: one declaration catalog,
   from `alert.AlertPartitionCount` etc.; the call site supplies owner,
   status, message, at, and options. `NewAlert` keeps the string name so a
   user-produced alert needs no declaration.
-### 4. Build the handle tree
+### 4. Build the handle tree — done 2026-09-05
 
 - Add the coverage test: every declaration appears through exactly one typed
   selector on its scope's handle, and every selector resolves the

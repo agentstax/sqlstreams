@@ -105,14 +105,7 @@ func (a *MessageAdmin) GetSystem(ctx context.Context) (*system.System, error) {
 // MigrateSystem moves the system's tables to targetVersion.
 // Returns an error ErrNotRegistered if RegisterSystem hasn't run.
 func (a *MessageAdmin) MigrateSystem(ctx context.Context, targetVersion int64) error {
-	sys, err := a.systemController.Get(ctx)
-	if err != nil {
-		return err
-	}
-	if sys == nil {
-		return migrate.ErrNotRegistered
-	}
-	owner, err := common.NewSystemOwner(sys.Id)
+	owner, err := a.SystemOwner(ctx)
 	if err != nil {
 		return err
 	}

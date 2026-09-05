@@ -26,6 +26,11 @@ rewrite-to-the-real-API pass 2026-08-22 [0581], the board rebuild
   scope handles with `Definitions()`, typed selectors, `Alert(name)` on
   every scope, and `Latest`/`History` returning bare `*Alert` with `At`.
   Expanded in docs/TODO.md.
+- **CLI builds topic owners by hand** -- `cmd/vulkan/internal/cli/migrate.go`
+  composes `common.NewTopicOwner` from `GetTopic` rows twice; admin now
+  owns that resolution (`SystemOwner` / `TopicOwner` / `GroupOwner`,
+  2026-09-05), so the CLI should read the owner through the client tree
+  once a migrate verb exposes it, and stop composing ids itself.
 - **The client holds the assemblers' ambient config once** -- the
   half of "Register returns what you run" that [0646] did not carry:
   ConsumerConfig / ProducerConfig split into the assembler's

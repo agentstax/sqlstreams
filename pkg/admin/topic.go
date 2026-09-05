@@ -84,15 +84,7 @@ func (a *MessageAdmin) registerTopic(ctx context.Context, name string, cfg *topi
 // MigrateTopic moves the named topic's tables to targetVersion.
 // Returns ErrTopicNotFound if name isn't registered.
 func (a *MessageAdmin) MigrateTopic(ctx context.Context, name string, targetVersion int64) error {
-	found, err := a.GetTopic(ctx, name)
-	if err != nil {
-		return err
-	}
-	if found == nil {
-		return topic.ErrTopicNotFound.With("topic", name)
-	}
-
-	owner, err := common.NewTopicOwner(found.SystemId, found.Id, found.Name)
+	owner, err := a.TopicOwner(ctx, name)
 	if err != nil {
 		return err
 	}

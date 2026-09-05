@@ -69,11 +69,11 @@ func run() error {
 	}
 
 	// the pull side: what is active or resolved right now
-	heads, err := client.System().Alerts(ctx)
+	current, err := client.System().Alerts().Latest(ctx)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%d alert heads at startup\n", len(heads))
+	fmt.Printf("%d current alerts at startup\n", len(current))
 
 	pager, err := client.Topic[alert.Alert](alert.TopicName).Group("alert-pager").Register(ctx, nil)
 	if err != nil {

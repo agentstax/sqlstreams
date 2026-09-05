@@ -31,7 +31,7 @@ func (s *SystemMetricsHandle) Latest(ctx context.Context) ([]*Measurement, error
 	if err != nil {
 		return nil, err
 	}
-	return unwrapMeasurements(stored), nil
+	return unwrapMessages(stored), nil
 }
 
 // Metric names one exact series by its wire name and complete attribute set.

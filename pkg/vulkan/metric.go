@@ -42,17 +42,17 @@ func (m *MetricHandle) History(ctx context.Context, limit int) ([]*Measurement, 
 	if err != nil {
 		return nil, err
 	}
-	return unwrapMeasurements(stored), nil
+	return unwrapMessages(stored), nil
 }
 
 // ***************
 // *** HELPERS ***
 // ***************
 
-func unwrapMeasurements(stored []*StoredMessage[Measurement]) []*Measurement {
-	measurements := make([]*Measurement, 0, len(stored))
+func unwrapMessages[Message Versioned](stored []*StoredMessage[Message]) []*Message {
+	messages := make([]*Message, 0, len(stored))
 	for _, message := range stored {
-		measurements = append(measurements, message.Message)
+		messages = append(messages, message.Message)
 	}
-	return measurements
+	return messages
 }

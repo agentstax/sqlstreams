@@ -2,10 +2,8 @@ package admin
 
 import (
 	"context"
-	"errors"
 
 	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/consume"
 	"github.com/agentstax/vulkan/pkg/metrics"
 	"github.com/agentstax/vulkan/pkg/migrate"
 	"github.com/agentstax/vulkan/pkg/topic"
@@ -27,26 +25,11 @@ func (a *MessageAdmin) TopicMetrics(ctx context.Context, name string) (*metrics.
 // GroupMetrics returns the named consumer group's live snapshot.
 // Returns ErrTopicNotFound / ErrGroupNotFound when either side is missing.
 func (a *MessageAdmin) GroupMetrics(ctx context.Context, topicName string, groupName string) (*metrics.ConsumerGroupSnapshot, error) {
-	if groupName == "" {
-		return nil, errors.New("groupName is required")
-	}
-
-	found, err := a.GetTopic(ctx, topicName)
+	owner, err := a.GroupOwner(ctx, topicName, groupName)
 	if err != nil {
 		return nil, err
 	}
-	if found == nil {
-		return nil, topic.ErrTopicNotFound.With("topic", topicName)
-	}
-	consumerGroup, err := a.consumerController.GetGroup(ctx, found.Id, groupName)
-	if err != nil {
-		return nil, err
-	}
-	if consumerGroup == nil {
-		return nil, consume.ErrGroupNotFound.With("group", groupName, "topic", topicName)
-	}
-
-	return a.metricsController.ConsumerGroupSnapshot(ctx, found.Id, consumerGroup.Id, consumerGroup.Name)
+	return a.metricsController.ConsumerGroupSnapshot(ctx, owner.TopicId, owner.ConsumerGroupId, owner.Name)
 }
 
 // ListMeasurements returns the current head per (name, attributes)

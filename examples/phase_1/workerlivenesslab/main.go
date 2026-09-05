@@ -305,18 +305,12 @@ func waitUnclaimed(ctx context.Context, want int64) {
 	die(fmt.Sprintf("timed out waiting for %d unclaimed worker rows on the lab topic", want))
 }
 
-// listedAlert is the lab topic's worker_liveness alert as ListAlerts reads
-// it, nil when the topic has none.
+// listedAlert is the lab topic's worker_liveness alert as the topic's
+// alerts handle reads it, nil when the topic has none.
 func listedAlert(ctx context.Context) *alert.Alert {
-	heads, err := client.System().Alerts(ctx)
+	found, err := client.Topic[vulkan.RawPayload](labTopic.Name).Alerts().WorkerLiveness().Latest(ctx)
 	must(err)
-	for _, head := range heads {
-		found := head.Message
-		if found.Name == alert.AlertWorkerLiveness.Name && found.Owner.Name == labTopic.Name {
-			return found
-		}
-	}
-	return nil
+	return found
 }
 
 // namesWorker reports whether the alert's evidence carries the worker row
