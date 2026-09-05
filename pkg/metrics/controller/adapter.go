@@ -79,7 +79,7 @@ func toScheduleSnapshot(data datastore.ScheduleSnapshotRow) (metrics.ScheduleSna
 	return snapshot, nil
 }
 
-func toConsumerGroupSnapshot(consumerGroup string, data *datastore.ConsumerGroupSnapshotRow) *metrics.ConsumerGroupSnapshot {
+func toConsumerGroupSnapshot(consumerGroup string, data *datastore.ConsumerGroupSnapshotRow, abandonedRoutines metrics.AbandonedRoutineSnapshot) *metrics.ConsumerGroupSnapshot {
 	snapshot := &metrics.ConsumerGroupSnapshot{
 		ConsumerGroup: consumerGroup,
 		Cursor: metrics.CursorSnapshot{
@@ -95,12 +95,23 @@ func toConsumerGroupSnapshot(consumerGroup string, data *datastore.ConsumerGroup
 			Deferred: data.DeferredExceptions,
 			Dead:     data.DeadExceptions,
 		},
-		OpenLeases: data.OpenLeases,
+		OpenLeases:        data.OpenLeases,
+		AbandonedRoutines: abandonedRoutines,
 	}
 	if data.OldestUnresolvedAt != nil {
 		snapshot.Exceptions.OldestUnresolvedAge = time.Since(*data.OldestUnresolvedAt)
 	}
 	return snapshot
+}
+
+func toTopicSnapshot(topicId int64, data *datastore.TopicSnapshotRow, groups []metrics.ConsumerGroupSnapshot) *metrics.TopicSnapshot {
+	return &metrics.TopicSnapshot{
+		TopicId:                           topicId,
+		Compacted:                         data.Compacted,
+		CompactionRowsWithoutHead:         data.CompactionRowsWithoutHead,
+		OldestCompactionRowWithoutHeadAge: time.Duration(data.OldestCompactionRowWithoutHeadSecs * float64(time.Second)),
+		Groups:                            groups,
+	}
 }
 
 func toAbandonedRoutineSnapshot(abandoned []datastore.EventTimestampRow, cleared []datastore.EventTimestampRow) *metrics.AbandonedRoutineSnapshot {

@@ -1,6 +1,8 @@
 package metrics
 
 import (
+	"time"
+
 	"github.com/agentstax/vulkan/pkg/common"
 )
 
@@ -8,9 +10,11 @@ import (
 const MetricsTopicName = common.SystemTopicPrefix + "metrics"
 
 type TopicSnapshot struct {
-	TopicId   int64                   `json:"topic_id"`
-	Compacted bool                    `json:"compacted"`
-	Groups    []ConsumerGroupSnapshot `json:"groups"`
+	TopicId                           int64                   `json:"topic_id"`
+	Compacted                         bool                    `json:"compacted"`
+	CompactionRowsWithoutHead         int64                   `json:"compaction_rows_without_head"`
+	OldestCompactionRowWithoutHeadAge time.Duration           `json:"oldest_compaction_row_without_head_age"`
+	Groups                            []ConsumerGroupSnapshot `json:"groups"`
 }
 
 // TopicSchemaVersionSnapshot is one payload version's presence in a topic's log.

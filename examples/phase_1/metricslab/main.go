@@ -92,6 +92,36 @@ func run() (err error) {
 		must(err)
 	}
 
+	step("a lock-only key is visible without making the topic compacted")
+	emptySnapshot, err := topicMetrics(ctx, client, topicName)
+	must(err)
+	assertInt64("headless compaction rows before lock", emptySnapshot.CompactionRowsWithoutHead, 0)
+	if emptySnapshot.OldestCompactionRowWithoutHeadAge != 0 {
+		die(fmt.Sprintf("oldest headless row age before lock = %v, want 0", emptySnapshot.OldestCompactionRowWithoutHeadAge))
+	}
+	emptyKey := client.Topic[common.Work](tp.Name).Key("lock-only")
+	must(client.InTransaction(ctx, func(ctx context.Context, tx vulkan.Tx) error {
+		head, err := emptyKey.LockCompactionHead(ctx, tx)
+		if err != nil {
+			return err
+		}
+		if head != nil {
+			return fmt.Errorf("new lock-only key returned head id=%d", head.Id)
+		}
+		return nil
+	}))
+	time.Sleep(10 * time.Millisecond)
+	topicSnapshot, err := topicMetrics(ctx, client, topicName)
+	must(err)
+	if topicSnapshot.Compacted {
+		die("lock-only key made Compacted true")
+	}
+	assertInt64("headless compaction rows", topicSnapshot.CompactionRowsWithoutHead, 1)
+	if topicSnapshot.OldestCompactionRowWithoutHeadAge <= 0 {
+		die("expected OldestCompactionRowWithoutHeadAge > 0")
+	}
+	fmt.Printf("  ✓ oldest headless row age (%v)\n", topicSnapshot.OldestCompactionRowWithoutHeadAge)
+
 	gates := newReleaseGates()
 	consumerFunc := func(ctx context.Context, work *common.Work) error {
 		meta, _ := consumermessage.MetaFromContext(ctx)

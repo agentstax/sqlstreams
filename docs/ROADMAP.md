@@ -264,6 +264,22 @@ documentation; the latter want a surface that has stopped moving.
   A list with no action on the same surface is half a feature, so the
   pair ships together. Surfaced by playground scenario 04.
 
+- **Compacted key Update verb + missed-opt-in Warn** -- read-modify-write
+  on a compacted key is an unnamed three-step pattern (InTransaction +
+  LockCompactionHead + ProduceInTx with MessageKey and Compaction repeated
+  on the produce), and a keyed produce that forgets the Compaction option
+  is silently never a version of its key. Add
+  `Key(k).Update(ctx, func(current *Message) (*Message, error))` on the
+  key handle wrapping the three steps and setting MessageKey + Compaction
+  itself (the JetStream KV shape: Get returns the revision, Update is the
+  conditional write), plus a declared Warn when a keyed, uncompacted
+  message lands on a topic whose compaction_head already holds that key.
+  CONCERN: the Warn needs a compaction_head lookup on the produce path,
+  which is hot -- extra latency per keyed produce is the cost, so it
+  ships only if the lookup rides a statement produce already runs, never
+  as its own round trip; otherwise drop the Warn and keep the verb.
+  Surfaced by playground scenario 05.
+
 - **Doc-site breadcrumb structured data** -- emit `BreadcrumbList` JSON-LD
   from the same trail each page already renders, so the machine-readable and
   visible hierarchies cannot disagree. Validate representative board, guide,

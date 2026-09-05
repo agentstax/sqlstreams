@@ -69,12 +69,13 @@ starting the next:
    `(updated_at, compaction_key)` index for null heads and called the path from
    the existing topic-janitor sweep, with no new worker or runtime loop. Checks
    passed: topic race tests plus retention and sweep labs.
-7. **Point-in-time observability.** Extend `TopicSnapshot` and its one metrics
-   query with `CompactionRowsWithoutHead` and
-   `OldestCompactionRowWithoutHeadAge`; zero age means none. Keep the existing
-   `Compacted` metric tied to a materialized head, and add no second query or
-   built-in time series without a consumer. Checks: metrics controller race
-   tests, metrics lab, and metrics-collector lab.
+7. **Point-in-time observability.** DONE 2026-09-05. Extended `TopicSnapshot`
+   and its one compaction-state query with `CompactionRowsWithoutHead` and
+   `OldestCompactionRowWithoutHeadAge`; zero age means none. `Compacted`
+   remains tied to a materialized head. Replaced the standalone `IsCompacted`
+   query rather than adding a second read, and added no built-in time series
+   without a consumer. Checks passed: metrics controller race tests, metrics
+   lab, and metrics-collector lab.
 8. **The one live concurrency lab and scenario 05.** Add a focused lab that
    proves: two transactions first-increment one absent key to 2; an ordinary
    compacted produce fills a locked null-head row; committing without produce

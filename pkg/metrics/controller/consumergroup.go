@@ -34,7 +34,5 @@ func (c *MetricsController) ConsumerGroupSnapshot(ctx context.Context, topicId i
 		return nil, err
 	}
 
-	snapshot := toConsumerGroupSnapshot(consumerGroupName, data)
-	snapshot.AbandonedRoutines = *abandonedRoutines
-	return snapshot, nil
+	return toConsumerGroupSnapshot(consumerGroupName, data, *abandonedRoutines), nil
 }

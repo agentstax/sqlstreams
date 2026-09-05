@@ -8,26 +8,36 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// IsCompacted reports whether topicId has a materialized compaction head --
-// headless lock identities do not make message retention preserve winners.
-func (d *MetricsDatastore) IsCompacted(ctx context.Context, topicId int64) (bool, error) {
-	var compacted bool
+// TopicSnapshot returns topicId's compaction-head state in one query.
+func (d *MetricsDatastore) TopicSnapshot(ctx context.Context, topicId int64) (*TopicSnapshotRow, error) {
+	var snapshot *TopicSnapshotRow
 	err := d.DatastoreRetry.Wrap(ctx, func() error {
 		var err error
-		compacted, err = d.isCompacted(ctx, topicId)
+		snapshot, err = d.topicSnapshot(ctx, topicId)
 		return err
 	})
-	return compacted, err
+	return snapshot, err
 }
 
-func (d *MetricsDatastore) isCompacted(ctx context.Context, topicId int64) (bool, error) {
+func (d *MetricsDatastore) topicSnapshot(ctx context.Context, topicId int64) (*TopicSnapshotRow, error) {
 	sql := fmt.Sprintf(`
-		-- vulkan: metrics.isCompacted
-		SELECT EXISTS (SELECT 1 FROM %[1]s.%[2]s WHERE head_id IS NOT NULL);
+		-- vulkan: metrics.topicSnapshot
+		SELECT
+			COUNT(head_id) > 0 AS compacted,
+			COUNT(*) FILTER (WHERE head_id IS NULL) AS compaction_rows_without_head,
+			COALESCE(
+				EXTRACT(EPOCH FROM (NOW() - MIN(updated_at) FILTER (WHERE head_id IS NULL))),
+				0
+			) AS oldest_compaction_row_without_head_secs
+		FROM %[1]s.%[2]s;
 	`, d.Datastore.Schema, topic.CompactionHeadTable(topicId))
-	var compacted bool
-	err := d.Datastore.Pool.QueryRow(ctx, sql).Scan(&compacted)
-	return compacted, err
+	var snapshot TopicSnapshotRow
+	err := d.Datastore.Pool.QueryRow(ctx, sql).Scan(
+		&snapshot.Compacted,
+		&snapshot.CompactionRowsWithoutHead,
+		&snapshot.OldestCompactionRowWithoutHeadSecs,
+	)
+	return &snapshot, err
 }
 
 // SchemaVersionCounts is every payload version present in the topic's log,

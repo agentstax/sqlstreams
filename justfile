@@ -262,7 +262,7 @@ metrics-lab:
 
 # Verify concurrent metric collection and an HTTP scrape from a manager process.
 metrics-collector-lab:
-    go build -o bin/vulkan cmd/vulkan
+    cd cmd/vulkan && go build -o ../../bin/vulkan .
     go run -race examples/phase_1/metricscollectorlab/main.go
 
 # Verify built-in alert thresholds classify, refresh, change severity, and resolve.

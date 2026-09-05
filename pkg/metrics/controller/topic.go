@@ -7,21 +7,15 @@ import (
 	"github.com/agentstax/vulkan/pkg/metrics"
 )
 
-// IsCompacted reports whether topicId has a materialized compaction head. A
-// headless lock identity alone does not change message-retention behavior.
-func (c *MetricsController) IsCompacted(ctx context.Context, topicId int64) (bool, error) {
-	if topicId <= 0 {
-		return false, fmt.Errorf("topicId must be > 0, got %d", topicId)
-	}
-	return c.datastore.IsCompacted(ctx, topicId)
-}
-
 func (c *MetricsController) TopicSnapshot(ctx context.Context, topicId int64) (*metrics.TopicSnapshot, error) {
-	compacted, err := c.IsCompacted(ctx, topicId)
+	if topicId <= 0 {
+		return nil, fmt.Errorf("topicId must be > 0, got %d", topicId)
+	}
+
+	data, err := c.datastore.TopicSnapshot(ctx, topicId)
 	if err != nil {
 		return nil, err
 	}
-
 	consumerGroups, err := c.datastore.ListConsumerGroups(ctx, topicId)
 	if err != nil {
 		return nil, err
@@ -36,7 +30,7 @@ func (c *MetricsController) TopicSnapshot(ctx context.Context, topicId int64) (*
 		groups = append(groups, *group)
 	}
 
-	return &metrics.TopicSnapshot{TopicId: topicId, Compacted: compacted, Groups: groups}, nil
+	return toTopicSnapshot(topicId, data, groups), nil
 }
 
 // TopicSchemaVersionSnapshots is every payload version present in the topic's

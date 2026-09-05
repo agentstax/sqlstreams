@@ -35,6 +35,13 @@ type ScheduleSnapshotRow struct {
 	DueForSecs      float64    `db:"due_for_secs"`
 }
 
+// TopicSnapshotRow is one topic's compaction-head state.
+type TopicSnapshotRow struct {
+	Compacted                          bool    `db:"compacted"`
+	CompactionRowsWithoutHead          int64   `db:"compaction_rows_without_head"`
+	OldestCompactionRowWithoutHeadSecs float64 `db:"oldest_compaction_row_without_head_secs"`
+}
+
 // ConsumerGroupIdentityRow is one group's id and name used by TopicSnapshot.
 type ConsumerGroupIdentityRow struct {
 	Id   int64  `db:"id"`
