@@ -99,7 +99,7 @@ func run() (err error) {
 	assertErrorIs("ErrTopicsRegistered", err, system.ErrTopicsRegistered)
 
 	step("a running consumer refuses it first -- the worker guard outranks the topic guard")
-	wcInstance, err := client.Topic[common.Work](tp.Name).Group("destroysystemlab-group").Register(ctx, nil)
+	wcInstance, err := client.Topic[common.Work](tp.Name).Consumer("destroysystemlab-group").Register(ctx, nil)
 	must(err)
 	consumeCtx, stopConsumer := context.WithCancel(ctx)
 	consumeDone := make(chan error, 1)

@@ -10,7 +10,7 @@ import (
 
 // GetGroup resolves a consumer group by its owning topic and name.
 // Returns (nil, nil) if the group is not registered on that topic.
-func (c *ConsumeController) GetGroup(ctx context.Context, topicId int64, name string) (*consume.Group, error) {
+func (c *ConsumeController) GetGroup(ctx context.Context, topicId int64, name string) (*consume.Consumer, error) {
 	if topicId <= 0 {
 		return nil, fmt.Errorf("topicId must be > 0, got %d", topicId)
 	}
@@ -22,11 +22,11 @@ func (c *ConsumeController) GetGroup(ctx context.Context, topicId int64, name st
 	if err != nil || data == nil {
 		return nil, err
 	}
-	return toGroup(data), nil
+	return toConsumer(data), nil
 }
 
 // ListGroups lists the topic's consumer groups, ordered by name.
-func (c *ConsumeController) ListGroups(ctx context.Context, topicId int64) ([]*consume.Group, error) {
+func (c *ConsumeController) ListGroups(ctx context.Context, topicId int64) ([]*consume.Consumer, error) {
 	if topicId <= 0 {
 		return nil, fmt.Errorf("topicId must be > 0, got %d", topicId)
 	}
@@ -36,16 +36,16 @@ func (c *ConsumeController) ListGroups(ctx context.Context, topicId int64) ([]*c
 		return nil, err
 	}
 
-	groups := make([]*consume.Group, 0, len(data))
+	groups := make([]*consume.Consumer, 0, len(data))
 	for _, row := range data {
-		groups = append(groups, toGroup(&row))
+		groups = append(groups, toConsumer(&row))
 	}
 	return groups, nil
 }
 
 // RegisterGroup creates the group and its cursor at start; an existing group
 // is returned untouched, its position kept.
-func (c *ConsumeController) RegisterGroup(ctx context.Context, topicId int64, name string, start consume.CursorPosition) (*consume.Group, error) {
+func (c *ConsumeController) RegisterGroup(ctx context.Context, topicId int64, name string, start consume.CursorPosition) (*consume.Consumer, error) {
 	if topicId <= 0 {
 		return nil, fmt.Errorf("topicId must be > 0, got %d", topicId)
 	}
@@ -60,7 +60,7 @@ func (c *ConsumeController) RegisterGroup(ctx context.Context, topicId int64, na
 	if err != nil {
 		return nil, err
 	}
-	return toGroup(data), nil
+	return toConsumer(data), nil
 }
 
 // DeleteGroup deletes the group and every row it owns in one transaction.

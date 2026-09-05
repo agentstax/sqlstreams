@@ -716,7 +716,7 @@ func registerGroup(ctx context.Context, name string, bindings ...string) int64 {
 // stop is called.
 func startConsumer(ctx context.Context, group string, bindings []string, concurrency int, handler func(context.Context, *labMessage) error) func() {
 	lifecycleCtx, cancel := context.WithCancel(ctx)
-	instance, err := client.Topic[labMessage](target.Name).Group(group).Register(lifecycleCtx, &vulkan.ConsumerConfig{
+	instance, err := client.Topic[labMessage](target.Name).Consumer(group).Register(lifecycleCtx, &vulkan.ConsumerConfig{
 		Bindings:                bindings,
 		ExceptionInitialBackoff: 200 * time.Millisecond,
 	})

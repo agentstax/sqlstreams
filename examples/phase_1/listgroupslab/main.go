@@ -71,7 +71,7 @@ func run() (err error) {
 
 	step("TopicHandle.Groups returns both, ordered by name")
 	orders := client.Topic[vulkan.RawPayload](name)
-	groups, err := orders.Groups(ctx)
+	groups, err := orders.Consumers(ctx)
 	must(err)
 	if len(groups) != 2 {
 		die(fmt.Sprintf("expected 2 groups, got %d", len(groups)))
@@ -81,7 +81,7 @@ func run() (err error) {
 	assertInt64("group topic id", groups[0].TopicId, registered.Id)
 
 	step("Group.Get returns the row")
-	alpha, err := orders.Group("alpha").Get(ctx)
+	alpha, err := orders.Consumer("alpha").Get(ctx)
 	must(err)
 	if alpha == nil {
 		die("expected the alpha row, got nil")
@@ -89,7 +89,7 @@ func run() (err error) {
 	assertInt64("alpha id", alpha.Id, groups[0].Id)
 
 	step("absence is (nil, nil) on Get only")
-	ghost, err := orders.Group("ghost").Get(ctx)
+	ghost, err := orders.Consumer("ghost").Get(ctx)
 	must(err)
 	if ghost != nil {
 		die(fmt.Sprintf("expected (nil, nil) for an unregistered group, got %+v", ghost))
@@ -100,7 +100,7 @@ func run() (err error) {
 	if row != nil {
 		die(fmt.Sprintf("expected (nil, nil) for an unregistered topic, got %+v", row))
 	}
-	_, err = ghostTopic.Groups(ctx)
+	_, err = ghostTopic.Consumers(ctx)
 	if !errors.Is(err, topic.ErrTopicNotFound) {
 		die(fmt.Sprintf("Groups on an unregistered topic: expected ErrTopicNotFound, got %v", err))
 	}

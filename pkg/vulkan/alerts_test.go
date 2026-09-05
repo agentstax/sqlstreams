@@ -61,7 +61,7 @@ func TestAlertHandleConstructorsPerformNoIO(t *testing.T) {
 	if len(client.Topic[RawPayload]("orders").Alerts().Definitions()) != 3 {
 		t.Fatal("topic definitions do not expose the topic catalog")
 	}
-	if len(client.Topic[RawPayload]("orders").Group("billing").Alerts().Definitions()) != 0 {
+	if len(client.Topic[RawPayload]("orders").Consumer("billing").Alerts().Definitions()) != 0 {
 		t.Fatal("group definitions expose a definition no check owns")
 	}
 
@@ -69,7 +69,7 @@ func TestAlertHandleConstructorsPerformNoIO(t *testing.T) {
 	if system.name != "disk_pressure" || system.topicName != "" || system.groupName != "" {
 		t.Fatalf("system alert bound %+v", system)
 	}
-	group := client.Topic[RawPayload]("orders").Group("billing").Alerts().Alert("disk_pressure")
+	group := client.Topic[RawPayload]("orders").Consumer("billing").Alerts().Alert("disk_pressure")
 	if group.topicName != "orders" || group.groupName != "billing" {
 		t.Fatalf("group alert bound %+v", group)
 	}

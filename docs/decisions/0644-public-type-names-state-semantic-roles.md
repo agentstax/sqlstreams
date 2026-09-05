@@ -1,10 +1,12 @@
 ---
-status: accepted
+status: superseded
 date: 2026-09-03
 phase: "pre-v1"
 ---
 
 # 0644 — Public type names state semantic roles
+
+Superseded in part by [0653].
 
 **Context.** [0625] made handles bare nouns and materialized resources
 `*Data`; the later handle split added `Handle` without revisiting the values.

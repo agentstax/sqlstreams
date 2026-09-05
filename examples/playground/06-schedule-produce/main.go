@@ -66,7 +66,7 @@ func run() error {
 		return err
 	}
 
-	runs, err := client.Topic[InvoiceRun](invoices.Name).Group("invoice-runner").Register(ctx, nil)
+	runs, err := client.Topic[InvoiceRun](invoices.Name).Consumer("invoice-runner").Register(ctx, nil)
 	if err != nil {
 		return err
 	}

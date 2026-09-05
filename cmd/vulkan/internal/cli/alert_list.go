@@ -48,7 +48,7 @@ every owner by default, one topic's with --topic, one consumer group's with
 			var alerts []*vulkan.Alert
 			switch {
 			case groupName != "":
-				alerts, err = client.Topic[vulkan.RawPayload](topicName).Group(groupName).Alerts().Latest(ctx)
+				alerts, err = client.Topic[vulkan.RawPayload](topicName).Consumer(groupName).Alerts().Latest(ctx)
 			case topicName != "":
 				alerts, err = client.Topic[vulkan.RawPayload](topicName).Alerts().Latest(ctx)
 			default:

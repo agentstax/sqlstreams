@@ -147,7 +147,7 @@ func run() (err error) {
 		seededHead = produced.Id
 	}
 	headGroup := fmt.Sprintf("consumergrouplab.head.%d", suffix)
-	headInstance, err := client.Topic[labMessage](topicA.Name).Group(headGroup).Register(ctx, &vulkan.ConsumerConfig{
+	headInstance, err := client.Topic[labMessage](topicA.Name).Consumer(headGroup).Register(ctx, &vulkan.ConsumerConfig{
 		Start: vulkan.Head(),
 	})
 
@@ -170,7 +170,7 @@ func run() (err error) {
 		die(fmt.Sprintf("group at the head saw %v, want only the post-register message 4 (id %d)", seen, fresh.Id))
 	}
 	before := readCursor(ctx, ds, topicA.Id, headGroup)
-	_, err = client.Topic[labMessage](topicA.Name).Group(headGroup).Register(ctx, nil)
+	_, err = client.Topic[labMessage](topicA.Name).Consumer(headGroup).Register(ctx, nil)
 	must(err)
 	assertCursor(ctx, ds, topicA.Id, headGroup, before, "after a second Register at the beginning")
 	fmt.Printf("  ✓ cursor created at %d, only message 4 delivered, a later Register left the row alone\n", seededHead)
@@ -231,10 +231,10 @@ func destroySection(ctx context.Context, pool *pgxpool.Pool, client *vulkan.Clie
 	must(err)
 
 	ds := locked.Datastore()
-	if err := locked.Topic[labMessage](topicA.Name).Group(doomedName).Destroy(ctx, nil); !errors.Is(err, topic.ErrDestroyDisabled) {
+	if err := locked.Topic[labMessage](topicA.Name).Consumer(doomedName).Destroy(ctx, nil); !errors.Is(err, topic.ErrDestroyDisabled) {
 		die(fmt.Sprintf("destroy without AllowDestroy: want ErrDestroyDisabled, got %v", err))
 	}
-	if err := client.Topic[labMessage](topicA.Name).Group(doomedName+".missing").Destroy(ctx, nil); !errors.Is(err, consume.ErrGroupNotFound) {
+	if err := client.Topic[labMessage](topicA.Name).Consumer(doomedName+".missing").Destroy(ctx, nil); !errors.Is(err, consume.ErrGroupNotFound) {
 		die(fmt.Sprintf("destroy of an unregistered group: want ErrGroupNotFound, got %v", err))
 	}
 	fmt.Printf("  ✓ AllowDestroy gate and not-found error\n")
@@ -253,7 +253,7 @@ func destroySection(ctx context.Context, pool *pgxpool.Pool, client *vulkan.Clie
 	if claimed == nil {
 		die("the lab's own worker claim was declined")
 	}
-	if err := client.Topic[labMessage](topicA.Name).Group(doomedName).Destroy(ctx, nil); !errors.Is(err, consume.ErrGroupLive) {
+	if err := client.Topic[labMessage](topicA.Name).Consumer(doomedName).Destroy(ctx, nil); !errors.Is(err, consume.ErrGroupLive) {
 		die(fmt.Sprintf("destroy with a live worker instance: want ErrGroupLive, got %v", err))
 	}
 	must(workers.ReleaseInstance(ctx, claimed.Id, claimed.Token))
@@ -269,10 +269,10 @@ func destroySection(ctx context.Context, pool *pgxpool.Pool, client *vulkan.Clie
 	must(err)
 	_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (consumer_group_id, message_key, lease_token, expires_at) VALUES ($1, 'labkey', gen_random_uuid(), now());`, ds.Schema, topic.MessageKeyLeaseTable(topicA.Id)), doomed.Id)
 	must(err)
-	if err := client.Topic[labMessage](topicA.Name).Group(doomedName).Destroy(ctx, nil); !errors.Is(err, consume.ErrGroupDeliveriesPending) {
+	if err := client.Topic[labMessage](topicA.Name).Consumer(doomedName).Destroy(ctx, nil); !errors.Is(err, consume.ErrGroupDeliveriesPending) {
 		die(fmt.Sprintf("destroy with delivery rows: want ErrGroupDeliveriesPending, got %v", err))
 	}
-	must(client.Topic[labMessage](topicA.Name).Group(doomedName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+	must(client.Topic[labMessage](topicA.Name).Consumer(doomedName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
 
 	for what, sql := range map[string]string{
 		"group rows":        fmt.Sprintf(`SELECT COUNT(*) FROM %s.consumer_group_config WHERE id = $1;`, ds.Schema),

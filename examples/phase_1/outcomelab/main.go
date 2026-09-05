@@ -100,7 +100,7 @@ func run() (err error) {
 		ids[branch] = produced.Id
 	}
 
-	instance, err := client.Topic[Payment](tp.Name).Group(group).Register(ctx, &vulkan.ConsumerConfig{
+	instance, err := client.Topic[Payment](tp.Name).Consumer(group).Register(ctx, &vulkan.ConsumerConfig{
 		ExceptionInitialBackoff: 500 * time.Millisecond,
 		Message: &vulkan.MessageOptions{
 			Timeout: 5 * time.Second,

@@ -5,6 +5,26 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-05 — The public consuming handles are Consumer-named [0653]
+
+The typed topic tree now selects a consumer group with
+`Topic[T](name).Consumer(groupName)` and lists its materialized values with
+`Consumers(ctx)`. `ConsumerHandle`, `ConsumerMetricsHandle`, and
+`ConsumerAlertsHandle` replace their Group-named forms; `Get` returns the bare
+`Consumer` value declared in `pkg/consume`. Every current doc-site sample,
+playground, phase-one example, benchmark driver, CLI caller, and facade test
+uses the same names.
+
+Consumer group remains the mechanism's name in controller and datastore verbs,
+SQL, diagnostics, owner kinds, metrics types, CLI commands, and explanatory
+prose. Go permits the `Consumer` selector, handle, and materialized value on
+the facade, while `pkg/consume.Consumer` and `pkg/consumer.Consumer` remain
+separate package declarations, so the rename introduces no collision.
+
+Verified with `just verify`, compilation of every example and the fill-factor
+driver, the website build, targeted Prettier, ESLint, Astro, Remark, and Vale
+checks, and `git diff --check`.
+
 ## 2026-09-05 — The doc site publishes its canonical sitemap [0652]
 
 Astro's official sitemap integration emits the sitemap index and URL file from

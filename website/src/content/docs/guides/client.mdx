@@ -7,7 +7,7 @@ import ThreadAside from '../../../components/thread-aside/thread-aside.svelte';
 
 One client wraps the pool and holds the ambient config. Every resource is
 named from it as a handle (`client.Topic[OrderPlaced]("orders")`,
-`client.Topic[OrderPlaced]("orders").Group("billing")`), and the verbs
+`client.Topic[OrderPlaced]("orders").Consumer("billing")`), and the verbs
 live on the thing they act on. Before it, the same
 program needed `NewConsumer`, `NewProducer`, `NewScheduler`,
 `NewMessageAdmin`, and `NewSystemManager`, each with its own config
@@ -18,7 +18,7 @@ what is stored and how instances read it back, has its own page:
 ## Two grammars
 
 The client selects the noun: `Topic[T](name)`, `Scheduler(name)`, and a
-topic handle selects its own: `Group(name)`, `Key(messageKey)`,
+topic handle selects its own: `Consumer(name)`, `Key(messageKey)`,
 `Producer()`. A handle uses the bare verb: `orders.Register`,
 `orders.Destroy`, `nightly.Suspend`. It already knows what it is, and
 `orders.DestroyTopic` says topic twice. A plural method reads the materialized
@@ -176,7 +176,7 @@ looking in the wrong place.
 ## Consume
 
 ```go
-payments, err := client.Topic[PaymentRequestedV1]("payments.requested").Group("charge-cards").Register(ctx,
+payments, err := client.Topic[PaymentRequestedV1]("payments.requested").Consumer("charge-cards").Register(ctx,
 	&vulkan.ConsumerConfig{
 		Message: &vulkan.MessageOptions{
 			Timeout: 10 * time.Second,
@@ -350,8 +350,8 @@ current, err := device.CompactionHead(ctx) // vulkan.ErrCompactionHeadNotFound w
 versions, err := device.Messages(ctx, 20)
 
 // groups hang off their topic
-groups, err := orders.Groups(ctx)
-group := orders.Group("charge-cards")
+groups, err := orders.Consumers(ctx)
+group := orders.Consumer("charge-cards")
 registeredGroup, err := group.Get(ctx)
 workers, err := group.Workers(ctx)
 err = group.Destroy(ctx, nil)
@@ -383,7 +383,7 @@ A plural noun lists materialized resources: `client.Topics`,
 Its singular noun returns a no-I/O handle. Terminal reports and retained
 history keep the verb that says what they return: `Health`, `Status`,
 `Workers`, and `Messages`. A group's binding set is a handle
-under the group, `orders.Group("charge-cards").Binding().Get(ctx)`, nil
+under the group, `orders.Consumer("charge-cards").Binding().Get(ctx)`, nil
 when the group never declared one.
 
 A message key is a handle under its topic. `orders.Key("device-7")`
@@ -426,7 +426,7 @@ topicMetrics := client.Topic[PaymentRequestedV1]("payments.requested").Metrics()
 topicSnapshot, err := topicMetrics.Snapshot(ctx) // *vulkan.TopicSnapshot; live
 
 groupMetrics := client.Topic[PaymentRequestedV1]("payments.requested").
-	Group("charge-cards").Metrics()
+	Consumer("charge-cards").Metrics()
 groupSnapshot, err := groupMetrics.Snapshot(ctx) // *vulkan.ConsumerGroupSnapshot; live
 
 backlog := groupMetrics.CursorBacklog()  // *vulkan.MetricHandle; no I/O
@@ -457,7 +457,7 @@ type MetricDefinition struct {
 `System().Metrics().Definitions()` returns every Vulkan built-in definition,
 ordered by VK code, including consumer-session definitions whose instance
 handle is later work. `Topic().Metrics().Definitions()` returns topic-scoped
-definitions. `Group().Metrics().Definitions()` returns consumer-group-scoped
+definitions. `Consumer().Metrics().Definitions()` returns consumer-group-scoped
 definitions. All three are in-memory reads over the same catalog used by the
 collector, `vulkan explain`, and Prometheus `HELP`; they never touch Postgres.
 Custom user definitions are later work, so an observed user metric appears in
@@ -530,7 +530,7 @@ history, err := metric.History(ctx, 20)
 ```
 
 It accepts a name and the exact attribute set because arbitrary names have no
-Topic or Group semantics. `Topic().Metrics()` and `Group().Metrics()` expose
+Topic or Consumer semantics. `Topic().Metrics()` and `Consumer().Metrics()` expose
 only their typed built-ins.
 
 `Latest` returns `(nil, nil)` when the exact series has no retained point.
@@ -579,7 +579,7 @@ current, err := topic.Alerts().PartitionCount().Latest(ctx)      // *vulkan.Aler
 history, err := topic.Alerts().WorkerLiveness().History(ctx, 20) // []*vulkan.Alert; newest first
 
 custom, err := topic.Alerts().Alert("disk_pressure").Latest(ctx) // a user-produced alert on the topic
-groupAlerts, err := topic.Group("charge-cards").Alerts().Latest(ctx) // []*vulkan.Alert; owner is the group
+groupAlerts, err := topic.Consumer("charge-cards").Alerts().Latest(ctx) // []*vulkan.Alert; owner is the group
 ```
 
 `Latest` on a scope lists the newest retained alert per (name, owner) in
@@ -657,10 +657,10 @@ empty slice for that same absence.
 | `RenameTopic` | `Topic.Rename` |
 | `DestroyTopic` | `Topic.Destroy` |
 | `TopicHealth` / `TopicMetrics` | `Topic.Health`; `Topic.Metrics().Snapshot(ctx)` |
-| `GetGroup` | `Topic.Group(name).Get(ctx)`; its worker rows become `Group.Workers` |
-| (none) | `TopicHandle.Groups` |
-| `DestroyGroup` | `Group.Destroy` |
-| `ListBindings` | `client.System().Bindings`; one group's effective set is `Group.Binding().Get(ctx)` |
+| `GetGroup` | `Topic.Consumer(name).Get(ctx)`; its worker rows become `Consumer.Workers` |
+| (none) | `TopicHandle.Consumers` |
+| `DestroyGroup` | `Consumer.Destroy` |
+| `ListBindings` | `client.System().Bindings`; one group's effective set is `Consumer.Binding().Get(ctx)` |
 | `GetSchedule` | `client.Scheduler(name).Get(ctx)` |
 | `ListSchedules` | `client.Schedulers` |
 | `SuspendSchedule` / `UnsuspendSchedule` | `Scheduler.Suspend` / `Scheduler.Unsuspend` |
@@ -670,11 +670,11 @@ empty slice for that same absence.
 | `RegisterSystem` | `client.System().Register` |
 | `GetSystem` / `MigrateSystem` / `DestroySystem` | `client.System().Get` / `.Migrate` / `.Destroy` |
 | (none) | `Topic.MigrationVersion` and `client.System().MigrationVersion`, the version a scope's tables are at |
-| `ListAlerts` | `client.System().Alerts().Latest(ctx)`; one owner's alerts are `Topic.Alerts().Latest` / `Group.Alerts().Latest` |
+| `ListAlerts` | `client.System().Alerts().Latest(ctx)`; one owner's alerts are `Topic.Alerts().Latest` / `Consumer.Alerts().Latest` |
 | `ListMeasurements` / `ListMeasurementMessages` | `client.System().Metrics().Latest(ctx)`; a typed metric selector's `History(ctx, limit)` |
 | `CompactionController.GetHead` / `ListKeyMessages` | `Topic.Key(k).CompactionHead` / `Topic.Key(k).Messages` |
 | `CompactionController.ListHeads` | `Topic.CompactionHeads` |
-| `Consumer.Register[T]` / `Producer.Register[T]` | `Topic[T].Group(name).Register` / `Topic[T].Producer().Register` |
+| `Consumer.Register[T]` / `Producer.Register[T]` | `Topic[T].Consumer(name).Register` / `Topic[T].Producer().Register` |
 | `RegisterSchedule` | `client.Scheduler(name).Register`, returns `SchedulerInstance` |
 
 ## The manager
@@ -768,8 +768,8 @@ it is much cheaper to create per test. Not built.
 ## Names
 
 The suffix says what a value does. A handle is the lazy identity plus
-client (`TopicHandle`, `GroupHandle`, `KeyHandle`, `SchedulerHandle`); the bare noun is
-the materialized domain value returned by `Get` (`Topic`, `Group`,
+client (`TopicHandle`, `ConsumerHandle`, `KeyHandle`, `SchedulerHandle`); the bare noun is
+the materialized domain value returned by `Get` (`Topic`, `Consumer`,
 `Schedule`). `StoredMessage[T]`, `Alert`, and `Measurement` follow the same rule:
 they are values, not handles. JSON is unaffected; wire names live in field
 tags.
@@ -795,7 +795,7 @@ table they scan: `TopicConfigRow`, `WorkerConfigRow`, `ScheduleConfigRow`.
 `charge-cards` runs three replicas on `payments.requested` (topic id
 `1`) with the default retry budget. A fourth service, `reconciliation`,
 also consumes the group by mistake and declares `MaxRetries: 5`. Its
-`GroupHandle.Register` overwrites the stored document, its logger warns
+`ConsumerHandle.Register` overwrites the stored document, its logger warns
 [VK0059](/errors/VK0059/) with the `metadata` change as `old -> new`,
 and the three replicas pick the new budget up on their next config
 refresh. When the owning service next restarts it declares the default
@@ -817,7 +817,7 @@ An operator checking the group from a script needs one round trip, and
 no message type:
 
 ```go
-data, err := client.Topic[vulkan.RawPayload]("payments.requested").Group("charge-cards").Get(ctx)
+data, err := client.Topic[vulkan.RawPayload]("payments.requested").Consumer("charge-cards").Get(ctx)
 ```
 
 ## Open

@@ -30,7 +30,7 @@ return nightly.Schedule(ctx)
 And in whichever service does the invoicing, nothing about cron:
 
 ```go
-invoices, err := client.Topic[InvoiceRun]("invoices").Group("invoice-runner").Register(ctx, nil)
+invoices, err := client.Topic[InvoiceRun]("invoices").Consumer("invoice-runner").Register(ctx, nil)
 if err != nil {
 	return err
 }

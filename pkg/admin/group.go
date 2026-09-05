@@ -11,7 +11,7 @@ import (
 
 // GetGroup reads the group's row. Returns (nil, nil), not an error, when
 // the topic or the group isn't registered.
-func (a *MessageAdmin) GetGroup(ctx context.Context, topicName string, groupName string) (*consume.Group, error) {
+func (a *MessageAdmin) GetGroup(ctx context.Context, topicName string, groupName string) (*consume.Consumer, error) {
 	if groupName == "" {
 		return nil, errors.New("group name is required")
 	}
@@ -25,7 +25,7 @@ func (a *MessageAdmin) GetGroup(ctx context.Context, topicName string, groupName
 
 // ListGroups lists the topic's consumer groups, ordered by name.
 // Returns ErrTopicNotFound when the topic isn't registered.
-func (a *MessageAdmin) ListGroups(ctx context.Context, topicName string) ([]*consume.Group, error) {
+func (a *MessageAdmin) ListGroups(ctx context.Context, topicName string) ([]*consume.Consumer, error) {
 	found, err := a.GetTopic(ctx, topicName)
 	if err != nil {
 		return nil, err

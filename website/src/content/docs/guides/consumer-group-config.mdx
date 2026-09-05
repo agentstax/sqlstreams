@@ -55,7 +55,7 @@ sound alike and sit on opposite sides of the split.
 
 One rule places everything: the declaration at the handle's `Register`
 verb, session options at the verb that runs.
-`client.Topic[T](topic).Group(group).Register(ctx, cfg)` carries the
+`client.Topic[T](topic).Consumer(group).Register(ctx, cfg)` carries the
 declaration it writes, the way `client.Topic[T](name).Register` already does.
 `ConsumeOptions` mirrors `ProduceOptions`: act verbs take options,
 `nil` for the defaults.
@@ -63,7 +63,7 @@ declaration it writes, the way `client.Topic[T](name).Register` already does.
 ## Declared at Register, stored on the row
 
 ```go
-payments, err := client.Topic[PaymentRequestedV1]("payments.requested").Group("charge-cards").Register(ctx,
+payments, err := client.Topic[PaymentRequestedV1]("payments.requested").Consumer("charge-cards").Register(ctx,
 	&vulkan.ConsumerConfig{
 		Message: &vulkan.MessageOptions{
 			Timeout: 10 * time.Second,
@@ -288,5 +288,5 @@ resolves to the library default -> its first `Register` on a build
 carrying the split writes the group's first declaration. The tuning
 fields moved off `ConsumerConfig` to `ConsumeOptions` at `Consume`, and
 `ConsumerConfig` itself moved from `NewConsumer` to
-`client.Topic[T](topic).Group(group).Register` — old call sites break at compile time, and
+`client.Topic[T](topic).Consumer(group).Register` — old call sites break at compile time, and
 the group fields kept their meaning.

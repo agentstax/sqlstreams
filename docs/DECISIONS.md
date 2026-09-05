@@ -396,12 +396,13 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0641 2026-09-02 accepted (pre-v1) — Run is a per-caller loop; the row is the only arbiter
 - 0642 2026-09-02 accepted (pre-v1) — The client's own ConsumerInstance runs the manager beside Consume
 - 0643 2026-09-03 accepted (pre-v1) — One declaration per type, vulkan as the client plus aliases
-- 0644 2026-09-03 accepted (pre-v1) — Public type names state semantic roles
+- 0644 2026-09-03 superseded in part by 0653 (pre-v1) — Public type names state semantic roles
 - 0645 2026-09-03 accepted (pre-v1) — Binding is a handle under the group; client lists are bare plurals
-- 0646 2026-09-04 accepted (pre-v1) — the topic handle carries the message type; a message key is a handle under it
+- 0646 2026-09-04 superseded in part by 0653 (pre-v1) — the topic handle carries the message type; a message key is a handle under it
 - 0647 2026-09-05 superseded by 0648 (pre-v1) — # First-class metrics use one declaration catalog
 - 0648 2026-09-05 accepted (pre-v1) — # Metric scope belongs to the diagnostic declaration
 - 0650 2026-09-05 accepted (pre-v1) — # The migration version reads through the client
 - 0649 2026-09-05 accepted (pre-v1) — # Alerts take the metrics shape and the one registry
 - 0651 2026-09-05 accepted (pre-v1) — documentation links related mechanisms in context
 - 0652 2026-09-05 accepted (pre-v1) — Astro's build emits the canonical sitemap and robots.txt advertises it
+- 0653 2026-09-05 accepted (pre-v1) — Consumer names the public group handle

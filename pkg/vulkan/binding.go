@@ -22,8 +22,8 @@ func (s *SystemHandle) Bindings(ctx context.Context) ([]*Binding, error) {
 
 // Binding names this group's binding declaration. No I/O and
 // no failure -- Get resolves both names when called.
-func (g *GroupHandle[Message]) Binding() *BindingHandle {
-	return &BindingHandle{topicName: g.topicName, groupName: g.name, client: g.client}
+func (h *ConsumerHandle[Message]) Binding() *BindingHandle {
+	return &BindingHandle{topicName: h.topicName, groupName: h.name, client: h.client}
 }
 
 // Get reads the group's effective declaration -- its newest installed

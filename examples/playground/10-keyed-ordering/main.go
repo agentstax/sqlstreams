@@ -78,7 +78,7 @@ func run() error {
 		}
 	}
 
-	ledger, err := client.Topic[BalanceChanged](registered.Name).Group("ledger").Register(ctx, nil)
+	ledger, err := client.Topic[BalanceChanged](registered.Name).Consumer("ledger").Register(ctx, nil)
 	if err != nil {
 		return err
 	}

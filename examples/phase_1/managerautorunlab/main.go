@@ -172,7 +172,7 @@ func (s *runningSession) stop() {
 
 func start(ctx context.Context, client *vulkan.Client, topicName string, group string) *runningSession {
 	lifecycleCtx, cancel := context.WithCancel(ctx)
-	instance, err := client.Topic[common.Work](topicName).Group(group).Register(lifecycleCtx, nil)
+	instance, err := client.Topic[common.Work](topicName).Consumer(group).Register(lifecycleCtx, nil)
 	must(err)
 
 	done := make(chan error, 1)

@@ -202,7 +202,7 @@ func main() {
 
 	var consumeWg sync.WaitGroup
 	for group := range *groups {
-		instance, err := client.Topic[benchMessage](topicName).Group(fmt.Sprintf("bench-group-%02d", group)).Register(ctx, consumerConfig)
+		instance, err := client.Topic[benchMessage](topicName).Consumer(fmt.Sprintf("bench-group-%02d", group)).Register(ctx, consumerConfig)
 		must(err)
 
 		consumeWg.Add(1)

@@ -5,7 +5,7 @@
 // the __system.metrics topic -- the pull side an ops dashboard would use.
 //
 // Concepts held before domain code (11): the 7 from scenario 03, plus a
-// GroupMetricsHandle, its typed CursorBacklog selector, and retained Latest /
+// ConsumerMetricsHandle, its typed CursorBacklog selector, and retained Latest /
 // History measurements. The collector runs because Consume runs the manager --
 // errgroup is here for the print loop, not for it.
 //
@@ -73,7 +73,7 @@ func run() error {
 		}
 	}
 
-	ledger, err := client.Topic[OrderPlaced](registered.Name).Group("ledger").Register(ctx, nil)
+	ledger, err := client.Topic[OrderPlaced](registered.Name).Consumer("ledger").Register(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -85,14 +85,14 @@ func run() error {
 			return nil
 		}, nil)
 	})
-	groupMetrics := client.Topic[OrderPlaced](registered.Name).Group("ledger").Metrics()
+	groupMetrics := client.Topic[OrderPlaced](registered.Name).Consumer("ledger").Metrics()
 	group.Go(func() error { return printLedgerMeasurements(groupCtx, groupMetrics) })
 	return group.Wait()
 }
 
 // printLedgerMeasurements prints the ledger group's collected backlog and
 // retained history each tick once its first measurement exists.
-func printLedgerMeasurements(ctx context.Context, groupMetrics *vulkan.GroupMetricsHandle) error {
+func printLedgerMeasurements(ctx context.Context, groupMetrics *vulkan.ConsumerMetricsHandle) error {
 	ticker := time.NewTicker(15 * time.Second)
 	defer ticker.Stop()
 	backlogMetric := groupMetrics.CursorBacklog()

@@ -11,7 +11,7 @@ func TestMetricSelectorsCoverResourceScopedCatalog(t *testing.T) {
 	client := &Client{}
 	systemMetrics := client.System().Metrics()
 	topicMetrics := client.Topic[RawPayload]("orders").Metrics()
-	groupMetrics := client.Topic[RawPayload]("orders").Group("billing").Metrics()
+	groupMetrics := client.Topic[RawPayload]("orders").Consumer("billing").Metrics()
 
 	selectors := []struct {
 		name       string
@@ -90,7 +90,7 @@ func TestMetricHandleConstructorsPerformNoIO(t *testing.T) {
 	if len(client.Topic[RawPayload]("orders").Metrics().Definitions()) != 1 {
 		t.Fatal("topic definitions do not expose the topic catalog")
 	}
-	if len(client.Topic[RawPayload]("orders").Group("billing").Metrics().Definitions()) != 14 {
+	if len(client.Topic[RawPayload]("orders").Consumer("billing").Metrics().Definitions()) != 14 {
 		t.Fatal("group definitions do not expose the consumer-group catalog")
 	}
 

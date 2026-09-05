@@ -57,7 +57,7 @@ type (
 	ConsumerFunc[Message Versioned] = consumer.ConsumerFunc[Message]
 	CursorPosition                  = consume.CursorPosition
 	CursorPositionKind              = consume.CursorPositionKind
-	Group                           = consume.Group
+	Consumer                        = consume.Consumer
 	Binding                         = consume.Binding
 	BindingOutcome                  = consume.BindingOutcome
 	MessageMeta                     = consume.MessageMeta

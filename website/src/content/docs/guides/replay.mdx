@@ -28,7 +28,7 @@ starts at zero by default — it reads everything retention still holds
 [`Start: vulkan.Head()`](/guides/new-group-start/)):
 
 ```go
-indexer, err := client.Topic[OrderPlaced](registered.Name).Group("search-indexer").Register(ctx, nil)
+indexer, err := client.Topic[OrderPlaced](registered.Name).Consumer("search-indexer").Register(ctx, nil)
 must(err)
 must(indexer.Consume(ctx, indexOrder, nil))
 ```
@@ -55,7 +55,7 @@ mis-handles EU orders. Wednesday: you notice. The proposed loop:
 
    ```go
    // PROPOSED — not shipped API.
-   err := client.Topic[OrderPlaced](registered.Name).Group("warehouse-sync").
+   err := client.Topic[OrderPlaced](registered.Name).Consumer("warehouse-sync").
        Rewind(ctx, vulkan.AtTime(tuesdayMorning))
    ```
 

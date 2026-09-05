@@ -248,7 +248,7 @@ func bridgeIdempotencyKey(sourceID int64) string {
 // out the library's production-sized defaults; the session knobs are
 // bridgeConsumeOptions.
 func newBridgeConsumer(ctx context.Context, client *vulkan.Client, name string) *vulkan.ConsumerInstance[V1Order] {
-	cInstance, err := client.Topic[V1Order](name).Group(group).Register(ctx, &vulkan.ConsumerConfig{
+	cInstance, err := client.Topic[V1Order](name).Consumer(group).Register(ctx, &vulkan.ConsumerConfig{
 		Message:                 &vulkan.MessageOptions{Timeout: 2 * time.Second},
 		ExceptionInitialBackoff: 200 * time.Millisecond,
 	})

@@ -115,7 +115,7 @@ func run() (err error) {
 		produce("acct-4", seq)
 	}
 
-	instance, err := client.Topic[Adjustment](tp.Name).Group(group).Register(ctx, &vulkan.ConsumerConfig{
+	instance, err := client.Topic[Adjustment](tp.Name).Consumer(group).Register(ctx, &vulkan.ConsumerConfig{
 		ExceptionInitialBackoff: 500 * time.Millisecond,
 		Message: &vulkan.MessageOptions{
 			Timeout: 5 * time.Second,

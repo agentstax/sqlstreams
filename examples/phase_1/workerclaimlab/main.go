@@ -159,7 +159,7 @@ func (rc *runningConsumer) stop() {
 
 func start(ctx context.Context, client *vulkan.Client, topicName string, i int) *runningConsumer {
 	lifecycleCtx, cancel := context.WithCancel(ctx)
-	cInstance, err := client.Topic[common.Work](topicName).Group(group).Register(lifecycleCtx, nil)
+	cInstance, err := client.Topic[common.Work](topicName).Consumer(group).Register(lifecycleCtx, nil)
 	must(err)
 
 	options := &vulkan.ConsumeOptions{

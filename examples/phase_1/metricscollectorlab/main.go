@@ -258,7 +258,7 @@ func run() (err error) {
 		messagesPerTopic, messagesPerTopic, topicCount*groupsPerTopic)
 
 	step("history accumulates under the head -- one row per collection pass")
-	historySeries := client.Topic[common.Work](topicNames[0]).Group(groupNames[0]).Metrics().CursorBacklog()
+	historySeries := client.Topic[common.Work](topicNames[0]).Consumer(groupNames[0]).Metrics().CursorBacklog()
 	must(waitFor(10*time.Second, func() (bool, error) {
 		history, err := historySeries.History(ctx, 10)
 		if err != nil {

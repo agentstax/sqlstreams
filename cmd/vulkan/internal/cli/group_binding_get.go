@@ -38,7 +38,7 @@ on its topic.`,
 			if found == nil {
 				return errTopicNotFound(topicName)
 			}
-			group, err := client.Topic[vulkan.RawPayload](topicName).Group(groupName).Get(ctx)
+			group, err := client.Topic[vulkan.RawPayload](topicName).Consumer(groupName).Get(ctx)
 			if err != nil {
 				return groupError(topicName, groupName, err)
 			}
@@ -46,7 +46,7 @@ on its topic.`,
 				return failOp("consumer group %q not found on topic %q", groupName, topicName)
 			}
 
-			binding, err := client.Topic[vulkan.RawPayload](topicName).Group(groupName).Binding().Get(ctx)
+			binding, err := client.Topic[vulkan.RawPayload](topicName).Consumer(groupName).Binding().Get(ctx)
 			if err != nil {
 				return groupError(topicName, groupName, err)
 			}

@@ -48,7 +48,7 @@ One topic, one log, one id space, rows of any version interleaved.
 ## A group reads its own version and steps over the rest
 
 ```go
-instance, err := client.Topic[OrderPlacedV2]("orders.placed").Group("fraud-scoring").Register(ctx, nil)
+instance, err := client.Topic[OrderPlacedV2]("orders.placed").Consumer("fraud-scoring").Register(ctx, nil)
 must(err)
 ```
 

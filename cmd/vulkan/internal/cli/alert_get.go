@@ -117,7 +117,7 @@ type alertGetDocument struct {
 func alertHandle(client *vulkan.Client, name string, topicName string, groupName string) *vulkan.AlertHandle {
 	switch {
 	case groupName != "":
-		return client.Topic[vulkan.RawPayload](topicName).Group(groupName).Alerts().Alert(name)
+		return client.Topic[vulkan.RawPayload](topicName).Consumer(groupName).Alerts().Alert(name)
 	case topicName != "":
 		return client.Topic[vulkan.RawPayload](topicName).Alerts().Alert(name)
 	default:

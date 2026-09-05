@@ -37,6 +37,7 @@ rewrite-to-the-real-API pass 2026-08-22 [0581], the board rebuild
   (consume.GroupConfig, producer.ProducerInstanceConfig), restoring
   [0625]'s ambient-held-once clause. The Register verbs themselves
   moved onto the typed topic tree 2026-09-04 (HISTORY).
+
 - **Step 3 -- the public-API review**, resumed where the playground
   gaps interrupted it (Steps 1 and 2 shipped 2026-08-29 -- see
   HISTORY). The catalog (`examples/playground/`) is the measuring
@@ -108,6 +109,7 @@ rewrite-to-the-real-API pass 2026-08-22 [0581], the board rebuild
     payload-arg + context MessageMeta — the typed row moved to pkg/common
     2026-08-13, so both sides could share it; the consumer's raw internal
     row (payload + options columns) stays its own struct either way.
+
 - **Public surface trim** (decisions settled 2026-08-01, recorded in
   _public-surface.md; build pending — deliberately late so the decisions get
   re-confirmed after living with the surface through the passes above):
@@ -314,15 +316,15 @@ documentation; the latter want a surface that has stopped moving.
   `Matches(ctx, routingKey)` an `EXISTS ... ~ pattern_regex` read on
   binding_config, the claim query's own predicate -- client-side
   matching would be a second mechanism for the same fact. Per-topic
-  `TopicHandle.Bindings(ctx)` beside `Groups` if a caller
+  `TopicHandle.Bindings(ctx)` beside `Consumers` if a caller
   wants it (the datastore already reads per topic). Never `Declare` /
   `Clear`: [0511] removed them -- with live instances an admin declare
   waits forever, with none the app's next Register overwrites it.
 - **Metrics handles for consumer, producer, and possibly scheduler** — after
-  the System / Topic / Group metrics surface settles, evaluate metrics on the
+  the System / Topic / Consumer metrics surface settles, evaluate metrics on the
   running `ConsumerInstance`, `ProducerInstance`, and `SchedulerInstance`.
   These must expose facts owned by that process or session, not duplicate the
-  Group / Topic snapshots or give a second path to stored metric history.
+  Consumer / Topic snapshots or give a second path to stored metric history.
   Consumer session counters already provide a candidate; producer metrics need
   a settled lifecycle, and scheduler earns a handle only if it has meaningful
   instance-local facts rather than fleet state that belongs to System. Specify

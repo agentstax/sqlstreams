@@ -85,7 +85,7 @@ func run() error {
 	// Short lease (= Timeout+QueueMargin+RecordMargin = 4s) so in-flight rows
 	// reclaim quickly after the crash. High MaxRetries so reprocessing never
 	// dead-letters — we want pure at-least-once redelivery, not the DLQ path.
-	wcInstance, err := client.Topic[common.Work](t.Name).Group(*groupPtr).Register(ctx, &vulkan.ConsumerConfig{
+	wcInstance, err := client.Topic[common.Work](t.Name).Consumer(*groupPtr).Register(ctx, &vulkan.ConsumerConfig{
 		Message: &vulkan.MessageOptions{Timeout: 2 * time.Second, Retry: &vulkan.RetryPolicy{MaxRetries: 100}},
 	})
 

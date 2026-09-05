@@ -93,7 +93,7 @@ func run() (err error) {
 	group := fmt.Sprintf("groupconfiglab.group.%d", suffix)
 
 	step("RegisterConsumer stores the declared config as a sparse document")
-	instanceA, err := clientA.Topic[labMessage](topicName).Group(group).Register(ctx, &vulkan.ConsumerConfig{
+	instanceA, err := clientA.Topic[labMessage](topicName).Consumer(group).Register(ctx, &vulkan.ConsumerConfig{
 		Message:                 &vulkan.MessageOptions{Retry: &vulkan.RetryPolicy{MaxRetries: 5, BaseDelay: 100 * time.Millisecond}},
 		ExceptionInitialBackoff: 200 * time.Millisecond,
 	})
@@ -120,7 +120,7 @@ func run() (err error) {
 	fmt.Println("  ✓ declared keys stored, undeclared keys absent")
 
 	step("a differing second declaration replaces the document and warns")
-	_, err = clientB.Topic[labMessage](topicName).Group(group).Register(ctx, &vulkan.ConsumerConfig{
+	_, err = clientB.Topic[labMessage](topicName).Consumer(group).Register(ctx, &vulkan.ConsumerConfig{
 		Message:                 &vulkan.MessageOptions{Retry: &vulkan.RetryPolicy{MaxRetries: 2, BaseDelay: 100 * time.Millisecond}},
 		ExceptionInitialBackoff: 200 * time.Millisecond,
 	})
@@ -197,7 +197,7 @@ func run() (err error) {
 
 	step("a running instance picks up a redeclared retry budget on refresh")
 	liveGroup := fmt.Sprintf("groupconfiglab.live.%d", suffix)
-	instanceLive, err := clientA.Topic[labMessage](topicName).Group(liveGroup).Register(ctx, &vulkan.ConsumerConfig{
+	instanceLive, err := clientA.Topic[labMessage](topicName).Consumer(liveGroup).Register(ctx, &vulkan.ConsumerConfig{
 
 		Message:                 &vulkan.MessageOptions{Retry: &vulkan.RetryPolicy{MaxRetries: 3, BaseDelay: 3 * time.Second, MaxDelay: 3 * time.Second}},
 		ExceptionInitialBackoff: 300 * time.Millisecond,
@@ -244,7 +244,7 @@ func run() (err error) {
 	}
 
 	// redeclare under the running instance: budget 3 -> 5, same backoff curve
-	_, err = clientB.Topic[labMessage](topicName).Group(liveGroup).Register(ctx, &vulkan.ConsumerConfig{
+	_, err = clientB.Topic[labMessage](topicName).Consumer(liveGroup).Register(ctx, &vulkan.ConsumerConfig{
 		Message:                 &vulkan.MessageOptions{Retry: &vulkan.RetryPolicy{MaxRetries: 5, BaseDelay: 3 * time.Second, MaxDelay: 3 * time.Second}},
 		ExceptionInitialBackoff: 300 * time.Millisecond,
 	})

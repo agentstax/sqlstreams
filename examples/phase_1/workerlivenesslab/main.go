@@ -213,7 +213,7 @@ func scheduledSection(ctx context.Context) {
 // startConsumer runs a consumer on the lab topic until the returned stop is
 // called; its manager claims every worker row the topic owns.
 func startConsumer(ctx context.Context) func() {
-	instance, err := client.Topic[labMessage](labTopic.Name).Group(labGroupName).Register(ctx, nil)
+	instance, err := client.Topic[labMessage](labTopic.Name).Consumer(labGroupName).Register(ctx, nil)
 	must(err)
 
 	runCtx, cancel := context.WithCancel(ctx)

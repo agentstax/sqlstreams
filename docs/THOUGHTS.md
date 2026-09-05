@@ -1,6 +1,9 @@
 # Public API
 
-# Doc
+# Docs
+
+Make small little comment about client api being design for old timers who still like to hand write code occassionally
+- ie can easily discover through dot tree notation what is available
 
 # Review
 

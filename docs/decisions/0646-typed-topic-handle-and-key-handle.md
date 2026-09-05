@@ -1,10 +1,12 @@
 ---
-status: accepted
+status: superseded
 date: 2026-09-04
 phase: "pre-v1"
 ---
 
 # 0646 — the topic handle carries the message type; a message key is a handle under it
+
+Superseded in part by [0653].
 
 Amends [0619] and [0625].
 

@@ -388,4 +388,4 @@ func assertTrue(label string, cond bool) {
 	fmt.Printf("  ✓ %s\n", label)
 }
 
-func mustGroupID(g *consume.Group, err error) int64 { must(err); return g.Id }
+func mustGroupID(g *consume.Consumer, err error) int64 { must(err); return g.Id }
