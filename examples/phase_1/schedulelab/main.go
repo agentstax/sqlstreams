@@ -665,12 +665,12 @@ func startScheduler(ctx context.Context) func() {
 	must(err)
 	owner, err := common.NewSystemOwner(sys.Id)
 	must(err)
-	workers, err := workercontroller.NewWorkerController(ds, nil)
+	workers, err := workercontroller.NewWorkerController(ds, ds.Logger)
 	must(err)
 	row, err := workers.GetWorker(ctx, scheduleproducer.WorkerScheduleProducer, owner)
 	must(err)
 
-	provisioner, err := scheduleproducer.NewScheduleProducerProvisioner(ds, nil)
+	provisioner, err := scheduleproducer.NewScheduleProducerProvisioner(ds, nil, ds.Logger)
 	must(err)
 
 	// a crashed earlier run's claim lingers until its InstanceTTL expires --
@@ -703,7 +703,7 @@ func startScheduler(ctx context.Context) func() {
 // registerGroup creates the consumer group on the lab's target topic, bound
 // to the given schedule names (none = bindingless), and returns its id.
 func registerGroup(ctx context.Context, name string, bindings ...string) int64 {
-	controller, err := consumecontroller.NewConsumeController(ds, nil)
+	controller, err := consumecontroller.NewConsumeController(ds, ds.Logger)
 	must(err)
 	group, err := controller.RegisterGroup(ctx, target.Id, name, consume.Beginning())
 	must(err)

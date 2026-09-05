@@ -36,8 +36,7 @@ func NewBaseInstance[Message common.Versioned](baseProvisioner *BaseProvisioner[
 
 	instanceRunner, err := workercontroller.NewInstanceRunner(baseProvisioner.workers, claimed, &workercontroller.InstanceRunnerConfig{
 		InstanceTTL: instanceTTL,
-		Logger:      logging.NewPipelineLogger(baseProvisioner.Logger, &logging.PipelineLoggerConfig{Args: []any{"worker", baseProvisioner.definition.Name, "owner", owner.Name}}),
-	})
+	}, logging.NewPipelineLogger(baseProvisioner.Logger, &logging.PipelineLoggerConfig{Args: []any{"worker", baseProvisioner.definition.Name, "owner", owner.Name}}))
 	if err != nil {
 		return nil, err
 	}

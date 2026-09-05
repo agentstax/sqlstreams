@@ -27,7 +27,7 @@ type JanitorProvisioner struct {
 
 // cfg may be nil or a sparse struct -- WithDefaults fills every field left
 // unset, Validate rejects what's out of range.
-func NewJanitorProvisioner(ds *iDatastore.PostgresDatastore, cfg *JanitorConfig) (*JanitorProvisioner, error) {
+func NewJanitorProvisioner(ds *iDatastore.PostgresDatastore, cfg *JanitorConfig, logger logging.Logger) (*JanitorProvisioner, error) {
 	if ds == nil {
 		return nil, errors.New("datastore must not be nil")
 	}
@@ -38,27 +38,21 @@ func NewJanitorProvisioner(ds *iDatastore.PostgresDatastore, cfg *JanitorConfig)
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
+	}
 
-	workers, err := controller.NewWorkerController(ds, &controller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	workers, err := controller.NewWorkerController(ds, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	topics, err := topiccontroller.NewTopicController(ds, &topiccontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	topics, err := topiccontroller.NewTopicController(ds, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	janitorController, err := janitorcontroller.NewJanitorController(ds, &janitorcontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	janitorController, err := janitorcontroller.NewJanitorController(ds, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +64,7 @@ func NewJanitorProvisioner(ds *iDatastore.PostgresDatastore, cfg *JanitorConfig)
 
 	return &JanitorProvisioner{
 		Config:     cfg,
-		Logger:     cfg.Logger,
+		Logger:     logger,
 		workers:    workers,
 		topics:     topics,
 		controller: janitorController,

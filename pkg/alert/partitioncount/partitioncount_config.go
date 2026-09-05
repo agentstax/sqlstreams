@@ -2,11 +2,7 @@ package partitioncount
 
 import (
 	"fmt"
-	"os"
 	"time"
-
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
 )
 
 type PartitionCountConfig struct {
@@ -19,9 +15,6 @@ type PartitionCountConfig struct {
 	// repeats as a reminder.
 	// Default: 4h.
 	RepeatInterval time.Duration
-
-	Logger logging.Logger      // pass your own *slog.Logger or anything satisfying logging.Logger. Default: text lines to stderr, warn level and up.
-	Retry  *common.RetryPolicy // transient-error retry policy for the provisioner's own Postgres calls. Default: common.NewDefaultRetryPolicy().
 }
 
 func (c *PartitionCountConfig) WithDefaults() *PartitionCountConfig {
@@ -31,11 +24,6 @@ func (c *PartitionCountConfig) WithDefaults() *PartitionCountConfig {
 	if c.RepeatInterval == 0 {
 		c.RepeatInterval = 4 * time.Hour
 	}
-	if c.Logger == nil {
-		c.Logger = logging.NewDefaultLogger(os.Stderr)
-	}
-	c.Logger = logging.NewPipelineLogger(c.Logger, &logging.PipelineLoggerConfig{Buffer: true})
-	c.Retry = c.Retry.WithDefaults()
 	return c
 }
 
@@ -47,9 +35,6 @@ func (c *PartitionCountConfig) Validate() error {
 	}
 	if c.RepeatInterval <= 0 {
 		return fmt.Errorf("RepeatInterval must be > 0, got %v", c.RepeatInterval)
-	}
-	if err := c.Retry.Validate(); err != nil {
-		return fmt.Errorf("Retry: %w", err)
 	}
 	return nil
 }

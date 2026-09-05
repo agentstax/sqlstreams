@@ -230,9 +230,9 @@ func startConsumer(ctx context.Context) func() {
 // startExecutor claims the worker_liveness worker row and runs its execution
 // until the returned stop is called.
 func startExecutor(ctx context.Context) func() {
-	provisioner, err := workerliveness.NewWorkerLivenessProvisioner(ds, nil)
+	provisioner, err := workerliveness.NewWorkerLivenessProvisioner(ds, nil, ds.Logger)
 	must(err)
-	workers, err := workercontroller.NewWorkerController(ds, nil)
+	workers, err := workercontroller.NewWorkerController(ds, ds.Logger)
 	must(err)
 	row, err := workers.GetWorker(ctx, workerliveness.JobName, jobGroupOwner)
 	must(err)

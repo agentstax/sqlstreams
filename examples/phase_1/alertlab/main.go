@@ -185,7 +185,7 @@ func seedingSection(ctx context.Context) {
 		schedulesTopic.Id, partitioncount.JobName)
 	groupOwner, err = common.NewConsumerGroupOwner(schedulesTopic.SystemId, schedulesTopic.Id, partitionCountGroup, partitioncount.JobName)
 	must(err)
-	workers, err := workercontroller.NewWorkerController(ds, nil)
+	workers, err := workercontroller.NewWorkerController(ds, ds.Logger)
 	must(err)
 	row, err := workers.GetWorker(ctx, partitioncount.JobName, groupOwner)
 	must(err)
@@ -240,10 +240,10 @@ func classifySection(ctx context.Context) {
 	must(err)
 	instance, err := alertProducer.Register[alert.Alert](ctx, alert.TopicName, nil)
 	must(err)
-	heads, err := compactioncontroller.NewCompactionController(ds, nil)
+	heads, err := compactioncontroller.NewCompactionController(ds, ds.Logger)
 	must(err)
 	capture := newCaptureLogger()
-	alerts, err := alertcontroller.NewAlertController(ctx, instance, heads, classifyRepeat, &alertcontroller.ControllerConfig{Logger: capture})
+	alerts, err := alertcontroller.NewAlertController(ctx, instance, heads, classifyRepeat, capture)
 	must(err)
 
 	key, err := alert.MessageKey(labCheckName, labTopicOwner)
@@ -490,11 +490,9 @@ func isolationSection(ctx context.Context) {
 // startExecutor claims the partition_count worker row and runs its execution
 // until the returned stop is called.
 func startExecutor(ctx context.Context) func() {
-	provisioner, err := partitioncount.NewPartitionCountProvisioner(ds, &partitioncount.PartitionCountConfig{
-		Logger: executorCapture,
-	})
+	provisioner, err := partitioncount.NewPartitionCountProvisioner(ds, nil, executorCapture)
 	must(err)
-	workers, err := workercontroller.NewWorkerController(ds, nil)
+	workers, err := workercontroller.NewWorkerController(ds, ds.Logger)
 	must(err)
 	row, err := workers.GetWorker(ctx, partitioncount.JobName, groupOwner)
 	must(err)
@@ -530,7 +528,7 @@ func startExecutor(ctx context.Context) func() {
 // registerGroup creates a consumer group on the schedules topic, bound to
 // the given job names (none = bindingless), and returns its id.
 func registerGroup(ctx context.Context, name string, bindings ...string) int64 {
-	controller, err := consumecontroller.NewConsumeController(ds, nil)
+	controller, err := consumecontroller.NewConsumeController(ds, ds.Logger)
 	must(err)
 	group, err := controller.RegisterGroup(ctx, schedulesTopic.Id, name, consume.Beginning())
 	must(err)

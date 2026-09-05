@@ -50,24 +50,15 @@ func (s *Scheduler) Register[Message common.Versioned](ctx context.Context, name
 		return nil, err
 	}
 
-	systemController, err := systemcontroller.NewSystemController(s.ds, &systemcontroller.ControllerConfig{
-		Logger: s.ds.Logger,
-		Retry:  s.ds.Retry,
-	})
+	systemController, err := systemcontroller.NewSystemController(s.ds, s.ds.Logger)
 	if err != nil {
 		return nil, err
 	}
-	topicController, err := topiccontroller.NewTopicController(s.ds, &topiccontroller.ControllerConfig{
-		Logger: s.ds.Logger,
-		Retry:  s.ds.Retry,
-	})
+	topicController, err := topiccontroller.NewTopicController(s.ds, s.ds.Logger)
 	if err != nil {
 		return nil, err
 	}
-	scheduleController, err := schedulecontroller.NewScheduleController(s.ds, &schedulecontroller.ControllerConfig{
-		Logger: s.ds.Logger,
-		Retry:  s.ds.Retry,
-	})
+	scheduleController, err := schedulecontroller.NewScheduleController(s.ds, s.ds.Logger)
 	if err != nil {
 		return nil, err
 	}

@@ -42,9 +42,8 @@ func newScheduleProducerInstance(scheduleProducer *ScheduleProducerProvisioner, 
 	runner, err := controller.NewInstanceTickRunner(scheduleProducer.workers, claimed, metadata.PollRate, &controller.InstanceTickRunnerConfig{
 		InstanceTTL:    scheduleProducer.Config.InstanceTTL,
 		JitterFraction: scheduleProducer.Config.JitterFraction,
-		Logger:         logger,
 		TickRetry:      scheduleProducer.Config.ScanRetry,
-	})
+	}, logger)
 	if err != nil {
 		return nil, err
 	}

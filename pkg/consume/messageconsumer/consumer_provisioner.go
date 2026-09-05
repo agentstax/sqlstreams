@@ -11,6 +11,9 @@ package messageconsumer
 
 import (
 	"context"
+	"errors"
+
+	"github.com/agentstax/vulkan/pkg/common/logging"
 
 	"github.com/agentstax/vulkan/pkg/common"
 	consumebase "github.com/agentstax/vulkan/pkg/consume/base"
@@ -36,7 +39,7 @@ type MessageConsumerProvisioner[Message common.Versioned] struct {
 // assembled consumer -- see the package doc.
 // cfg may be nil or a sparse struct -- WithDefaults fills every field left
 // unset, Validate rejects what's out of range.
-func NewMessageConsumerProvisioner[Message common.Versioned](ds *datastore.PostgresDatastore, consumerFunc func(ctx context.Context, message *Message) error, schemaVersion int, metrics *metricsproducer.MetricsProducer, cfg *MessageConsumerConfig) (*MessageConsumerProvisioner[Message], error) {
+func NewMessageConsumerProvisioner[Message common.Versioned](ds *datastore.PostgresDatastore, consumerFunc func(ctx context.Context, message *Message) error, schemaVersion int, metrics *metricsproducer.MetricsProducer, cfg *MessageConsumerConfig, logger logging.Logger) (*MessageConsumerProvisioner[Message], error) {
 	if cfg == nil {
 		cfg = &MessageConsumerConfig{}
 	}
@@ -44,19 +47,19 @@ func NewMessageConsumerProvisioner[Message common.Versioned](ds *datastore.Postg
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
+	}
 
 	definition, err := worker.NewDefinition(WorkerMessageConsumer, common.OwnerConsumerGroup, worker.NoInstanceTarget, toMessageConsumerMetadata(cfg))
 	if err != nil {
 		return nil, err
 	}
-	baseProvisioner, err := consumebase.NewBaseProvisioner(ds, definition, consumerFunc, schemaVersion, metrics, &consumebase.BaseProvisionerConfig{Logger: cfg.Logger, Retry: cfg.Retry})
+	baseProvisioner, err := consumebase.NewBaseProvisioner(ds, definition, consumerFunc, schemaVersion, metrics, logger)
 	if err != nil {
 		return nil, err
 	}
-	consumers, err := controller.NewMessageConsumerGroupController(ds, &controller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	consumers, err := controller.NewMessageConsumerGroupController(ds, logger)
 	if err != nil {
 		return nil, err
 	}

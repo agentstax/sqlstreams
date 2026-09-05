@@ -39,8 +39,7 @@ func newPartitionCountInstance(provisioner *PartitionCountProvisioner, owner *co
 
 	runner, err := workercontroller.NewInstanceRunner(provisioner.workers, claimed, &workercontroller.InstanceRunnerConfig{
 		InstanceTTL: provisioner.Config.InstanceTTL,
-		Logger:      logging.NewPipelineLogger(provisioner.Logger, &logging.PipelineLoggerConfig{Args: []any{"worker", JobName, "group", owner.Name}}),
-	})
+	}, logging.NewPipelineLogger(provisioner.Logger, &logging.PipelineLoggerConfig{Args: []any{"worker", JobName, "group", owner.Name}}))
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +67,7 @@ func (i *PartitionCountInstance) consume(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	alerts, err := alertcontroller.NewAlertController(ctx, registered, i.provisioner.alertHeads, i.repeatInterval, &alertcontroller.ControllerConfig{Logger: i.Logger})
+	alerts, err := alertcontroller.NewAlertController(ctx, registered, i.provisioner.alertHeads, i.repeatInterval, i.Logger)
 	if err != nil {
 		return err
 	}

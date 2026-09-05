@@ -84,7 +84,7 @@ func run() (err error) {
 
 	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
-	janitorDatastore, err := janitordatastore.NewJanitorDatastore(ds, nil)
+	janitorDatastore, err := janitordatastore.NewJanitorDatastore(ds, ds.Logger)
 	must(err)
 
 	step("publish 4 'old' messages, then let them age past ttl")

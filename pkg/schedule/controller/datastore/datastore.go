@@ -14,21 +14,15 @@ type ScheduleDatastore struct {
 	Logger         logging.Logger
 }
 
-// cfg may be nil or a sparse struct -- WithDefaults fills every field left
-// unset, Validate rejects what's out of range.
-func NewScheduleDatastore(ds *datastore.PostgresDatastore, cfg *ScheduleDatastoreConfig) (*ScheduleDatastore, error) {
+func NewScheduleDatastore(ds *datastore.PostgresDatastore, logger logging.Logger) (*ScheduleDatastore, error) {
 	if ds == nil {
 		return nil, errors.New("datastore must not be nil")
 	}
-	if cfg == nil {
-		cfg = &ScheduleDatastoreConfig{}
-	}
-	cfg.WithDefaults()
-	if err := cfg.Validate(); err != nil {
-		return nil, err
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
 	}
 
-	datastoreRetry, err := common.NewRetryDatastore(cfg.Retry, cfg.Logger)
+	datastoreRetry, err := common.NewRetryDatastore(ds.Retry, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -36,6 +30,6 @@ func NewScheduleDatastore(ds *datastore.PostgresDatastore, cfg *ScheduleDatastor
 	return &ScheduleDatastore{
 		Datastore:      ds,
 		DatastoreRetry: datastoreRetry,
-		Logger:         cfg.Logger,
+		Logger:         logger,
 	}, nil
 }

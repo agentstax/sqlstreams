@@ -45,10 +45,7 @@ func newSchedulerInstance[Message common.Versioned](registered *schedule.Schedul
 // run` does; the schedule producer worker produces every registered
 // schedule, not just this one. A requested stop returns nil.
 func (i *SchedulerInstance[Message]) Schedule(ctx context.Context) error {
-	systemManager, err := systemmanager.NewSystemManager(i.ds, &systemmanager.SystemManagerConfig{
-		Logger: i.ds.Logger,
-		Retry:  i.ds.Retry,
-	})
+	systemManager, err := systemmanager.NewSystemManager(i.ds, nil)
 	if err != nil {
 		return err
 	}

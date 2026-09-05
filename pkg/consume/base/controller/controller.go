@@ -14,30 +14,21 @@ type KeyLeaseController struct {
 	datastore *datastore.KeyLeaseDatastore
 }
 
-// cfg may be nil or a sparse struct -- WithDefaults fills every field left
-// unset, Validate rejects what's out of range.
-func NewKeyLeaseController(ds *iDatastore.PostgresDatastore, cfg *ControllerConfig) (*KeyLeaseController, error) {
+func NewKeyLeaseController(ds *iDatastore.PostgresDatastore, logger logging.Logger) (*KeyLeaseController, error) {
 	if ds == nil {
 		return nil, errors.New("datastore must not be nil")
 	}
-	if cfg == nil {
-		cfg = &ControllerConfig{}
-	}
-	cfg.WithDefaults()
-	if err := cfg.Validate(); err != nil {
-		return nil, err
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
 	}
 
-	keyLeaseDatastore, err := datastore.NewKeyLeaseDatastore(ds, &datastore.KeyLeaseDatastoreConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	keyLeaseDatastore, err := datastore.NewKeyLeaseDatastore(ds, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	return &KeyLeaseController{
-		Logger:    cfg.Logger,
+		Logger:    logger,
 		datastore: keyLeaseDatastore,
 	}, nil
 }

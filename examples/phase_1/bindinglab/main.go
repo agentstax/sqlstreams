@@ -203,7 +203,7 @@ func run() (err error) {
 		groupId)
 	must(err)
 
-	sweepController, err := consumejanitorcontroller.NewJanitorController(ds, nil)
+	sweepController, err := consumejanitorcontroller.NewJanitorController(ds, ds.Logger)
 	must(err)
 	swept, err := sweepController.SweepExpiredWaitingDeclarations(ctx, 7*24*time.Hour, 1000)
 	must(err)

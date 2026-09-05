@@ -17,30 +17,21 @@ type CompactionController struct {
 	datastore *datastore.CompactionDatastore
 }
 
-// cfg may be nil or a sparse struct -- WithDefaults fills every field left
-// unset, Validate rejects what's out of range.
-func NewCompactionController(ds *iDatastore.PostgresDatastore, cfg *ControllerConfig) (*CompactionController, error) {
+func NewCompactionController(ds *iDatastore.PostgresDatastore, logger logging.Logger) (*CompactionController, error) {
 	if ds == nil {
 		return nil, errors.New("datastore must not be nil")
 	}
-	if cfg == nil {
-		cfg = &ControllerConfig{}
-	}
-	cfg.WithDefaults()
-	if err := cfg.Validate(); err != nil {
-		return nil, err
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
 	}
 
-	compactionDatastore, err := datastore.NewCompactionDatastore(ds, &datastore.CompactionDatastoreConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	compactionDatastore, err := datastore.NewCompactionDatastore(ds, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	return &CompactionController{
-		Logger:    cfg.Logger,
+		Logger:    logger,
 		datastore: compactionDatastore,
 	}, nil
 }

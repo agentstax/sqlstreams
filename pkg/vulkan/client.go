@@ -55,11 +55,7 @@ func NewClient(ctx context.Context, pool *pgxpool.Pool, cfg *ClientConfig) (*Cli
 		return nil, err
 	}
 
-	messageAdmin, err := admin.NewMessageAdmin(ds, &admin.MessageAdminConfig{
-		AllowDestroy: cfg.AllowDestroy,
-		Logger:       ds.Logger,
-		Retry:        ds.Retry,
-	})
+	messageAdmin, err := admin.NewMessageAdmin(ds, &admin.MessageAdminConfig{AllowDestroy: cfg.AllowDestroy})
 	if err != nil {
 		return nil, err
 	}
@@ -77,10 +73,7 @@ func NewClient(ctx context.Context, pool *pgxpool.Pool, cfg *ClientConfig) (*Cli
 		return nil, err
 	}
 
-	systemManager, err := systemmanager.NewSystemManager(ds, &systemmanager.SystemManagerConfig{
-		Logger: ds.Logger,
-		Retry:  ds.Retry,
-	})
+	systemManager, err := systemmanager.NewSystemManager(ds, nil)
 	if err != nil {
 		return nil, err
 	}

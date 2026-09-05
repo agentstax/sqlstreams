@@ -14,21 +14,15 @@ type PartitionCountDatastore struct {
 	Logger         logging.Logger
 }
 
-// cfg may be nil or a sparse struct -- WithDefaults fills every field left
-// unset, Validate rejects what's out of range.
-func NewPartitionCountDatastore(ds *datastore.PostgresDatastore, cfg *PartitionCountDatastoreConfig) (*PartitionCountDatastore, error) {
+func NewPartitionCountDatastore(ds *datastore.PostgresDatastore, logger logging.Logger) (*PartitionCountDatastore, error) {
 	if ds == nil {
 		return nil, errors.New("datastore must not be nil")
 	}
-	if cfg == nil {
-		cfg = &PartitionCountDatastoreConfig{}
-	}
-	cfg.WithDefaults()
-	if err := cfg.Validate(); err != nil {
-		return nil, err
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
 	}
 
-	datastoreRetry, err := common.NewRetryDatastore(cfg.Retry, cfg.Logger)
+	datastoreRetry, err := common.NewRetryDatastore(ds.Retry, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -36,6 +30,6 @@ func NewPartitionCountDatastore(ds *datastore.PostgresDatastore, cfg *PartitionC
 	return &PartitionCountDatastore{
 		Datastore:      ds,
 		DatastoreRetry: datastoreRetry,
-		Logger:         cfg.Logger,
+		Logger:         logger,
 	}, nil
 }

@@ -59,25 +59,19 @@ func NewMetrics(ds *iDatastore.PostgresDatastore, cfg *MetricsConfig) (*Metrics,
 		return nil, err
 	}
 
-	topics, err := topiccontroller.NewTopicController(ds, &topiccontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	topics, err := topiccontroller.NewTopicController(ds, ds.Logger)
 	if err != nil {
 		return nil, err
 	}
 
-	heads, err := compactioncontroller.NewCompactionController(ds, &compactioncontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	heads, err := compactioncontroller.NewCompactionController(ds, ds.Logger)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Metrics{
 		Config:      cfg,
-		Logger:      cfg.Logger,
+		Logger:      ds.Logger,
 		topics:      topics,
 		heads:       heads,
 		meter:       cfg.Meter,

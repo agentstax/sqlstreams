@@ -72,7 +72,7 @@ func run() (err error) {
 	ds := client.Datastore()
 	must(client.System().Register(ctx, nil))
 
-	controller, err := migratecontroller.NewController(ds, &migratecontroller.ControllerConfig{Logger: logging.NewDefaultLogger(os.Stderr, slog.LevelError)})
+	controller, err := migratecontroller.NewController(ds, logging.NewDefaultLogger(os.Stderr, slog.LevelError))
 	must(err)
 	reg := fixture()
 

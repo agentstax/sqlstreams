@@ -2,11 +2,9 @@ package manager
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
 )
 
 type ManagerConfig struct {
@@ -21,9 +19,7 @@ type ManagerConfig struct {
 	// Default: 0.1. Must be < 1.
 	JitterFraction float64
 
-	Logger       logging.Logger      // pass your own *slog.Logger or anything satisfying logging.Logger. Default: text lines to stderr, warn level and up.
-	Retry        *common.RetryPolicy // transient-error retry policy for the worker datastore's own Postgres calls. Default: common.NewDefaultRetryPolicy().
-	RefreshRetry *common.RetryPolicy // failed-refresh backoff curve, unrelated to Retry above. Default: common.NewDefaultRetryPolicy().
+	RefreshRetry *common.RetryPolicy // failed-refresh backoff curve. Default: common.NewDefaultRetryPolicy().
 }
 
 func (c *ManagerConfig) WithDefaults() *ManagerConfig {
@@ -33,11 +29,6 @@ func (c *ManagerConfig) WithDefaults() *ManagerConfig {
 	if c.JitterFraction == 0 {
 		c.JitterFraction = 0.1
 	}
-	if c.Logger == nil {
-		c.Logger = logging.NewDefaultLogger(os.Stderr)
-	}
-	c.Logger = logging.NewPipelineLogger(c.Logger, &logging.PipelineLoggerConfig{Buffer: true})
-	c.Retry = c.Retry.WithDefaults()
 	c.RefreshRetry = c.RefreshRetry.WithDefaults()
 	return c
 }
@@ -50,9 +41,6 @@ func (c *ManagerConfig) Validate() error {
 	}
 	if c.JitterFraction < 0 || c.JitterFraction >= 1 {
 		return fmt.Errorf("JitterFraction must be in [0, 1), got %v", c.JitterFraction)
-	}
-	if err := c.Retry.Validate(); err != nil {
-		return fmt.Errorf("Retry: %w", err)
 	}
 	if err := c.RefreshRetry.Validate(); err != nil {
 		return fmt.Errorf("RefreshRetry: %w", err)

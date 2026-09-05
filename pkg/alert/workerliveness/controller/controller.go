@@ -14,30 +14,21 @@ type WorkerLivenessController struct {
 	metrics *metricscontroller.MetricsController
 }
 
-// cfg may be nil or a sparse struct -- WithDefaults fills every field left
-// unset, Validate rejects what's out of range.
-func NewWorkerLivenessController(ds *iDatastore.PostgresDatastore, cfg *ControllerConfig) (*WorkerLivenessController, error) {
+func NewWorkerLivenessController(ds *iDatastore.PostgresDatastore, logger logging.Logger) (*WorkerLivenessController, error) {
 	if ds == nil {
 		return nil, errors.New("datastore must not be nil")
 	}
-	if cfg == nil {
-		cfg = &ControllerConfig{}
-	}
-	cfg.WithDefaults()
-	if err := cfg.Validate(); err != nil {
-		return nil, err
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
 	}
 
-	metricsController, err := metricscontroller.NewMetricsController(ds, &metricscontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	metricsController, err := metricscontroller.NewMetricsController(ds, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	return &WorkerLivenessController{
-		Logger:  cfg.Logger,
+		Logger:  logger,
 		metrics: metricsController,
 	}, nil
 }

@@ -91,7 +91,7 @@ func run() (err error) {
 		Message:            &iCommon.MessageOptions{Timeout: 300 * time.Millisecond},
 		TimeoutGrace:       50 * time.Millisecond,
 	}
-	consumerDatastore, err := consumecontroller.NewConsumeController(ds, nil)
+	consumerDatastore, err := consumecontroller.NewConsumeController(ds, ds.Logger)
 	must(err)
 	g, err := consumerDatastore.RegisterGroup(ctx, tp.Id, group, consume.Beginning())
 	must(err)
@@ -114,7 +114,7 @@ func run() (err error) {
 		return nil
 	}
 
-	definition, err := messageconsumer.NewMessageConsumerProvisioner(ds, consumerFunc, 1, abandonedEvents, cfg)
+	definition, err := messageconsumer.NewMessageConsumerProvisioner(ds, consumerFunc, 1, abandonedEvents, cfg, ds.Logger)
 	must(err)
 	must(definition.Declare(ctx, owner))
 
@@ -208,7 +208,7 @@ func seed(ctx context.Context, wpInstance *vulkan.ProducerInstance[common.Work],
 // no manager, so nothing respawns the execution and the lab sees exactly one
 // consuming life
 func runProcessUntil(ctx context.Context, ds *iDatastore.PostgresDatastore, provisioner worker.Provisioner, owner *iCommon.Owner, timeout time.Duration, done func() bool) {
-	workers, err := workercontroller.NewWorkerController(ds, nil)
+	workers, err := workercontroller.NewWorkerController(ds, ds.Logger)
 	must(err)
 	row, err := workers.GetWorker(ctx, provisioner.Definition().Name, owner)
 	must(err)

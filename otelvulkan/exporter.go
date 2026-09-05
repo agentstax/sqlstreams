@@ -52,8 +52,6 @@ func NewExporter(ds *iDatastore.PostgresDatastore, cfg *ExporterConfig) (*Export
 	exporterMetrics, err := NewMetrics(ds, &MetricsConfig{
 		Meter:          provider.Meter(meterScopeName),
 		CollectTimeout: cfg.CollectTimeout,
-		Logger:         cfg.Logger,
-		Retry:          cfg.Retry,
 	})
 	if err != nil {
 		return nil, err
@@ -61,7 +59,7 @@ func NewExporter(ds *iDatastore.PostgresDatastore, cfg *ExporterConfig) (*Export
 
 	return &Exporter{
 		Config:   cfg,
-		Logger:   cfg.Logger,
+		Logger:   ds.Logger,
 		metrics:  exporterMetrics,
 		provider: provider,
 		registry: registry,

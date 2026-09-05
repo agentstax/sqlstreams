@@ -84,7 +84,7 @@ func run() (err error) {
 	must(err)
 	ds := client.Datastore()
 
-	cd, err := consumecontroller.NewConsumeController(ds, nil)
+	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
 	must(err)
 
 	suffix := time.Now().UnixNano()
@@ -241,7 +241,7 @@ func destroySection(ctx context.Context, pool *pgxpool.Pool, client *vulkan.Clie
 
 	// a live worker instance -- what a running consumer heartbeats -- refuses
 	// the destroy; releasing it clears the guard
-	workers, err := workercontroller.NewWorkerController(ds, nil)
+	workers, err := workercontroller.NewWorkerController(ds, ds.Logger)
 	must(err)
 	groupOwner, err := common.NewConsumerGroupOwner(topicA.SystemId, topicA.Id, doomed.Id, doomedName)
 	must(err)

@@ -14,30 +14,21 @@ type DeliveryConsumerGroupController struct {
 	datastore *datastore.DeliveryConsumerGroupDatastore
 }
 
-// cfg may be nil or a sparse struct -- WithDefaults fills every field left
-// unset, Validate rejects what's out of range.
-func NewDeliveryConsumerGroupController(ds *iDatastore.PostgresDatastore, cfg *ControllerConfig) (*DeliveryConsumerGroupController, error) {
+func NewDeliveryConsumerGroupController(ds *iDatastore.PostgresDatastore, logger logging.Logger) (*DeliveryConsumerGroupController, error) {
 	if ds == nil {
 		return nil, errors.New("datastore must not be nil")
 	}
-	if cfg == nil {
-		cfg = &ControllerConfig{}
-	}
-	cfg.WithDefaults()
-	if err := cfg.Validate(); err != nil {
-		return nil, err
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
 	}
 
-	deliveryConsumerGroupDatastore, err := datastore.NewDeliveryConsumerGroupDatastore(ds, &datastore.DeliveryConsumerGroupDatastoreConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	deliveryConsumerGroupDatastore, err := datastore.NewDeliveryConsumerGroupDatastore(ds, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	return &DeliveryConsumerGroupController{
-		Logger:    cfg.Logger,
+		Logger:    logger,
 		datastore: deliveryConsumerGroupDatastore,
 	}, nil
 }

@@ -14,21 +14,15 @@ type MigrateDatastore struct {
 	Logger         logging.Logger
 }
 
-// cfg may be nil or a sparse struct -- WithDefaults fills every field left
-// unset, Validate rejects what's out of range.
-func NewMigrateDatastore(ds *datastore.PostgresDatastore, cfg *MigrateDatastoreConfig) (*MigrateDatastore, error) {
+func NewMigrateDatastore(ds *datastore.PostgresDatastore, logger logging.Logger) (*MigrateDatastore, error) {
 	if ds == nil {
 		return nil, errors.New("datastore must not be nil")
 	}
-	if cfg == nil {
-		cfg = &MigrateDatastoreConfig{}
-	}
-	cfg.WithDefaults()
-	if err := cfg.Validate(); err != nil {
-		return nil, err
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
 	}
 
-	datastoreRetry, err := common.NewRetryDatastore(cfg.Retry, cfg.Logger)
+	datastoreRetry, err := common.NewRetryDatastore(ds.Retry, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -36,6 +30,6 @@ func NewMigrateDatastore(ds *datastore.PostgresDatastore, cfg *MigrateDatastoreC
 	return &MigrateDatastore{
 		Datastore:      ds,
 		DatastoreRetry: datastoreRetry,
-		Logger:         cfg.Logger,
+		Logger:         logger,
 	}, nil
 }

@@ -52,67 +52,43 @@ func NewMessageAdmin(ds *datastore.PostgresDatastore, cfg *MessageAdminConfig) (
 		return nil, err
 	}
 
-	scheduleProducerProvisioner, err := scheduleproducer.NewScheduleProducerProvisioner(ds, &scheduleproducer.ScheduleProducerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	scheduleProducerProvisioner, err := scheduleproducer.NewScheduleProducerProvisioner(ds, nil, ds.Logger)
 	if err != nil {
 		return nil, err
 	}
 
-	topicJanitorProvisioner, err := topicjanitor.NewJanitorProvisioner(ds, &topicjanitor.JanitorConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	topicJanitorProvisioner, err := topicjanitor.NewJanitorProvisioner(ds, nil, ds.Logger)
 	if err != nil {
 		return nil, err
 	}
 
-	consumerGroupJanitorProvisioner, err := consumejanitor.NewJanitorProvisioner(ds, &consumejanitor.JanitorConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	consumerGroupJanitorProvisioner, err := consumejanitor.NewJanitorProvisioner(ds, nil, ds.Logger)
 	if err != nil {
 		return nil, err
 	}
 
-	metricsCollectorProvisioner, err := collector.NewMetricsCollectorProvisioner(ds, &collector.MetricsCollectorConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	metricsCollectorProvisioner, err := collector.NewMetricsCollectorProvisioner(ds, nil, ds.Logger)
 	if err != nil {
 		return nil, err
 	}
 
 	// a declarer here, never run -- admin creates manager rows, it doesn't claim them
-	managerProvisioner, err := manager.NewManagerProvisioner(ds, 1, &manager.ManagerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	}, topicJanitorProvisioner, scheduleProducerProvisioner, metricsCollectorProvisioner)
+	managerProvisioner, err := manager.NewManagerProvisioner(ds, 1, nil, ds.Logger, topicJanitorProvisioner, scheduleProducerProvisioner, metricsCollectorProvisioner)
 	if err != nil {
 		return nil, err
 	}
 
-	systemController, err := systemcontroller.NewSystemController(ds, &systemcontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	}, scheduleProducerProvisioner, metricsCollectorProvisioner, consumerGroupJanitorProvisioner, managerProvisioner)
+	systemController, err := systemcontroller.NewSystemController(ds, ds.Logger, scheduleProducerProvisioner, metricsCollectorProvisioner, consumerGroupJanitorProvisioner, managerProvisioner)
 	if err != nil {
 		return nil, err
 	}
 
-	topicController, err := topiccontroller.NewTopicController(ds, &topiccontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	}, topicJanitorProvisioner)
+	topicController, err := topiccontroller.NewTopicController(ds, ds.Logger, topicJanitorProvisioner)
 	if err != nil {
 		return nil, err
 	}
 
-	scheduleController, err := schedulecontroller.NewScheduleController(ds, &schedulecontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	scheduleController, err := schedulecontroller.NewScheduleController(ds, ds.Logger)
 	if err != nil {
 		return nil, err
 	}
@@ -122,67 +98,43 @@ func NewMessageAdmin(ds *datastore.PostgresDatastore, cfg *MessageAdminConfig) (
 		return nil, err
 	}
 
-	heads, err := compactioncontroller.NewCompactionController(ds, &compactioncontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	heads, err := compactioncontroller.NewCompactionController(ds, ds.Logger)
 	if err != nil {
 		return nil, err
 	}
 
-	consumerController, err := consumecontroller.NewConsumeController(ds, &consumecontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	consumerController, err := consumecontroller.NewConsumeController(ds, ds.Logger)
 	if err != nil {
 		return nil, err
 	}
 
-	metricsController, err := metricscontroller.NewMetricsController(ds, &metricscontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	metricsController, err := metricscontroller.NewMetricsController(ds, ds.Logger)
 	if err != nil {
 		return nil, err
 	}
 
-	workerController, err := workercontroller.NewWorkerController(ds, &workercontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	workerController, err := workercontroller.NewWorkerController(ds, ds.Logger)
 	if err != nil {
 		return nil, err
 	}
 
 	// declarers here, never run -- RegisterSystem creates the alerts' consumer
 	// groups and worker rows, the system manager claims them
-	partitionCountProvisioner, err := partitioncount.NewPartitionCountProvisioner(ds, &partitioncount.PartitionCountConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	partitionCountProvisioner, err := partitioncount.NewPartitionCountProvisioner(ds, nil, ds.Logger)
 	if err != nil {
 		return nil, err
 	}
-	compactionReadCostProvisioner, err := compactionreadcost.NewCompactionReadCostProvisioner(ds, &compactionreadcost.CompactionReadCostConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	compactionReadCostProvisioner, err := compactionreadcost.NewCompactionReadCostProvisioner(ds, nil, ds.Logger)
 	if err != nil {
 		return nil, err
 	}
 
-	workerLivenessProvisioner, err := workerliveness.NewWorkerLivenessProvisioner(ds, &workerliveness.WorkerLivenessConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	workerLivenessProvisioner, err := workerliveness.NewWorkerLivenessProvisioner(ds, nil, ds.Logger)
 	if err != nil {
 		return nil, err
 	}
 
-	migrateController, err := migratecontroller.NewController(ds, &migratecontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	migrateController, err := migratecontroller.NewController(ds, ds.Logger)
 	if err != nil {
 		return nil, err
 	}
@@ -193,8 +145,8 @@ func NewMessageAdmin(ds *datastore.PostgresDatastore, cfg *MessageAdminConfig) (
 	}
 
 	return &MessageAdmin{
-		Logger:             cfg.Logger,
-		Retry:              cfg.Retry,
+		Logger:             ds.Logger,
+		Retry:              ds.Retry,
 		systemController:   systemController,
 		topicController:    topicController,
 		scheduleController: scheduleController,

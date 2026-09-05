@@ -16,30 +16,21 @@ type CursorAdvancerController struct {
 	datastore *datastore.CursorAdvancerDatastore
 }
 
-// cfg may be nil or a sparse struct -- WithDefaults fills every field left
-// unset, Validate rejects what's out of range.
-func NewCursorAdvancerController(ds *iDatastore.PostgresDatastore, cfg *ControllerConfig) (*CursorAdvancerController, error) {
+func NewCursorAdvancerController(ds *iDatastore.PostgresDatastore, logger logging.Logger) (*CursorAdvancerController, error) {
 	if ds == nil {
 		return nil, errors.New("datastore must not be nil")
 	}
-	if cfg == nil {
-		cfg = &ControllerConfig{}
-	}
-	cfg.WithDefaults()
-	if err := cfg.Validate(); err != nil {
-		return nil, err
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
 	}
 
-	cursorAdvancerDatastore, err := datastore.NewCursorAdvancerDatastore(ds, &datastore.CursorAdvancerDatastoreConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	cursorAdvancerDatastore, err := datastore.NewCursorAdvancerDatastore(ds, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	return &CursorAdvancerController{
-		Logger:    cfg.Logger,
+		Logger:    logger,
 		datastore: cursorAdvancerDatastore,
 	}, nil
 }

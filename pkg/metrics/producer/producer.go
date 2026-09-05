@@ -59,15 +59,15 @@ func NewMetricsProducer(ds *datastore.PostgresDatastore, cfg *MetricsProducerCon
 	if ds == nil {
 		return nil, errors.New("datastore must not be nil")
 	}
-	if logger == nil {
-		return nil, errors.New("logger must not be nil")
-	}
 	if cfg == nil {
 		cfg = &MetricsProducerConfig{}
 	}
 	cfg.WithDefaults()
 	if err := cfg.Validate(); err != nil {
 		return nil, err
+	}
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
 	}
 
 	p, err := iProducer.NewProducer(ds)

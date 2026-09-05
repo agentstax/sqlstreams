@@ -35,9 +35,8 @@ func newJanitorInstance(provisioner *JanitorProvisioner, owner *common.Owner, cl
 	runner, err := controller.NewInstanceTickRunner(provisioner.workers, claimed, metadata.PollRate, &controller.InstanceTickRunnerConfig{
 		InstanceTTL:    provisioner.Config.InstanceTTL,
 		JitterFraction: provisioner.Config.JitterFraction,
-		Logger:         logger,
 		TickRetry:      provisioner.Config.SweepRetry,
-	})
+	}, logger)
 	if err != nil {
 		return nil, err
 	}

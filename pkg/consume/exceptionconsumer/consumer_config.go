@@ -2,11 +2,9 @@ package exceptionconsumer
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
 )
 
 // ExceptionConsumerConfig is the slice of the group's consumer config this
@@ -30,9 +28,6 @@ type ExceptionConsumerConfig struct {
 	MessageMin          *common.MessageOptions
 	MessageMax          *common.MessageOptions
 	ConcurrencyOverride common.ConcurrencyPolicy
-
-	Logger logging.Logger
-	Retry  *common.RetryPolicy // transient-error retry policy for this worker's own Postgres calls
 }
 
 func (c *ExceptionConsumerConfig) WithDefaults() *ExceptionConsumerConfig {
@@ -65,11 +60,6 @@ func (c *ExceptionConsumerConfig) WithDefaults() *ExceptionConsumerConfig {
 	bounds.Concurrency = ""
 	c.MessageMax = c.MessageMax.Fill(&bounds)
 
-	c.Retry = c.Retry.WithDefaults()
-	if c.Logger == nil {
-		c.Logger = logging.NewDefaultLogger(os.Stderr)
-	}
-	c.Logger = logging.NewPipelineLogger(c.Logger, &logging.PipelineLoggerConfig{Buffer: true})
 	return c
 }
 
@@ -105,9 +95,6 @@ func (c *ExceptionConsumerConfig) Validate() error {
 	}
 	if err := c.MessageMax.Validate(); err != nil {
 		return fmt.Errorf("MessageMax: %w", err)
-	}
-	if err := c.Retry.Validate(); err != nil {
-		return fmt.Errorf("Retry: %w", err)
 	}
 	return nil
 }

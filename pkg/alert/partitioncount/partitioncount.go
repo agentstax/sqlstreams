@@ -36,7 +36,7 @@ type PartitionCountProvisioner struct {
 
 // cfg may be nil or a sparse struct -- WithDefaults fills every field left
 // unset, Validate rejects what's out of range.
-func NewPartitionCountProvisioner(ds *iDatastore.PostgresDatastore, cfg *PartitionCountConfig) (*PartitionCountProvisioner, error) {
+func NewPartitionCountProvisioner(ds *iDatastore.PostgresDatastore, cfg *PartitionCountConfig, logger logging.Logger) (*PartitionCountProvisioner, error) {
 	if ds == nil {
 		return nil, errors.New("datastore must not be nil")
 	}
@@ -47,35 +47,26 @@ func NewPartitionCountProvisioner(ds *iDatastore.PostgresDatastore, cfg *Partiti
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
+	}
 
-	workers, err := workercontroller.NewWorkerController(ds, &workercontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	workers, err := workercontroller.NewWorkerController(ds, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	topics, err := topiccontroller.NewTopicController(ds, &topiccontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	topics, err := topiccontroller.NewTopicController(ds, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	consumers, err := consumecontroller.NewConsumeController(ds, &consumecontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	consumers, err := consumecontroller.NewConsumeController(ds, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	partitionCountController, err := controller.NewPartitionCountController(ds, &controller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	partitionCountController, err := controller.NewPartitionCountController(ds, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -85,10 +76,7 @@ func NewPartitionCountProvisioner(ds *iDatastore.PostgresDatastore, cfg *Partiti
 		return nil, err
 	}
 
-	alertHeads, err := compactioncontroller.NewCompactionController(ds, &compactioncontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	alertHeads, err := compactioncontroller.NewCompactionController(ds, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +93,7 @@ func NewPartitionCountProvisioner(ds *iDatastore.PostgresDatastore, cfg *Partiti
 
 	return &PartitionCountProvisioner{
 		Config:           cfg,
-		Logger:           cfg.Logger,
+		Logger:           logger,
 		ds:               ds,
 		workers:          workers,
 		topics:           topics,

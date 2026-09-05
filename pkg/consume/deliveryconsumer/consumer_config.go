@@ -3,7 +3,6 @@ package deliveryconsumer
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/agentstax/vulkan/pkg/common"
@@ -30,9 +29,6 @@ type DeliveryConsumerConfig struct {
 	MessageMin          *common.MessageOptions
 	MessageMax          *common.MessageOptions
 	ConcurrencyOverride common.ConcurrencyPolicy
-
-	Logger logging.Logger
-	Retry  *common.RetryPolicy // transient-error retry policy for this worker's own Postgres calls
 }
 
 func (c *DeliveryConsumerConfig) WithDefaults() *DeliveryConsumerConfig {
@@ -58,11 +54,6 @@ func (c *DeliveryConsumerConfig) WithDefaults() *DeliveryConsumerConfig {
 	bounds.Concurrency = ""
 	c.MessageMax = c.MessageMax.Fill(&bounds)
 
-	c.Retry = c.Retry.WithDefaults()
-	if c.Logger == nil {
-		c.Logger = logging.NewDefaultLogger(os.Stderr)
-	}
-	c.Logger = logging.NewPipelineLogger(c.Logger, &logging.PipelineLoggerConfig{Buffer: true})
 	return c
 }
 
@@ -93,9 +84,6 @@ func (c *DeliveryConsumerConfig) Validate() error {
 	if err := c.MessageMax.Validate(); err != nil {
 		return fmt.Errorf("MessageMax: %w", err)
 	}
-	if err := c.Retry.Validate(); err != nil {
-		return fmt.Errorf("Retry: %w", err)
-	}
 	return nil
 }
 
@@ -107,7 +95,7 @@ func (c *DeliveryConsumerConfig) resolveMessageOptions(requested *common.Message
 // options clamped. The stored options are whatever declared the group last, so
 // the clamp is what keeps this process inside the MessageMin/MessageMax its own
 // code sets.
-func (c *DeliveryConsumerConfig) withMetadata(ctx context.Context, metadata *deliveryConsumerMetadata) *DeliveryConsumerConfig {
+func (c *DeliveryConsumerConfig) withMetadata(ctx context.Context, metadata *deliveryConsumerMetadata, logger logging.Logger) *DeliveryConsumerConfig {
 	applied := *c
 	applied.ClaimPollRate = metadata.ClaimPollRate
 	applied.ConcurrencyOverride = metadata.ConcurrencyOverride
@@ -115,7 +103,7 @@ func (c *DeliveryConsumerConfig) withMetadata(ctx context.Context, metadata *del
 	message := metadata.Message
 	applied.Message = message.Clamp(c.MessageMin, c.MessageMax)
 	if !applied.Message.Equal(&message) {
-		c.Logger.WarnContext(ctx, consume.EventStoredOptionsClamped.Message, "code", consume.EventStoredOptionsClamped.Code, "stored", message, "clamped", applied.Message)
+		logger.WarnContext(ctx, consume.EventStoredOptionsClamped.Message, "code", consume.EventStoredOptionsClamped.Code, "stored", message, "clamped", applied.Message)
 	}
 	return &applied
 }

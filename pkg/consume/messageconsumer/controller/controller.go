@@ -14,30 +14,21 @@ type MessageConsumerGroupController struct {
 	datastore *datastore.MessageConsumerGroupDatastore
 }
 
-// cfg may be nil or a sparse struct -- WithDefaults fills every field left
-// unset, Validate rejects what's out of range.
-func NewMessageConsumerGroupController(ds *iDatastore.PostgresDatastore, cfg *ControllerConfig) (*MessageConsumerGroupController, error) {
+func NewMessageConsumerGroupController(ds *iDatastore.PostgresDatastore, logger logging.Logger) (*MessageConsumerGroupController, error) {
 	if ds == nil {
 		return nil, errors.New("datastore must not be nil")
 	}
-	if cfg == nil {
-		cfg = &ControllerConfig{}
-	}
-	cfg.WithDefaults()
-	if err := cfg.Validate(); err != nil {
-		return nil, err
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
 	}
 
-	messageConsumerGroupDatastore, err := datastore.NewMessageConsumerGroupDatastore(ds, &datastore.MessageConsumerGroupDatastoreConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	messageConsumerGroupDatastore, err := datastore.NewMessageConsumerGroupDatastore(ds, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	return &MessageConsumerGroupController{
-		Logger:    cfg.Logger,
+		Logger:    logger,
 		datastore: messageConsumerGroupDatastore,
 	}, nil
 }

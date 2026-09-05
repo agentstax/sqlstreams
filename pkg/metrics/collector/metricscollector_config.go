@@ -2,11 +2,9 @@ package collector
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
 )
 
 type MetricsCollectorConfig struct {
@@ -28,9 +26,7 @@ type MetricsCollectorConfig struct {
 	// Default: 4.
 	TopicConcurrency int
 
-	Logger       logging.Logger      // pass your own *slog.Logger or anything satisfying logging.Logger. Default: text lines to stderr, warn level and up.
-	Retry        *common.RetryPolicy // transient-error retry policy for the collector's own Postgres calls. Default: common.NewDefaultRetryPolicy().
-	CollectRetry *common.RetryPolicy // failed-collection backoff curve, unrelated to Retry above. Default: common.NewDefaultRetryPolicy().
+	CollectRetry *common.RetryPolicy // failed-collection backoff curve. Default: common.NewDefaultRetryPolicy().
 }
 
 func (c *MetricsCollectorConfig) WithDefaults() *MetricsCollectorConfig {
@@ -43,11 +39,6 @@ func (c *MetricsCollectorConfig) WithDefaults() *MetricsCollectorConfig {
 	if c.TopicConcurrency == 0 {
 		c.TopicConcurrency = 4
 	}
-	if c.Logger == nil {
-		c.Logger = logging.NewDefaultLogger(os.Stderr)
-	}
-	c.Logger = logging.NewPipelineLogger(c.Logger, &logging.PipelineLoggerConfig{Buffer: true})
-	c.Retry = c.Retry.WithDefaults()
 	c.CollectRetry = c.CollectRetry.WithDefaults()
 	return c
 }
@@ -63,9 +54,6 @@ func (c *MetricsCollectorConfig) Validate() error {
 	}
 	if c.TopicConcurrency < 1 {
 		return fmt.Errorf("TopicConcurrency must be >= 1, got %d", c.TopicConcurrency)
-	}
-	if err := c.Retry.Validate(); err != nil {
-		return fmt.Errorf("Retry: %w", err)
 	}
 	if err := c.CollectRetry.Validate(); err != nil {
 		return fmt.Errorf("CollectRetry: %w", err)

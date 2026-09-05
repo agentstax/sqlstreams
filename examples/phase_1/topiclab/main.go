@@ -102,13 +102,13 @@ func run() (err error) {
 		}
 	}()
 
-	cd, err := consumecontroller.NewConsumeController(ds, nil)
+	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
 	must(err)
-	messageConsumers, err := messageconsumercontroller.NewMessageConsumerGroupController(ds, nil)
+	messageConsumers, err := messageconsumercontroller.NewMessageConsumerGroupController(ds, ds.Logger)
 	must(err)
-	janitorDatastore, err := janitordatastore.NewJanitorDatastore(ds, nil)
+	janitorDatastore, err := janitordatastore.NewJanitorDatastore(ds, ds.Logger)
 	must(err)
-	cursorAdvancerDatastore, err := cursoradvancerdatastore.NewCursorAdvancerDatastore(ds, nil)
+	cursorAdvancerDatastore, err := cursoradvancerdatastore.NewCursorAdvancerDatastore(ds, ds.Logger)
 	must(err)
 
 	// ===== PROOF 1: independent physical tables, independent dense id sequences =====

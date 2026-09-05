@@ -14,30 +14,21 @@ type ProduceController struct {
 	datastore *datastore.ProduceDatastore
 }
 
-// cfg may be nil or a sparse struct -- WithDefaults fills every field left
-// unset, Validate rejects what's out of range.
-func NewProduceController(ds *iDatastore.PostgresDatastore, cfg *ControllerConfig) (*ProduceController, error) {
+func NewProduceController(ds *iDatastore.PostgresDatastore, logger logging.Logger) (*ProduceController, error) {
 	if ds == nil {
 		return nil, errors.New("datastore must not be nil")
 	}
-	if cfg == nil {
-		cfg = &ControllerConfig{}
-	}
-	cfg.WithDefaults()
-	if err := cfg.Validate(); err != nil {
-		return nil, err
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
 	}
 
-	produceDatastore, err := datastore.NewProduceDatastore(ds, &datastore.ProduceDatastoreConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	produceDatastore, err := datastore.NewProduceDatastore(ds, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	return &ProduceController{
-		Logger:    cfg.Logger,
+		Logger:    logger,
 		datastore: produceDatastore,
 	}, nil
 }

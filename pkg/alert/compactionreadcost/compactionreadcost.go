@@ -36,7 +36,7 @@ type CompactionReadCostProvisioner struct {
 
 // cfg may be nil or a sparse struct -- WithDefaults fills every field left
 // unset, Validate rejects what's out of range.
-func NewCompactionReadCostProvisioner(ds *iDatastore.PostgresDatastore, cfg *CompactionReadCostConfig) (*CompactionReadCostProvisioner, error) {
+func NewCompactionReadCostProvisioner(ds *iDatastore.PostgresDatastore, cfg *CompactionReadCostConfig, logger logging.Logger) (*CompactionReadCostProvisioner, error) {
 	if ds == nil {
 		return nil, errors.New("datastore must not be nil")
 	}
@@ -47,35 +47,26 @@ func NewCompactionReadCostProvisioner(ds *iDatastore.PostgresDatastore, cfg *Com
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
+	}
 
-	workers, err := workercontroller.NewWorkerController(ds, &workercontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	workers, err := workercontroller.NewWorkerController(ds, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	topics, err := topiccontroller.NewTopicController(ds, &topiccontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	topics, err := topiccontroller.NewTopicController(ds, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	consumers, err := consumecontroller.NewConsumeController(ds, &consumecontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	consumers, err := consumecontroller.NewConsumeController(ds, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	compactionReadCostController, err := controller.NewCompactionReadCostController(ds, &controller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	compactionReadCostController, err := controller.NewCompactionReadCostController(ds, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -85,10 +76,7 @@ func NewCompactionReadCostProvisioner(ds *iDatastore.PostgresDatastore, cfg *Com
 		return nil, err
 	}
 
-	alertHeads, err := compactioncontroller.NewCompactionController(ds, &compactioncontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	alertHeads, err := compactioncontroller.NewCompactionController(ds, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +93,7 @@ func NewCompactionReadCostProvisioner(ds *iDatastore.PostgresDatastore, cfg *Com
 
 	return &CompactionReadCostProvisioner{
 		Config:           cfg,
-		Logger:           cfg.Logger,
+		Logger:           logger,
 		ds:               ds,
 		workers:          workers,
 		topics:           topics,

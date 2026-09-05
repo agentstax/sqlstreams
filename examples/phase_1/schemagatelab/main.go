@@ -78,7 +78,7 @@ func run() (err error) {
 	_, err = client.Topic[event](siblingName).Register(ctx, nil)
 	must(err)
 
-	controller, err := migratecontroller.NewController(ds, nil)
+	controller, err := migratecontroller.NewController(ds, ds.Logger)
 	must(err)
 	sysOwner, err := controller.SystemOwner(ctx)
 	must(err)

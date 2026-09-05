@@ -46,38 +46,23 @@ func (p *Producer) Register[Message common.Versioned](ctx context.Context, topic
 	}
 	logger := logging.NewPipelineLogger(p.ds.Logger, &logging.PipelineLoggerConfig{Buffer: true, Suppress: true})
 
-	produceController, err := controller.NewProduceController(p.ds, &controller.ControllerConfig{
-		Logger: logger,
-		Retry:  p.ds.Retry,
-	})
+	produceController, err := controller.NewProduceController(p.ds, logger)
 	if err != nil {
 		return nil, err
 	}
-	topicController, err := topiccontroller.NewTopicController(p.ds, &topiccontroller.ControllerConfig{
-		Logger: logger,
-		Retry:  p.ds.Retry,
-	})
+	topicController, err := topiccontroller.NewTopicController(p.ds, logger)
 	if err != nil {
 		return nil, err
 	}
-	partitionCountController, err := partitioncountcontroller.NewPartitionCountController(p.ds, &partitioncountcontroller.ControllerConfig{
-		Logger: logger,
-		Retry:  p.ds.Retry,
-	})
+	partitionCountController, err := partitioncountcontroller.NewPartitionCountController(p.ds, logger)
 	if err != nil {
 		return nil, err
 	}
-	compactionReadCostController, err := compactionreadcostcontroller.NewCompactionReadCostController(p.ds, &compactionreadcostcontroller.ControllerConfig{
-		Logger: logger,
-		Retry:  p.ds.Retry,
-	})
+	compactionReadCostController, err := compactionreadcostcontroller.NewCompactionReadCostController(p.ds, logger)
 	if err != nil {
 		return nil, err
 	}
-	workerLivenessController, err := workerlivenesscontroller.NewWorkerLivenessController(p.ds, &workerlivenesscontroller.ControllerConfig{
-		Logger: logger,
-		Retry:  p.ds.Retry,
-	})
+	workerLivenessController, err := workerlivenesscontroller.NewWorkerLivenessController(p.ds, logger)
 	if err != nil {
 		return nil, err
 	}

@@ -152,7 +152,7 @@ func sweepKeepUpScenario(ctx context.Context, pool *pgxpool.Pool) {
 
 	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
-	janitorDatastore, err := janitordatastore.NewJanitorDatastore(ds, nil)
+	janitorDatastore, err := janitordatastore.NewJanitorDatastore(ds, ds.Logger)
 	must(err)
 
 	idkTable := fmt.Sprintf("%s.%s", ds.Schema, topic.IdempotencyKeyTable(tp.Id))

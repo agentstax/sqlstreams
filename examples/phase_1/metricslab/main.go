@@ -112,13 +112,13 @@ func run() (err error) {
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	consumerDatastore, err := consumecontroller.NewConsumeController(ds, nil)
+	consumerDatastore, err := consumecontroller.NewConsumeController(ds, ds.Logger)
 	must(err)
 	g, err := consumerDatastore.RegisterGroup(ctx, tp.Id, group, consumermessage.Beginning())
 	must(err)
 	owner, err := iCommon.NewConsumerGroupOwner(tp.SystemId, tp.Id, g.Id, g.Name)
 	must(err)
-	workers, err := workercontroller.NewWorkerController(ds, nil)
+	workers, err := workercontroller.NewWorkerController(ds, ds.Logger)
 	must(err)
 
 	step("two independent consumer processes claim the same group's cursor")
@@ -130,7 +130,7 @@ func run() (err error) {
 		must(err)
 		go func() { must(abandonedEvents.Run(runCtx, g.Name, tp.Name, 1, label)) }()
 
-		provisioner, err := messageconsumer.NewMessageConsumerProvisioner(ds, consumerFunc, 1, abandonedEvents, cfg)
+		provisioner, err := messageconsumer.NewMessageConsumerProvisioner(ds, consumerFunc, 1, abandonedEvents, cfg, ds.Logger)
 		must(err)
 		must(provisioner.Declare(runCtx, owner))
 

@@ -86,9 +86,9 @@ func run() (err error) {
 		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
 	}()
 
-	cd, err := consumecontroller.NewConsumeController(ds, nil)
+	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
 	must(err)
-	messageConsumers, err := messageconsumercontroller.NewMessageConsumerGroupController(ds, nil)
+	messageConsumers, err := messageconsumercontroller.NewMessageConsumerGroupController(ds, ds.Logger)
 	must(err)
 	wpInstance, err := client.Topic[RankedRecord](tp.Name).Producer().Register(ctx, nil)
 	must(err)

@@ -98,7 +98,7 @@ func run() (err error) {
 	ds := client.Datastore()
 
 	step("seed 6 topics x 2 groups x 5 messages -- more topics than TopicConcurrency")
-	consumers, err := consumecontroller.NewConsumeController(ds, nil)
+	consumers, err := consumecontroller.NewConsumeController(ds, ds.Logger)
 	must(err)
 
 	topicNames := make([]string, 0, topicCount)
@@ -156,14 +156,14 @@ func run() (err error) {
 	must(err)
 	systemOwner, err := iCommon.NewSystemOwner(system.Id)
 	must(err)
-	workers, err := workercontroller.NewWorkerController(ds, nil)
+	workers, err := workercontroller.NewWorkerController(ds, ds.Logger)
 	must(err)
 	row, err := workers.GetWorker(ctx, collector.WorkerMetricsCollector, systemOwner)
 	must(err)
 
 	provisioner, err := collector.NewMetricsCollectorProvisioner(ds, &collector.MetricsCollectorConfig{
 		TopicConcurrency: 4,
-	})
+	}, ds.Logger)
 	must(err)
 
 	// a crashed earlier run's claim lingers until its InstanceTTL expires --

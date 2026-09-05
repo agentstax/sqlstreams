@@ -36,15 +36,15 @@ func NewBatcher[Message common.Versioned](produceController *controller.ProduceC
 	if topicId <= 0 {
 		return nil, fmt.Errorf("topicId must be > 0, got %d", topicId)
 	}
-	if logger == nil {
-		return nil, errors.New("logger must not be nil")
-	}
 	if cfg == nil {
 		cfg = &BatcherConfig{}
 	}
 	cfg.WithDefaults()
 	if err := cfg.Validate(); err != nil {
 		return nil, err
+	}
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
 	}
 
 	return &Batcher[Message]{

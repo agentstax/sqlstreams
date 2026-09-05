@@ -71,38 +71,23 @@ func (c *Consumer) Register[Message common.Versioned](ctx context.Context, consu
 	}
 	logger := logging.NewPipelineLogger(c.ds.Logger, &logging.PipelineLoggerConfig{Buffer: true, Suppress: true})
 
-	topicController, err := topiccontroller.NewTopicController(c.ds, &topiccontroller.ControllerConfig{
-		Logger: logger,
-		Retry:  c.ds.Retry,
-	})
+	topicController, err := topiccontroller.NewTopicController(c.ds, logger)
 	if err != nil {
 		return nil, err
 	}
-	consumers, err := consumecontroller.NewConsumeController(c.ds, &consumecontroller.ControllerConfig{
-		Logger: logger,
-		Retry:  c.ds.Retry,
-	})
+	consumers, err := consumecontroller.NewConsumeController(c.ds, logger)
 	if err != nil {
 		return nil, err
 	}
-	workers, err := workercontroller.NewWorkerController(c.ds, &workercontroller.ControllerConfig{
-		Logger: logger,
-		Retry:  c.ds.Retry,
-	})
+	workers, err := workercontroller.NewWorkerController(c.ds, logger)
 	if err != nil {
 		return nil, err
 	}
-	partitionCountController, err := partitioncountcontroller.NewPartitionCountController(c.ds, &partitioncountcontroller.ControllerConfig{
-		Logger: logger,
-		Retry:  c.ds.Retry,
-	})
+	partitionCountController, err := partitioncountcontroller.NewPartitionCountController(c.ds, logger)
 	if err != nil {
 		return nil, err
 	}
-	compactionReadCostController, err := compactionreadcostcontroller.NewCompactionReadCostController(c.ds, &compactionreadcostcontroller.ControllerConfig{
-		Logger: logger,
-		Retry:  c.ds.Retry,
-	})
+	compactionReadCostController, err := compactionreadcostcontroller.NewCompactionReadCostController(c.ds, logger)
 	if err != nil {
 		return nil, err
 	}

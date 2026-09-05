@@ -35,9 +35,8 @@ func newCursorAdvancerInstance(provisioner *CursorAdvancerProvisioner, owner *co
 	runner, err := controller.NewInstanceTickRunner(provisioner.workers, claimed, metadata.PollRate, &controller.InstanceTickRunnerConfig{
 		InstanceTTL:    provisioner.Config.InstanceTTL,
 		JitterFraction: provisioner.Config.JitterFraction,
-		Logger:         logger,
 		TickRetry:      provisioner.Config.AdvanceRetry,
-	})
+	}, logger)
 	if err != nil {
 		return nil, err
 	}

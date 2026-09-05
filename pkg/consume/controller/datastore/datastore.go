@@ -14,21 +14,15 @@ type ConsumeDatastore struct {
 	Logger         logging.Logger
 }
 
-// cfg may be nil or a sparse struct -- WithDefaults fills every field left
-// unset, Validate rejects what's out of range.
-func NewConsumeDatastore(ds *datastore.PostgresDatastore, cfg *ConsumeDatastoreConfig) (*ConsumeDatastore, error) {
+func NewConsumeDatastore(ds *datastore.PostgresDatastore, logger logging.Logger) (*ConsumeDatastore, error) {
 	if ds == nil {
 		return nil, errors.New("datastore must not be nil")
 	}
-	if cfg == nil {
-		cfg = &ConsumeDatastoreConfig{}
-	}
-	cfg.WithDefaults()
-	if err := cfg.Validate(); err != nil {
-		return nil, err
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
 	}
 
-	datastoreRetry, err := common.NewRetryDatastore(cfg.Retry, cfg.Logger)
+	datastoreRetry, err := common.NewRetryDatastore(ds.Retry, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -36,6 +30,6 @@ func NewConsumeDatastore(ds *datastore.PostgresDatastore, cfg *ConsumeDatastoreC
 	return &ConsumeDatastore{
 		Datastore:      ds,
 		DatastoreRetry: datastoreRetry,
-		Logger:         cfg.Logger,
+		Logger:         logger,
 	}, nil
 }

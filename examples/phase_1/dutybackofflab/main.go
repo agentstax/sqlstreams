@@ -77,9 +77,9 @@ func run() (err error) {
 
 	janitorProvisioner, err := janitor.NewJanitorProvisioner(ds, &janitor.JanitorConfig{
 		SweepRetry: &common.RetryPolicy{BaseDelay: backoffBase, MaxDelay: backoffMax},
-	})
+	}, ds.Logger)
 	must(err)
-	workers, err := workercontroller.NewWorkerController(ds, nil)
+	workers, err := workercontroller.NewWorkerController(ds, ds.Logger)
 	must(err)
 
 	// RegisterTopic already declared the janitor row -- claim it directly with
@@ -146,7 +146,7 @@ func run() (err error) {
 	}
 
 	step("confirming WorkerSnapshots surfaces the failing streak")
-	metricsController, err := metricscontroller.NewMetricsController(ds, nil)
+	metricsController, err := metricscontroller.NewMetricsController(ds, ds.Logger)
 	must(err)
 	snapshots, err := metricsController.WorkerSnapshots(ctx)
 	must(err)

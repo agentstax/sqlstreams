@@ -14,30 +14,21 @@ type ExceptionConsumerGroupController struct {
 	datastore *datastore.ExceptionConsumerGroupDatastore
 }
 
-// cfg may be nil or a sparse struct -- WithDefaults fills every field left
-// unset, Validate rejects what's out of range.
-func NewExceptionConsumerGroupController(ds *iDatastore.PostgresDatastore, cfg *ControllerConfig) (*ExceptionConsumerGroupController, error) {
+func NewExceptionConsumerGroupController(ds *iDatastore.PostgresDatastore, logger logging.Logger) (*ExceptionConsumerGroupController, error) {
 	if ds == nil {
 		return nil, errors.New("datastore must not be nil")
 	}
-	if cfg == nil {
-		cfg = &ControllerConfig{}
-	}
-	cfg.WithDefaults()
-	if err := cfg.Validate(); err != nil {
-		return nil, err
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
 	}
 
-	exceptionConsumerGroupDatastore, err := datastore.NewExceptionConsumerGroupDatastore(ds, &datastore.ExceptionConsumerGroupDatastoreConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	exceptionConsumerGroupDatastore, err := datastore.NewExceptionConsumerGroupDatastore(ds, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	return &ExceptionConsumerGroupController{
-		Logger:    cfg.Logger,
+		Logger:    logger,
 		datastore: exceptionConsumerGroupDatastore,
 	}, nil
 }

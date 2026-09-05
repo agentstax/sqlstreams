@@ -118,9 +118,9 @@ func run() (err error) {
 	must(err)
 	topicId = tp.Id
 
-	cd, err := consumecontroller.NewConsumeController(ds, nil)
+	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
 	must(err)
-	exceptionConsumers, err := exceptionconsumercontroller.NewExceptionConsumerGroupController(ds, nil)
+	exceptionConsumers, err := exceptionconsumercontroller.NewExceptionConsumerGroupController(ds, ds.Logger)
 	must(err)
 	wpInstance, err := client.Topic[Rec](tp.Name).Producer().Register(ctx, nil)
 	must(err)
@@ -646,7 +646,7 @@ func consumeGroup(ctx context.Context, topicName, group string, cfg *messagecons
 	cfg.MessageConcurrency = pool
 
 	owner := groupOwner(ctx, topicName, group)
-	definition, err := messageconsumer.NewMessageConsumerProvisioner(ds, consumerFunc, 1, abandonedEventProducer(ctx), cfg)
+	definition, err := messageconsumer.NewMessageConsumerProvisioner(ds, consumerFunc, 1, abandonedEventProducer(ctx), cfg, ds.Logger)
 	must(err)
 
 	runCtx, cancel := context.WithCancel(ctx)
@@ -680,7 +680,7 @@ func startConsumer(ctx context.Context, topicName, group string, cfg *messagecon
 	cfg.MessageConcurrency = pool
 
 	owner := groupOwner(ctx, topicName, group)
-	definition, err := messageconsumer.NewMessageConsumerProvisioner(ds, consumerFunc, 1, abandonedEventProducer(ctx), cfg)
+	definition, err := messageconsumer.NewMessageConsumerProvisioner(ds, consumerFunc, 1, abandonedEventProducer(ctx), cfg, ds.Logger)
 	must(err)
 
 	runCtx, cancel := context.WithCancel(ctx)
@@ -706,7 +706,7 @@ func startExceptionConsumer(ctx context.Context, topicName, group string, cfg *e
 	cfg.ClaimPollRate = 50 * time.Millisecond
 
 	owner := groupOwner(ctx, topicName, group)
-	definition, err := exceptionconsumer.NewExceptionConsumerProvisioner(ds, consumerFunc, 1, abandonedEventProducer(ctx), cfg)
+	definition, err := exceptionconsumer.NewExceptionConsumerProvisioner(ds, consumerFunc, 1, abandonedEventProducer(ctx), cfg, ds.Logger)
 	must(err)
 
 	runCtx, cancel := context.WithCancel(ctx)
@@ -722,12 +722,12 @@ func startExceptionConsumer(ctx context.Context, topicName, group string, cfg *e
 }
 
 func groupOwner(ctx context.Context, topicName string, group string) *common.Owner {
-	topicController, err := topiccontroller.NewTopicController(ds, nil)
+	topicController, err := topiccontroller.NewTopicController(ds, ds.Logger)
 	must(err)
 	tp, err := topicController.Get(ctx, topicName)
 	must(err)
 
-	consumerDatastore, err := consumecontroller.NewConsumeController(ds, nil)
+	consumerDatastore, err := consumecontroller.NewConsumeController(ds, ds.Logger)
 	must(err)
 	g, err := consumerDatastore.RegisterGroup(ctx, tp.Id, group, consume.Beginning())
 	must(err)
@@ -751,7 +751,7 @@ func abandonedEventProducer(ctx context.Context) *metricsproducer.MetricsProduce
 func claimOne(ctx context.Context, provisioner declaringProvisioner, owner *common.Owner) worker.Execution {
 	must(provisioner.Declare(ctx, owner))
 
-	workers, err := workercontroller.NewWorkerController(ds, nil)
+	workers, err := workercontroller.NewWorkerController(ds, ds.Logger)
 	must(err)
 	row, err := workers.GetWorker(ctx, provisioner.Definition().Name, owner)
 	must(err)

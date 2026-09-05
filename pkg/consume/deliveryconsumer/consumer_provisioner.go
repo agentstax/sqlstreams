@@ -12,6 +12,8 @@ package deliveryconsumer
 
 import (
 	"context"
+	"errors"
+	"github.com/agentstax/vulkan/pkg/common/logging"
 
 	"github.com/agentstax/vulkan/pkg/common"
 	consumebase "github.com/agentstax/vulkan/pkg/consume/base"
@@ -35,7 +37,7 @@ type DeliveryConsumerProvisioner[Message common.Versioned] struct {
 
 // cfg may be nil or a sparse struct -- WithDefaults fills every field left
 // unset, Validate rejects what's out of range.
-func NewDeliveryConsumerProvisioner[Message common.Versioned](ds *datastore.PostgresDatastore, consumerFunc func(ctx context.Context, message *Message) error, schemaVersion int, metrics *metricsproducer.MetricsProducer, cfg *DeliveryConsumerConfig) (*DeliveryConsumerProvisioner[Message], error) {
+func NewDeliveryConsumerProvisioner[Message common.Versioned](ds *datastore.PostgresDatastore, consumerFunc func(ctx context.Context, message *Message) error, schemaVersion int, metrics *metricsproducer.MetricsProducer, cfg *DeliveryConsumerConfig, logger logging.Logger) (*DeliveryConsumerProvisioner[Message], error) {
 	if cfg == nil {
 		cfg = &DeliveryConsumerConfig{}
 	}
@@ -43,19 +45,19 @@ func NewDeliveryConsumerProvisioner[Message common.Versioned](ds *datastore.Post
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
+	}
 
 	definition, err := worker.NewDefinition(WorkerDeliveryConsumer, common.OwnerConsumerGroup, worker.NoInstanceTarget, toDeliveryConsumerMetadata(cfg))
 	if err != nil {
 		return nil, err
 	}
-	baseProvisioner, err := consumebase.NewBaseProvisioner(ds, definition, consumerFunc, schemaVersion, metrics, &consumebase.BaseProvisionerConfig{Logger: cfg.Logger, Retry: cfg.Retry})
+	baseProvisioner, err := consumebase.NewBaseProvisioner(ds, definition, consumerFunc, schemaVersion, metrics, logger)
 	if err != nil {
 		return nil, err
 	}
-	consumers, err := controller.NewDeliveryConsumerGroupController(ds, &controller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	consumers, err := controller.NewDeliveryConsumerGroupController(ds, logger)
 	if err != nil {
 		return nil, err
 	}

@@ -307,15 +307,25 @@ The domain layers:
   WithDefaults never fills is a required value hiding in the config -- move
   it into the constructor's params.
 - Config fields order domain-first, grouped by concern with blank lines,
-  and end with the ambient tail: Logger, Retry, then any per-loop retry
-  curves (SweepRetry, TickRetry). WithDefaults and Validate walk fields in
-  declaration order; a default computed from other fields may trail its
-  inputs instead.
+  ending with any per-loop retry curves (SweepRetry, TickRetry).
+  WithDefaults and Validate walk fields in declaration order; a default
+  computed from other fields may trail its inputs instead.
+- `Logger` and `Retry` are held once, on `PostgresDatastore`, filled from
+  `ClientConfig` through `PostgresDatastoreConfig` -- no other config
+  carries either [0657]. `Retry` is read from `ds` everywhere. A
+  constructor takes a trailing `logger logging.Logger` only when what it
+  builds owns a suppression window or a bound identity `ds.Logger` lacks,
+  or is part of something that does: a long-lived instance's parts
+  (batcher, metrics producer), and every controller, datastore, worker
+  provisioner, and runner an instance composes, so their Warn lines land
+  in that instance's window. A top-level instance (system manager) opens
+  its own window over `ds.Logger`; a caller with no window (admin, the
+  CLI, a lab) passes `ds.Logger`.
 - Param order is primary collaborator first, ambient last: the dep the struct
-  is *about* leads, then its remaining deps, then `cfg`, and a bare
-  `log logging.Logger` always trails (prefer `cfg.Logger` over a bare param).
-  A logger in the first position is the tell that a signature was copied from
-  somewhere else -- readers scan position 1 for what the thing operates on.
+  is *about* leads, then its remaining deps, then `cfg`, and the bare
+  `logger logging.Logger` always trails. A logger in the first position is
+  the tell that a signature was copied from somewhere else -- readers scan
+  position 1 for what the thing operates on.
 - No functional-options pattern. Every config struct: exported
   `WithDefaults()` (fills zero fields, mutates + returns receiver) then
   `Validate()` (validates the RESOLVED config), both in the config's own file
@@ -612,8 +622,8 @@ classification question.
 
 ### The seam
 
-- Every log call goes through a config's `logging.Logger` and passes the
-  caller's ctx -- `context.Background()` in a log call is a bug outside
+- Every log call goes through the `logging.Logger` its owner was built
+  with and passes the caller's ctx -- `context.Background()` in a log call is a bug outside
   process-shutdown paths (there, `context.WithoutCancel(ctx)`).
 - The default logger writes text lines to stderr, WARN and up. Logs never
   share stdout with program output.

@@ -106,13 +106,13 @@ func run() (err error) {
 		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
 	}()
 
-	cd, err := consumecontroller.NewConsumeController(ds, nil)
+	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
 	must(err)
-	messageConsumers, err := messageconsumercontroller.NewMessageConsumerGroupController(ds, nil)
+	messageConsumers, err := messageconsumercontroller.NewMessageConsumerGroupController(ds, ds.Logger)
 	must(err)
-	exceptionConsumers, err := exceptionconsumercontroller.NewExceptionConsumerGroupController(ds, nil)
+	exceptionConsumers, err := exceptionconsumercontroller.NewExceptionConsumerGroupController(ds, ds.Logger)
 	must(err)
-	cursorAdvancerDatastore, err := cursoradvancerdatastore.NewCursorAdvancerDatastore(ds, nil)
+	cursorAdvancerDatastore, err := cursoradvancerdatastore.NewCursorAdvancerDatastore(ds, ds.Logger)
 	must(err)
 	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
@@ -153,11 +153,11 @@ func run() (err error) {
 	}
 	// claimed straight off the provisioner -- no manager, so nothing respawns the
 	// execution and the truncation the lab asserts on is the only one
-	provisioner, err := messageconsumer.NewMessageConsumerProvisioner(ds, consumerFunc, 1, abandonedEvents, cfg)
+	provisioner, err := messageconsumer.NewMessageConsumerProvisioner(ds, consumerFunc, 1, abandonedEvents, cfg, ds.Logger)
 	must(err)
 	must(provisioner.Declare(ctx, owner))
 
-	workers, err := workercontroller.NewWorkerController(ds, nil)
+	workers, err := workercontroller.NewWorkerController(ds, ds.Logger)
 	must(err)
 	row, err := workers.GetWorker(ctx, provisioner.Definition().Name, owner)
 	must(err)

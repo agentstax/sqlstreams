@@ -98,11 +98,11 @@ func run() (err error) {
 	must(err)
 	topicId = tp.Id
 
-	cd, err := consumecontroller.NewConsumeController(ds, nil)
+	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
 	must(err)
-	keyLeases, err := keyleasecontroller.NewKeyLeaseController(ds, nil)
+	keyLeases, err := keyleasecontroller.NewKeyLeaseController(ds, ds.Logger)
 	must(err)
-	janitorDatastore, err := janitordatastore.NewJanitorDatastore(ds, nil)
+	janitorDatastore, err := janitordatastore.NewJanitorDatastore(ds, ds.Logger)
 	must(err)
 	wpInstance, err := client.Topic[Rec](tp.Name).Producer().Register(ctx, nil)
 	must(err)

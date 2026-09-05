@@ -51,9 +51,8 @@ func newMetricsCollectorInstance(collector *MetricsCollectorProvisioner, owner *
 	runner, err := controller.NewInstanceTickRunner(collector.workers, claimed, metadata.PollRate, &controller.InstanceTickRunnerConfig{
 		InstanceTTL:    collector.Config.InstanceTTL,
 		JitterFraction: collector.Config.JitterFraction,
-		Logger:         logger,
 		TickRetry:      collector.Config.CollectRetry,
-	})
+	}, logger)
 	if err != nil {
 		return nil, err
 	}

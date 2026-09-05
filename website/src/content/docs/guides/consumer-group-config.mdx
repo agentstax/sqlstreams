@@ -180,8 +180,8 @@ produce and written into the message's own options document, so
 they're already durable — per message, where the consumer reads them.
 There is no durable producer-side resource to hang a config on, and
 inventing one would add a second place a message's options come from.
-`Batch`, `SlowProduceThreshold`, `Logger`, and `Retry` are process
-facts. One config struct, nothing declared, no split.
+`Batch` and `SlowProduceThreshold` are process facts. One config
+struct, nothing declared, no split.
 
 The rungs mirror: `client.Topic[T](topic).Producer().Register(ctx, cfg)` takes
 the config, and `Produce` already had its options.

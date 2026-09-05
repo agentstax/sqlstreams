@@ -27,7 +27,7 @@ type InstanceTickRunner struct {
 
 // cfg may be nil or a sparse struct -- WithDefaults fills every field left
 // unset, Validate rejects what's out of range.
-func NewInstanceTickRunner(workers *WorkerController, claimed *worker.WorkerInstance, pollRate time.Duration, cfg *InstanceTickRunnerConfig) (*InstanceTickRunner, error) {
+func NewInstanceTickRunner(workers *WorkerController, claimed *worker.WorkerInstance, pollRate time.Duration, cfg *InstanceTickRunnerConfig, logger logging.Logger) (*InstanceTickRunner, error) {
 	if pollRate <= 0 {
 		return nil, fmt.Errorf("pollRate must be > 0, got %v", pollRate)
 	}
@@ -38,18 +38,20 @@ func NewInstanceTickRunner(workers *WorkerController, claimed *worker.WorkerInst
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
+	}
 
 	runner, err := NewInstanceRunner(workers, claimed, &InstanceRunnerConfig{
 		InstanceTTL: cfg.InstanceTTL,
-		Logger:      cfg.Logger,
-	})
+	}, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	return &InstanceTickRunner{
 		Config:   cfg,
-		Logger:   cfg.Logger,
+		Logger:   logger,
 		runner:   runner,
 		workers:  workers,
 		claimed:  claimed,

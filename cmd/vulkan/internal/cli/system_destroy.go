@@ -74,9 +74,7 @@ messages).`,
 					userTopics = append(userTopics, found.Name)
 				}
 			}
-			metricsController, err := metricscontroller.NewMetricsController(ds, &metricscontroller.ControllerConfig{
-				Logger: logging.NewDefaultLogger(os.Stderr, slog.LevelError),
-			})
+			metricsController, err := metricscontroller.NewMetricsController(ds, logging.NewDefaultLogger(os.Stderr, slog.LevelError))
 			if err != nil {
 				return failOp("could not check for live workers: %v", err)
 			}

@@ -2,10 +2,7 @@ package manager
 
 import (
 	"fmt"
-	"os"
 	"time"
-
-	"github.com/agentstax/vulkan/pkg/common/logging"
 )
 
 type RunnerConfig struct {
@@ -19,8 +16,6 @@ type RunnerConfig struct {
 	// their claims together: each delay is RetryDelay * (1 ± JitterFraction).
 	// Default: 0.1. Must be < 1.
 	JitterFraction float64
-
-	Logger logging.Logger // pass your own *slog.Logger or anything satisfying logging.Logger. Default: text lines to stderr, warn level and up.
 }
 
 func (c *RunnerConfig) WithDefaults() *RunnerConfig {
@@ -30,10 +25,6 @@ func (c *RunnerConfig) WithDefaults() *RunnerConfig {
 	if c.JitterFraction == 0 {
 		c.JitterFraction = 0.1
 	}
-	if c.Logger == nil {
-		c.Logger = logging.NewDefaultLogger(os.Stderr)
-	}
-	c.Logger = logging.NewPipelineLogger(c.Logger, &logging.PipelineLoggerConfig{Buffer: true})
 	return c
 }
 

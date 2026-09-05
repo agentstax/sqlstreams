@@ -32,7 +32,7 @@ type ManagerProvisioner struct {
 
 // cfg may be nil or a sparse struct -- WithDefaults fills every field left
 // unset, Validate rejects what's out of range.
-func NewManagerProvisioner(ds *iDatastore.PostgresDatastore, targetInstances worker.InstanceTarget, cfg *ManagerConfig, provisioners ...worker.Provisioner) (*ManagerProvisioner, error) {
+func NewManagerProvisioner(ds *iDatastore.PostgresDatastore, targetInstances worker.InstanceTarget, cfg *ManagerConfig, logger logging.Logger, provisioners ...worker.Provisioner) (*ManagerProvisioner, error) {
 	if ds == nil {
 		return nil, errors.New("datastore must not be nil")
 	}
@@ -46,6 +46,9 @@ func NewManagerProvisioner(ds *iDatastore.PostgresDatastore, targetInstances wor
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
+	}
 
 	byName := make(map[string]worker.Provisioner, len(provisioners))
 	for i, provisioner := range provisioners {
@@ -58,10 +61,7 @@ func NewManagerProvisioner(ds *iDatastore.PostgresDatastore, targetInstances wor
 		byName[provisioner.Definition().Name] = provisioner
 	}
 
-	workers, err := controller.NewWorkerController(ds, &controller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	workers, err := controller.NewWorkerController(ds, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +72,7 @@ func NewManagerProvisioner(ds *iDatastore.PostgresDatastore, targetInstances wor
 	}
 	return &ManagerProvisioner{
 		Config:       cfg,
-		Logger:       cfg.Logger,
+		Logger:       logger,
 		workers:      workers,
 		provisioners: byName,
 		definition:   definition,

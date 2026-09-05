@@ -35,25 +35,25 @@ carries the resolved pair and binds the `schema` log attribute where
 `Schema` is known. The client passes `ClientConfig`'s values through and
 nothing else in the library declares the pair: the three declaration
 configs lose their two fields, the assembler structs and constructors
-keep their names, and every controller, datastore, worker, and assembler
-reads `ds.Logger` and `ds.Retry`. Config structs that held only the pair
-are deleted with their constructor param; those with other fields keep
-them, including per-loop retry curves. `pkg/metrics/producer`'s
-`ProducerConfig` renames to `MetricsProducerConfig`, the config named for
-its struct.
+keep their names, and every layer reads `ds.Retry`. Config structs that
+held only the pair are deleted with their constructor param; those with
+other fields keep
+them, including per-loop retry curves. Logger is threaded, not read:
+datastores and the worker controller emit the reclaim and dead-letter
+Warns, so they take the owning instance's logger to stay in its
+suppression window. `pkg/metrics/producer`'s `ProducerConfig` renames to
+`MetricsProducerConfig`, the config named for its struct.
 
 ## Consequences
 
 The facade is unchanged except for two fields leaving each of
 `ConsumerConfig`, `ProducerConfig`, `SchedulerConfig`. Internal callers
-that passed the pair per Register call stop. One client is one datastore,
-so a second logger means a second client, which was already true.
-`pkg/datastore` grows a logger; it is off the doc site since [0637] and
-`Retry` was already its mechanism (`DatastoreRetry.Wrap`). A nested
-producer or consumer instance logs as itself: its own suppression window
-and its own attributes, not its owner's. A constructor takes a logger
-only for a suppression window or bound identity `ds.Logger` lacks.
+stop passing the pair per Register call. `pkg/datastore` grows a logger;
+it is off the doc site since [0637] and `Retry` was already its
+mechanism. A nested producer or consumer instance logs as itself: its
+own suppression window and attributes, not its owner's. A constructor
+takes a logger only for a window or identity `ds.Logger` lacks, or as
+part of an instance that owns one.
 
-Rejected: a role-word assembler rename with `<Subject><Role>Config`; the
-resource renamed back to `ConsumerGroup` (touches the frozen facade);
-Register taking the pair as bare params (per-call ambient, seven params).
+Rejected: a role-word assembler rename; `ConsumerGroup` renamed back on
+the facade; Register taking the pair as bare params (seven params).

@@ -25,7 +25,7 @@ type CursorAdvancerProvisioner struct {
 
 // cfg may be nil or a sparse struct -- WithDefaults fills every field left
 // unset, Validate rejects what's out of range.
-func NewCursorAdvancerProvisioner(ds *iDatastore.PostgresDatastore, cfg *CursorAdvancerConfig) (*CursorAdvancerProvisioner, error) {
+func NewCursorAdvancerProvisioner(ds *iDatastore.PostgresDatastore, cfg *CursorAdvancerConfig, logger logging.Logger) (*CursorAdvancerProvisioner, error) {
 	if ds == nil {
 		return nil, errors.New("datastore must not be nil")
 	}
@@ -36,19 +36,16 @@ func NewCursorAdvancerProvisioner(ds *iDatastore.PostgresDatastore, cfg *CursorA
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
+	}
 
-	workers, err := controller.NewWorkerController(ds, &controller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	workers, err := controller.NewWorkerController(ds, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	advanceController, err := cursoradvancercontroller.NewCursorAdvancerController(ds, &cursoradvancercontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	advanceController, err := cursoradvancercontroller.NewCursorAdvancerController(ds, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +57,7 @@ func NewCursorAdvancerProvisioner(ds *iDatastore.PostgresDatastore, cfg *CursorA
 
 	return &CursorAdvancerProvisioner{
 		Config:     cfg,
-		Logger:     cfg.Logger,
+		Logger:     logger,
 		workers:    workers,
 		controller: advanceController,
 		definition: definition,

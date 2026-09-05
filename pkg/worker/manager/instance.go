@@ -18,11 +18,12 @@ type ManagerInstance struct {
 	Config *ManagerConfig
 	Logger logging.Logger
 
-	runner       *controller.InstanceTickRunner
-	workers      *controller.WorkerController
-	provisioners map[string]worker.Provisioner
-	pool         *instancePool // built in Run
-	metadata     *managerMetadata
+	runner            *controller.InstanceTickRunner
+	workers           *controller.WorkerController
+	provisioners      map[string]worker.Provisioner
+	provisionerLogger logging.Logger // manager.Logger before the worker/owner attributes are bound; the pool binds its own
+	pool              *instancePool  // built in Run
+	metadata          *managerMetadata
 }
 
 func newManagerInstance(manager *ManagerProvisioner, owner *common.Owner, claimed *worker.WorkerInstance, metadata *managerMetadata) (*ManagerInstance, error) {
@@ -34,21 +35,21 @@ func newManagerInstance(manager *ManagerProvisioner, owner *common.Owner, claime
 	runner, err := controller.NewInstanceTickRunner(manager.workers, claimed, metadata.PollRate, &controller.InstanceTickRunnerConfig{
 		InstanceTTL:    manager.Config.InstanceTTL,
 		JitterFraction: manager.Config.JitterFraction,
-		Logger:         logger,
 		TickRetry:      manager.Config.RefreshRetry,
-	})
+	}, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	return &ManagerInstance{
-		Owner:        owner,
-		Config:       manager.Config,
-		Logger:       logger,
-		runner:       runner,
-		workers:      manager.workers,
-		provisioners: manager.provisioners,
-		metadata:     metadata,
+		Owner:             owner,
+		Config:            manager.Config,
+		Logger:            logger,
+		runner:            runner,
+		workers:           manager.workers,
+		provisioners:      manager.provisioners,
+		provisionerLogger: manager.Logger,
+		metadata:          metadata,
 	}, nil
 }
 
@@ -62,7 +63,7 @@ func (i *ManagerInstance) Run(ctx context.Context) error {
 	// pool lines carry their own worker/owner pairs, so the pool gets the
 	// unenriched logger
 	group, runCtx := errgroup.WithContext(ctx)
-	pool, err := newInstancePool(i.provisioners, group, i.Config.Logger)
+	pool, err := newInstancePool(i.provisioners, group, i.provisionerLogger)
 	if err != nil {
 		return err
 	}

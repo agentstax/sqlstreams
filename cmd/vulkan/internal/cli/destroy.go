@@ -54,9 +54,7 @@ func newTopicDestroyCmd(g *globalFlags) *cobra.Command {
 
 			// 2. emptiness -- the client doesn't expose this, so build a
 			// topic controller over the same pool (public API, no pkg change).
-			topicController, err := topiccontroller.NewTopicController(ds, &topiccontroller.ControllerConfig{
-				Logger: logging.NewDefaultLogger(os.Stderr, slog.LevelError),
-			})
+			topicController, err := topiccontroller.NewTopicController(ds, logging.NewDefaultLogger(os.Stderr, slog.LevelError))
 			if err != nil {
 				return failOp("could not check whether topic is empty: %v", err)
 			}

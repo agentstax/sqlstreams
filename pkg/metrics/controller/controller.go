@@ -15,30 +15,21 @@ type MetricsController struct {
 	datastore *datastore.MetricsDatastore
 }
 
-// cfg may be nil or a sparse struct -- WithDefaults fills every field left
-// unset, Validate rejects what's out of range.
-func NewMetricsController(ds *iDatastore.PostgresDatastore, cfg *ControllerConfig) (*MetricsController, error) {
+func NewMetricsController(ds *iDatastore.PostgresDatastore, logger logging.Logger) (*MetricsController, error) {
 	if ds == nil {
 		return nil, errors.New("datastore must not be nil")
 	}
-	if cfg == nil {
-		cfg = &ControllerConfig{}
-	}
-	cfg.WithDefaults()
-	if err := cfg.Validate(); err != nil {
-		return nil, err
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
 	}
 
-	metricsDatastore, err := datastore.NewMetricsDatastore(ds, &datastore.MetricsDatastoreConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	metricsDatastore, err := datastore.NewMetricsDatastore(ds, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	return &MetricsController{
-		Logger:    cfg.Logger,
+		Logger:    logger,
 		datastore: metricsDatastore,
 	}, nil
 }

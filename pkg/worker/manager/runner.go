@@ -24,7 +24,7 @@ type Runner struct {
 	provisioner *ManagerProvisioner
 }
 
-func NewRunner(provisioner *ManagerProvisioner, owner *common.Owner, cfg *RunnerConfig) (*Runner, error) {
+func NewRunner(provisioner *ManagerProvisioner, owner *common.Owner, cfg *RunnerConfig, logger logging.Logger) (*Runner, error) {
 	if provisioner == nil {
 		return nil, errors.New("provisioner must not be nil")
 	}
@@ -38,11 +38,14 @@ func NewRunner(provisioner *ManagerProvisioner, owner *common.Owner, cfg *Runner
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
+	}
 
 	return &Runner{
 		Owner:       owner,
 		Config:      cfg,
-		Logger:      cfg.Logger,
+		Logger:      logger,
 		provisioner: provisioner,
 	}, nil
 }

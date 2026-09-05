@@ -11,6 +11,8 @@ package exceptionconsumer
 
 import (
 	"context"
+	"errors"
+	"github.com/agentstax/vulkan/pkg/common/logging"
 
 	"github.com/agentstax/vulkan/pkg/common"
 	consumebase "github.com/agentstax/vulkan/pkg/consume/base"
@@ -36,7 +38,7 @@ type ExceptionConsumerProvisioner[Message common.Versioned] struct {
 // the assembled consumer -- see the package doc.
 // cfg may be nil or a sparse struct -- WithDefaults fills every field left
 // unset, Validate rejects what's out of range.
-func NewExceptionConsumerProvisioner[Message common.Versioned](ds *datastore.PostgresDatastore, consumerFunc func(ctx context.Context, message *Message) error, schemaVersion int, metrics *metricsproducer.MetricsProducer, cfg *ExceptionConsumerConfig) (*ExceptionConsumerProvisioner[Message], error) {
+func NewExceptionConsumerProvisioner[Message common.Versioned](ds *datastore.PostgresDatastore, consumerFunc func(ctx context.Context, message *Message) error, schemaVersion int, metrics *metricsproducer.MetricsProducer, cfg *ExceptionConsumerConfig, logger logging.Logger) (*ExceptionConsumerProvisioner[Message], error) {
 	if cfg == nil {
 		cfg = &ExceptionConsumerConfig{}
 	}
@@ -44,19 +46,19 @@ func NewExceptionConsumerProvisioner[Message common.Versioned](ds *datastore.Pos
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
+	}
 
 	definition, err := worker.NewDefinition(WorkerExceptionConsumer, common.OwnerConsumerGroup, worker.NoInstanceTarget, toExceptionConsumerMetadata(cfg))
 	if err != nil {
 		return nil, err
 	}
-	baseProvisioner, err := consumebase.NewBaseProvisioner(ds, definition, consumerFunc, schemaVersion, metrics, &consumebase.BaseProvisionerConfig{Logger: cfg.Logger, Retry: cfg.Retry})
+	baseProvisioner, err := consumebase.NewBaseProvisioner(ds, definition, consumerFunc, schemaVersion, metrics, logger)
 	if err != nil {
 		return nil, err
 	}
-	consumers, err := controller.NewExceptionConsumerGroupController(ds, &controller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	consumers, err := controller.NewExceptionConsumerGroupController(ds, logger)
 	if err != nil {
 		return nil, err
 	}

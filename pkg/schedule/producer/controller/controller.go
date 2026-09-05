@@ -17,30 +17,21 @@ type ScheduleProducerController struct {
 	datastore *datastore.ScheduleProducerDatastore
 }
 
-// cfg may be nil or a sparse struct -- WithDefaults fills every field left
-// unset, Validate rejects what's out of range.
-func NewScheduleProducerController(ds *iDatastore.PostgresDatastore, cfg *ControllerConfig) (*ScheduleProducerController, error) {
+func NewScheduleProducerController(ds *iDatastore.PostgresDatastore, logger logging.Logger) (*ScheduleProducerController, error) {
 	if ds == nil {
 		return nil, errors.New("datastore must not be nil")
 	}
-	if cfg == nil {
-		cfg = &ControllerConfig{}
-	}
-	cfg.WithDefaults()
-	if err := cfg.Validate(); err != nil {
-		return nil, err
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
 	}
 
-	schedulerDatastore, err := datastore.NewScheduleProducerDatastore(ds, &datastore.ScheduleProducerDatastoreConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	schedulerDatastore, err := datastore.NewScheduleProducerDatastore(ds, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	return &ScheduleProducerController{
-		Logger:    cfg.Logger,
+		Logger:    logger,
 		datastore: schedulerDatastore,
 	}, nil
 }

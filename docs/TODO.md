@@ -51,7 +51,18 @@ packages, directly affected labs) before the next:
    `metrics_producer_config.go`), keeps `SessionFlushRate`, drops the
    pair. Every caller (`metricslab`, `abandonedeventslab`,
    `abandonedroutinesnapshotlab`, `exclusivelab`, collector) follows.
-5. **The follow-on sweep: every config drops the pair.** 63 config
+5. **The follow-on sweep: every config drops the pair.** BUILT 2026-09-05
+   under shape A (settled after the plan: datastores and the worker
+   controller emit the reclaim / dead-letter / kill-backstop Warns, so
+   reading `ds.Logger` there would drop them out of the instance's
+   suppression window). Retry from `ds`; every controller, datastore,
+   provisioner, and runner constructor takes a trailing `logger`, the
+   owning instance's or `ds.Logger`. 41 pair-only configs deleted, 19
+   mixed configs slimmed, `MessageAdminConfig` -> `{AllowDestroy}`,
+   `NewSystemManager(ds, cfg)` opens its window over `ds.Logger`;
+   CONVENTIONS amended. Verified: build + vet on all five modules,
+   `go test -race ./...` 165/80, conventions; 18 labs green (reclaim, exception, rollup, alert, schedule, metricscollector, workerliveness, dutybackoff, exclusive, invariant, managerautorun, groupconfig, keylease, compaction, deliverylog, producerbatch, topic, binding). Docs: consumer-group-config.mdx producer sentence fixed, vale/prettier/remark clean.
+   Original plan text follows. 63 config
    structs carry it. The 40 that hold nothing else (every
    `ControllerConfig`, every `*DatastoreConfig`) are deleted with their
    file and their constructor's `cfg` param -- `NewTopicController(ds,

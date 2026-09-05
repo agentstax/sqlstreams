@@ -2,11 +2,9 @@ package producer
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
 )
 
 type ScheduleProducerConfig struct {
@@ -21,9 +19,7 @@ type ScheduleProducerConfig struct {
 	// Default: 0.1. Must be < 1.
 	JitterFraction float64
 
-	Logger    logging.Logger      // pass your own *slog.Logger or anything satisfying logging.Logger. Default: text lines to stderr, warn level and up.
-	Retry     *common.RetryPolicy // transient-error retry policy for the schedule producer's own Postgres calls. Default: common.NewDefaultRetryPolicy().
-	ScanRetry *common.RetryPolicy // failed-scan backoff curve, unrelated to Retry above. Default: common.NewDefaultRetryPolicy().
+	ScanRetry *common.RetryPolicy // failed-scan backoff curve. Default: common.NewDefaultRetryPolicy().
 }
 
 func (c *ScheduleProducerConfig) WithDefaults() *ScheduleProducerConfig {
@@ -33,11 +29,6 @@ func (c *ScheduleProducerConfig) WithDefaults() *ScheduleProducerConfig {
 	if c.JitterFraction == 0 {
 		c.JitterFraction = 0.1
 	}
-	if c.Logger == nil {
-		c.Logger = logging.NewDefaultLogger(os.Stderr)
-	}
-	c.Logger = logging.NewPipelineLogger(c.Logger, &logging.PipelineLoggerConfig{Buffer: true})
-	c.Retry = c.Retry.WithDefaults()
 	c.ScanRetry = c.ScanRetry.WithDefaults()
 	return c
 }
@@ -50,9 +41,6 @@ func (c *ScheduleProducerConfig) Validate() error {
 	}
 	if c.JitterFraction < 0 || c.JitterFraction >= 1 {
 		return fmt.Errorf("JitterFraction must be in [0, 1), got %v", c.JitterFraction)
-	}
-	if err := c.Retry.Validate(); err != nil {
-		return fmt.Errorf("Retry: %w", err)
 	}
 	if err := c.ScanRetry.Validate(); err != nil {
 		return fmt.Errorf("ScanRetry: %w", err)

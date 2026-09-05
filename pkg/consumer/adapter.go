@@ -1,8 +1,6 @@
 package consumer
 
 import (
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
 	"github.com/agentstax/vulkan/pkg/consume/exceptionconsumer"
 	"github.com/agentstax/vulkan/pkg/consume/messageconsumer"
 	"github.com/agentstax/vulkan/pkg/worker"
@@ -23,7 +21,7 @@ func toMessageConsumerWorkerConfig(declared *ConsumerConfig) *workercontroller.W
 	}
 }
 
-func toMessageConsumerConfig(cfg *ConsumerConfig, options *ConsumeOptions, retry *common.RetryPolicy, logger logging.Logger) *messageconsumer.MessageConsumerConfig {
+func toMessageConsumerConfig(cfg *ConsumerConfig, options *ConsumeOptions) *messageconsumer.MessageConsumerConfig {
 	return &messageconsumer.MessageConsumerConfig{
 		BatchLimit:              options.BatchLimit,
 		QueueSize:               options.QueueSize,
@@ -42,12 +40,10 @@ func toMessageConsumerConfig(cfg *ConsumerConfig, options *ConsumeOptions, retry
 		MessageMin:              cfg.MessageMin,
 		MessageMax:              cfg.MessageMax,
 		ConcurrencyOverride:     cfg.ConcurrencyOverride,
-		Logger:                  logger,
-		Retry:                   retry,
 	}
 }
 
-func toExceptionConsumerConfig(cfg *ConsumerConfig, options *ConsumeOptions, retry *common.RetryPolicy, logger logging.Logger) *exceptionconsumer.ExceptionConsumerConfig {
+func toExceptionConsumerConfig(cfg *ConsumerConfig, options *ConsumeOptions) *exceptionconsumer.ExceptionConsumerConfig {
 	return &exceptionconsumer.ExceptionConsumerConfig{
 		BatchLimit:            options.BatchLimit,
 		ClaimPollRate:         options.ClaimPollRate,
@@ -61,8 +57,6 @@ func toExceptionConsumerConfig(cfg *ConsumerConfig, options *ConsumeOptions, ret
 		MessageMin:            cfg.MessageMin,
 		MessageMax:            cfg.MessageMax,
 		ConcurrencyOverride:   cfg.ConcurrencyOverride,
-		Logger:                logger,
-		Retry:                 retry,
 	}
 }
 

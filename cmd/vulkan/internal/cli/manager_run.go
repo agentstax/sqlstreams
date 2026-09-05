@@ -57,7 +57,7 @@ func newManagerRunCmd(g *globalFlags) *cobra.Command {
 			defer cancelRun()
 			serverFailed := make(chan error, 1)
 			if metricsAddress != "" {
-				exporter, err := otelvulkan.NewExporter(ds, &otelvulkan.ExporterConfig{Logger: runLogger})
+				exporter, err := otelvulkan.NewExporter(ds, nil)
 				if err != nil {
 					return failOp("%s", err.Error())
 				}

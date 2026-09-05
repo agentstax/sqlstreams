@@ -22,7 +22,7 @@ func (d *DeliveryConsumerProvisioner[Message]) Provision(ctx context.Context, de
 		return nil, err
 	}
 
-	cfg := d.Config.withMetadata(ctx, parsed)
+	cfg := d.Config.withMetadata(ctx, parsed, d.Logger)
 	resolvedTopic, err := d.GetTopic(ctx, declared.Owner.TopicId)
 	if err != nil {
 		return nil, err

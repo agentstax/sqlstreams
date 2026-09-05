@@ -99,7 +99,7 @@ func dropPartitionScenario(ctx context.Context, pool *pgxpool.Pool) {
 
 	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
-	janitorDatastore, err := janitordatastore.NewJanitorDatastore(ds, nil)
+	janitorDatastore, err := janitordatastore.NewJanitorDatastore(ds, ds.Logger)
 	must(err)
 
 	// fill partition 0 with a dormant key + filler, then age past ttl
@@ -142,7 +142,7 @@ func sweepBatchScenario(ctx context.Context, pool *pgxpool.Pool) {
 
 	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
-	janitorDatastore, err := janitordatastore.NewJanitorDatastore(ds, nil)
+	janitorDatastore, err := janitordatastore.NewJanitorDatastore(ds, ds.Logger)
 	must(err)
 
 	publish(ctx, wpInstance, "dormant-key")

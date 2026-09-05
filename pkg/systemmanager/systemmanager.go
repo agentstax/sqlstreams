@@ -50,93 +50,63 @@ func NewSystemManager(ds *datastore.PostgresDatastore, cfg *SystemManagerConfig)
 		return nil, err
 	}
 
-	cfg.Logger = logging.NewPipelineLogger(cfg.Logger, &logging.PipelineLoggerConfig{Buffer: true, Suppress: true})
+	logger := logging.NewPipelineLogger(ds.Logger, &logging.PipelineLoggerConfig{Buffer: true, Suppress: true})
 
-	topicJanitorProvisioner, err := topicjanitor.NewJanitorProvisioner(ds, &topicjanitor.JanitorConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	topicJanitorProvisioner, err := topicjanitor.NewJanitorProvisioner(ds, nil, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	consumerGroupJanitorProvisioner, err := consumejanitor.NewJanitorProvisioner(ds, &consumejanitor.JanitorConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	consumerGroupJanitorProvisioner, err := consumejanitor.NewJanitorProvisioner(ds, nil, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	scheduleProducerProvisioner, err := scheduleproducer.NewScheduleProducerProvisioner(ds, &scheduleproducer.ScheduleProducerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	scheduleProducerProvisioner, err := scheduleproducer.NewScheduleProducerProvisioner(ds, nil, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	// committed keeps advancing -- and retention keeps moving -- for groups
 	// whose consumers are offline
-	cursorAdvancerProvisioner, err := cursoradvancer.NewCursorAdvancerProvisioner(ds, &cursoradvancer.CursorAdvancerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	cursorAdvancerProvisioner, err := cursoradvancer.NewCursorAdvancerProvisioner(ds, nil, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	metricsCollectorProvisioner, err := collector.NewMetricsCollectorProvisioner(ds, &collector.MetricsCollectorConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	metricsCollectorProvisioner, err := collector.NewMetricsCollectorProvisioner(ds, nil, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	partitionCountProvisioner, err := partitioncount.NewPartitionCountProvisioner(ds, &partitioncount.PartitionCountConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	partitionCountProvisioner, err := partitioncount.NewPartitionCountProvisioner(ds, nil, logger)
 	if err != nil {
 		return nil, err
 	}
-	compactionReadCostProvisioner, err := compactionreadcost.NewCompactionReadCostProvisioner(ds, &compactionreadcost.CompactionReadCostConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	compactionReadCostProvisioner, err := compactionreadcost.NewCompactionReadCostProvisioner(ds, nil, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	workerLivenessProvisioner, err := workerliveness.NewWorkerLivenessProvisioner(ds, &workerliveness.WorkerLivenessConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	workerLivenessProvisioner, err := workerliveness.NewWorkerLivenessProvisioner(ds, nil, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	provisioners := []worker.Provisioner{topicJanitorProvisioner, consumerGroupJanitorProvisioner, scheduleProducerProvisioner, metricsCollectorProvisioner, cursorAdvancerProvisioner, partitionCountProvisioner, compactionReadCostProvisioner, workerLivenessProvisioner}
-	managerProvisioner, err := manager.NewManagerProvisioner(ds, 1, &manager.ManagerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	}, provisioners...)
+	managerProvisioner, err := manager.NewManagerProvisioner(ds, 1, nil, logger, provisioners...)
 	if err != nil {
 		return nil, err
 	}
 
-	migrateController, err := migratecontroller.NewController(ds, &migratecontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	migrateController, err := migratecontroller.NewController(ds, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	return &SystemManager{
 		Config:            cfg,
-		Logger:            cfg.Logger,
+		Logger:            logger,
 		ds:                ds,
 		manager:           managerProvisioner,
 		migrateController: migrateController,
@@ -155,9 +125,7 @@ func (s *SystemManager) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	runner, err := manager.NewRunner(s.manager, owner, &manager.RunnerConfig{
-		Logger: s.Logger,
-	})
+	runner, err := manager.NewRunner(s.manager, owner, nil, s.Logger)
 	if err != nil {
 		return err
 	}

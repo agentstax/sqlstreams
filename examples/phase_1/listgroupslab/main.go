@@ -60,7 +60,7 @@ func run() (err error) {
 	registered, err := client.Topic[vulkan.RawPayload](name).Register(ctx, nil)
 	must(err)
 
-	groupController, err := consumecontroller.NewConsumeController(ds, nil)
+	groupController, err := consumecontroller.NewConsumeController(ds, ds.Logger)
 	must(err)
 
 	step("seed two groups on the topic")

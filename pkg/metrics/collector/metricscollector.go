@@ -31,7 +31,7 @@ type MetricsCollectorProvisioner struct {
 
 // cfg may be nil or a sparse struct -- WithDefaults fills every field left
 // unset, Validate rejects what's out of range.
-func NewMetricsCollectorProvisioner(ds *iDatastore.PostgresDatastore, cfg *MetricsCollectorConfig) (*MetricsCollectorProvisioner, error) {
+func NewMetricsCollectorProvisioner(ds *iDatastore.PostgresDatastore, cfg *MetricsCollectorConfig, logger logging.Logger) (*MetricsCollectorProvisioner, error) {
 	if ds == nil {
 		return nil, errors.New("datastore must not be nil")
 	}
@@ -42,35 +42,26 @@ func NewMetricsCollectorProvisioner(ds *iDatastore.PostgresDatastore, cfg *Metri
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
+	}
 
-	workers, err := controller.NewWorkerController(ds, &controller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	workers, err := controller.NewWorkerController(ds, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	metricsController, err := metricscontroller.NewMetricsController(ds, &metricscontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	metricsController, err := metricscontroller.NewMetricsController(ds, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	topics, err := topiccontroller.NewTopicController(ds, &topiccontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	topics, err := topiccontroller.NewTopicController(ds, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	alertHeads, err := compactioncontroller.NewCompactionController(ds, &compactioncontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	alertHeads, err := compactioncontroller.NewCompactionController(ds, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +78,7 @@ func NewMetricsCollectorProvisioner(ds *iDatastore.PostgresDatastore, cfg *Metri
 
 	return &MetricsCollectorProvisioner{
 		Config:     cfg,
-		Logger:     cfg.Logger,
+		Logger:     logger,
 		workers:    workers,
 		metrics:    metricsController,
 		topics:     topics,

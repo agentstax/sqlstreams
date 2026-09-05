@@ -19,30 +19,21 @@ type Controller struct {
 	datastore *datastore.MigrateDatastore
 }
 
-// cfg may be nil or a sparse struct -- WithDefaults fills every field left
-// unset, Validate rejects what's out of range.
-func NewController(ds *iDatastore.PostgresDatastore, cfg *ControllerConfig) (*Controller, error) {
+func NewController(ds *iDatastore.PostgresDatastore, logger logging.Logger) (*Controller, error) {
 	if ds == nil {
 		return nil, errors.New("datastore must not be nil")
 	}
-	if cfg == nil {
-		cfg = &ControllerConfig{}
-	}
-	cfg.WithDefaults()
-	if err := cfg.Validate(); err != nil {
-		return nil, err
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
 	}
 
-	migrateDatastore, err := datastore.NewMigrateDatastore(ds, &datastore.MigrateDatastoreConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	migrateDatastore, err := datastore.NewMigrateDatastore(ds, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Controller{
-		Logger:    cfg.Logger,
+		Logger:    logger,
 		datastore: migrateDatastore,
 	}, nil
 }

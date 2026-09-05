@@ -37,9 +37,7 @@ type BaseProvisioner[Message common.Versioned] struct {
 	schemaVersion int
 }
 
-// cfg may be nil or a sparse struct -- WithDefaults fills every field left
-// unset, Validate rejects what's out of range.
-func NewBaseProvisioner[Message common.Versioned](ds *datastore.PostgresDatastore, definition *worker.Definition, consumerFunc func(ctx context.Context, message *Message) error, schemaVersion int, metrics *metricsproducer.MetricsProducer, cfg *BaseProvisionerConfig) (*BaseProvisioner[Message], error) {
+func NewBaseProvisioner[Message common.Versioned](ds *datastore.PostgresDatastore, definition *worker.Definition, consumerFunc func(ctx context.Context, message *Message) error, schemaVersion int, metrics *metricsproducer.MetricsProducer, logger logging.Logger) (*BaseProvisioner[Message], error) {
 	if ds == nil {
 		return nil, errors.New("datastore must not be nil")
 	}
@@ -58,41 +56,28 @@ func NewBaseProvisioner[Message common.Versioned](ds *datastore.PostgresDatastor
 	if definition.TargetInstances != worker.NoInstanceTarget {
 		return nil, fmt.Errorf("definition.TargetInstances must be %d for a consumer, got %d", worker.NoInstanceTarget, definition.TargetInstances)
 	}
-	if cfg == nil {
-		cfg = &BaseProvisionerConfig{}
-	}
-	cfg.WithDefaults()
-	if err := cfg.Validate(); err != nil {
-		return nil, err
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
 	}
 
-	workers, err := workercontroller.NewWorkerController(ds, &workercontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	workers, err := workercontroller.NewWorkerController(ds, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	topics, err := topiccontroller.NewTopicController(ds, &topiccontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	topics, err := topiccontroller.NewTopicController(ds, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	keyLeases, err := controller.NewKeyLeaseController(ds, &controller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
-	})
+	keyLeases, err := controller.NewKeyLeaseController(ds, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	return &BaseProvisioner[Message]{
 		definition:    definition,
-		Logger:        cfg.Logger,
+		Logger:        logger,
 		workers:       workers,
 		topics:        topics,
 		keyLeases:     keyLeases,

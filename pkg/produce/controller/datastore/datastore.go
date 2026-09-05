@@ -18,21 +18,15 @@ type ProduceDatastore struct {
 	createAheadTimeout time.Duration
 }
 
-// cfg may be nil or a sparse struct -- WithDefaults fills every field left
-// unset, Validate rejects what's out of range.
-func NewProduceDatastore(ds *datastore.PostgresDatastore, cfg *ProduceDatastoreConfig) (*ProduceDatastore, error) {
+func NewProduceDatastore(ds *datastore.PostgresDatastore, logger logging.Logger) (*ProduceDatastore, error) {
 	if ds == nil {
 		return nil, errors.New("datastore must not be nil")
 	}
-	if cfg == nil {
-		cfg = &ProduceDatastoreConfig{}
-	}
-	cfg.WithDefaults()
-	if err := cfg.Validate(); err != nil {
-		return nil, err
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
 	}
 
-	datastoreRetry, err := common.NewRetryDatastore(cfg.Retry, cfg.Logger)
+	datastoreRetry, err := common.NewRetryDatastore(ds.Retry, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +45,7 @@ func NewProduceDatastore(ds *datastore.PostgresDatastore, cfg *ProduceDatastoreC
 	return &ProduceDatastore{
 		Datastore:          ds,
 		DatastoreRetry:     datastoreRetry,
-		Logger:             cfg.Logger,
+		Logger:             logger,
 		createAheadGate:    createAheadGate,
 		createAheadTimeout: createAheadTimeout,
 	}, nil

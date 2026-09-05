@@ -2,11 +2,9 @@ package controller
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
 )
 
 type InstanceTickRunnerConfig struct {
@@ -21,7 +19,6 @@ type InstanceTickRunnerConfig struct {
 	// Default: 0.1. Must be < 1.
 	JitterFraction float64
 
-	Logger    logging.Logger      // enrich with the worker's identity via logging.LoggerWith. Default: text lines to stderr, warn level and up.
 	TickRetry *common.RetryPolicy // failed-tick backoff curve. Default: common.NewDefaultRetryPolicy().
 }
 
@@ -32,10 +29,6 @@ func (c *InstanceTickRunnerConfig) WithDefaults() *InstanceTickRunnerConfig {
 	if c.JitterFraction == 0 {
 		c.JitterFraction = 0.1
 	}
-	if c.Logger == nil {
-		c.Logger = logging.NewDefaultLogger(os.Stderr)
-	}
-	c.Logger = logging.NewPipelineLogger(c.Logger, &logging.PipelineLoggerConfig{Buffer: true})
 	c.TickRetry = c.TickRetry.WithDefaults()
 	return c
 }

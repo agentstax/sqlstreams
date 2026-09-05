@@ -52,7 +52,7 @@ func run() (err error) {
 	ds := client.Datastore()
 	must(client.System().Register(ctx, nil))
 
-	metricsController, err := metricscontroller.NewMetricsController(ds, nil)
+	metricsController, err := metricscontroller.NewMetricsController(ds, ds.Logger)
 	must(err)
 
 	step("never-produced (topic, group) -> zeroes, not an error")
