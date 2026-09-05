@@ -21,9 +21,6 @@ rewrite-to-the-real-API pass 2026-08-22 [0581], the board rebuild
 2026-08-23 [0582] [0583] [0584], the consumer-flow sandbox 2026-08-25
 [0585] [0586] [0587]. All three are in HISTORY.md.
 
-- **Doc-site result titles** -- before the first indexing pass, render each
-  document title as `<page title> | Vulkan Docs` while leaving its visible H1
-  unchanged.
 - **Code-page search snippets** -- derive each code page's meta description
   from its existing code, classification, consequence, and fix rather than
   adding a second hand-maintained description.

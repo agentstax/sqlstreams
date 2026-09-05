@@ -5,6 +5,18 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-05 — Every doc-site result title carries the site name [0654]
+
+The shared Astro layout now renders every HTML document title as
+`<page title> | Vulkan Docs`. Its original page-title prop still reaches the
+visible page components unchanged, so headings and breadcrumb labels keep
+their authored text.
+
+Verified with the website build, targeted Prettier, ESLint, and Astro checks,
+and a focused Playwright flow in Chromium, Firefox, and WebKit that asserts
+both `Quickstart | Vulkan Docs` in the document head and `Quickstart` in the
+visible H1. `git diff --check` passes.
+
 ## 2026-09-05 — The public consuming handles are Consumer-named [0653]
 
 The typed topic tree now selects a consumer group with

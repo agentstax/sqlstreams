@@ -17,6 +17,7 @@ type Props = {
 };
 
 const { title, description, navCurrent } = Astro.props;
+const documentTitle = `${title} | Vulkan Docs`;
 
 // on a frozen version deployment the canonical still names the live
 // origin, so search engines index one copy of every page
@@ -29,7 +30,7 @@ const versionManifestHref = new URL('/versions.json', siteUrl).href;
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<title>{title}</title>
+		<title>{documentTitle}</title>
 		<meta name="description" content={description} />
 		<link rel="canonical" href={canonicalHref} />
 		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />

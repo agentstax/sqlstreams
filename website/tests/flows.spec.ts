@@ -5,8 +5,14 @@ const sandboxBootTimeout = 120_000;
 
 test('the home page renders with a board style applied', async ({ page }) => {
 	await page.goto('/');
-	await expect(page).toHaveTitle(/Vulkan/);
+	await expect(page).toHaveTitle('Vulkan Board Index | Vulkan Docs');
 	await expect(page.locator('html')).toHaveAttribute('data-board-style', /classic|night/);
+});
+
+test('a thread suffixes its document title without changing its heading', async ({ page }) => {
+	await page.goto('/quickstart/');
+	await expect(page).toHaveTitle('Quickstart | Vulkan Docs');
+	await expect(page.getByRole('heading', { level: 1 })).toHaveText('Quickstart');
 });
 
 test('the sandbox boots and its panels show rows', async ({ page }) => {
