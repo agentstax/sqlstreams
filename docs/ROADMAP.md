@@ -245,6 +245,15 @@ stay revisable, text polish (naming/errors/logging/comments) last.
 Pre-v1 — the 14b public-API pass, then measurement, evaluation, and
 documentation; the latter want a surface that has stopped moving.
 
+- **Claim stall Warn** -- a produce inside a caller-owned transaction
+  holds every consumer group on the topic at that message id until the
+  commit, and today the only symptom is lag. Add a declared Warn event on
+  the consumer side when a claim has waited on an uncommitted message
+  longer than a threshold, carrying topic, group, the message id it is
+  held at, and the stall duration. Surfaced by playground scenario 02;
+  the guide (transactional-produce) states the rule in prose, this is the
+  observability half.
+
 - **Doc-site breadcrumb structured data** -- emit `BreadcrumbList` JSON-LD
   from the same trail each page already renders, so the machine-readable and
   visible hierarchies cannot disagree. Validate representative board, guide,

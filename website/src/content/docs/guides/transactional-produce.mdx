@@ -145,11 +145,17 @@ err := client.InTransaction(ctx, func(ctx context.Context, tx vulkan.Tx) error {
 ```
 
 <ThreadAside label="CAUTION" title="Do your own statements first; produce last">
-Producing effectively takes a lock on consumer progress for the whole
-topic: consumers cannot claim past your message until the transaction
-commits, and every statement you run *after* the produce extends how
-long that lock is held. Keep the produce the shortest-held thing in
-the transaction.
+Producing holds every consumer group on the topic at your message until
+you commit. A claim only advances to the oldest uncommitted message id,
+so an open transaction with a produce in it is a wall for the whole
+topic, and every statement you run *after* the produce is time the wall
+stands. Nothing in the types enforces the order, and nothing logs the
+stall today -- consumers just lag.
+
+For one topic, `ProduceFunc` makes the order structural: the closure
+runs first and the produce is the last thing in the transaction by
+construction. Reach for `InTransaction` plus `ProduceInTx` when you
+need several topics in one commit, and put the produces at the end.
 
 </ThreadAside>
 
