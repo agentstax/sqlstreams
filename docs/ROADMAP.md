@@ -21,10 +21,6 @@ rewrite-to-the-real-API pass 2026-08-22 [0581], the board rebuild
 2026-08-23 [0582] [0583] [0584], the consumer-flow sandbox 2026-08-25
 [0585] [0586] [0587]. All three are in HISTORY.md.
 
-- **Doc-site sitemap** -- add Astro's official sitemap integration so every
-  canonical static route is emitted at build time, advertise the generated
-  sitemap from `robots.txt`, and verify the deployed files contain only the
-  live origin's canonical URLs.
 - **Doc-site result titles** -- before the first indexing pass, render each
   document title as `<page title> | Vulkan Docs` while leaving its visible H1
   unchanged.
@@ -166,6 +162,56 @@ internal cleanup; no new behavior. Locks the surface before v1.
 Ordered: internal restructuring first, public-surface decisions late so they
 stay revisable, text polish (naming/errors/logging/comments) last.
 
+- **Reliability lab -- the hour-long live run** (verdict, not a
+  measurement: the sibling of `just compat-lab`, housed under bench/ so
+  it shares the container / env / record plumbing, its record carrying a
+  verdict and counts instead of a latency histogram). Starts as plain Go
+  plus a compose file and folds into the benchmark-recording pipeline
+  when that lands, like the other legacy benches -- never blocked on it.
+  - The design center is a ledger plus a checker, not the load generator
+    (Kafka's system tests: verifiable producer + verifiable consumer +
+    validator; Jepsen: history + checker). Postgres is the thing under
+    test, so the ledger lives in a separate Postgres schema in the same
+    container and the report is a SQL join. Producer ledger: every
+    Produce records its idempotency key and outcome -- committed,
+    rejected with its VK code, or ambiguous (commit confirmation lost,
+    shutdown abandon); ambiguous rows resolve after the run by looking
+    the key up in message_log. Handler ledger: every handler invocation
+    records message id, key, group, outcome.
+  - Checker runs after a quiesce (producers stop; consumers drain until
+    the cursor reaches max id and no ready exception rows remain):
+    committed keys == message_log rows; every eligible message has >= 1
+    delivery_log row ending success or dead (DeliveryLogMode all); and
+    the partition holds -- produced = success + dead + compacted-away +
+    other-schema-version. Anything outside those buckets fails the run.
+    The report never has an acceptable "dropped" bucket: expected skips
+    carry their own names, dropped means failure.
+  - Duplicates are reported, never failed: a crash between the handler
+    returning and Commit re-delivers after lease expiry, so a success row
+    lands late and possibly twice (delivery_log's key is a BIGSERIAL, a
+    second attempt-0 success row inserts cleanly). At-least-once is the
+    contract the checker expects.
+  - Quiet-system check (settled 2026-09-05): with handler fail rate 0 and
+    no chaos, the run also asserts zero lease reclaims and zero
+    dead-lettered messages -- a reclaim under no chaos is itself a
+    finding.
+  - Edge cases it exists to probe: PartialCommit at shutdown returning
+    commit-confirmation-lost with outcomes already landed; ranges
+    quarantined after max reclaims (range-wide dead rows); reclaim of a
+    range whose old worker already ran the handler; produce ambiguity at
+    batch commit under saturating load.
+  - v1 scope, kept small: one image, one binary with a role flag
+    (producer | consumer), compose scales replicas; one plain topic with
+    DeliveryLogMode all; handler fail rate; four producer load levels --
+    idle, low, high, saturating; a duration flag (a minute for dev runs,
+    an hour for the real run); quiesce, checker, report.
+  - Build-on-later, in rough order: chaos kills (docker kill a consumer
+    mid-lease -- this lab is the host for the Later chaos/fixture item
+    and for Antithesis in the parking lot; the checker is the reusable
+    asset in both); a compacted topic with keys; a schema-version mix;
+    bindings / fan-out; schedules; metrics and alert assertions. TEST.md
+    stays the unit-scale complement.
+
 - **Search-engine submission** -- after the doc-site sitemap is deployed,
   verify the canonical site property in Google Search Console and Bing
   Webmaster Tools, submit the sitemap in each service (or import the verified
@@ -179,6 +225,21 @@ stay revisable, text polish (naming/errors/logging/comments) last.
   plus every declared code -- codes never renumber after v1, so the prefix
   must be final first).
   - need to make sure we build out new logo sheet as well
+
+- **Idle-fleet worker-load benchmark** (14c; measure BEFORE building any
+  fix). An idle deployment pays per worker row per poll: winner's claim
+  UPDATE + no-op work each tick, and — the growing term — every replica's
+  LOSING claim attempt (R replicas x W rows x 1/poll_rate no-op UPDATEs).
+  Bench an idle fleet at 100 / 1k / 10k worker rows x 1-3 replicas:
+  Postgres CPU, QPS, where the curve hurts. Result picks a rung on the
+  settled fix ladder (cheapest first, don't skip rungs): (1) per-row
+  poll_rate already exists in worker metadata — coarsen quiet topics' rows,
+  document; (2) idle backoff inside the instance tick runner only — no
+  progress backs off toward a cap (~10x poll_rate), any progress snaps
+  back; cost is a committed-staleness spike on wake, janitor side covered
+  by the producer's partition self-heal; (3) LISTEN/NOTIFY-woken workers —
+  real complexity, only if (2) measurably fails. Prior: rung 1 carries to
+  ~1k rows, rung 2 well past 10k, rung 3 never earns it.
 
 - **Benchmark-recording pipeline** (14c) — decide where lab throughput
   numbers get saved so regressions are visible over time. First real
@@ -208,20 +269,6 @@ stay revisable, text polish (naming/errors/logging/comments) last.
     Buffer on/off, BufferLogger no longer exists.
   - Documentation drives this work: the methodology page becomes a doc-site
     page and the user-facing spec is written before the harness is built.
-- **Idle-fleet worker-load benchmark** (14c; measure BEFORE building any
-  fix). An idle deployment pays per worker row per poll: winner's claim
-  UPDATE + no-op work each tick, and — the growing term — every replica's
-  LOSING claim attempt (R replicas x W rows x 1/poll_rate no-op UPDATEs).
-  Bench an idle fleet at 100 / 1k / 10k worker rows x 1-3 replicas:
-  Postgres CPU, QPS, where the curve hurts. Result picks a rung on the
-  settled fix ladder (cheapest first, don't skip rungs): (1) per-row
-  poll_rate already exists in worker metadata — coarsen quiet topics' rows,
-  document; (2) idle backoff inside the instance tick runner only — no
-  progress backs off toward a cap (~10x poll_rate), any progress snaps
-  back; cost is a committed-staleness spike on wake, janitor side covered
-  by the producer's partition self-heal; (3) LISTEN/NOTIFY-woken workers —
-  real complexity, only if (2) measurably fails. Prior: rung 1 carries to
-  ~1k rows, rung 2 well past 10k, rung 3 never earns it.
 
 - **TEST.md expand and refine** (14c) — the shutdown/interruption scenarios
   recorded there are Setup/Action/Assert prose from a scratch harness;

@@ -5,6 +5,25 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-05 — The doc site publishes its canonical sitemap [0652]
+
+Astro's official sitemap integration emits the sitemap index and URL file from
+the built routes and the existing live-origin configuration. The
+visitor-specific search and what's-new pages are excluded, as is Astro's 404
+route. A statically rendered `robots.txt` allows search crawling and advertises
+the sitemap without duplicating the route registry.
+
+The deployed index and URL file return 200 as XML. The index names the one URL
+file; that file holds 526 unique URLs, all on the canonical origin, with no
+excluded routes. The homepage, quickstart, VK0005, and [0652] each return 200.
+The live `robots.txt` returns the origin rules without Cloudflare's former
+policy-only fallback: managed robots is not enabled, and that fallback had
+defined content signals without expressing a crawl preference. Search-engine
+submission remains a separate Next item.
+
+Verified locally with the website build, lint, Astro check, Prettier, XML
+validation, and `git diff --check`; then verified against the deployed files.
+
 ## 2026-09-05 — Documentation links related mechanisms in context [0651]
 
 The website content rules now require a contextual link when another thread

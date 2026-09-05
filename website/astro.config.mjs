@@ -1,7 +1,9 @@
 // @ts-check
+import { URL } from 'node:url';
 import { defineConfig } from 'astro/config';
 import { unified } from '@astrojs/markdown-remark';
 import mdx from '@astrojs/mdx';
+import sitemap from '@astrojs/sitemap';
 import svelte from '@astrojs/svelte';
 import { remarkDecisionRecords } from './src/helpers/decision-records.ts';
 import { siteUrl } from './src/site.ts';
@@ -23,6 +25,8 @@ const keywordScopes = [
 	'storage',
 	'constant.language',
 ];
+
+const sitemapExcludedPaths = new Set(['/search/', '/whats-new/']);
 
 // https://astro.build/config
 export default defineConfig({
@@ -87,5 +91,11 @@ export default defineConfig({
 			defaultColor: false,
 		},
 	},
-	integrations: [svelte(), mdx()],
+	integrations: [
+		svelte(),
+		mdx(),
+		sitemap({
+			filter: (/** @type {string} */ page) => !sitemapExcludedPaths.has(new URL(page).pathname),
+		}),
+	],
 });

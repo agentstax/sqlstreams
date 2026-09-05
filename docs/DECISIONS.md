@@ -404,3 +404,4 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0650 2026-09-05 accepted (pre-v1) — # The migration version reads through the client
 - 0649 2026-09-05 accepted (pre-v1) — # Alerts take the metrics shape and the one registry
 - 0651 2026-09-05 accepted (pre-v1) — documentation links related mechanisms in context
+- 0652 2026-09-05 accepted (pre-v1) — Astro's build emits the canonical sitemap and robots.txt advertises it

@@ -243,6 +243,12 @@ preprocessor, no utility framework, no third-party token pack.
 - Each page does ONE job -- tutorial, how-to, reference, or
   explanation; a guide that starts explaining links to the concept
   page instead of drifting.
+- Contextual internal links sit where the reader needs them. When another
+  thread owns a prerequisite, the detailed mechanism, or a relevant
+  contrast, link its first useful mention with anchor text that names what
+  the reader will find (`See [Message Lifecycle](/concepts/lifecycle/) for
+  the delivery states`, never `learn more`). Review this as prose: there is
+  no link quota, generated related-thread box, or mechanically added link.
 - Vale runs in CI with the Google developer-docs style plus the
   Vulkan style; the Vulkan substitution rule mirrors the root
   ## Vocabulary table, and a new vocabulary row updates the Vale rule
