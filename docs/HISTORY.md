@@ -5,6 +5,30 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-05 — Missing compaction heads are lockable [0659][0660]
+
+`Topic[Message](name).Key(messageKey).LockCompactionHead(ctx, tx)` now gives a
+read-modify-write a row lock even before the key has a first compacted message.
+The key handle owns both head reads, and the producer instance no longer
+exposes `GetCompactionHeadInTx`. One `INSERT ... ON CONFLICT DO UPDATE ...
+RETURNING` statement creates or locks the row and returns its nullable head.
+
+The compaction-head baseline now makes its three head fields all-null or
+all-present and records `created_at` and `updated_at`. A positive, one-hour
+`EmptyCompactionHeadTTL` bounds lock-only rows; the existing topic janitor
+sweeps expired rows in bounded `FOR UPDATE SKIP LOCKED` batches through a
+partial index. Materialized heads never expire through this path. Topic
+snapshots report the lock-only row count and oldest age without changing the
+meaning of `Compacted`.
+
+Scenario 05 uses the key-handle transaction shape, and the new
+`compactionheadlocklab` proves two absent-key updates compose, ordinary produce
+fills a lock-only row, TTL cleanup is bounded, and both locker-first and
+janitor-first races converge. The client guide, table design, config and error
+references now describe the shipped behavior. Green at closeout: 50/50 labs on
+a recreated database, `just verify`, targeted Prettier/Remark/Vale, the website
+build, and `git diff --check`.
+
 ## 2026-09-05 — Built-in alert config names what it configures [0658]
 
 `RegisterSystemConfig` now exposes `PartitionCountAlert`,
