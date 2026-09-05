@@ -15,19 +15,8 @@ func (t *TopicHandle[Message]) Producer() *ProducerHandle[Message] {
 }
 
 // Register resolves the topic and returns an instance that produces its
-// Message. cfg may be nil or a sparse struct; a Logger or Retry left nil
-// takes the client's.
+// Message. cfg may be nil or a sparse struct.
 func (p *ProducerHandle[Message]) Register(ctx context.Context, cfg *ProducerConfig) (*ProducerInstance[Message], error) {
-	if cfg == nil {
-		cfg = &ProducerConfig{}
-	}
-	if cfg.Logger == nil {
-		cfg.Logger = p.client.Logger
-	}
-	if cfg.Retry == nil {
-		cfg.Retry = p.client.ds.Retry
-	}
-
 	instance, err := p.client.producer.Register[Message](ctx, p.topicName, cfg)
 	if err != nil {
 		return nil, err

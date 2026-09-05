@@ -2,11 +2,9 @@ package producer
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
 	"github.com/agentstax/vulkan/pkg/produce/batcher"
 )
 
@@ -28,24 +26,10 @@ type ProducerConfig struct {
 	// caller's commit.
 	// Default: 0 (disabled).
 	SlowProduceThreshold time.Duration
-
-	Logger logging.Logger      // pass your own *slog.Logger or anything satisfying logging.Logger. Default: text lines to stderr, warn level and up; the client's logger when built through vulkan.Client.
-	Retry  *common.RetryPolicy // transient-error retry policy for this producer's own Postgres calls -- never put on messages. Default: common.NewDefaultRetryPolicy(); the client's policy when built through vulkan.Client.
 }
 
 func (c *ProducerConfig) WithDefaults() *ProducerConfig {
-	if c.Logger == nil {
-		c.Logger = logging.NewDefaultLogger(os.Stderr)
-	}
-	c.Logger = logging.NewPipelineLogger(c.Logger, &logging.PipelineLoggerConfig{Buffer: true})
-
-	// the batcher inherits this producer's logger unless given its own
-	if c.Batch.Logger == nil {
-		c.Batch.Logger = c.Logger
-	}
 	c.Batch.WithDefaults()
-
-	c.Retry = c.Retry.WithDefaults()
 	return c
 }
 
@@ -60,9 +44,6 @@ func (c *ProducerConfig) Validate() error {
 	}
 	if err := c.Batch.Validate(); err != nil {
 		return fmt.Errorf("Batch: %w", err)
-	}
-	if err := c.Retry.Validate(); err != nil {
-		return fmt.Errorf("Retry: %w", err)
 	}
 	return nil
 }

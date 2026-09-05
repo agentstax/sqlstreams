@@ -26,15 +26,6 @@ func (c *Client) Scheduler(name string) *SchedulerHandle {
 // Register declares this schedule on topicName and returns a runnable
 // instance. The newest declaration wins. cfg may be nil or sparse.
 func (s *SchedulerHandle) Register[Message Versioned](ctx context.Context, topicName string, cron string, payload *Message, cfg *SchedulerConfig) (*SchedulerInstance[Message], error) {
-	if cfg == nil {
-		cfg = &SchedulerConfig{}
-	}
-	if cfg.Logger == nil {
-		cfg.Logger = s.client.Logger
-	}
-	if cfg.Retry == nil {
-		cfg.Retry = s.client.ds.Retry
-	}
 	instance, err := s.client.scheduler.Register[Message](ctx, s.name, topicName, cron, payload, cfg)
 	if err != nil {
 		return nil, err

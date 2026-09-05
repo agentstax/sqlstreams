@@ -2,11 +2,9 @@ package scheduler
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
 )
 
 type SchedulerConfig struct {
@@ -23,9 +21,6 @@ type SchedulerConfig struct {
 	// `vulkan schedule get`; it is not part of the produced message.
 	// Default: {}.
 	Metadata any
-
-	Logger logging.Logger      // pass your own *slog.Logger or anything satisfying logging.Logger. Default: text lines to stderr, warn level and up.
-	Retry  *common.RetryPolicy // transient-error retry policy for this scheduler's own Postgres calls. Default: common.NewDefaultRetryPolicy().
 }
 
 func (c *SchedulerConfig) WithDefaults() *SchedulerConfig {
@@ -35,11 +30,6 @@ func (c *SchedulerConfig) WithDefaults() *SchedulerConfig {
 	if c.Concurrency == "" {
 		c.Concurrency = common.ConcurrencyParallel
 	}
-	if c.Logger == nil {
-		c.Logger = logging.NewDefaultLogger(os.Stderr)
-	}
-	c.Logger = logging.NewPipelineLogger(c.Logger, &logging.PipelineLoggerConfig{Buffer: true})
-	c.Retry = c.Retry.WithDefaults()
 	return c
 }
 
@@ -51,9 +41,6 @@ func (c *SchedulerConfig) Validate() error {
 	}
 	if err := c.Concurrency.Validate(); err != nil {
 		return fmt.Errorf("Concurrency: %w", err)
-	}
-	if err := c.Retry.Validate(); err != nil {
-		return fmt.Errorf("Retry: %w", err)
 	}
 	return nil
 }

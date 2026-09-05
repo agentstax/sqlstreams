@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
 	"github.com/agentstax/vulkan/pkg/datastore"
 	"github.com/agentstax/vulkan/pkg/schedule"
 	"github.com/agentstax/vulkan/pkg/systemmanager"
@@ -16,7 +15,6 @@ type SchedulerInstance[Message common.Versioned] struct {
 	Registered *schedule.Schedule
 	Payload    *Message
 	Config     *SchedulerConfig
-	Logger     logging.Logger
 
 	ds *datastore.PostgresDatastore
 }
@@ -39,7 +37,6 @@ func newSchedulerInstance[Message common.Versioned](registered *schedule.Schedul
 		Registered: registered,
 		Payload:    payload,
 		Config:     cfg,
-		Logger:     cfg.Logger,
 		ds:         ds,
 	}, nil
 }
@@ -49,8 +46,8 @@ func newSchedulerInstance[Message common.Versioned](registered *schedule.Schedul
 // schedule, not just this one. A requested stop returns nil.
 func (i *SchedulerInstance[Message]) Schedule(ctx context.Context) error {
 	systemManager, err := systemmanager.NewSystemManager(i.ds, &systemmanager.SystemManagerConfig{
-		Logger: i.Config.Logger,
-		Retry:  i.Config.Retry,
+		Logger: i.ds.Logger,
+		Retry:  i.ds.Retry,
 	})
 	if err != nil {
 		return err

@@ -71,7 +71,7 @@ func run() error {
 
 	return transcodes.Consume(ctx, func(ctx context.Context, request *TranscodeRequested) error {
 		for minute := range request.Minutes {
-			// wanted: "still working, extend my lease" -- nothing to call.
+			// TODO - wanted: "still working, extend my lease" -- nothing to call.
 			select {
 			case <-ctx.Done():
 				return ctx.Err()

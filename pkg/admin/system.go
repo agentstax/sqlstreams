@@ -68,8 +68,6 @@ func (a *MessageAdmin) RegisterSystem(ctx context.Context, cfg *RegisterSystemCo
 	for _, job := range []*alertcontroller.Job{partitionCountJob, compactionReadCostJob, workerLivenessJob} {
 		if _, err := a.scheduler.Register[alert.JobPayload](ctx, job.Name, schedule.TopicName, job.Cron, job.Payload, &scheduler.SchedulerConfig{
 			Concurrency: common.ConcurrencyExclusive,
-			Logger:      a.Logger,
-			Retry:       a.Retry,
 		}); err != nil {
 			return err
 		}

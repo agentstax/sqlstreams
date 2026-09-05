@@ -33,11 +33,12 @@ type ConsumerInstance[Message common.Versioned] struct {
 	permit       *concurrency.Permit // held for the length of a Consume call
 }
 
-// cfg arrives already resolved by NewConsumer -- Register is the only caller,
-// so there is nothing left to default or validate here.
+// cfg arrives already resolved by Register, the only caller, so there is
+// nothing left to default or validate here; logger is Register's
+// per-instance pipeline over the datastore's logger.
 // declaredAt is Register's declaration time; Consume re-attempts the
 // Config.Bindings declaration under it.
-func newConsumerInstance[Message common.Versioned](owner *common.Owner, ds *datastore.PostgresDatastore, metrics *metricsproducer.MetricsProducer, consumers *consumecontroller.ConsumeController, topicName string, topicVersion int, declaredAt time.Time, cfg *ConsumerConfig) (*ConsumerInstance[Message], error) {
+func newConsumerInstance[Message common.Versioned](owner *common.Owner, ds *datastore.PostgresDatastore, metrics *metricsproducer.MetricsProducer, consumers *consumecontroller.ConsumeController, topicName string, topicVersion int, declaredAt time.Time, cfg *ConsumerConfig, logger logging.Logger) (*ConsumerInstance[Message], error) {
 	if owner == nil {
 		return nil, errors.New("owner must not be nil")
 	}
@@ -59,6 +60,9 @@ func newConsumerInstance[Message common.Versioned](owner *common.Owner, ds *data
 	if cfg == nil {
 		return nil, errors.New("config must not be nil")
 	}
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
+	}
 
 	permit, err := concurrency.NewPermit()
 	if err != nil {
@@ -68,7 +72,7 @@ func newConsumerInstance[Message common.Versioned](owner *common.Owner, ds *data
 	return &ConsumerInstance[Message]{
 		Owner:        owner,
 		Config:       cfg,
-		Logger:       cfg.Logger,
+		Logger:       logger,
 		ds:           ds,
 		metrics:      metrics,
 		consumers:    consumers,

@@ -69,39 +69,39 @@ func (c *Consumer) Register[Message common.Versioned](ctx context.Context, consu
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
-	cfg.Logger = logging.NewPipelineLogger(cfg.Logger, &logging.PipelineLoggerConfig{Buffer: true, Suppress: true})
+	logger := logging.NewPipelineLogger(c.ds.Logger, &logging.PipelineLoggerConfig{Buffer: true, Suppress: true})
 
 	topicController, err := topiccontroller.NewTopicController(c.ds, &topiccontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
+		Logger: logger,
+		Retry:  c.ds.Retry,
 	})
 	if err != nil {
 		return nil, err
 	}
 	consumers, err := consumecontroller.NewConsumeController(c.ds, &consumecontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
+		Logger: logger,
+		Retry:  c.ds.Retry,
 	})
 	if err != nil {
 		return nil, err
 	}
 	workers, err := workercontroller.NewWorkerController(c.ds, &workercontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
+		Logger: logger,
+		Retry:  c.ds.Retry,
 	})
 	if err != nil {
 		return nil, err
 	}
 	partitionCountController, err := partitioncountcontroller.NewPartitionCountController(c.ds, &partitioncountcontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
+		Logger: logger,
+		Retry:  c.ds.Retry,
 	})
 	if err != nil {
 		return nil, err
 	}
 	compactionReadCostController, err := compactionreadcostcontroller.NewCompactionReadCostController(c.ds, &compactionreadcostcontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
+		Logger: logger,
+		Retry:  c.ds.Retry,
 	})
 	if err != nil {
 		return nil, err
@@ -119,7 +119,7 @@ func (c *Consumer) Register[Message common.Versioned](ctx context.Context, consu
 		return nil, err
 	}
 
-	c.logAlerts(ctx, current, cfg.Logger, evaluators)
+	c.logAlerts(ctx, current, logger, evaluators)
 
 	group, err := consumers.RegisterGroup(ctx, current.Id, consumerGroup, cfg.Start)
 	if err != nil {
@@ -147,19 +147,19 @@ func (c *Consumer) Register[Message common.Versioned](ctx context.Context, consu
 		return nil, err
 	}
 	if outcome == consume.BindingWaiting {
-		cfg.Logger.InfoContext(ctx, "binding declaration waiting -- a live instance still declares a different set; Consume retries until installed",
+		logger.InfoContext(ctx, "binding declaration waiting -- a live instance still declares a different set; Consume retries until installed",
 			"group", group.Name, "patterns", cfg.Bindings)
 	}
 
 	// built per instance -- two instances must never share one event queue
 	// or one set of session counters
 	instanceMetrics, err := metricsproducer.NewMetricsProducer(c.ds, &metricsproducer.ProducerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
+		Logger: logger,
+		Retry:  c.ds.Retry,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	return newConsumerInstance[Message](owner, c.ds, instanceMetrics, consumers, topicName, common.SchemaVersionOf[Message](), declaredAt, cfg)
+	return newConsumerInstance[Message](owner, c.ds, instanceMetrics, consumers, topicName, common.SchemaVersionOf[Message](), declaredAt, cfg, logger)
 }

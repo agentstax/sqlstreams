@@ -2,12 +2,10 @@ package consumer
 
 import (
 	"fmt"
-	"os"
 	"slices"
 	"time"
 
 	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
 	"github.com/agentstax/vulkan/pkg/consume"
 )
 
@@ -46,9 +44,6 @@ type ConsumerConfig struct {
 
 	ExceptionInitialBackoff time.Duration // can_run_after delay when an exception/terminal row is first written (Commit/PartialCommit) -- Message.Retry takes over on later retries
 	MaxRangeReclaims        int           // past this many reclaims a range is POISON -- quarantined into the exception window instead of handed out again
-
-	Logger logging.Logger      // pass your own *slog.Logger or anything satisfying logging.Logger. Default: text lines to stderr, warn level and up; the client's logger when built through vulkan.Client.
-	Retry  *common.RetryPolicy // transient-error retry policy for this consumer's own Postgres calls -- never applies to message redelivery, that is Message.Retry. Default: common.NewDefaultRetryPolicy(); the client's policy when built through vulkan.Client.
 }
 
 func (c *ConsumerConfig) WithDefaults() *ConsumerConfig {
@@ -66,17 +61,6 @@ func (c *ConsumerConfig) WithDefaults() *ConsumerConfig {
 	if c.MaxRangeReclaims == 0 {
 		c.MaxRangeReclaims = 3
 	}
-
-	if c.Retry == nil {
-		c.Retry = &common.RetryPolicy{}
-	}
-	c.Retry = c.Retry.WithDefaults()
-
-	if c.Logger == nil {
-		c.Logger = logging.NewDefaultLogger(os.Stderr)
-	}
-	c.Logger = logging.NewPipelineLogger(c.Logger, &logging.PipelineLoggerConfig{Buffer: true})
-
 	return c
 }
 
@@ -115,10 +99,6 @@ func (c *ConsumerConfig) Validate() error {
 	}
 	if c.MaxRangeReclaims < 1 {
 		return fmt.Errorf("MaxRangeReclaims must be >= 1, got %d", c.MaxRangeReclaims)
-	}
-
-	if err := c.Retry.Validate(); err != nil {
-		return fmt.Errorf("Retry: %w", err)
 	}
 	return c.validateMessageBounds()
 }
@@ -164,18 +144,14 @@ func (c *ConsumerConfig) validateMessageBounds() error {
 }
 
 // DeepCopy returns a copy sharing nothing mutable with the receiver --
-// WithDefaults fills the message options and retry policy in place, so a
-// captured declaration must not alias them.
+// WithDefaults fills the message options in place, so a captured
+// declaration must not alias them.
 func (c *ConsumerConfig) DeepCopy() *ConsumerConfig {
 	copied := *c
 	copied.Message = cloneMessageOptions(c.Message)
 	copied.MessageMin = cloneMessageOptions(c.MessageMin)
 	copied.MessageMax = cloneMessageOptions(c.MessageMax)
 	copied.Bindings = slices.Clone(c.Bindings)
-	if c.Retry != nil {
-		retry := *c.Retry
-		copied.Retry = &retry
-	}
 	return &copied
 }
 

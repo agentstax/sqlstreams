@@ -32,7 +32,7 @@ packages, directly affected labs) before the next:
    passes `cfg.Logger` / `cfg.Retry` through and sets `client.Logger =
    ds.Logger`. `tools/compat` and `groupconfiglab` build their own
    datastore and set the pair there.
-2. **The three assemblers.** `consumer.ConsumerConfig`,
+2. **The three assemblers.** DONE 2026-09-05 (with 3; race tests, conventions, groupconfiglab, schedulelab, alertlab, metricscollectorlab green; interim `retry, logger` params on the two consumer adapters go with chunk 5; `BatcherConfig.Logger` deleted the same day, `NewBatcher` takes the producer instance's logger). `consumer.ConsumerConfig`,
    `producer.ProducerConfig`, `scheduler.SchedulerConfig` drop `Logger`
    and `Retry` (fields, `WithDefaults` blocks, `Validate` check, field
    comments). Each `Register` builds its per-instance pipeline
@@ -42,7 +42,7 @@ packages, directly affected labs) before the next:
    `i.ds.Retry` where it read `i.Config.Retry` (provisioners, manager).
    `pkg/vulkan/{consumer,producer,scheduler}.go` delete their nil-patch
    blocks; `alias.go` is unchanged (the closure test confirms).
-3. **Internal callers.** `admin/scheduler.go`, `admin/system.go`,
+3. **Internal callers.** DONE 2026-09-05 -- also the three alert instances, `schedule/producer`, `metrics/collector`; no lab or playground scenario passed the pair. `admin/scheduler.go`, `admin/system.go`,
    `otelvulkan/metrics_{consumer,producer}.go`, `metrics/collector`,
    `tools/compat`, every lab and playground scenario that passes
    `Logger:`/`Retry:` into one of the three Register calls stops.

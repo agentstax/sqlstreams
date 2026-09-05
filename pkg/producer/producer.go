@@ -44,39 +44,39 @@ func (p *Producer) Register[Message common.Versioned](ctx context.Context, topic
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
-	cfg.Logger = logging.NewPipelineLogger(cfg.Logger, &logging.PipelineLoggerConfig{Buffer: true, Suppress: true})
+	logger := logging.NewPipelineLogger(p.ds.Logger, &logging.PipelineLoggerConfig{Buffer: true, Suppress: true})
 
 	produceController, err := controller.NewProduceController(p.ds, &controller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
+		Logger: logger,
+		Retry:  p.ds.Retry,
 	})
 	if err != nil {
 		return nil, err
 	}
 	topicController, err := topiccontroller.NewTopicController(p.ds, &topiccontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
+		Logger: logger,
+		Retry:  p.ds.Retry,
 	})
 	if err != nil {
 		return nil, err
 	}
 	partitionCountController, err := partitioncountcontroller.NewPartitionCountController(p.ds, &partitioncountcontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
+		Logger: logger,
+		Retry:  p.ds.Retry,
 	})
 	if err != nil {
 		return nil, err
 	}
 	compactionReadCostController, err := compactionreadcostcontroller.NewCompactionReadCostController(p.ds, &compactionreadcostcontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
+		Logger: logger,
+		Retry:  p.ds.Retry,
 	})
 	if err != nil {
 		return nil, err
 	}
 	workerLivenessController, err := workerlivenesscontroller.NewWorkerLivenessController(p.ds, &workerlivenesscontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
+		Logger: logger,
+		Retry:  p.ds.Retry,
 	})
 	if err != nil {
 		return nil, err
@@ -96,7 +96,7 @@ func (p *Producer) Register[Message common.Versioned](ctx context.Context, topic
 		return nil, err
 	}
 
-	p.logAlerts(ctx, current, cfg.Logger, evaluators)
+	p.logAlerts(ctx, current, logger, evaluators)
 
-	return NewProducerInstance[Message](current, produceController, cfg)
+	return NewProducerInstance[Message](current, produceController, cfg, logger)
 }

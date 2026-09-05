@@ -8,6 +8,7 @@ import (
 	"uuid"
 
 	"github.com/agentstax/vulkan/pkg/common"
+	"github.com/agentstax/vulkan/pkg/common/logging"
 	"github.com/agentstax/vulkan/pkg/produce"
 	"github.com/agentstax/vulkan/pkg/produce/controller"
 )
@@ -16,6 +17,7 @@ import (
 // transactions, amortizing the per-commit fsync in the database.
 type Batcher[Message common.Versioned] struct {
 	Config *BatcherConfig
+	Logger logging.Logger
 
 	controller    *controller.ProduceController
 	topicId       int64
@@ -25,13 +27,17 @@ type Batcher[Message common.Versioned] struct {
 }
 
 // cfg may be nil or a sparse struct -- WithDefaults fills every field left
-// unset, Validate rejects what's out of range.
-func NewBatcher[Message common.Versioned](produceController *controller.ProduceController, topicId int64, partitionSize int64, cfg *BatcherConfig) (*Batcher[Message], error) {
+// unset, Validate rejects what's out of range. logger is the owning
+// producer instance's.
+func NewBatcher[Message common.Versioned](produceController *controller.ProduceController, topicId int64, partitionSize int64, cfg *BatcherConfig, logger logging.Logger) (*Batcher[Message], error) {
 	if produceController == nil {
 		return nil, errors.New("controller must not be nil")
 	}
 	if topicId <= 0 {
 		return nil, fmt.Errorf("topicId must be > 0, got %d", topicId)
+	}
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
 	}
 	if cfg == nil {
 		cfg = &BatcherConfig{}
@@ -43,6 +49,7 @@ func NewBatcher[Message common.Versioned](produceController *controller.ProduceC
 
 	return &Batcher[Message]{
 		Config:        cfg,
+		Logger:        logger,
 		controller:    produceController,
 		topicId:       topicId,
 		partitionSize: partitionSize,
@@ -84,7 +91,7 @@ func (b *Batcher[Message]) Produce(ctx context.Context, message *Message, option
 		select {
 		case <-operation.response.done:
 			// ideally this completes -> graceful shutdown
-			b.Config.Logger.DebugContext(ctx, "cancelled produce resolved within shutdown grace", "topic_id", b.topicId)
+			b.Logger.DebugContext(ctx, "cancelled produce resolved within shutdown grace", "topic_id", b.topicId)
 		case <-grace.C:
 			// if shutdownGrace times out -> exit early
 			// work commit status is ambiguous and should be retried if possible when supplying external idempotency key

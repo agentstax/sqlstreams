@@ -2,10 +2,7 @@ package batcher
 
 import (
 	"fmt"
-	"os"
 	"time"
-
-	"github.com/agentstax/vulkan/pkg/common/logging"
 )
 
 type BatcherConfig struct {
@@ -27,8 +24,6 @@ type BatcherConfig struct {
 	// real outcome. Keep it above AttemptTimeout.
 	// Default: 15s. Negative: abandon immediately.
 	ShutdownGrace time.Duration
-
-	Logger logging.Logger // pass your own *slog.Logger or anything satisfying logging.Logger. Default: text lines to stderr, warn level and up.
 }
 
 func (c *BatcherConfig) WithDefaults() *BatcherConfig {
@@ -44,10 +39,6 @@ func (c *BatcherConfig) WithDefaults() *BatcherConfig {
 	if c.ShutdownGrace == 0 {
 		c.ShutdownGrace = 15 * time.Second
 	}
-	if c.Logger == nil {
-		c.Logger = logging.NewDefaultLogger(os.Stderr)
-	}
-	c.Logger = logging.NewPipelineLogger(c.Logger, &logging.PipelineLoggerConfig{Buffer: true})
 	return c
 }
 

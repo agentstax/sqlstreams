@@ -32,8 +32,8 @@ func (i *ConsumerInstance[Message]) newManagerRunner(ctx context.Context, consum
 	provisioners = append(provisioners, topicProvisioners...)
 
 	managerProvisioner, err := manager.NewManagerProvisioner(i.ds, worker.NoInstanceTarget, &manager.ManagerConfig{
-		Logger: i.Config.Logger,
-		Retry:  i.Config.Retry,
+		Logger: i.Logger,
+		Retry:  i.ds.Retry,
 	}, provisioners...)
 	if err != nil {
 		return nil, err
@@ -51,19 +51,19 @@ func (i *ConsumerInstance[Message]) newManagerRunner(ctx context.Context, consum
 // one frontier per group, with committed advancing behind it. Each
 // provisioner declares its own row before it joins the manager's list.
 func (i *ConsumerInstance[Message]) newGroupProvisioners(ctx context.Context, consumerFunc ConsumerFunc[Message], options *ConsumeOptions) ([]worker.Provisioner, error) {
-	message, err := messageconsumer.NewMessageConsumerProvisioner(i.ds, consumerFunc, i.topicVersion, i.metrics, toMessageConsumerConfig(i.Config, options))
+	message, err := messageconsumer.NewMessageConsumerProvisioner(i.ds, consumerFunc, i.topicVersion, i.metrics, toMessageConsumerConfig(i.Config, options, i.ds.Retry, i.Logger))
 	if err != nil {
 		return nil, err
 	}
 
-	exception, err := exceptionconsumer.NewExceptionConsumerProvisioner(i.ds, consumerFunc, i.topicVersion, i.metrics, toExceptionConsumerConfig(i.Config, options))
+	exception, err := exceptionconsumer.NewExceptionConsumerProvisioner(i.ds, consumerFunc, i.topicVersion, i.metrics, toExceptionConsumerConfig(i.Config, options, i.ds.Retry, i.Logger))
 	if err != nil {
 		return nil, err
 	}
 
 	cursorAdvancerProvisioner, err := cursoradvancer.NewCursorAdvancerProvisioner(i.ds, &cursoradvancer.CursorAdvancerConfig{
 		Logger: i.Logger,
-		Retry:  i.Config.Retry,
+		Retry:  i.ds.Retry,
 	})
 	if err != nil {
 		return nil, err
@@ -78,7 +78,7 @@ func (i *ConsumerInstance[Message]) newGroupProvisioners(ctx context.Context, co
 func (i *ConsumerInstance[Message]) newTopicProvisioners() ([]worker.Provisioner, error) {
 	topicJanitorProvisioner, err := topicjanitor.NewJanitorProvisioner(i.ds, &topicjanitor.JanitorConfig{
 		Logger: i.Logger,
-		Retry:  i.Config.Retry,
+		Retry:  i.ds.Retry,
 	})
 	if err != nil {
 		return nil, err
@@ -86,7 +86,7 @@ func (i *ConsumerInstance[Message]) newTopicProvisioners() ([]worker.Provisioner
 
 	consumerGroupJanitorProvisioner, err := consumejanitor.NewJanitorProvisioner(i.ds, &consumejanitor.JanitorConfig{
 		Logger: i.Logger,
-		Retry:  i.Config.Retry,
+		Retry:  i.ds.Retry,
 	})
 	if err != nil {
 		return nil, err
@@ -94,7 +94,7 @@ func (i *ConsumerInstance[Message]) newTopicProvisioners() ([]worker.Provisioner
 
 	scheduleProducerProvisioner, err := scheduleproducer.NewScheduleProducerProvisioner(i.ds, &scheduleproducer.ScheduleProducerConfig{
 		Logger: i.Logger,
-		Retry:  i.Config.Retry,
+		Retry:  i.ds.Retry,
 	})
 	if err != nil {
 		return nil, err
@@ -102,7 +102,7 @@ func (i *ConsumerInstance[Message]) newTopicProvisioners() ([]worker.Provisioner
 
 	metricsCollectorProvisioner, err := collector.NewMetricsCollectorProvisioner(i.ds, &collector.MetricsCollectorConfig{
 		Logger: i.Logger,
-		Retry:  i.Config.Retry,
+		Retry:  i.ds.Retry,
 	})
 	if err != nil {
 		return nil, err

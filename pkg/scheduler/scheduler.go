@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
 	"github.com/agentstax/vulkan/pkg/datastore"
 	"github.com/agentstax/vulkan/pkg/migrate"
 	"github.com/agentstax/vulkan/pkg/schedule"
@@ -50,25 +49,24 @@ func (s *Scheduler) Register[Message common.Versioned](ctx context.Context, name
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
-	cfg.Logger = logging.NewPipelineLogger(cfg.Logger, &logging.PipelineLoggerConfig{Buffer: true, Suppress: true})
 
 	systemController, err := systemcontroller.NewSystemController(s.ds, &systemcontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
+		Logger: s.ds.Logger,
+		Retry:  s.ds.Retry,
 	})
 	if err != nil {
 		return nil, err
 	}
 	topicController, err := topiccontroller.NewTopicController(s.ds, &topiccontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
+		Logger: s.ds.Logger,
+		Retry:  s.ds.Retry,
 	})
 	if err != nil {
 		return nil, err
 	}
 	scheduleController, err := schedulecontroller.NewScheduleController(s.ds, &schedulecontroller.ControllerConfig{
-		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
+		Logger: s.ds.Logger,
+		Retry:  s.ds.Retry,
 	})
 	if err != nil {
 		return nil, err
@@ -95,7 +93,7 @@ func (s *Scheduler) Register[Message common.Versioned](ctx context.Context, name
 	}
 
 	if target.DeliveryLogMode != topic.DeliveryLogModeAll {
-		cfg.Logger.WarnContext(ctx, schedule.EventTargetKeepsNoSuccessRows.Message, "code", schedule.EventTargetKeepsNoSuccessRows.Code, "schedule", name, "topic", target.Name, "delivery_log_mode", string(target.DeliveryLogMode))
+		s.ds.Logger.WarnContext(ctx, schedule.EventTargetKeepsNoSuccessRows.Message, "code", schedule.EventTargetKeepsNoSuccessRows.Code, "schedule", name, "topic", target.Name, "delivery_log_mode", string(target.DeliveryLogMode))
 	}
 
 	registered, err := scheduleController.Register(ctx, sys.Id, name, cron, target.Id, payload, cfg.Timeout, cfg.Concurrency, cfg.Metadata)

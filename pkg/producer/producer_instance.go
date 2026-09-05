@@ -22,13 +22,15 @@ import (
 type ProducerInstance[Message common.Versioned] struct {
 	Topic  *topic.Topic
 	Config *ProducerConfig
+	Logger logging.Logger
 
 	controller *controller.ProduceController
 	batcher    *batcher.Batcher[Message]
 }
 
-// cfg is already resolved (WithDefaults + Validate) by NewProducer.
-func NewProducerInstance[Message common.Versioned](resolvedTopic *topic.Topic, produceController *controller.ProduceController, cfg *ProducerConfig) (*ProducerInstance[Message], error) {
+// cfg is already resolved (WithDefaults + Validate) by Register; logger is
+// its per-instance pipeline over the datastore's logger.
+func NewProducerInstance[Message common.Versioned](resolvedTopic *topic.Topic, produceController *controller.ProduceController, cfg *ProducerConfig, logger logging.Logger) (*ProducerInstance[Message], error) {
 	if resolvedTopic == nil {
 		return nil, errors.New("topic must not be nil")
 	}
@@ -38,8 +40,11 @@ func NewProducerInstance[Message common.Versioned](resolvedTopic *topic.Topic, p
 	if cfg == nil {
 		return nil, errors.New("config must not be nil")
 	}
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
+	}
 
-	topicBatcher, err := batcher.NewBatcher[Message](produceController, resolvedTopic.Id, resolvedTopic.PartitionSize, &cfg.Batch)
+	topicBatcher, err := batcher.NewBatcher[Message](produceController, resolvedTopic.Id, resolvedTopic.PartitionSize, &cfg.Batch, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -47,6 +52,7 @@ func NewProducerInstance[Message common.Versioned](resolvedTopic *topic.Topic, p
 	return &ProducerInstance[Message]{
 		Topic:      resolvedTopic,
 		Config:     cfg,
+		Logger:     logger,
 		controller: produceController,
 		batcher:    topicBatcher,
 	}, nil
@@ -228,7 +234,7 @@ func (p *ProducerInstance[Message]) warnSlowProduce(ctx context.Context, start t
 	if p.Config.SlowProduceThreshold <= 0 || duration <= p.Config.SlowProduceThreshold {
 		return
 	}
-	p.Config.Logger.WarnContext(ctx, produce.EventSlowProduce.Message, "code", produce.EventSlowProduce.Code, "topic", p.Topic.Name, "duration", duration, "threshold", p.Config.SlowProduceThreshold)
+	p.Logger.WarnContext(ctx, produce.EventSlowProduce.Message, "code", produce.EventSlowProduce.Code, "topic", p.Topic.Name, "duration", duration, "threshold", p.Config.SlowProduceThreshold)
 }
 
 // toAppend shapes one batch item for the controller: fills message options

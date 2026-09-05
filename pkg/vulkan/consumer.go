@@ -28,19 +28,8 @@ func (t *TopicHandle[Message]) Consumer(name string) *ConsumerHandle[Message] {
 // Register resolves the topic and registers the consumer group on it,
 // returning an instance that consumes the topic's Message. cfg is the
 // group's declaration -- nil or sparse for the defaults, with cfg.Bindings
-// the full pattern set (nil = the whole topic). A Logger or Retry left nil
-// takes the client's.
+// the full pattern set (nil = the whole topic).
 func (h *ConsumerHandle[Message]) Register(ctx context.Context, cfg *ConsumerConfig) (*ConsumerInstance[Message], error) {
-	if cfg == nil {
-		cfg = &ConsumerConfig{}
-	}
-	if cfg.Logger == nil {
-		cfg.Logger = h.client.Logger
-	}
-	if cfg.Retry == nil {
-		cfg.Retry = h.client.ds.Retry
-	}
-
 	instance, err := h.client.consumer.Register[Message](ctx, h.name, h.topicName, cfg)
 	if err != nil {
 		return nil, err
