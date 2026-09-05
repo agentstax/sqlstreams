@@ -502,6 +502,18 @@ dependencies: pgx-vs-database/sql should weigh LISTEN/NOTIFY's outcome if
 both are in play; presence heartbeat rows are the circuit breaker's
 prerequisite if quorum-as-a-fraction wins.
 
+- **Two idempotency claim horizons** -- every produce writes an
+  idempotency_key row, minted key or not, so `IdempotencyKeyTTL` is the
+  claim table's size; the minted-key path only needs the claim to outlive
+  one call's retry curve (minutes) while a caller key must outlive the
+  upstream's retry horizon (a day). Split them: a `caller_supplied`
+  column on the claim row (a caller's UUID string is stored verbatim and
+  cannot be told from a minted v7), minted claims swept after minutes,
+  caller claims kept for the topic's TTL, two sweep predicates in the
+  topic janitor. Pick up only if a real caller-key workload shows the
+  24h default (restored 2026-09-05 to [0283]'s value from an unrecorded
+  1h) costing measurable WAL or sweep time past the 10M-row bench floor.
+
 - **Custom user metric definitions** — let applications declare the name,
   kind, unit, description, and attribute keys of their own metrics so
   `System().Metrics().Definitions()` can discover them before the first

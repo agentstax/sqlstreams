@@ -36,11 +36,13 @@ type TopicConfig struct {
 
 	// IdempotencyKeyTTL - how long a produce-retry claim survives in
 	// idempotency_key before the janitor sweeps it.
-	// Default: 1h.
+	// Default: 24h.
 	//
 	// Zero is invalid, not "forever" -- WithDefaults resolves it before the
 	// topic is ever registered. TTL only needs to cover your retry horizon,
-	// not a retention window. Lower it for a topic whose producers never
+	// not a retention window: 24h covers a webhook provider's retry day.
+	// Every produce writes a claim row, minted key or not, so the TTL is
+	// the claim table's size -- lower it for a topic whose producers never
 	// retry across a restart.
 	// Ex: 10 * time.Minute.
 	IdempotencyKeyTTL time.Duration
@@ -70,7 +72,7 @@ func (c *TopicConfig) WithDefaults() *TopicConfig {
 		c.PartitionSize = 1_000_000
 	}
 	if c.IdempotencyKeyTTL == 0 {
-		c.IdempotencyKeyTTL = time.Hour
+		c.IdempotencyKeyTTL = 24 * time.Hour
 	}
 	if c.EmptyCompactionHeadTTL == 0 {
 		c.EmptyCompactionHeadTTL = time.Hour
