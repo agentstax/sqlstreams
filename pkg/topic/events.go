@@ -18,6 +18,7 @@ SELECT
 	retention_ttl_ns,
 	allow_drop_past_committed,
 	idempotency_key_ttl_ns,
+	empty_compaction_head_ttl_ns,
 	delivery_log_mode,
 	declared_by,
 	declared_at

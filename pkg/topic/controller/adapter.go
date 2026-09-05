@@ -22,19 +22,21 @@ func toTopic(data *datastore.TopicConfigRow) (*topic.Topic, error) {
 		RetentionTTL:           time.Duration(data.RetentionTTLNs),
 		AllowDropPastCommitted: data.AllowDropPastCommitted,
 		IdempotencyKeyTTL:      time.Duration(data.IdempotencyKeyTTLNs),
+		EmptyCompactionHeadTTL: time.Duration(data.EmptyCompactionHeadTTLNs),
 		DeliveryLogMode:        deliveryLogMode,
 	}, nil
 }
 
 func toTopicConfigRow(systemId int64, name string, cfg *topic.TopicConfig) *datastore.TopicConfigRow {
 	return &datastore.TopicConfigRow{
-		SystemId:               systemId,
-		Name:                   name,
-		PartitionSize:          cfg.PartitionSize,
-		RetentionTTLNs:         int64(cfg.RetentionTTL),
-		AllowDropPastCommitted: cfg.AllowDropPastCommitted,
-		IdempotencyKeyTTLNs:    int64(cfg.IdempotencyKeyTTL),
-		DeliveryLogMode:        string(cfg.DeliveryLogMode),
+		SystemId:                 systemId,
+		Name:                     name,
+		PartitionSize:            cfg.PartitionSize,
+		RetentionTTLNs:           int64(cfg.RetentionTTL),
+		AllowDropPastCommitted:   cfg.AllowDropPastCommitted,
+		IdempotencyKeyTTLNs:      int64(cfg.IdempotencyKeyTTL),
+		EmptyCompactionHeadTTLNs: int64(cfg.EmptyCompactionHeadTTL),
+		DeliveryLogMode:          string(cfg.DeliveryLogMode),
 	}
 }
 

@@ -22,14 +22,14 @@ baselines change in place and existing databases are recreated, not migrated.
 Build order -- keep each chunk green with the listed foreground checks before
 starting the next:
 
-1. **The doc-site proposal.** DRAFTED 2026-09-05; awaiting user review. The
+1. **The doc-site proposal.** DONE 2026-09-05. The reviewed
    Proposed contract is in the client guide:
    the `CompactionHead` / `LockCompactionHead` pair, nil for a locked row with
    no head, transaction-consistent topic resolution, `EmptyCompactionHeadTTL`
    and its one-hour default, and the full scenario 05 read-modify-write. Review
    that page before code; keep it labeled Proposed until chunk 8 is green.
    Check: targeted Prettier, Remark, Vale, and website build.
-2. **Config and fresh-schema baseline.** Add `EmptyCompactionHeadTTL` to
+2. **Config and fresh-schema baseline.** DONE 2026-09-05. Added `EmptyCompactionHeadTTL` to
    `TopicConfig`, `Topic`, the controller row/adapters, every get/list/register/
    replace/config-log query, CLI config output, and both `topic_config` baseline
    tables with a one-hour database default. Change `compaction_head` baseline

@@ -92,6 +92,7 @@ type topicDocument struct {
 	RetentionTTL           string `json:"retention_ttl"` // "0s" keeps messages forever
 	AllowDropPastCommitted bool   `json:"allow_drop_past_committed"`
 	IdempotencyKeyTTL      string `json:"idempotency_key_ttl"`
+	EmptyCompactionHeadTTL string `json:"empty_compaction_head_ttl"`
 	DeliveryLogMode        string `json:"delivery_log_mode"`
 }
 
@@ -130,6 +131,7 @@ func toTopicDocument(found *topic.Topic) topicDocument {
 		RetentionTTL:           found.RetentionTTL.String(),
 		AllowDropPastCommitted: found.AllowDropPastCommitted,
 		IdempotencyKeyTTL:      found.IdempotencyKeyTTL.String(),
+		EmptyCompactionHeadTTL: found.EmptyCompactionHeadTTL.String(),
 		DeliveryLogMode:        string(found.DeliveryLogMode),
 	}
 }

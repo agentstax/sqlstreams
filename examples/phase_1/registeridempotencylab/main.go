@@ -73,6 +73,12 @@ func run() (err error) {
 	if count := topicLogCount(ctx, ds, created.Id); count != 1 {
 		die(fmt.Sprintf("topic_config_log rows after create = %d, want 1", count))
 	}
+	if created.EmptyCompactionHeadTTL != time.Hour {
+		die(fmt.Sprintf("default EmptyCompactionHeadTTL = %v, want 1h", created.EmptyCompactionHeadTTL))
+	}
+	if ttl := topicLogEmptyCompactionHeadTTL(ctx, ds, created.Id); ttl != time.Hour {
+		die(fmt.Sprintf("topic_config_log EmptyCompactionHeadTTL after create = %v, want 1h", ttl))
+	}
 	fmt.Printf("  ✓ created id=%d, first topic_config_log row appended\n", created.Id)
 
 	step("re-register SAME config is idempotent, not a mismatch")
@@ -91,7 +97,10 @@ func run() (err error) {
 	fmt.Printf("  ✓ re-register resolved same id=%d, no mismatch, nothing appended\n", again.Id)
 
 	step("re-register DIFFERENT config replaces the stored mutable config")
-	redeclared, err := client.Topic[vulkan.RawPayload](name).Register(ctx, &vulkan.TopicConfig{RetentionTTL: 168 * time.Hour})
+	redeclared, err := client.Topic[vulkan.RawPayload](name).Register(ctx, &vulkan.TopicConfig{
+		RetentionTTL:           168 * time.Hour,
+		EmptyCompactionHeadTTL: 2 * time.Hour,
+	})
 	must(err)
 	if redeclared.Id != created.Id {
 		die(fmt.Sprintf("re-declare resolved a different id: got %d, want %d", redeclared.Id, created.Id))
@@ -99,13 +108,23 @@ func run() (err error) {
 	if redeclared.RetentionTTL != 168*time.Hour {
 		die(fmt.Sprintf("re-declared RetentionTTL = %v, want 168h", redeclared.RetentionTTL))
 	}
+	if redeclared.EmptyCompactionHeadTTL != 2*time.Hour {
+		die(fmt.Sprintf("re-declared EmptyCompactionHeadTTL = %v, want 2h", redeclared.EmptyCompactionHeadTTL))
+	}
 	if count := topicLogCount(ctx, ds, created.Id); count != 2 {
 		die(fmt.Sprintf("topic_config_log rows after a config change = %d, want 2", count))
+	}
+	if ttl := topicLogEmptyCompactionHeadTTL(ctx, ds, created.Id); ttl != 2*time.Hour {
+		die(fmt.Sprintf("topic_config_log EmptyCompactionHeadTTL after replace = %v, want 2h", ttl))
 	}
 	fmt.Printf("  ✓ newest declaration won: retention now %v on the same id=%d, snapshot appended\n", redeclared.RetentionTTL, redeclared.Id)
 
 	step("re-register DIFFERENT PartitionSize is rejected")
-	_, err = client.Topic[vulkan.RawPayload](name).Register(ctx, &vulkan.TopicConfig{RetentionTTL: 168 * time.Hour, PartitionSize: created.PartitionSize + 1})
+	_, err = client.Topic[vulkan.RawPayload](name).Register(ctx, &vulkan.TopicConfig{
+		PartitionSize:          created.PartitionSize + 1,
+		RetentionTTL:           168 * time.Hour,
+		EmptyCompactionHeadTTL: 2 * time.Hour,
+	})
 	if !errors.Is(err, topic.ErrTopicConfigMismatch) {
 		die(fmt.Sprintf("re-register with a different PartitionSize must return ErrTopicConfigMismatch, got: %v", err))
 	}
@@ -121,6 +140,12 @@ func topicLogCount(ctx context.Context, ds *iDatastore.PostgresDatastore, topicI
 	var count int
 	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.topic_config_log WHERE topic_id = $1;`, ds.Schema), topicId).Scan(&count))
 	return count
+}
+
+func topicLogEmptyCompactionHeadTTL(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64) time.Duration {
+	var ttlNs int64
+	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT empty_compaction_head_ttl_ns FROM %s.topic_config_log WHERE topic_id = $1 ORDER BY id DESC LIMIT 1;`, ds.Schema), topicId).Scan(&ttlNs))
+	return time.Duration(ttlNs)
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }

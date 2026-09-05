@@ -38,7 +38,8 @@ func (d *TopicDatastore) replaceConfig(ctx context.Context, found *TopicConfigRo
 			retention_ttl_ns = $2,
 			allow_drop_past_committed = $3,
 			idempotency_key_ttl_ns = $4,
-			delivery_log_mode = $5,
+			empty_compaction_head_ttl_ns = $5,
+			delivery_log_mode = $6,
 			updated_at = NOW()
 		WHERE id = $1
 		RETURNING
@@ -49,6 +50,7 @@ func (d *TopicDatastore) replaceConfig(ctx context.Context, found *TopicConfigRo
 			retention_ttl_ns,
 			allow_drop_past_committed,
 			idempotency_key_ttl_ns,
+			empty_compaction_head_ttl_ns,
 			delivery_log_mode,
 			created_at,
 			updated_at;
@@ -58,6 +60,7 @@ func (d *TopicDatastore) replaceConfig(ctx context.Context, found *TopicConfigRo
 		declared.RetentionTTLNs,
 		declared.AllowDropPastCommitted,
 		declared.IdempotencyKeyTTLNs,
+		declared.EmptyCompactionHeadTTLNs,
 		declared.DeliveryLogMode,
 	)
 	updated, err := d.scanTopicConfigRow(row)
@@ -97,6 +100,9 @@ func configChanges(found *TopicConfigRow, declared *TopicConfigRow) []any {
 	}
 	if found.IdempotencyKeyTTLNs != declared.IdempotencyKeyTTLNs {
 		changes = append(changes, "idempotency_key_ttl", replaced(time.Duration(found.IdempotencyKeyTTLNs), time.Duration(declared.IdempotencyKeyTTLNs)))
+	}
+	if found.EmptyCompactionHeadTTLNs != declared.EmptyCompactionHeadTTLNs {
+		changes = append(changes, "empty_compaction_head_ttl", replaced(time.Duration(found.EmptyCompactionHeadTTLNs), time.Duration(declared.EmptyCompactionHeadTTLNs)))
 	}
 	if found.DeliveryLogMode != declared.DeliveryLogMode {
 		changes = append(changes, "delivery_log_mode", replaced(found.DeliveryLogMode, declared.DeliveryLogMode))

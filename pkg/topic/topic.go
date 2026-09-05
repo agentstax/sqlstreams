@@ -26,5 +26,6 @@ type Topic struct {
 	RetentionTTL           time.Duration   `json:"retention_ttl"`
 	AllowDropPastCommitted bool            `json:"allow_drop_past_committed"`
 	IdempotencyKeyTTL      time.Duration   `json:"idempotency_key_ttl"`
+	EmptyCompactionHeadTTL time.Duration   `json:"empty_compaction_head_ttl"`
 	DeliveryLogMode        DeliveryLogMode `json:"delivery_log_mode"`
 }

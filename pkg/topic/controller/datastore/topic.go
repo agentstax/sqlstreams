@@ -34,6 +34,7 @@ func (d *TopicDatastore) get(ctx context.Context, q datastore.Querier, name stri
 			retention_ttl_ns,
 			allow_drop_past_committed,
 			idempotency_key_ttl_ns,
+			empty_compaction_head_ttl_ns,
 			delivery_log_mode,
 			created_at,
 			updated_at
@@ -65,6 +66,7 @@ func (d *TopicDatastore) getById(ctx context.Context, id int64) (*TopicConfigRow
 			retention_ttl_ns,
 			allow_drop_past_committed,
 			idempotency_key_ttl_ns,
+			empty_compaction_head_ttl_ns,
 			delivery_log_mode,
 			created_at,
 			updated_at
@@ -95,6 +97,7 @@ func (d *TopicDatastore) list(ctx context.Context) ([]TopicConfigRow, error) {
 			retention_ttl_ns,
 			allow_drop_past_committed,
 			idempotency_key_ttl_ns,
+			empty_compaction_head_ttl_ns,
 			delivery_log_mode,
 			created_at,
 			updated_at
@@ -182,12 +185,12 @@ func (d *TopicDatastore) register(ctx context.Context, declared *TopicConfigRow,
 
 	insertSql := fmt.Sprintf(`
 		-- vulkan: topic.register
-		INSERT INTO %[1]s.topic_config (system_id, name, partition_size, retention_ttl_ns, allow_drop_past_committed, idempotency_key_ttl_ns, delivery_log_mode)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO %[1]s.topic_config (system_id, name, partition_size, retention_ttl_ns, allow_drop_past_committed, idempotency_key_ttl_ns, empty_compaction_head_ttl_ns, delivery_log_mode)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING id, created_at, updated_at;
 	`, d.Datastore.Schema)
 	created := *declared
-	if err := tx.QueryRow(ctx, insertSql, declared.SystemId, declared.Name, declared.PartitionSize, declared.RetentionTTLNs, declared.AllowDropPastCommitted, declared.IdempotencyKeyTTLNs, declared.DeliveryLogMode).
+	if err := tx.QueryRow(ctx, insertSql, declared.SystemId, declared.Name, declared.PartitionSize, declared.RetentionTTLNs, declared.AllowDropPastCommitted, declared.IdempotencyKeyTTLNs, declared.EmptyCompactionHeadTTLNs, declared.DeliveryLogMode).
 		Scan(&created.Id, &created.CreatedAt, &created.UpdatedAt); err != nil {
 		return nil, err
 	}
@@ -252,6 +255,7 @@ func (d *TopicDatastore) rename(ctx context.Context, oldName string, newName str
 			retention_ttl_ns,
 			allow_drop_past_committed,
 			idempotency_key_ttl_ns,
+			empty_compaction_head_ttl_ns,
 			delivery_log_mode,
 			created_at,
 			updated_at;
@@ -286,10 +290,10 @@ func (d *TopicDatastore) rename(ctx context.Context, oldName string, newName str
 func (d *TopicDatastore) appendTopicConfigLog(ctx context.Context, q datastore.Querier, data *TopicConfigRow, declaredBy string) error {
 	sql := fmt.Sprintf(`
 		-- vulkan: topic.appendTopicConfigLog
-		INSERT INTO %[1]s.topic_config_log (topic_id, name, partition_size, retention_ttl_ns, allow_drop_past_committed, idempotency_key_ttl_ns, delivery_log_mode, declared_by)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+		INSERT INTO %[1]s.topic_config_log (topic_id, name, partition_size, retention_ttl_ns, allow_drop_past_committed, idempotency_key_ttl_ns, empty_compaction_head_ttl_ns, delivery_log_mode, declared_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 	`, d.Datastore.Schema)
-	_, err := q.Exec(ctx, sql, data.Id, data.Name, data.PartitionSize, data.RetentionTTLNs, data.AllowDropPastCommitted, data.IdempotencyKeyTTLNs, data.DeliveryLogMode, declaredBy)
+	_, err := q.Exec(ctx, sql, data.Id, data.Name, data.PartitionSize, data.RetentionTTLNs, data.AllowDropPastCommitted, data.IdempotencyKeyTTLNs, data.EmptyCompactionHeadTTLNs, data.DeliveryLogMode, declaredBy)
 	return err
 }
 
@@ -306,6 +310,7 @@ func (d *TopicDatastore) scanTopicConfigRow(row pgx.Row) (*TopicConfigRow, error
 		&data.RetentionTTLNs,
 		&data.AllowDropPastCommitted,
 		&data.IdempotencyKeyTTLNs,
+		&data.EmptyCompactionHeadTTLNs,
 		&data.DeliveryLogMode,
 		&data.CreatedAt,
 		&data.UpdatedAt,

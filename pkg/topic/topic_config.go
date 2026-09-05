@@ -45,6 +45,15 @@ type TopicConfig struct {
 	// Ex: 10 * time.Minute.
 	IdempotencyKeyTTL time.Duration
 
+	// EmptyCompactionHeadTTL - how long a compaction-head row with no current
+	// head may stay idle before the topic janitor sweeps it.
+	// Default: 1h.
+	//
+	// Zero is invalid, not "forever" -- WithDefaults resolves it before the
+	// topic is ever registered. Locking an empty head refreshes its activity;
+	// the TTL never applies to a row that points at a head.
+	EmptyCompactionHeadTTL time.Duration
+
 	// DeliveryLogMode - which delivery outcomes write to delivery_log_<id>, the
 	// per-attempt audit trail.
 	// Default: DeliveryLogModeFailures (every outcome except success).
@@ -62,6 +71,9 @@ func (c *TopicConfig) WithDefaults() *TopicConfig {
 	}
 	if c.IdempotencyKeyTTL == 0 {
 		c.IdempotencyKeyTTL = time.Hour
+	}
+	if c.EmptyCompactionHeadTTL == 0 {
+		c.EmptyCompactionHeadTTL = time.Hour
 	}
 	if c.DeliveryLogMode == "" {
 		c.DeliveryLogMode = DeliveryLogModeFailures
@@ -82,6 +94,9 @@ func (c *TopicConfig) Validate() error {
 	if c.IdempotencyKeyTTL < 0 {
 		return fmt.Errorf("IdempotencyKeyTTL must be >= 0, got %v", c.IdempotencyKeyTTL)
 	}
+	if c.EmptyCompactionHeadTTL <= 0 {
+		return fmt.Errorf("EmptyCompactionHeadTTL must be > 0, got %v", c.EmptyCompactionHeadTTL)
+	}
 	if err := validateDeliveryLogMode(c.DeliveryLogMode); err != nil {
 		return err
 	}
@@ -97,6 +112,7 @@ func (c *TopicConfig) ToTopic(id int64, systemId int64, name string) *Topic {
 		RetentionTTL:           c.RetentionTTL,
 		AllowDropPastCommitted: c.AllowDropPastCommitted,
 		IdempotencyKeyTTL:      c.IdempotencyKeyTTL,
+		EmptyCompactionHeadTTL: c.EmptyCompactionHeadTTL,
 		DeliveryLogMode:        c.DeliveryLogMode,
 	}
 }

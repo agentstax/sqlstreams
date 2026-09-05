@@ -63,6 +63,13 @@ var topicConfigKeys = []topicConfigKey{
 		},
 	},
 	{
+		key:   "empty_compaction_head_ttl",
+		value: "duration, e.g. 1h",
+		read: func(found *topic.Topic) string {
+			return found.EmptyCompactionHeadTTL.String()
+		},
+	},
+	{
 		key:   "delivery_log_mode",
 		value: "off, failures, or all",
 		read: func(found *topic.Topic) string {
