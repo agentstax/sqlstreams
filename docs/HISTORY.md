@@ -17,6 +17,45 @@ The alert lab, playground scenario 13, client aliases, validation paths, and
 quickstart use the new names. `just verify`, targeted alert/admin/client race
 tests, the website build, and `git diff --check` pass.
 
+## 2026-09-05 — The datastore holds Logger and Retry once [0657]
+
+`PostgresDatastore` now carries `Logger` and `Retry`, filled once from
+`ClientConfig` through `PostgresDatastoreConfig`, which binds the
+`schema` log attribute where `Schema` is known. No config below the
+client declares either: `ConsumerConfig`, `ProducerConfig`, and
+`SchedulerConfig` lost their two fields with the facade otherwise
+unchanged, `BatcherConfig` lost its logger, `MessageAdminConfig` is
+`{AllowDestroy}`, and `pkg/metrics/producer`'s `ProducerConfig` became
+`MetricsProducerConfig`. The 41 configs that held only the pair -- every
+`ControllerConfig` and `*DatastoreConfig`, the alert controller's, the
+base provisioner's -- are deleted with their constructor param; the 19
+mixed configs keep their per-loop retry curves.
+
+`Retry` is read from `ds` everywhere. `Logger` is threaded: the reclaim,
+dead-letter, and kill-backstop Warns are emitted by datastores and the
+worker controller, so every controller, datastore, provisioner, and
+runner takes a trailing `logger` -- the owning instance's, or `ds.Logger`
+from a caller with no window -- and stays in that instance's suppression
+window. The batcher and metrics producer take their producer or consumer
+instance's logger for the same reason; the scheduler instance holds none.
+A nested producer or consumer instance registered by a worker logs as
+itself. CONVENTIONS ## Constructors & configs states the rule.
+
+The root cause was a naming collision, not the pair itself: [0653] gave
+the bare noun `Consumer` to the resource, so the assembler's config had
+no name left. Renaming the assembler (`Assembler`, `Registrar`,
+`Factory`, `Provisioner`) and renaming the resource back were both
+rejected; holding the pair on the datastore every constructor already
+takes needed neither.
+
+Green on a fresh database: 49/49 labs (`metrics-collector-lab` run by
+hand -- its recipe's `go build -o bin/vulkan cmd/vulkan` cannot see the
+nested CLI module from the root, a pre-existing recipe fault), `just
+verify` (165 tests, 80 packages, race), `just compat-lab` round-trip,
+tools/conventions, and the website chain (eslint through Playwright)
+after `prettier --check`, which fails on a pre-existing `sql.test.ts`
+drift.
+
 ## 2026-09-05 — Visitor utility pages stay outside search results [0656]
 
 `/search/` and `/whats-new/` now share one search-engine indexing policy. The

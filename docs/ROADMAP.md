@@ -21,9 +21,6 @@ rewrite-to-the-real-API pass 2026-08-22 [0581], the board rebuild
 2026-08-23 [0582] [0583] [0584], the consumer-flow sandbox 2026-08-25
 [0585] [0586] [0587]. All three are in HISTORY.md.
 
-- **The datastore holds Logger and Retry once** [0657] -- in flight, see
-  TODO.md; the ambient pair leaves every config below the client.
-
 - **Step 3 -- the public-API review**, resumed where the playground
   gaps interrupted it (Steps 1 and 2 shipped 2026-08-29 -- see
   HISTORY). The catalog (`examples/playground/`) is the measuring
