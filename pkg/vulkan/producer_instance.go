@@ -54,8 +54,8 @@ func (p *ProducerInstance[Message]) ProduceFuncInTx(ctx context.Context, tx Tx, 
 	return p.instance.ProduceFuncInTx(ctx, tx, producerFunc, options)
 }
 
-// GetCompactionHeadInTx reads messageKey's compaction head under tx, locking
-// the row FOR UPDATE; nil when nothing has been produced under it.
+// GetCompactionHeadInTx reads messageKey's compaction head under tx, ensuring
+// and locking its row until tx resolves; nil when it has no head.
 func (p *ProducerInstance[Message]) GetCompactionHeadInTx(ctx context.Context, tx Tx, messageKey string) (*StoredMessage[Message], error) {
 	return p.instance.GetCompactionHeadInTx(ctx, tx, messageKey)
 }

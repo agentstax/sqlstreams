@@ -8,9 +8,9 @@ import (
 	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
 )
 
-// CompactionController reads compaction heads -- the write side
-// (the head upsert and the FOR UPDATE read inside a produce transaction)
-// belongs to the producer.
+// CompactionController owns compaction-head reads and the transactional
+// ensure-and-lock operation. Producing a compacted message still advances the
+// head in the produce domain.
 type CompactionController struct {
 	Logger logging.Logger
 

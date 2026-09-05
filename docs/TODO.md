@@ -38,13 +38,13 @@ starting the next:
    validation, and round-trip coverage. No system/topic migration registry
    entries. Checks: build and `go test -race` on topic, system, admin, and CLI
    packages; schema and registration labs against a fresh database.
-3. **One internal ensure-and-lock path.** Move the transactional operation into
-   the compaction domain. Its datastore loop selects the key row `FOR UPDATE`,
-   refreshes `updated_at` when the found row has no head, inserts a null-head
-   row `ON CONFLICT DO NOTHING` when absent, and repeats only after losing that
-   insert/delete race. Use pointer fields only on the table-exact row that can
-   carry nulls. Add focused validation and adapter tests. Checks: build and
-   `go test -race` on compaction, produce, topic, and admin packages.
+3. **One internal ensure-and-lock path.** DONE 2026-09-05. Moved the
+   transactional operation into the compaction domain. One `INSERT ... ON
+   CONFLICT DO UPDATE ... RETURNING` creates or locks the key row and refreshes
+   `updated_at` only when it has no head [0660]. Pointer fields stay on the
+   table-exact row that can carry nulls. Focused validation and adapter tests
+   cover the boundary. Checks: build and `go test -race` on compaction,
+   produce, topic, and admin packages.
 4. **Every existing head consumer handles null.** Change the produce upsert to
    advance `head_id IS NULL` and set `updated_at` whenever the winner changes.
    Audit every compaction-head query: ordinary head/list reads keep inner-join

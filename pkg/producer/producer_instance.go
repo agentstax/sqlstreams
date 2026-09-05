@@ -219,9 +219,8 @@ func (p *ProducerInstance[Message]) ProduceFuncInTx(ctx context.Context, tx iDat
 }
 
 // GetCompactionHeadInTx returns the current compaction head under messageKey,
-// or nil if nothing has been published under it.
-// It does so within the transaction and locks the found row in a FOR UPDATE
-// allowing for race-free compare and set.
+// ensuring and locking its row FOR UPDATE until tx resolves. It returns nil
+// when the locked key has no head.
 func (p *ProducerInstance[Message]) GetCompactionHeadInTx(ctx context.Context, tx iDatastore.Tx, messageKey string) (*common.StoredMessage[Message], error) {
 	return p.controller.GetCompactionHeadInTx[Message](ctx, tx, p.Topic.Id, messageKey)
 }

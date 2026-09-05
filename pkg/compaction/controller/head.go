@@ -6,7 +6,29 @@ import (
 	"fmt"
 
 	"github.com/agentstax/vulkan/pkg/common"
+	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
 )
+
+// LockHead ensures messageKey has a compaction-head row, locks that row until
+// tx resolves, and returns its current head. A newly created lockable row has
+// no head, so this returns nil while still holding the row lock.
+func (c *CompactionController) LockHead[Message common.Versioned](ctx context.Context, tx iDatastore.Tx, topicId int64, messageKey string) (*common.StoredMessage[Message], error) {
+	if tx == nil {
+		return nil, errors.New("tx must not be nil")
+	}
+	if topicId <= 0 {
+		return nil, fmt.Errorf("topicId must be > 0, got %d", topicId)
+	}
+	if messageKey == "" {
+		return nil, errors.New("messageKey must not be empty")
+	}
+
+	data, err := c.datastore.LockHead(ctx, tx, topicId, messageKey)
+	if err != nil || data == nil {
+		return nil, err
+	}
+	return toStoredMessage[Message](data)
+}
 
 // GetHead returns the current compaction head under messageKey,
 // or nil if nothing has been published under it.

@@ -9,9 +9,9 @@ import (
 	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
 )
 
-// GetCompactionHeadInTx reads the head against the caller's tx, locking it
-// FOR UPDATE so a following produce on the same key is a race-free
-// compare-and-set.
+// GetCompactionHeadInTx ensures and locks the key's compaction-head row against
+// the caller's tx, so a following produce on the same key is a race-free
+// read-modify-write even when the key has no head yet.
 func (c *ProduceController) GetCompactionHeadInTx[Message common.Versioned](ctx context.Context, tx iDatastore.Tx, topicId int64, messageKey string) (*common.StoredMessage[Message], error) {
 	if tx == nil {
 		return nil, errors.New("tx must not be nil")
@@ -23,9 +23,5 @@ func (c *ProduceController) GetCompactionHeadInTx[Message common.Versioned](ctx 
 		return nil, errors.New("messageKey must not be empty")
 	}
 
-	data, err := c.datastore.GetCompactionHeadInTx(ctx, tx, topicId, messageKey)
-	if err != nil || data == nil {
-		return nil, err
-	}
-	return toStoredMessage[Message](data)
+	return c.heads.LockHead[Message](ctx, tx, topicId, messageKey)
 }

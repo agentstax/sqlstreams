@@ -1,10 +1,12 @@
 ---
-status: accepted
+status: superseded
 date: 2026-09-05
 phase: "pre-v1"
 ---
 
 # A missing compaction head has a lockable row
+
+Superseded in part by [0660].
 
 Amends [0530].
 
