@@ -10,9 +10,9 @@ var JobName = "alert." + alert.AlertWorkerLiveness.Name
 // NewJob builds the schedule the worker_liveness alert is evaluated on.
 // cfg may be nil or a sparse struct -- WithDefaults fills every field left
 // unset, Validate rejects what's out of range.
-func NewJob(cfg *alert.WorkerLivenessJobConfig) (*alertcontroller.Job, error) {
+func NewJob(cfg *alert.WorkerLivenessAlertConfig) (*alertcontroller.Job, error) {
 	if cfg == nil {
-		cfg = &alert.WorkerLivenessJobConfig{}
+		cfg = &alert.WorkerLivenessAlertConfig{}
 	}
 	cfg.WithDefaults()
 	if err := cfg.Validate(); err != nil {
@@ -26,5 +26,5 @@ func NewJob(cfg *alert.WorkerLivenessJobConfig) (*alertcontroller.Job, error) {
 	}
 
 	// exclusive so runs never overlap
-	return alertcontroller.NewJob(JobName, cfg.Expression, data)
+	return alertcontroller.NewJob(JobName, cfg.ScheduleExpression, data)
 }

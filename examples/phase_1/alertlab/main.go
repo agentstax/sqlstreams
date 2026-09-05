@@ -221,7 +221,7 @@ func seedingSection(ctx context.Context) {
 // the same call a user changing it would make.
 func declareThreshold(ctx context.Context, threshold int64) {
 	must(client.System().Register(ctx, &vulkan.RegisterSystemConfig{
-		PartitionCount: &alert.PartitionCountJobConfig{Threshold: threshold},
+		PartitionCountAlert: &alert.PartitionCountAlertConfig{Threshold: threshold},
 	}))
 }
 

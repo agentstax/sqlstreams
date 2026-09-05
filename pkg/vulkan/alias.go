@@ -83,9 +83,9 @@ type (
 	RunScheduleConfig    = admin.RunScheduleConfig
 	TopicVersionHealth   = admin.TopicVersionHealth
 
-	PartitionCountJobConfig     = alert.PartitionCountJobConfig
-	CompactionReadCostJobConfig = alert.CompactionReadCostJobConfig
-	WorkerLivenessJobConfig     = alert.WorkerLivenessJobConfig
+	PartitionCountAlertConfig     = alert.PartitionCountAlertConfig
+	CompactionReadCostAlertConfig = alert.CompactionReadCostAlertConfig
+	WorkerLivenessAlertConfig     = alert.WorkerLivenessAlertConfig
 
 	TopicSnapshot                 = metrics.TopicSnapshot
 	ConsumerGroupSnapshot         = metrics.ConsumerGroupSnapshot

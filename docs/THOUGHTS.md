@@ -13,16 +13,6 @@ necessarly apparent from just the code
 12 - same deal as 10. Code shape looks fine but I think we can likely organize the code to better show what we are trying
 to convey
 
-13 - the config field names here are not good
-	// newest declaration wins: every minute instead of the @hourly default
-	if err := client.System().Register(ctx, &vulkan.RegisterSystemConfig{
-		PartitionCount:     &alert.PartitionCountJobConfig{Expression: "* * * * *"},
-		CompactionReadCost: &alert.CompactionReadCostJobConfig{Expression: "* * * * *"},
-		WorkerLiveness:     &alert.WorkerLivenessJobConfig{Expression: "* * * * *"},
-	}); err != nil {
-		return err
-	}
-
 # Docs
 
 Make small little comment about client api being design for old timers who still like to hand write code occassionally

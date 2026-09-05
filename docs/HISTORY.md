@@ -5,6 +5,18 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-05 — Built-in alert config names what it configures [0658]
+
+`RegisterSystemConfig` now exposes `PartitionCountAlert`,
+`CompactionReadCostAlert`, and `WorkerLivenessAlert`. Their public types use the
+matching `*AlertConfig` names, and `ScheduleExpression` replaces the ambiguous
+`Expression` field. The flat shape remains, so each built-in alert stays
+directly discoverable from the system registration config.
+
+The alert lab, playground scenario 13, client aliases, validation paths, and
+quickstart use the new names. `just verify`, targeted alert/admin/client race
+tests, the website build, and `git diff --check` pass.
+
 ## 2026-09-05 — Visitor utility pages stay outside search results [0656]
 
 `/search/` and `/whats-new/` now share one search-engine indexing policy. The

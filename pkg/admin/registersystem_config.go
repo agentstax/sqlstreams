@@ -15,18 +15,17 @@ type RegisterSystemConfig struct {
 	// Default: SystemConfig's own defaults.
 	System *system.SystemConfig
 
-	// PartitionCount - the schedule the partition_count alert is evaluated on.
+	// PartitionCountAlert - the partition_count alert declaration.
 	// Default: its own defaults.
-	PartitionCount *alert.PartitionCountJobConfig
+	PartitionCountAlert *alert.PartitionCountAlertConfig
 
-	// CompactionReadCost - the schedule the compaction_read_cost alert is
-	// evaluated on.
+	// CompactionReadCostAlert - the compaction_read_cost alert declaration.
 	// Default: its own defaults.
-	CompactionReadCost *alert.CompactionReadCostJobConfig
+	CompactionReadCostAlert *alert.CompactionReadCostAlertConfig
 
-	// WorkerLiveness - the schedule the worker_liveness alert is evaluated on.
+	// WorkerLivenessAlert - the worker_liveness alert declaration.
 	// Default: its own defaults.
-	WorkerLiveness *alert.WorkerLivenessJobConfig
+	WorkerLivenessAlert *alert.WorkerLivenessAlertConfig
 }
 
 func (c *RegisterSystemConfig) WithDefaults() *RegisterSystemConfig {
@@ -34,18 +33,18 @@ func (c *RegisterSystemConfig) WithDefaults() *RegisterSystemConfig {
 		c.System = &system.SystemConfig{}
 	}
 	c.System.WithDefaults()
-	if c.PartitionCount == nil {
-		c.PartitionCount = &alert.PartitionCountJobConfig{}
+	if c.PartitionCountAlert == nil {
+		c.PartitionCountAlert = &alert.PartitionCountAlertConfig{}
 	}
-	c.PartitionCount.WithDefaults()
-	if c.CompactionReadCost == nil {
-		c.CompactionReadCost = &alert.CompactionReadCostJobConfig{}
+	c.PartitionCountAlert.WithDefaults()
+	if c.CompactionReadCostAlert == nil {
+		c.CompactionReadCostAlert = &alert.CompactionReadCostAlertConfig{}
 	}
-	c.CompactionReadCost.WithDefaults()
-	if c.WorkerLiveness == nil {
-		c.WorkerLiveness = &alert.WorkerLivenessJobConfig{}
+	c.CompactionReadCostAlert.WithDefaults()
+	if c.WorkerLivenessAlert == nil {
+		c.WorkerLivenessAlert = &alert.WorkerLivenessAlertConfig{}
 	}
-	c.WorkerLiveness.WithDefaults()
+	c.WorkerLivenessAlert.WithDefaults()
 	return c
 }
 
@@ -55,14 +54,14 @@ func (c *RegisterSystemConfig) Validate() error {
 	if err := c.System.Validate(); err != nil {
 		return fmt.Errorf("System: %w", err)
 	}
-	if err := c.PartitionCount.Validate(); err != nil {
-		return fmt.Errorf("PartitionCount: %w", err)
+	if err := c.PartitionCountAlert.Validate(); err != nil {
+		return fmt.Errorf("PartitionCountAlert: %w", err)
 	}
-	if err := c.CompactionReadCost.Validate(); err != nil {
-		return fmt.Errorf("CompactionReadCost: %w", err)
+	if err := c.CompactionReadCostAlert.Validate(); err != nil {
+		return fmt.Errorf("CompactionReadCostAlert: %w", err)
 	}
-	if err := c.WorkerLiveness.Validate(); err != nil {
-		return fmt.Errorf("WorkerLiveness: %w", err)
+	if err := c.WorkerLivenessAlert.Validate(); err != nil {
+		return fmt.Errorf("WorkerLivenessAlert: %w", err)
 	}
 	return nil
 }

@@ -37,15 +37,15 @@ func (a *MessageAdmin) RegisterSystem(ctx context.Context, cfg *RegisterSystemCo
 	}
 
 	// the built-in schedules are parsed before the first write
-	partitionCountJob, err := partitioncount.NewJob(cfg.PartitionCount)
+	partitionCountJob, err := partitioncount.NewJob(cfg.PartitionCountAlert)
 	if err != nil {
 		return err
 	}
-	compactionReadCostJob, err := compactionreadcost.NewJob(cfg.CompactionReadCost)
+	compactionReadCostJob, err := compactionreadcost.NewJob(cfg.CompactionReadCostAlert)
 	if err != nil {
 		return err
 	}
-	workerLivenessJob, err := workerliveness.NewJob(cfg.WorkerLiveness)
+	workerLivenessJob, err := workerliveness.NewJob(cfg.WorkerLivenessAlert)
 	if err != nil {
 		return err
 	}

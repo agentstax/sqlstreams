@@ -47,6 +47,19 @@ by Vulkan itself — there is no SQL migration file to apply by hand.
    explicit call for setting the system's own knobs — the built-in alert
    schedules — and is safe to run on every startup.
 
+   The alert name stays visible in each field, and the schedule field says
+   what its cron expression schedules:
+
+   ```go
+   if err := client.System().Register(ctx, &vulkan.RegisterSystemConfig{
+    PartitionCountAlert: &vulkan.PartitionCountAlertConfig{
+     ScheduleExpression: "0 * * * *",
+    },
+   }); err != nil {
+    return err
+   }
+   ```
+
 3. **Register a topic and produce a message**
 
    A topic is registered once by name; producing is then a typed call.
