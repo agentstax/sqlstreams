@@ -25,7 +25,7 @@ rewrite-to-the-real-API pass 2026-08-22 [0581], the board rebuild
   gaps interrupted it (Steps 1 and 2 shipped 2026-08-29 -- see
   HISTORY). The catalog (`examples/playground/`) is the measuring
   instrument: each scenario's header is its scorecard. Lease extend
-  (scenario 11) is designed as *Lease heartbeat/renewal (9b)* in the
+  (scenario 10) is designed as *Lease heartbeat/renewal (9b)* in the
   parking lot -- promote on its merit. Everything below is that review,
   in the order it was already sequenced.
   - Round 1 settled 2026-09-02, four records. [0633] the datastore
@@ -38,10 +38,10 @@ rewrite-to-the-real-API pass 2026-08-22 [0581], the board rebuild
     - Closed 2026-09-02 by [0637]: the pool builder moved to
       `pkg/vulkan`, so `datastore` is off the doc site entirely and a
       first program imports one package of ours.
-  - Also round 1: the playground gained scenarios 12 (reading
-    `__system.metrics`) and 13 (consuming `__system.alerts` as a pager
+  - Also round 1: the playground gained scenarios 11 (reading
+    `__system.metrics`) and 12 (consuming `__system.alerts` as a pager
     feed), which is the metric/alert coverage the catalog was missing,
-    and scenario 10 lost a vestigial errgroup. Settled against, so it
+    and scenario 09 lost a vestigial errgroup. Settled against, so it
     does not come back: `defer Close()` replacing `LifecycleContext`.
     `Consume` blocks, so a defer cannot be the shutdown trigger, and the
     only alternative is the library trapping process-global signals --

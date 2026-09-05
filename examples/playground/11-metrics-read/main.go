@@ -1,4 +1,4 @@
-// Scenario 12 -- reading what the system measures about itself.
+// Scenario 11 -- reading what the system measures about itself.
 //
 // A service that consumes orders while the manager's metrics collector
 // measures the fleet, plus a loop printing the group's own gauges from

@@ -1,4 +1,4 @@
-// Scenario 13 -- consuming __system.alerts as a pager feed.
+// Scenario 12 -- consuming __system.alerts as a pager feed.
 //
 // The built-in checks (partition_count, compaction_read_cost,
 // worker_liveness) run as schedules under the manager and publish Alert

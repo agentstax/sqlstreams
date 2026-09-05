@@ -1,4 +1,4 @@
-// Scenario 09 -- idempotent produce with a caller-supplied key.
+// Scenario 08 -- idempotent produce with a caller-supplied key.
 //
 // A webhook receiver: the upstream retries on any non-2xx, so the same
 // event arrives more than once and must be stored once.

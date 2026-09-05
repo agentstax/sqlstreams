@@ -1,4 +1,4 @@
-// Scenario 11 -- a handler that runs longer than its lease.
+// Scenario 10 -- a handler that runs longer than its lease.
 //
 // Video transcoding: most jobs finish in a minute, some take an hour. The
 // handler cannot know up front.

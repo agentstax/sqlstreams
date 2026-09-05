@@ -5,12 +5,10 @@ this feels out of place like it should be done in a different way
 problem is we established this get pattern client.Topic[DeviceConfig](registered.Name).Key("dev-7").CompactionHead(ctx)
 but then don't use the same shape
 
-08 - we don't need anymore as they have been combined
-
-10 - need to look at this more and understand it. The code shape looks fine but the thing we are trying to show is not
+09 - need to look at this more and understand it. The code shape looks fine but the thing we are trying to show is not
 necessarly apparent from just the code
 
-12 - same deal as 10. Code shape looks fine but I think we can likely organize the code to better show what we are trying
+11 - same deal as 09. Code shape looks fine but I think we can likely organize the code to better show what we are trying
 to convey
 
 # Docs

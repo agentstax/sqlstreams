@@ -1,4 +1,4 @@
-// Scenario 10 -- keyed ordering: what a same-key consumer actually sees.
+// Scenario 09 -- keyed ordering: what a same-key consumer actually sees.
 //
 // Account balance updates for one account must apply in order and never
 // overlap. The producer keys by account; the consumer runs concurrently.
