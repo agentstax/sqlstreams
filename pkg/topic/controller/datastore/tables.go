@@ -234,6 +234,17 @@ func (d *TopicDatastore) createTopicTables(ctx context.Context, tx pgx.Tx, id in
 		return err
 	}
 
+	// keeps the empty-head TTL sweep on only its eligible population, ordered
+	// by the same activity timestamp the janitor drains from the front
+	createCompactionHeadEmptyUpdatedAtIndexSql := fmt.Sprintf(`
+		-- vulkan: topic.createTopicTables
+		CREATE INDEX IF NOT EXISTS %[2]s_empty_updated_at ON %[1]s.%[2]s (updated_at, compaction_key)
+			WHERE head_id IS NULL;
+	`, d.Datastore.Schema, topic.CompactionHeadTable(id))
+	if _, err := tx.Exec(ctx, createCompactionHeadEmptyUpdatedAtIndexSql); err != nil {
+		return err
+	}
+
 	// bindings: routing rules. A group with no binding matches all messages; a
 	// group WITH a binding only receives messages whose routing_key matches
 	// `pattern_regex`.

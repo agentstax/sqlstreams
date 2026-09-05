@@ -26,7 +26,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/agentstax/vulkan/pkg/produce"
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 )
 
@@ -72,7 +71,7 @@ func run() error {
 
 	// Put
 	_, err = configs.Produce(ctx, &DeviceConfig{DeviceId: "dev-7", Interval: 30},
-		&vulkan.ProduceOptions{MessageKey: "dev-7", Compaction: &produce.CompactionOptions{Enable: true}})
+		&vulkan.ProduceOptions{MessageKey: "dev-7", Compaction: &vulkan.CompactionOptions{Enable: true}})
 	if err != nil {
 		return err
 	}
@@ -92,7 +91,7 @@ func run() error {
 		}
 		next := *head.Message
 		next.Restarts++
-		_, err = configs.ProduceInTx(ctx, tx, &next, &vulkan.ProduceOptions{MessageKey: "dev-7", Compaction: &produce.CompactionOptions{Enable: true}})
+		_, err = configs.ProduceInTx(ctx, tx, &next, &vulkan.ProduceOptions{MessageKey: "dev-7", Compaction: &vulkan.CompactionOptions{Enable: true}})
 		return err
 	}); err != nil {
 		return err

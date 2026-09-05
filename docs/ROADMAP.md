@@ -254,6 +254,16 @@ documentation; the latter want a surface that has stopped moving.
   the guide (transactional-produce) states the rule in prose, this is the
   observability half.
 
+- **Dead-lettered messages: list + retry on the consumer handle** -- a
+  dead row sits in exception_queue_<topic_id> with status dead,
+  last_error, and attempts, and the client has no verb to read it or put
+  it back; today the read is the VK0028 diagnose query in psql and the
+  write is a hand-written UPDATE. Add `Consumer(...).Exceptions(ctx,
+  status, limit)` returning the rows and `Retry(ctx, messageId)` setting
+  dead -> ready, with CLI `group exceptions list|retry` and a docs page.
+  A list with no action on the same surface is half a feature, so the
+  pair ships together. Surfaced by playground scenario 04.
+
 - **Doc-site breadcrumb structured data** -- emit `BreadcrumbList` JSON-LD
   from the same trail each page already renders, so the machine-readable and
   visible hierarchies cannot disagree. Validate representative board, guide,

@@ -61,12 +61,14 @@ starting the next:
    Deleted `GetCompactionHeadInTx` at every producer layer and facade; updated
    the facade tests. Checks passed: build, `go test -race ./pkg/vulkan ./pkg/admin
    ./pkg/compaction/... ./pkg/produce/...`, and examples module build.
-6. **Topic-janitor TTL.** Add one `SweepExpiredEmptyCompactionHeads` controller
-   and datastore path using the topic's TTL and the existing sweep batch size.
-   Select expired `head_id IS NULL` rows in `updated_at` order with `FOR UPDATE
-   SKIP LOCKED`, delete that bounded set, and log only a nonzero count at Debug.
-   Call it from the existing topic-janitor sweep; add no worker or loop. Checks:
-   topic-janitor race tests plus retention and sweep labs.
+6. **Topic-janitor TTL.** DONE 2026-09-05. Added one
+   `SweepExpiredEmptyCompactionHeads` controller and datastore path using the
+   topic's TTL and existing sweep batch size. It selects expired `head_id IS
+   NULL` rows in `updated_at` order with `FOR UPDATE SKIP LOCKED`, deletes that
+   bounded set, and logs only a nonzero count at Debug. Added a partial
+   `(updated_at, compaction_key)` index for null heads and called the path from
+   the existing topic-janitor sweep, with no new worker or runtime loop. Checks
+   passed: topic race tests plus retention and sweep labs.
 7. **Point-in-time observability.** Extend `TopicSnapshot` and its one metrics
    query with `CompactionRowsWithoutHead` and
    `OldestCompactionRowWithoutHeadAge`; zero age means none. Keep the existing

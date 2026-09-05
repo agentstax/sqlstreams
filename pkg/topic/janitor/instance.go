@@ -75,5 +75,8 @@ func (i *JanitorInstance) sweep(ctx context.Context) error {
 	if err := i.controller.SweepExpiredIdempotencyKeys(ctx, current.Id, current.IdempotencyKeyTTL, i.metadata.SweepBatchSize); err != nil {
 		return err
 	}
+	if err := i.controller.SweepExpiredEmptyCompactionHeads(ctx, current.Id, current.EmptyCompactionHeadTTL, i.metadata.SweepBatchSize); err != nil {
+		return err
+	}
 	return i.controller.SweepExpiredKeyLeases(ctx, current.Id, i.metadata.SweepBatchSize)
 }
