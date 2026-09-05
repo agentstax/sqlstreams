@@ -66,12 +66,12 @@ func (a *MessageAdmin) ListMeasurementMessages(ctx context.Context, messageKey s
 }
 
 func (a *MessageAdmin) metricsTopic(ctx context.Context) (*topic.Topic, error) {
-	found, err := a.topicController.Get(ctx, metrics.TopicName)
+	found, err := a.topicController.Get(ctx, metrics.MetricsTopicName)
 	if err != nil {
 		return nil, err
 	}
 	if found == nil {
-		return nil, migrate.ErrNotRegistered.With("topic", metrics.TopicName)
+		return nil, migrate.ErrNotRegistered.With("topic", metrics.MetricsTopicName)
 	}
 	return found, nil
 }

@@ -8,8 +8,8 @@
 //
 // Concepts held before domain code (12): the 7 from scenario 03, plus
 // RegisterSystem, the three check JobConfigs and their cron expressions,
-// and pkg/alert's TopicName and Alert. The checks run because Consume runs
-// the manager.
+// AlertTopicName and Alert. The checks run because Consume runs the
+// manager.
 //
 // Traps hit:
 //   - The default check schedules are @hourly; tightening them means
@@ -18,8 +18,6 @@
 //   - Nothing can fire a test alert: on a healthy system this consumer
 //     prints nothing, so the pager integration is unverifiable until
 //     something actually breaks.
-//   - alert.TopicName and alert.Alert live in pkg/alert, the JobConfigs
-//     in three subpackages -- the vulkan package aliases none of them.
 //   - The __system. prefix guard exists only on RegisterTopic; nothing
 //     states whether a consumer group on a system topic is supported or
 //     accidental.
@@ -33,7 +31,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/agentstax/vulkan/pkg/alert"
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 )
 
@@ -61,9 +58,9 @@ func run() error {
 
 	// newest declaration wins: every minute instead of the @hourly default
 	if err := client.System().Register(ctx, &vulkan.RegisterSystemConfig{
-		PartitionCountAlert:     &alert.PartitionCountAlertConfig{ScheduleExpression: "* * * * *"},
-		CompactionReadCostAlert: &alert.CompactionReadCostAlertConfig{ScheduleExpression: "* * * * *"},
-		WorkerLivenessAlert:     &alert.WorkerLivenessAlertConfig{ScheduleExpression: "* * * * *"},
+		PartitionCountAlert:     &vulkan.PartitionCountAlertConfig{ScheduleExpression: "* * * * *"},
+		CompactionReadCostAlert: &vulkan.CompactionReadCostAlertConfig{ScheduleExpression: "* * * * *"},
+		WorkerLivenessAlert:     &vulkan.WorkerLivenessAlertConfig{ScheduleExpression: "* * * * *"},
 	}); err != nil {
 		return err
 	}
@@ -75,12 +72,12 @@ func run() error {
 	}
 	fmt.Printf("%d current alerts at startup\n", len(current))
 
-	pager, err := client.Topic[alert.Alert](alert.TopicName).Consumer("alert-pager").Register(ctx, nil)
+	pager, err := client.Topic[vulkan.Alert](vulkan.AlertTopicName).Consumer("alert-pager").Register(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	return pager.Consume(ctx, func(ctx context.Context, foundAlert *alert.Alert) error {
+	return pager.Consume(ctx, func(ctx context.Context, foundAlert *vulkan.Alert) error {
 		fmt.Printf("[%s] %s %s: %s -- %s\n",
 			foundAlert.Severity, foundAlert.Status, foundAlert.Name, foundAlert.Message, foundAlert.Hint)
 		return nil

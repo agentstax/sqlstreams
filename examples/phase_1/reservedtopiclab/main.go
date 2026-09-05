@@ -53,7 +53,7 @@ func run() (err error) {
 
 	step("RegisterSystem creates __system.metrics idempotently")
 	must(client.System().Register(ctx, nil))
-	metricsTopic, err := client.Topic[vulkan.RawPayload](metrics.TopicName).Get(ctx)
+	metricsTopic, err := client.Topic[vulkan.RawPayload](metrics.MetricsTopicName).Get(ctx)
 	must(err)
 	if metricsTopic == nil {
 		die("expected __system.metrics to exist after RegisterSystem")
@@ -66,7 +66,7 @@ func run() (err error) {
 	assertReserved("RegisterTopic(__system.evil)", err)
 
 	step("RenameTopic refused both directions")
-	_, err = client.Topic[vulkan.RawPayload](metrics.TopicName).Rename(ctx, fmt.Sprintf("reservedtopiclab.stolen.%d", run))
+	_, err = client.Topic[vulkan.RawPayload](metrics.MetricsTopicName).Rename(ctx, fmt.Sprintf("reservedtopiclab.stolen.%d", run))
 	assertReserved("RenameTopic(__system.metrics -> user name)", err)
 
 	userTopic, err := client.Topic[vulkan.RawPayload](fmt.Sprintf("reservedtopiclab.user.%d", run)).Register(ctx, nil)
@@ -76,12 +76,12 @@ func run() (err error) {
 	must(client.Topic[vulkan.RawPayload](userTopic.Name).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
 
 	step("DestroyTopic refused on the system topic")
-	err = client.Topic[vulkan.RawPayload](metrics.TopicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true})
+	err = client.Topic[vulkan.RawPayload](metrics.MetricsTopicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true})
 	assertReserved("DestroyTopic(__system.metrics)", err)
 
 	step("re-running RegisterSystem keeps the same row and re-declares its config")
 	must(client.System().Register(ctx, nil))
-	afterRerun, err := client.Topic[vulkan.RawPayload](metrics.TopicName).Get(ctx)
+	afterRerun, err := client.Topic[vulkan.RawPayload](metrics.MetricsTopicName).Get(ctx)
 	must(err)
 	assertInt64("topic id unchanged across re-run", afterRerun.Id, metricsTopic.Id)
 	assertDuration("declared retention across re-run", afterRerun.RetentionTTL, metricscontroller.TopicConfig().RetentionTTL)

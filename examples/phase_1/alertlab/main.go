@@ -111,9 +111,9 @@ func run() (err error) {
 	ds = client.Datastore()
 	must(client.System().Register(ctx, nil))
 
-	schedulesTopic, err = client.Topic[vulkan.RawPayload](schedule.TopicName).Get(ctx)
+	schedulesTopic, err = client.Topic[vulkan.RawPayload](schedule.ScheduleTopicName).Get(ctx)
 	must(err)
-	alertsTopic, err = client.Topic[vulkan.RawPayload](alert.TopicName).Get(ctx)
+	alertsTopic, err = client.Topic[vulkan.RawPayload](alert.AlertTopicName).Get(ctx)
 	must(err)
 	if schedulesTopic == nil || alertsTopic == nil {
 		die("RegisterSystem must create the schedules and alerts topics")
@@ -169,7 +169,7 @@ func seedingSection(ctx context.Context) {
 	for _, jobName := range []string{partitioncount.JobName, compactionreadcost.JobName} {
 		declared := false
 		for _, declaration := range declarations {
-			if declaration.GroupName == jobName && declaration.TopicName == schedule.TopicName &&
+			if declaration.GroupName == jobName && declaration.TopicName == schedule.ScheduleTopicName &&
 				declaration.Status == consume.BindingInstalled &&
 				len(declaration.Patterns) == 1 && declaration.Patterns[0] == jobName {
 				declared = true
@@ -238,7 +238,7 @@ func classifySection(ctx context.Context) {
 	// client's wrapper
 	alertProducer, err := producer.NewProducer(ds)
 	must(err)
-	instance, err := alertProducer.Register[alert.Alert](ctx, alert.TopicName, nil)
+	instance, err := alertProducer.Register[alert.Alert](ctx, alert.AlertTopicName, nil)
 	must(err)
 	heads, err := compactioncontroller.NewCompactionController(ds, ds.Logger)
 	must(err)
@@ -352,7 +352,7 @@ func executorSection(ctx context.Context) {
 	must(err)
 	declared := false
 	for _, declaration := range declarations {
-		if declaration.GroupName == partitioncount.JobName && declaration.TopicName == schedule.TopicName &&
+		if declaration.GroupName == partitioncount.JobName && declaration.TopicName == schedule.ScheduleTopicName &&
 			declaration.Status == consume.BindingInstalled &&
 			len(declaration.Patterns) == 1 && declaration.Patterns[0] == partitioncount.JobName {
 			declared = true

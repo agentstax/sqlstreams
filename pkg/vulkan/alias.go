@@ -152,6 +152,10 @@ const (
 	AlertStatusActive          = alert.AlertStatusActive
 	AlertStatusResolved        = alert.AlertStatusResolved
 	AlertSeverityWarn          = alert.AlertSeverityWarn
+
+	MetricsTopicName  = metrics.MetricsTopicName
+	ScheduleTopicName = schedule.ScheduleTopicName
+	AlertTopicName    = alert.AlertTopicName
 )
 
 var (

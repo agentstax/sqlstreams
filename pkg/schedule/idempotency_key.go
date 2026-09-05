@@ -7,9 +7,9 @@ import (
 	"github.com/agentstax/vulkan/pkg/common"
 )
 
-// TopicName is __system.schedules -- the target topic of the system-owned
+// ScheduleTopicName is __system.schedules -- the target topic of the system-owned
 // schedules (the built-in alert checks); user schedules target their own.
-const TopicName = common.SystemTopicPrefix + "schedules"
+const ScheduleTopicName = common.SystemTopicPrefix + "schedules"
 
 // IdempotencyKey is the deterministic idempotency key for one (schedule, scheduled
 // time): the same JobRequest replayed after an ambiguous commit dedupes,

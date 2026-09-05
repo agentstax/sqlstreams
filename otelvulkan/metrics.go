@@ -192,12 +192,12 @@ func (m *Metrics) resolveTopicId(ctx context.Context) (int64, error) {
 	if m.topicId != 0 {
 		return m.topicId, nil
 	}
-	found, err := m.topics.Get(ctx, metrics.TopicName)
+	found, err := m.topics.Get(ctx, metrics.MetricsTopicName)
 	if err != nil {
 		return 0, err
 	}
 	if found == nil {
-		return 0, migrate.ErrNotRegistered.With("topic", metrics.TopicName)
+		return 0, migrate.ErrNotRegistered.With("topic", metrics.MetricsTopicName)
 	}
 	m.topicId = found.Id
 	return found.Id, nil

@@ -238,7 +238,7 @@ func run() (err error) {
 	for _, measurement := range measurements {
 		messageKey := metrics.MeasurementKey(measurement.Name, measurement.Attributes)
 		byKey[messageKey] = measurement
-		if measurement.Attributes["topic"] == metrics.TopicName {
+		if measurement.Attributes["topic"] == metrics.MetricsTopicName {
 			die(fmt.Sprintf("measurement %s measures __system.metrics -- exclusion broken", messageKey))
 		}
 	}

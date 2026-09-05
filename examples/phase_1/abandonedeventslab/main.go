@@ -64,7 +64,7 @@ func run() (err error) {
 	ds := client.Datastore()
 	must(client.System().Register(ctx, nil))
 
-	metricsTopic, err := client.Topic[vulkan.RawPayload](iMetrics.TopicName).Get(ctx)
+	metricsTopic, err := client.Topic[vulkan.RawPayload](iMetrics.MetricsTopicName).Get(ctx)
 	must(err)
 	if metricsTopic == nil {
 		die("expected __system.metrics to exist after RegisterSystem")

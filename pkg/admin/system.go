@@ -55,18 +55,18 @@ func (a *MessageAdmin) RegisterSystem(ctx context.Context, cfg *RegisterSystemCo
 	}
 
 	// registerTopic, not RegisterTopic -- the latter guards the __system. prefix
-	if _, err := a.registerTopic(ctx, metrics.TopicName, metricscontroller.TopicConfig()); err != nil {
+	if _, err := a.registerTopic(ctx, metrics.MetricsTopicName, metricscontroller.TopicConfig()); err != nil {
 		return err
 	}
-	if _, err := a.registerTopic(ctx, alert.TopicName, alertcontroller.TopicConfig()); err != nil {
+	if _, err := a.registerTopic(ctx, alert.AlertTopicName, alertcontroller.TopicConfig()); err != nil {
 		return err
 	}
-	if _, err := a.registerTopic(ctx, schedule.TopicName, schedulecontroller.TopicConfig()); err != nil {
+	if _, err := a.registerTopic(ctx, schedule.ScheduleTopicName, schedulecontroller.TopicConfig()); err != nil {
 		return err
 	}
 
 	for _, job := range []*alertcontroller.Job{partitionCountJob, compactionReadCostJob, workerLivenessJob} {
-		if _, err := a.scheduler.Register[alert.JobPayload](ctx, job.Name, schedule.TopicName, job.Cron, job.Payload, &scheduler.SchedulerConfig{
+		if _, err := a.scheduler.Register[alert.JobPayload](ctx, job.Name, schedule.ScheduleTopicName, job.Cron, job.Payload, &scheduler.SchedulerConfig{
 			Concurrency: common.ConcurrencyExclusive,
 		}); err != nil {
 			return err

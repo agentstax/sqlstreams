@@ -187,7 +187,7 @@ func (i *MetricsCollectorInstance) collectSchedules(ctx context.Context) error {
 }
 
 func (i *MetricsCollectorInstance) collectAlerts(ctx context.Context) error {
-	alertsTopic, err := i.topics.Get(ctx, alert.TopicName)
+	alertsTopic, err := i.topics.Get(ctx, alert.AlertTopicName)
 	if err != nil {
 		return err
 	}
@@ -234,7 +234,7 @@ func (i *MetricsCollectorInstance) collectTopics(ctx context.Context) error {
 	for _, current := range topics {
 		// measurements about __system.metrics would land on the topic they
 		// measure, so its own numbers would never settle -- skipped
-		if current.Name == metrics.TopicName {
+		if current.Name == metrics.MetricsTopicName {
 			continue
 		}
 		group.Go(func() error {

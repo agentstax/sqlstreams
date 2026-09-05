@@ -63,7 +63,7 @@ func (i *CompactionReadCostInstance) Run(ctx context.Context) error {
 // claim applies the claimed row's repeat_interval against the alerts topic's
 // live retention.
 func (i *CompactionReadCostInstance) consume(ctx context.Context) error {
-	registered, err := i.provisioner.producer.Register[alert.Alert](ctx, alert.TopicName, nil)
+	registered, err := i.provisioner.producer.Register[alert.Alert](ctx, alert.AlertTopicName, nil)
 	if err != nil {
 		return err
 	}
@@ -73,13 +73,13 @@ func (i *CompactionReadCostInstance) consume(ctx context.Context) error {
 	}
 	i.alerts = alerts
 
-	measurements, err := i.provisioner.producer.Register[metrics.Measurement](ctx, metrics.TopicName, nil)
+	measurements, err := i.provisioner.producer.Register[metrics.Measurement](ctx, metrics.MetricsTopicName, nil)
 	if err != nil {
 		return err
 	}
 	i.measurements = measurements
 
-	instance, err := i.provisioner.scheduleConsumer.Register[alert.JobPayload](ctx, JobName, schedule.TopicName, &consumer.ConsumerConfig{
+	instance, err := i.provisioner.scheduleConsumer.Register[alert.JobPayload](ctx, JobName, schedule.ScheduleTopicName, &consumer.ConsumerConfig{
 		Bindings: []string{JobName},
 	})
 	if err != nil {

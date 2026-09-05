@@ -29,5 +29,5 @@ func NewMetricsConsumer(ds *iDatastore.PostgresDatastore) (*MetricsConsumer, err
 // patterns; nil = every metric.
 // Returns ErrTopicNotFound until RegisterSystem has run.
 func (c *MetricsConsumer) Register(ctx context.Context, consumerGroup string, cfg *consumer.ConsumerConfig) (*consumer.ConsumerInstance[metrics.Measurement], error) {
-	return c.consumer.Register[metrics.Measurement](ctx, consumerGroup, metrics.TopicName, cfg)
+	return c.consumer.Register[metrics.Measurement](ctx, consumerGroup, metrics.MetricsTopicName, cfg)
 }

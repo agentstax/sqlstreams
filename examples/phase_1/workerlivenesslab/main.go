@@ -104,9 +104,9 @@ func run() (err error) {
 	registerClient, err = vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{Logger: capture})
 	must(err)
 
-	schedulesTopic, err = client.Topic[vulkan.RawPayload](schedule.TopicName).Get(ctx)
+	schedulesTopic, err = client.Topic[vulkan.RawPayload](schedule.ScheduleTopicName).Get(ctx)
 	must(err)
-	alertsTopic, err = client.Topic[vulkan.RawPayload](alert.TopicName).Get(ctx)
+	alertsTopic, err = client.Topic[vulkan.RawPayload](alert.AlertTopicName).Get(ctx)
 	must(err)
 
 	jobGroup = scalarInt64(ctx,

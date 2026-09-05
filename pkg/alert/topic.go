@@ -2,5 +2,5 @@ package alert
 
 import "github.com/agentstax/vulkan/pkg/common"
 
-// TopicName is __system.alerts
-const TopicName = common.SystemTopicPrefix + "alerts"
+// AlertTopicName is __system.alerts
+const AlertTopicName = common.SystemTopicPrefix + "alerts"

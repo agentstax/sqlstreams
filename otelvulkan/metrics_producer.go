@@ -31,7 +31,7 @@ func NewMetricsProducer(ds *iDatastore.PostgresDatastore) (*MetricsProducer, err
 // Produce. Callable many times -- each call returns an independent instance.
 // Returns ErrTopicNotFound until RegisterSystem has run.
 func (p *MetricsProducer) Register(ctx context.Context, cfg *producer.ProducerConfig) (*MetricsProducerInstance, error) {
-	instance, err := p.producer.Register[metrics.Measurement](ctx, metrics.TopicName, cfg)
+	instance, err := p.producer.Register[metrics.Measurement](ctx, metrics.MetricsTopicName, cfg)
 	if err != nil {
 		return nil, err
 	}

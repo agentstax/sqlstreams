@@ -44,12 +44,12 @@ func (a *MessageAdmin) ListAlertMessages(ctx context.Context, messageKey string,
 }
 
 func (a *MessageAdmin) alertsTopic(ctx context.Context) (*topic.Topic, error) {
-	found, err := a.topicController.Get(ctx, alert.TopicName)
+	found, err := a.topicController.Get(ctx, alert.AlertTopicName)
 	if err != nil {
 		return nil, err
 	}
 	if found == nil {
-		return nil, migrate.ErrNotRegistered.With("topic", alert.TopicName)
+		return nil, migrate.ErrNotRegistered.With("topic", alert.AlertTopicName)
 	}
 	return found, nil
 }

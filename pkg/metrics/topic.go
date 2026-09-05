@@ -4,8 +4,8 @@ import (
 	"github.com/agentstax/vulkan/pkg/common"
 )
 
-// TopicName is __system.metrics
-const TopicName = common.SystemTopicPrefix + "metrics"
+// MetricsTopicName is __system.metrics
+const MetricsTopicName = common.SystemTopicPrefix + "metrics"
 
 type TopicSnapshot struct {
 	TopicId   int64                   `json:"topic_id"`

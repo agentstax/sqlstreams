@@ -20,12 +20,12 @@ func (p *WorkerLivenessProvisioner) Declare(ctx context.Context, owner *common.O
 		return err
 	}
 
-	jobRequestsTopic, err := p.topics.Get(ctx, schedule.TopicName)
+	jobRequestsTopic, err := p.topics.Get(ctx, schedule.ScheduleTopicName)
 	if err != nil {
 		return err
 	}
 	if jobRequestsTopic == nil {
-		return migrate.ErrNotRegistered.With("topic", schedule.TopicName)
+		return migrate.ErrNotRegistered.With("topic", schedule.ScheduleTopicName)
 	}
 
 	group, err := p.consumers.RegisterGroup(ctx, jobRequestsTopic.Id, JobName, consume.Beginning())
