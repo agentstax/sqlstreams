@@ -11,8 +11,8 @@
 //     that only checks err treats the duplicate as a fresh produce.
 //   - A caller-supplied key opts the call out of batching (documented in
 //     the field comment only).
-//   - The idempotency window is IdempotencyKeyTTL on the TOPIC (1h) --
-//     an upstream retrying after an hour double-stores, silently.
+//   - The idempotency window is IdempotencyKeyTTL on the TOPIC (24h) --
+//     an upstream retrying after a day double-stores, silently.
 package main
 
 import (

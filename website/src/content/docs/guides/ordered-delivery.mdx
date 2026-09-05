@@ -11,12 +11,20 @@ half and keeps it true through a failure. The three values name what
 the key permits, loosest to strictest: `parallel`, `exclusive`,
 `ordered`.
 
+Declare it on the group. The consumer is the party that needs the
+order, and one declaration covers every keyed message the group sees,
+whoever produced it:
+
+```go
+ledger, err := client.Topic[BalanceAdjusted]("ledger.adjustments").Consumer("apply-balance").Register(ctx,
+	&vulkan.ConsumerConfig{ConcurrencyOverride: vulkan.ConcurrencyOrdered})
+```
+
+The producer then sets only the key:
+
 ```go
 produced, err := instance.Produce(ctx, &BalanceAdjusted{Account: "acct-42", Delta: -500},
-	&vulkan.ProduceOptions{
-		MessageKey: "acct-42",
-		Message:    &vulkan.MessageOptions{Concurrency: vulkan.ConcurrencyOrdered},
-	})
+	&vulkan.ProduceOptions{MessageKey: "acct-42"})
 ```
 
 | policy | same key, key busy | same key, an earlier delivery failed and is waiting to retry |
@@ -34,9 +42,16 @@ message key.
 
 `ordered` needs a message key and refuses `Compaction.Enable` at
 produce time - compaction supersedes older versions, ordered delivers
-every one; a message cannot ask for both. `ConcurrencyOverride:
-vulkan.ConcurrencyOrdered` on the consumer config applies it to every
-keyed message the group sees.
+every one; a message cannot ask for both.
+
+A message can ask for the policy itself, `Message:
+&vulkan.MessageOptions{Concurrency: vulkan.ConcurrencyOrdered}` in its
+`ProduceOptions`, and a group with no override honors each message's
+request. That is the exception form: a key alone orders nothing, so
+the day a second producer sets the key without the policy, its
+messages run in parallel with the first producer's on the same
+key, and nothing logs it because parallel is the default doing its
+job. The group declaration has no such gap.
 
 ## Worked case
 

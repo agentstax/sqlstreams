@@ -39,6 +39,13 @@ busy is recorded [`deferred`](/concepts/lifecycle/) and runs when the
 key frees, oldest first; messages with different keys, and messages
 with no key, run fully parallel.
 
+The same policy declared once for the group, `ConcurrencyOverride:
+vulkan.ConcurrencyExclusive` on its `ConsumerConfig`, covers every
+keyed message it sees. Prefer that: the per-message form above is one
+producer's request, and a key alone orders nothing, so a second
+producer that sets the key and forgets the policy runs in parallel with
+the first on the same key.
+
 Two subtleties keep this from being FIFO. First, exclusivity is the
 whole guarantee: a delivery that errors re-enters through the exception
 window on its own retry schedule, and the key does not wait — the next
@@ -67,7 +74,9 @@ the SQS `MessageGroupId` / Kafka partition guarantee on the message
 key, and a different one from exclusive: exclusive answers "one at a
 time," ordered answers "don't reorder history." Every row it writes,
 what "earlier" means, and what it costs are on
-[ordered delivery](/guides/ordered-delivery/).
+[ordered delivery](/guides/ordered-delivery/). Declare it on
+the group, `ConcurrencyOverride: vulkan.ConcurrencyOrdered`, for the
+same reason as above.
 
 ## Compared to the neighbors
 

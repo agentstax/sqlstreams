@@ -3,18 +3,18 @@
 // Account balance updates for one account must apply in order and never
 // overlap. The producer keys by account; the consumer runs concurrently.
 //
-// Concepts held before domain code (9): the produce set from scenario 01,
-// plus MessageKey, ProduceOptions.Message, MessageOptions.Concurrency
-// (ConcurrencyOrdered), the session's ConsumeOptions.MessageConcurrency,
-// and the "ordered = every same-key message in id order, one at a time,
-// through failures" semantics.
+// Concepts held before domain code (8): the produce set from scenario 01,
+// plus MessageKey, ConsumerConfig.ConcurrencyOverride (ConcurrencyOrdered),
+// the session's ConsumeOptions.MessageConcurrency, and the "ordered =
+// every same-key message in id order, one at a time, through failures"
+// semantics.
 //
 // Traps hit:
 //   - A message key alone orders nothing: MessageConcurrency > 1 delivers
-//     two same-key messages at once unless Concurrency is exclusive or
-//     ordered -- and that is a per-MESSAGE option the producer sets, not a
-//     topic or group property (ConcurrencyOverride on the consumer is the
-//     group-wide form).
+//     two same-key messages at once unless the group declares
+//     ConcurrencyOverride. The per-message MessageOptions.Concurrency form
+//     also exists, and a second producer that sets the key without it
+//     runs in parallel with the first -- so the group form leads here.
 package main
 
 import (
@@ -63,29 +63,20 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	ledger, err := client.Topic[BalanceChanged](registered.Name).Consumer("ledger").Register(ctx, nil)
+	ledger, err := client.Topic[BalanceChanged](registered.Name).Consumer("ledger").Register(ctx, &vulkan.ConsumerConfig{ConcurrencyOverride: vulkan.ConcurrencyOrdered})
 	if err != nil {
 		return err
 	}
 
 	for _, account := range []string{"acct-1", "acct-2"} {
 		for _, delta := range []int64{100, -30, 55} {
-			if _, err := balances.Produce(ctx, &BalanceChanged{AccountId: account, Delta: delta}, orderedByAccount(account)); err != nil {
+			if _, err := balances.Produce(ctx, &BalanceChanged{AccountId: account, Delta: delta}, &vulkan.ProduceOptions{MessageKey: account}); err != nil {
 				return err
 			}
 		}
 	}
 
 	return ledger.Consume(ctx, applyBalanceChange, &vulkan.ConsumeOptions{MessageConcurrency: 8})
-}
-
-// orderedByAccount keys the message by account and runs same-account
-// deliveries one at a time in id order.
-func orderedByAccount(account string) *vulkan.ProduceOptions {
-	return &vulkan.ProduceOptions{
-		MessageKey: account,
-		Message:    &vulkan.MessageOptions{Concurrency: vulkan.ConcurrencyOrdered},
-	}
 }
 
 // applyBalanceChange fails acct-1's -30 once; its +55 waits for the retry.

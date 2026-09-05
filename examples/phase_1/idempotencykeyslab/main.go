@@ -262,17 +262,17 @@ func configRoundTripScenario(ctx context.Context, pool *pgxpool.Pool) {
 
 	tp1, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{PartitionSize: 1000})
 	must(err)
-	if tp1.IdempotencyKeyTTL != time.Hour {
-		die(fmt.Sprintf("default IdempotencyKeyTTL = %v, want 1h", tp1.IdempotencyKeyTTL))
+	if tp1.IdempotencyKeyTTL != 24*time.Hour {
+		die(fmt.Sprintf("default IdempotencyKeyTTL = %v, want 24h", tp1.IdempotencyKeyTTL))
 	}
 
 	// a re-register with the same (defaulted) config leaves the row alone
 	tp2, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{PartitionSize: 1000})
 	must(err)
-	if tp2.IdempotencyKeyTTL != time.Hour {
-		die(fmt.Sprintf("re-registered IdempotencyKeyTTL = %v, want 1h", tp2.IdempotencyKeyTTL))
+	if tp2.IdempotencyKeyTTL != 24*time.Hour {
+		die(fmt.Sprintf("re-registered IdempotencyKeyTTL = %v, want 24h", tp2.IdempotencyKeyTTL))
 	}
-	fmt.Println("  ✓ default IdempotencyKeyTTL (1h) survives a re-register unchanged")
+	fmt.Println("  ✓ default IdempotencyKeyTTL (24h) survives a re-register unchanged")
 
 	// the newest declaration wins -- a changed mutable config field replaces the stored one
 	tp3, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{PartitionSize: 1000, IdempotencyKeyTTL: 2 * time.Hour})

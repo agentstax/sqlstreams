@@ -60,7 +60,7 @@ $ vulkan topic get orders.created
   PartitionSize            1,000,000
   RetentionTTL             720h0m0s (30d)
   AllowDropPastCommitted   false
-  IdempotencyKeyTTL        1h0m0s
+  IdempotencyKeyTTL        24h0m0s
   DisableDeliveryLog       false
   JanitorPollRate          5s
   JanitorSweepBatchSize    1000
