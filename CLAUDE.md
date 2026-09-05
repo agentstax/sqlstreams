@@ -1,2 +1,3 @@
 @AGENTS.md
 @CONVENTIONS.md
+@docs/DECISION_MAP.md

@@ -5,6 +5,16 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-05 — Documentation links related mechanisms in context [0651]
+
+The website content rules now require a contextual link when another thread
+owns a prerequisite, the detailed mechanism, or a relevant contrast. The link
+sits at the first useful mention and its anchor names what the reader will
+find. Relevance stays an editorial judgment: there is no quota, generated
+related-thread box, or mechanically added link.
+
+Documentation-only; no build checks run.
+
 ## 2026-09-05 — The CLI reads the migration version through the client [0650]
 
 `client.System().MigrationVersion(ctx)` and

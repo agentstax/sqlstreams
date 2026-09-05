@@ -64,10 +64,14 @@ file) and README/CLAUDE.md stay at root:
   New ideas land in Later or the parking lot, never in TODO.md.
 - docs/HISTORY.md -- dated done-ledger, newest first, one entry per shipped
   milestone, citing decision records as [NNNN].
-- docs/DECISIONS.md -- the index: one line per record, the retrieval layer.
-  Grep it first, open only what's needed. Record bodies live in
-  docs/decisions/ (NNNN-<slug>.md, front matter status/date/phase,
-  Context/Decision/Consequences, under 60 lines).
+- docs/DECISION_MAP.md -- concept keywords -> record numbers, imported by
+  the root CLAUDE.md so it loads every session. A new record adds its
+  number to the line it belongs to.
+- docs/DECISIONS.md -- the status ledger: one line per record holding
+  number, date, status, and the record's own H1 title verbatim -- never a
+  summary. Grep it or the bodies for a term, open only what's needed.
+  Record bodies live in docs/decisions/ (NNNN-<slug>.md, front matter
+  status/date/phase, Context/Decision/Consequences, under 60 lines).
   Records are append-only and written in the SAME session a design settles;
   changing a decision means a new record plus flipping the old one's status
   to superseded, linked both ways. A new record takes the next number after

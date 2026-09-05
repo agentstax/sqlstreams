@@ -2,8 +2,6 @@
 
 # Doc
 
-SEO for markdown - tags
-
 doc decision indexing
 - is our decision index doing anything? grep and python search is quite powerful
 - can we make our index more like a search engine ie a list of keywords or tags -> loaded in to context on startup

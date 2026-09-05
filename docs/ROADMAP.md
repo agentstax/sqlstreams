@@ -21,26 +21,19 @@ rewrite-to-the-real-API pass 2026-08-22 [0581], the board rebuild
 2026-08-23 [0582] [0583] [0584], the consumer-flow sandbox 2026-08-25
 [0585] [0586] [0587]. All three are in HISTORY.md.
 
-- **Doc-site sitemap and search-engine submission** -- add Astro's official
-  sitemap integration so every canonical static route is emitted at build
-  time, advertise the generated sitemap from `robots.txt`, and verify the
-  deployed files contain only the live origin's canonical URLs. Then verify
-  the canonical site property in Google Search Console and Bing Webmaster
-  Tools, submit the sitemap in each service (or import the verified Google
-  property into Bing), and record the exact operator steps and initial
-  indexing result so a future domain move or deployment can repeat them.
-- **Doc-site search-result relevance** -- before the first indexing pass,
-  render each document title as `<page title> | Vulkan Docs` while leaving
-  its visible H1 unchanged; derive each code page's meta description from its
-  existing code, classification, consequence, and fix rather than adding a
-  second hand-maintained description; and keep the visitor-specific
-  `/search/` and `/whats-new/` utility pages out of both the search-engine
-  index and the sitemap. Add a binding content convention for contextual
-  internal links: when another thread supplies a prerequisite, the detailed
-  mechanism, or the relevant contrast, link its first useful mention with
-  anchor text that names what the reader will find. Review this as prose --
-  no link quota, generated related-thread box, meta keywords, or thin tag
-  archive pages.
+- **Doc-site sitemap** -- add Astro's official sitemap integration so every
+  canonical static route is emitted at build time, advertise the generated
+  sitemap from `robots.txt`, and verify the deployed files contain only the
+  live origin's canonical URLs.
+- **Doc-site result titles** -- before the first indexing pass, render each
+  document title as `<page title> | Vulkan Docs` while leaving its visible H1
+  unchanged.
+- **Code-page search snippets** -- derive each code page's meta description
+  from its existing code, classification, consequence, and fix rather than
+  adding a second hand-maintained description.
+- **Doc-site indexing boundary** -- keep the visitor-specific `/search/` and
+  `/whats-new/` utility pages out of both the search-engine index and the
+  sitemap. Do not add meta keywords or thin tag archive pages.
 - **The client holds the assemblers' ambient config once** -- the
   half of "Register returns what you run" that [0646] did not carry:
   ConsumerConfig / ProducerConfig split into the assembler's
@@ -172,6 +165,12 @@ internal cleanup; no new behavior. Locks the surface before v1.
 
 Ordered: internal restructuring first, public-surface decisions late so they
 stay revisable, text polish (naming/errors/logging/comments) last.
+
+- **Search-engine submission** -- after the doc-site sitemap is deployed,
+  verify the canonical site property in Google Search Console and Bing
+  Webmaster Tools, submit the sitemap in each service (or import the verified
+  Google property into Bing), and record the exact operator steps and initial
+  indexing result so a future domain move or deployment can repeat them.
 
 - **Potential project rename away from "vulkan".** No candidate yet; decide
   before v1 -- after v1 the name is public API. A rename ripples through the
