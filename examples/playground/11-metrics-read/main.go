@@ -1,13 +1,13 @@
 // Scenario 11 -- reading what the system measures about itself.
 //
 // A service that consumes orders while the manager's metrics collector
-// measures the fleet, plus a loop printing the group's own gauges from
-// the __system.metrics topic -- the pull side an ops dashboard would use.
+// measures the fleet, plus a loop printing the group's live backlog beside
+// its last collected value -- the pull side an ops dashboard would use.
 //
 // Concepts held before domain code (11): the 7 from scenario 03, plus a
-// ConsumerMetricsHandle, its typed CursorBacklog selector, and retained Latest /
-// History measurements. The collector runs because Consume runs the manager --
-// errgroup is here for the print loop, not for it.
+// ConsumerMetricsHandle, its Snapshot, its typed CursorBacklog selector, and
+// the retained Latest measurement. The collector runs because Consume runs
+// the manager -- errgroup is here for the print loop, not for it.
 //
 // Traps hit:
 //   - A retained measurement exists only after the manager's metrics collector
@@ -67,35 +67,42 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	for i := range 5 {
-		if _, err := orders.Produce(ctx, &OrderPlaced{OrderId: fmt.Sprintf("ord-%d", i)}, nil); err != nil {
-			return err
-		}
+	if err := produceOrders(ctx, orders, 5); err != nil {
+		return err
 	}
 
-	ledger, err := client.Topic[OrderPlaced](registered.Name).Consumer("ledger").Register(ctx, nil)
+	ledger := client.Topic[OrderPlaced](registered.Name).Consumer("ledger")
+	session, err := ledger.Register(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	group, groupCtx := errgroup.WithContext(ctx)
-	group.Go(func() error {
-		return ledger.Consume(groupCtx, func(ctx context.Context, order *OrderPlaced) error {
-			fmt.Printf("recording %s\n", order.OrderId)
-			return nil
-		}, nil)
-	})
-	groupMetrics := client.Topic[OrderPlaced](registered.Name).Consumer("ledger").Metrics()
-	group.Go(func() error { return printLedgerMeasurements(groupCtx, groupMetrics) })
-	return group.Wait()
+	routines, routinesCtx := errgroup.WithContext(ctx)
+	routines.Go(func() error { return session.Consume(routinesCtx, recordOrder, nil) })
+	routines.Go(func() error { return printBacklog(routinesCtx, ledger.Metrics()) })
+	return routines.Wait()
 }
 
-// printLedgerMeasurements prints the ledger group's collected backlog and
-// retained history each tick once its first measurement exists.
-func printLedgerMeasurements(ctx context.Context, groupMetrics *vulkan.ConsumerMetricsHandle) error {
-	ticker := time.NewTicker(15 * time.Second)
+func produceOrders(ctx context.Context, orders *vulkan.ProducerInstance[OrderPlaced], count int) error {
+	for i := range count {
+		if _, err := orders.Produce(ctx, &OrderPlaced{OrderId: fmt.Sprintf("ord-%d", i)}, nil); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// recordOrder is slow so the backlog drains over ~50s, longer than the
+// collector's 30s poll, and the two backlog numbers printBacklog reads diverge.
+func recordOrder(ctx context.Context, order *OrderPlaced) error {
+	time.Sleep(10 * time.Second)
+	return nil
+}
+
+// printBacklog prints the group's live backlog beside its last collected one.
+func printBacklog(ctx context.Context, ledgerMetrics *vulkan.ConsumerMetricsHandle) error {
+	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
-	backlogMetric := groupMetrics.CursorBacklog()
 
 	for {
 		select {
@@ -104,20 +111,21 @@ func printLedgerMeasurements(ctx context.Context, groupMetrics *vulkan.ConsumerM
 		case <-ticker.C:
 		}
 
-		backlog, err := backlogMetric.Latest(ctx)
+		snapshot, err := ledgerMetrics.Snapshot(ctx)
 		if err != nil {
 			return err
 		}
-		if backlog == nil {
-			fmt.Println("backlog has not been collected yet")
+		live := snapshot.Cursor.Backlog
+
+		collected, err := ledgerMetrics.CursorBacklog().Latest(ctx)
+		if err != nil {
+			return err
+		}
+		if collected == nil {
+			fmt.Printf("live backlog %d, nothing collected yet\n", live)
 			continue
 		}
-
-		history, err := backlogMetric.History(ctx, 5)
-		if err != nil {
-			return err
-		}
-		fmt.Printf("backlog = %g (collected %s, %d retained measurements)\n",
-			backlog.Value, backlog.At.Local().Format(time.RFC3339), len(history))
+		fmt.Printf("live backlog %d, collected backlog %g as of %s ago\n",
+			live, collected.Value, time.Since(collected.At).Round(time.Second))
 	}
 }

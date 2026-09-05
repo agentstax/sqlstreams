@@ -3,12 +3,11 @@
 // Account balance updates for one account must apply in order and never
 // overlap. The producer keys by account; the consumer runs concurrently.
 //
-// Concepts held before domain code (10): the produce set from scenario 01,
-// plus MessageKey, MessageOptions.Concurrency (ConcurrencyOrdered), the
-// session's ConsumeOptions.MessageConcurrency, the group's
-// ConcurrencyOverride, and the
-// "ordered = every same-key message in id order, one at a time, through
-// failures" semantics.
+// Concepts held before domain code (9): the produce set from scenario 01,
+// plus MessageKey, ProduceOptions.Message, MessageOptions.Concurrency
+// (ConcurrencyOrdered), the session's ConsumeOptions.MessageConcurrency,
+// and the "ordered = every same-key message in id order, one at a time,
+// through failures" semantics.
 //
 // Traps hit:
 //   - A message key alone orders nothing: MessageConcurrency > 1 delivers
@@ -23,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"sync/atomic"
 
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 )
@@ -61,38 +59,41 @@ func run() error {
 	if err != nil {
 		return err
 	}
-
-	balances, err := client.Topic[BalanceChanged](registered.Name).Producer().Register(ctx, &vulkan.ProducerConfig{
-		Message: &vulkan.MessageOptions{Concurrency: vulkan.ConcurrencyOrdered},
-	})
-
+	balances, err := client.Topic[BalanceChanged](registered.Name).Producer().Register(ctx, nil)
 	if err != nil {
 		return err
 	}
-
-	for _, delta := range []int64{100, -30, 55} {
-		_, err := balances.Produce(ctx, &BalanceChanged{AccountId: "acct-1", Delta: delta},
-			&vulkan.ProduceOptions{MessageKey: "acct-1"})
-		if err != nil {
-			return err
-		}
-	}
-
 	ledger, err := client.Topic[BalanceChanged](registered.Name).Consumer("ledger").Register(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	// the first delivery of -30 fails; under ordered, +55 waits for its retry.
-	// atomic: MessageConcurrency 8 runs handlers on 8 goroutines -- ordered
-	// serializes this one key, not the flag's memory visibility.
-	var failedOnce atomic.Bool
-
-	return ledger.Consume(ctx, func(ctx context.Context, change *BalanceChanged) error {
-		if change.Delta == -30 && failedOnce.CompareAndSwap(false, true) {
-			return errors.New("ledger row locked")
+	for _, account := range []string{"acct-1", "acct-2"} {
+		for _, delta := range []int64{100, -30, 55} {
+			if _, err := balances.Produce(ctx, &BalanceChanged{AccountId: account, Delta: delta}, orderedByAccount(account)); err != nil {
+				return err
+			}
 		}
-		fmt.Printf("%s %+d\n", change.AccountId, change.Delta)
-		return nil
-	}, &vulkan.ConsumeOptions{MessageConcurrency: 8})
+	}
+
+	return ledger.Consume(ctx, applyBalanceChange, &vulkan.ConsumeOptions{MessageConcurrency: 8})
+}
+
+// orderedByAccount keys the message by account and runs same-account
+// deliveries one at a time in id order.
+func orderedByAccount(account string) *vulkan.ProduceOptions {
+	return &vulkan.ProduceOptions{
+		MessageKey: account,
+		Message:    &vulkan.MessageOptions{Concurrency: vulkan.ConcurrencyOrdered},
+	}
+}
+
+// applyBalanceChange fails acct-1's -30 once; its +55 waits for the retry.
+func applyBalanceChange(ctx context.Context, change *BalanceChanged) error {
+	meta, _ := vulkan.MetaFromContext(ctx)
+	if change.AccountId == "acct-1" && change.Delta == -30 && meta.Attempts == 0 {
+		return errors.New("ledger row locked")
+	}
+	fmt.Printf("%s %+d (message %d, attempt %d)\n", change.AccountId, change.Delta, meta.Id, meta.Attempts+1)
+	return nil
 }
