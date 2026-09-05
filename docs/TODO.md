@@ -46,7 +46,7 @@ packages, directly affected labs) before the next:
    `otelvulkan/metrics_{consumer,producer}.go`, `metrics/collector`,
    `tools/compat`, every lab and playground scenario that passes
    `Logger:`/`Retry:` into one of the three Register calls stops.
-4. **`MetricsProducerConfig`.** `pkg/metrics/producer.ProducerConfig`
+4. **`MetricsProducerConfig`.** DONE 2026-09-05 (`NewMetricsProducer(ds, cfg, logger)` takes the owning instance's logger so its warns share that window; metricslab, abandonedeventslab green). `pkg/metrics/producer.ProducerConfig`
    renames to `MetricsProducerConfig` (file
    `metrics_producer_config.go`), keeps `SessionFlushRate`, drops the
    pair. Every caller (`metricslab`, `abandonedeventslab`,

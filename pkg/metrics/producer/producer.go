@@ -23,7 +23,7 @@ const pendingGoRoutineEventsLimit = 256
 // session counters accumulate beside them, and Run flushes both to
 // __system.metrics on one tick.
 type MetricsProducer struct {
-	Config *ProducerConfig
+	Config *MetricsProducerConfig
 	Logger logging.Logger
 
 	producer *iProducer.Producer
@@ -53,13 +53,17 @@ type MetricsProducer struct {
 }
 
 // cfg may be nil or a sparse struct -- WithDefaults fills every field left
-// unset, Validate rejects what's out of range.
-func NewMetricsProducer(ds *datastore.PostgresDatastore, cfg *ProducerConfig) (*MetricsProducer, error) {
+// unset, Validate rejects what's out of range. logger is the owning
+// instance's, so the side-channel's warns share its suppression window.
+func NewMetricsProducer(ds *datastore.PostgresDatastore, cfg *MetricsProducerConfig, logger logging.Logger) (*MetricsProducer, error) {
 	if ds == nil {
 		return nil, errors.New("datastore must not be nil")
 	}
+	if logger == nil {
+		return nil, errors.New("logger must not be nil")
+	}
 	if cfg == nil {
-		cfg = &ProducerConfig{}
+		cfg = &MetricsProducerConfig{}
 	}
 	cfg.WithDefaults()
 	if err := cfg.Validate(); err != nil {
@@ -73,7 +77,7 @@ func NewMetricsProducer(ds *datastore.PostgresDatastore, cfg *ProducerConfig) (*
 
 	return &MetricsProducer{
 		Config:   cfg,
-		Logger:   cfg.Logger,
+		Logger:   logger,
 		producer: p,
 	}, nil
 }

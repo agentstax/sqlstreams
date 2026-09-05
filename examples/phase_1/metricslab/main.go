@@ -126,7 +126,7 @@ func run() (err error) {
 	// consumer rows carry no instance target, so both "processes" claim a life
 	// of the same row
 	startConsumer := func(label string) {
-		abandonedEvents, err := metricsproducer.NewMetricsProducer(ds, &metricsproducer.ProducerConfig{SessionFlushRate: 100 * time.Millisecond})
+		abandonedEvents, err := metricsproducer.NewMetricsProducer(ds, &metricsproducer.MetricsProducerConfig{SessionFlushRate: 100 * time.Millisecond}, ds.Logger)
 		must(err)
 		go func() { must(abandonedEvents.Run(runCtx, g.Name, tp.Name, 1, label)) }()
 

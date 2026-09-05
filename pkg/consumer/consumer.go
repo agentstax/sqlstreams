@@ -153,10 +153,7 @@ func (c *Consumer) Register[Message common.Versioned](ctx context.Context, consu
 
 	// built per instance -- two instances must never share one event queue
 	// or one set of session counters
-	instanceMetrics, err := metricsproducer.NewMetricsProducer(c.ds, &metricsproducer.ProducerConfig{
-		Logger: logger,
-		Retry:  c.ds.Retry,
-	})
+	instanceMetrics, err := metricsproducer.NewMetricsProducer(c.ds, nil, logger)
 	if err != nil {
 		return nil, err
 	}

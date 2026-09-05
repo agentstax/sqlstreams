@@ -100,7 +100,7 @@ func run() (err error) {
 
 	// the abandoned-event producer outlives any one claim -- the events it
 	// carries are generated as the consumer shuts down
-	abandonedEvents, err := metricsproducer.NewMetricsProducer(ds, &metricsproducer.ProducerConfig{SessionFlushRate: 100 * time.Millisecond})
+	abandonedEvents, err := metricsproducer.NewMetricsProducer(ds, &metricsproducer.MetricsProducerConfig{SessionFlushRate: 100 * time.Millisecond}, ds.Logger)
 	must(err)
 	go func() {
 		must(abandonedEvents.Run(ctx, group, tp.Name, 1, "abandonedeventslab-session"))

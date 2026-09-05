@@ -130,7 +130,7 @@ func run() (err error) {
 	}
 	owner, err := iCommon.NewConsumerGroupOwner(tp.SystemId, tp.Id, groupId, group)
 	must(err)
-	abandonedEvents, err := metricsproducer.NewMetricsProducer(ds, nil)
+	abandonedEvents, err := metricsproducer.NewMetricsProducer(ds, nil, ds.Logger)
 	must(err)
 	go func() {
 		must(abandonedEvents.Run(ctx, group, tp.Name, 1, "shutdowntruncationlab-session"))

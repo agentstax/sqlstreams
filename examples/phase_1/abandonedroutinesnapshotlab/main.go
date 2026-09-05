@@ -63,12 +63,12 @@ func run() (err error) {
 	assertDuration("SelfClearLatencyAvg", snapshot.SelfClearLatencyAvg, 0)
 
 	step("two producers (simulating two processes) interleave abandoned/cleared for the same group")
-	producerA, err := metricsproducer.NewMetricsProducer(ds, &metricsproducer.ProducerConfig{SessionFlushRate: 100 * time.Millisecond})
+	producerA, err := metricsproducer.NewMetricsProducer(ds, &metricsproducer.MetricsProducerConfig{SessionFlushRate: 100 * time.Millisecond}, ds.Logger)
 	must(err)
 	go func() {
 		must(producerA.Run(ctx, group, "abandonedroutinesnapshotlab", 1, "session-a"))
 	}()
-	producerB, err := metricsproducer.NewMetricsProducer(ds, &metricsproducer.ProducerConfig{SessionFlushRate: 100 * time.Millisecond})
+	producerB, err := metricsproducer.NewMetricsProducer(ds, &metricsproducer.MetricsProducerConfig{SessionFlushRate: 100 * time.Millisecond}, ds.Logger)
 	must(err)
 	go func() {
 		must(producerB.Run(ctx, group, "abandonedroutinesnapshotlab", 1, "session-b"))

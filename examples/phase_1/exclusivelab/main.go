@@ -738,7 +738,7 @@ func groupOwner(ctx context.Context, topicName string, group string) *common.Own
 }
 
 func abandonedEventProducer(ctx context.Context) *metricsproducer.MetricsProducer {
-	events, err := metricsproducer.NewMetricsProducer(ds, nil)
+	events, err := metricsproducer.NewMetricsProducer(ds, nil, ds.Logger)
 	must(err)
 	go func() {
 		must(events.Run(ctx, "exclusivelab", "exclusivelab", 1, "exclusivelab-session"))
