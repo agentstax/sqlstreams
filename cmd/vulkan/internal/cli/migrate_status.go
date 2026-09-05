@@ -7,8 +7,7 @@ import (
 	"log/slog"
 	"text/tabwriter"
 
-	"github.com/agentstax/vulkan/pkg/migrate"
-	migratecontroller "github.com/agentstax/vulkan/pkg/migrate/controller"
+	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 	"github.com/spf13/cobra"
 )
 
@@ -26,23 +25,10 @@ func newMigrateStatusCmd(g *globalFlags) *cobra.Command {
 				return err
 			}
 			defer closeClient()
-			ds := client.Datastore()
 
-			controller, err := migratecontroller.NewController(ds, nil)
+			sysCurrent, err := client.System().MigrationVersion(ctx)
 			if err != nil {
-				return err
-			}
-
-			sysOwner, err := controller.SystemOwner(ctx)
-			if err != nil {
-				if errors.Is(err, migrate.ErrNotRegistered) {
-					return migrateStatusNotInitialized(out, g)
-				}
-				return translateAdminError(err)
-			}
-			sysCurrent, err := controller.SystemVersion(ctx, sysOwner.SystemId)
-			if err != nil {
-				if errors.Is(err, migrate.ErrNotRegistered) {
+				if errors.Is(err, vulkan.ErrNotRegistered) {
 					return migrateStatusNotInitialized(out, g)
 				}
 				return translateAdminError(err)
@@ -65,7 +51,7 @@ func newMigrateStatusCmd(g *globalFlags) *cobra.Command {
 			}
 			rows := []row{{name: "system", current: sysCurrent, available: sysAvail}}
 			for _, t := range topics {
-				current, err := controller.TopicVersion(ctx, t.Id)
+				current, err := client.Topic[vulkan.RawPayload](t.Name).MigrationVersion(ctx)
 				if err != nil {
 					return translateAdminError(err)
 				}

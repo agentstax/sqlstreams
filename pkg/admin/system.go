@@ -112,6 +112,16 @@ func (a *MessageAdmin) MigrateSystem(ctx context.Context, targetVersion int64) e
 	return a.migrateController.RunOnce(ctx, targetVersion, owner, systemMigrations.Registry)
 }
 
+// SystemMigrationVersion reads the version the system's tables are at.
+// Returns ErrNotRegistered if RegisterSystem hasn't run.
+func (a *MessageAdmin) SystemMigrationVersion(ctx context.Context) (int64, error) {
+	owner, err := a.SystemOwner(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return a.migrateController.SystemVersion(ctx, owner.SystemId)
+}
+
 // DestroySystem permanently deletes:
 // - every registered topic and its messages
 // - the system topics

@@ -37,8 +37,15 @@ func (t *TopicHandle[Message]) Get(ctx context.Context) (*Topic, error) {
 	return t.client.admin.GetTopic(ctx, t.name)
 }
 
+// Migrate moves the topic's tables to targetVersion.
 func (t *TopicHandle[Message]) Migrate(ctx context.Context, targetVersion int64) error {
 	return t.client.admin.MigrateTopic(ctx, t.name, targetVersion)
+}
+
+// MigrationVersion reads the version the topic's tables are at. Returns
+// ErrTopicNotFound when the topic is not registered.
+func (t *TopicHandle[Message]) MigrationVersion(ctx context.Context) (int64, error) {
+	return t.client.admin.TopicMigrationVersion(ctx, t.name)
 }
 
 func (t *TopicHandle[Message]) Rename(ctx context.Context, newName string) (*Topic, error) {

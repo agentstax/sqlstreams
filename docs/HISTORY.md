@@ -5,6 +5,23 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-05 — The CLI reads the migration version through the client [0650]
+
+`client.System().MigrationVersion(ctx)` and
+`client.Topic[T](name).MigrationVersion(ctx)` return the version a scope's
+tables are at, composed in admin as `SystemMigrationVersion` /
+`TopicMigrationVersion` over the owner resolvers [0649] added. The CLI's
+`migrate status` and the six `migrate <scope> up|down` leaves read every
+current version through those verbs: `migrateTarget` holds a name and a
+version, `gatherTargets` takes only the client, and the two
+`common.NewTopicOwner` compositions from `GetTopic` rows are gone. `migrate
+status` builds no migrate controller; the advisory-lock pre-flight still
+does, from `client.Datastore()`. The client guide's sample and old-verbs
+table and the migrations guide name the reads.
+
+Verified with the verify chain. No migration; the compatibility table is
+unchanged.
+
 ## 2026-09-05 — Alerts are first-class resources on the client [0649]
 
 `System().Alerts()`, `Topic(...).Alerts()`, and `Topic(...).Group(...).Alerts()`

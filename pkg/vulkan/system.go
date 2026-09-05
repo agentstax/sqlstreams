@@ -40,6 +40,12 @@ func (s *SystemHandle) Migrate(ctx context.Context, targetVersion int64) error {
 	return s.client.admin.MigrateSystem(ctx, targetVersion)
 }
 
+// MigrationVersion reads the version the system's tables are at. Returns
+// ErrNotRegistered when no system is registered.
+func (s *SystemHandle) MigrationVersion(ctx context.Context) (int64, error) {
+	return s.client.admin.SystemMigrationVersion(ctx)
+}
+
 // MigrateTopics moves every registered topic to targetVersion.
 func (s *SystemHandle) MigrateTopics(ctx context.Context, targetVersion int64) error {
 	return s.client.admin.MigrateTopics(ctx, targetVersion)

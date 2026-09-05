@@ -338,6 +338,7 @@ if topic == nil {
 	...
 }
 err = orders.Migrate(ctx, 3)
+version, err := orders.MigrationVersion(ctx) // the topic's tables' version, int64
 health, err := orders.Health(ctx)
 renamed, err := orders.Rename(ctx, "payments.card-requested")
 err = orders.Destroy(ctx, nil) // refused unless ClientConfig.AllowDestroy
@@ -373,6 +374,7 @@ sys := client.System()
 system, err := sys.Get(ctx)
 err = sys.Register(ctx, nil)
 err = sys.Migrate(ctx, 5)
+systemVersion, err := sys.MigrationVersion(ctx)
 err = sys.Destroy(ctx, nil)
 ```
 
@@ -667,6 +669,7 @@ empty slice for that same absence.
 | `DestroySchedule` | `Scheduler.Destroy` |
 | `RegisterSystem` | `client.System().Register` |
 | `GetSystem` / `MigrateSystem` / `DestroySystem` | `client.System().Get` / `.Migrate` / `.Destroy` |
+| (none) | `Topic.MigrationVersion` and `client.System().MigrationVersion`, the version a scope's tables are at |
 | `ListAlerts` | `client.System().Alerts().Latest(ctx)`; one owner's alerts are `Topic.Alerts().Latest` / `Group.Alerts().Latest` |
 | `ListMeasurements` / `ListMeasurementMessages` | `client.System().Metrics().Latest(ctx)`; a typed metric selector's `History(ctx, limit)` |
 | `CompactionController.GetHead` / `ListKeyMessages` | `Topic.Key(k).CompactionHead` / `Topic.Key(k).Messages` |

@@ -21,6 +21,11 @@ The schema versions in two independent scopes, both starting at v1:
   cursors, leases). Each topic carries its own counter, so topics can sit at
   different versions mid-migration without breaking each other.
 
+Both counters read off the client: `client.System().MigrationVersion(ctx)`
+for the system scope, `client.Topic[T](name).MigrationVersion(ctx)` for one
+topic. `vulkan migrate status` prints every counter beside the version the
+binary was built with.
+
 These are Vulkan's internal DDL versions. They are unrelated to the
 `SchemaVersion` your Message types declare, which versions *your message
 payloads* row by row ([schema versions](/guides/schema-versions/)); no

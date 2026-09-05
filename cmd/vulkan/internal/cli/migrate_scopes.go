@@ -81,14 +81,8 @@ func newDirectionCmd(g *globalFlags, s scope, dir direction) *cobra.Command {
 				return err
 			}
 			defer closeClient()
-			ds := client.Datastore()
 
-			controller, err := migratecontroller.NewController(ds, nil)
-			if err != nil {
-				return err
-			}
-
-			targets, err := gatherTargets(ctx, client, controller, s, name)
+			targets, err := gatherTargets(ctx, client, s, name)
 			if err != nil {
 				return err
 			}
@@ -117,6 +111,10 @@ func newDirectionCmd(g *globalFlags, s scope, dir direction) *cobra.Command {
 			// Fast pre-flight, not a guarantee -- see Controller.IsLocked. Catches the
 			// common case (another migrate already running) before committing to a
 			// call that would otherwise block silently until that one finishes.
+			controller, err := migratecontroller.NewController(client.Datastore(), nil)
+			if err != nil {
+				return err
+			}
 			locked, err := controller.IsLocked(ctx)
 			if err != nil {
 				return translateAdminError(err)
@@ -190,7 +188,7 @@ type migrateResultDocument struct {
 func toMigrateResultDocument(s scope, targets []migrateTarget, to int64, moving int) migrateResultDocument {
 	document := migrateResultDocument{To: to, MigratedCount: moving}
 	if s == scopeTopic {
-		document.Topic = targets[0].owner.Name
+		document.Topic = targets[0].name
 	}
 	return document
 }
@@ -213,7 +211,7 @@ func printMigrateResult(w io.Writer, s scope, dir direction, targets []migrateTa
 
 func singleLabel(s scope, targets []migrateTarget) string {
 	if s == scopeTopic {
-		return fmt.Sprintf("topic %q", targets[0].owner.Name)
+		return fmt.Sprintf("topic %q", targets[0].name)
 	}
 	return "system"
 }

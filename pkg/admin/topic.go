@@ -91,6 +91,16 @@ func (a *MessageAdmin) MigrateTopic(ctx context.Context, name string, targetVers
 	return a.migrateController.RunOnce(ctx, targetVersion, owner, topicMigrations.Registry)
 }
 
+// TopicMigrationVersion reads the version the named topic's tables are at.
+// Returns ErrTopicNotFound if name isn't registered.
+func (a *MessageAdmin) TopicMigrationVersion(ctx context.Context, name string) (int64, error) {
+	owner, err := a.TopicOwner(ctx, name)
+	if err != nil {
+		return 0, err
+	}
+	return a.migrateController.TopicVersion(ctx, owner.TopicId)
+}
+
 // MigrateTopics moves every registered topic's schema to targetVersion.
 // A no-op, not an error, if no topics are registered.
 func (a *MessageAdmin) MigrateTopics(ctx context.Context, targetVersion int64) error {

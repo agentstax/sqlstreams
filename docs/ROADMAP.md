@@ -29,11 +29,18 @@ rewrite-to-the-real-API pass 2026-08-22 [0581], the board rebuild
   Tools, submit the sitemap in each service (or import the verified Google
   property into Bing), and record the exact operator steps and initial
   indexing result so a future domain move or deployment can repeat them.
-- **CLI builds topic owners by hand** -- `cmd/vulkan/internal/cli/migrate.go`
-  composes `common.NewTopicOwner` from `GetTopic` rows twice; admin now
-  owns that resolution (`SystemOwner` / `TopicOwner` / `GroupOwner`,
-  2026-09-05), so the CLI should read the owner through the client tree
-  once a migrate verb exposes it, and stop composing ids itself.
+- **Doc-site search-result relevance** -- before the first indexing pass,
+  render each document title as `<page title> | Vulkan Docs` while leaving
+  its visible H1 unchanged; derive each code page's meta description from its
+  existing code, classification, consequence, and fix rather than adding a
+  second hand-maintained description; and keep the visitor-specific
+  `/search/` and `/whats-new/` utility pages out of both the search-engine
+  index and the sitemap. Add a binding content convention for contextual
+  internal links: when another thread supplies a prerequisite, the detailed
+  mechanism, or the relevant contrast, link its first useful mention with
+  anchor text that names what the reader will find. Review this as prose --
+  no link quota, generated related-thread box, meta keywords, or thin tag
+  archive pages.
 - **The client holds the assemblers' ambient config once** -- the
   half of "Register returns what you run" that [0646] did not carry:
   ConsumerConfig / ProducerConfig split into the assembler's
@@ -226,6 +233,12 @@ stay revisable, text polish (naming/errors/logging/comments) last.
 
 Pre-v1 — the 14b public-API pass, then measurement, evaluation, and
 documentation; the latter want a surface that has stopped moving.
+
+- **Doc-site breadcrumb structured data** -- emit `BreadcrumbList` JSON-LD
+  from the same trail each page already renders, so the machine-readable and
+  visible hierarchies cannot disagree. Validate representative board, guide,
+  code, and decision-record pages with Google's Rich Results Test after
+  deployment; this improves result presentation but is not an indexing gate.
 
 - **`diagnostic.MetricScope` -> `diagnostic.Scope`** — alerts share the
   metric scope type since [0649], so its name is stale. The rename touches

@@ -4,9 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/migrate"
-	migratecontroller "github.com/agentstax/vulkan/pkg/migrate/controller"
 	systemMigrations "github.com/agentstax/vulkan/pkg/system/migrations"
 	topicMigrations "github.com/agentstax/vulkan/pkg/topic/migrations"
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
@@ -73,49 +70,34 @@ func (s scope) ceiling() int64 {
 // migrateTarget is one target a run touches, paired with its current DB version
 // so the direction guard and the no-op check can reason about it before any DDL.
 type migrateTarget struct {
-	owner   *common.Owner
+	name    string
 	current int64
 }
 
 // gatherTargets resolves the targets a scope covers and reads each one's current
 // schema version. Registration gaps surface here as teaching errors, before the
 // migrate call, so the operator never sees a raw undefined-table or ErrNotRegistered.
-func gatherTargets(ctx context.Context, client *vulkan.Client, controller *migratecontroller.Controller, s scope, name string) ([]migrateTarget, error) {
+func gatherTargets(ctx context.Context, client *vulkan.Client, s scope, name string) ([]migrateTarget, error) {
 	switch s {
 	case scopeSystem:
-		owner, err := controller.SystemOwner(ctx)
+		current, err := client.System().MigrationVersion(ctx)
 		if err != nil {
-			if errors.Is(err, migrate.ErrNotRegistered) {
+			if errors.Is(err, vulkan.ErrNotRegistered) {
 				return nil, errSystemNotRegistered()
 			}
 			return nil, translateAdminError(err)
 		}
-		current, err := controller.SystemVersion(ctx, owner.SystemId)
-		if err != nil {
-			if errors.Is(err, migrate.ErrNotRegistered) {
-				return nil, errSystemNotRegistered()
-			}
-			return nil, translateAdminError(err)
-		}
-		return []migrateTarget{{owner: owner, current: current}}, nil
+		return []migrateTarget{{name: "system", current: current}}, nil
 
 	case scopeTopic:
-		found, err := client.Topic[vulkan.RawPayload](name).Get(ctx)
+		current, err := client.Topic[vulkan.RawPayload](name).MigrationVersion(ctx)
 		if err != nil {
+			if errors.Is(err, vulkan.ErrTopicNotFound) {
+				return nil, failOp("topic %q not found", name)
+			}
 			return nil, translateAdminError(err)
 		}
-		if found == nil {
-			return nil, failOp("topic %q not found", name)
-		}
-		owner, err := common.NewTopicOwner(found.SystemId, found.Id, found.Name)
-		if err != nil {
-			return nil, err
-		}
-		current, err := controller.TopicVersion(ctx, found.Id)
-		if err != nil {
-			return nil, translateAdminError(err)
-		}
-		return []migrateTarget{{owner: owner, current: current}}, nil
+		return []migrateTarget{{name: name, current: current}}, nil
 
 	default: // scopeTopics
 		topics, err := client.Topics(ctx)
@@ -124,15 +106,11 @@ func gatherTargets(ctx context.Context, client *vulkan.Client, controller *migra
 		}
 		targets := make([]migrateTarget, 0, len(topics))
 		for _, t := range topics {
-			owner, err := common.NewTopicOwner(t.SystemId, t.Id, t.Name)
-			if err != nil {
-				return nil, err
-			}
-			current, err := controller.TopicVersion(ctx, t.Id)
+			current, err := client.Topic[vulkan.RawPayload](t.Name).MigrationVersion(ctx)
 			if err != nil {
 				return nil, translateAdminError(err)
 			}
-			targets = append(targets, migrateTarget{owner: owner, current: current})
+			targets = append(targets, migrateTarget{name: t.Name, current: current})
 		}
 		return targets, nil
 	}
@@ -147,9 +125,9 @@ func guardDirection(targets []migrateTarget, dir direction, to int64) (moving in
 	for _, t := range targets {
 		switch {
 		case dir == dirUp && to < t.current:
-			return 0, failUsage("%s is at version %d; --to %d is a downgrade -- use `down` to roll back", t.owner.Name, t.current, to)
+			return 0, failUsage("%s is at version %d; --to %d is a downgrade -- use `down` to roll back", t.name, t.current, to)
 		case dir == dirDown && to > t.current:
-			return 0, failUsage("%s is at version %d; --to %d is not a downgrade -- use `up` to move forward", t.owner.Name, t.current, to)
+			return 0, failUsage("%s is at version %d; --to %d is not a downgrade -- use `up` to move forward", t.name, t.current, to)
 		}
 		if to != t.current {
 			moving++
@@ -168,7 +146,7 @@ func errSystemNotRegistered() error {
 // preconditions are caught before the call (gatherTargets/guardDirection); this
 // covers the residue -- a lost registration race, or a step that errored midway.
 func migrateError(err error) error {
-	if errors.Is(err, migrate.ErrNotRegistered) {
+	if errors.Is(err, vulkan.ErrNotRegistered) {
 		return errSystemNotRegistered()
 	}
 	return translateAdminError(err)
