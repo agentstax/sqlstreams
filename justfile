@@ -242,6 +242,10 @@ compaction-scale-lab:
 compaction-head-race-lab:
     go run examples/phase_1/compactionheadracelab/main.go
 
+# Verify lockable compaction-head rows serialize first writes and race safely with cleanup.
+compaction-head-lock-lab:
+    go run -race examples/phase_1/compactionheadlocklab/main.go
+
 # Verify retention removes a compaction head only after its key has no surviving message.
 compaction-head-retention-lab:
     go run examples/phase_1/compactionheadretentionlab/main.go

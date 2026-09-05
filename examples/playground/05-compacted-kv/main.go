@@ -58,20 +58,26 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	registered, err := client.Topic[DeviceConfig]("devices.config").Register(ctx, nil)
+	devices := client.Topic[DeviceConfig]("devices.config")
+	_, err = devices.Register(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	configs, err := client.Topic[DeviceConfig](registered.Name).Producer().Register(ctx, nil)
+	configs, err := devices.Producer().Register(ctx, nil)
 	if err != nil {
 		return err
 	}
-	device := client.Topic[DeviceConfig](registered.Name).Key("dev-7")
+
+	device := devices.Key("dev-7")
+	compaction, err := vulkan.NewCompactionOptions(0)
+	if err != nil {
+		return err
+	}
 
 	// Put
 	_, err = configs.Produce(ctx, &DeviceConfig{DeviceId: "dev-7", Interval: 30},
-		&vulkan.ProduceOptions{MessageKey: "dev-7", Compaction: &vulkan.CompactionOptions{Enable: true}})
+		&vulkan.ProduceOptions{MessageKey: "dev-7", Compaction: compaction})
 	if err != nil {
 		return err
 	}
@@ -89,9 +95,12 @@ func run() error {
 		if err != nil {
 			return err
 		}
-		next := *head.Message
+		next := DeviceConfig{DeviceId: "dev-7"}
+		if head != nil {
+			next = *head.Message
+		}
 		next.Restarts++
-		_, err = configs.ProduceInTx(ctx, tx, &next, &vulkan.ProduceOptions{MessageKey: "dev-7", Compaction: &vulkan.CompactionOptions{Enable: true}})
+		_, err = configs.ProduceInTx(ctx, tx, &next, &vulkan.ProduceOptions{MessageKey: "dev-7", Compaction: compaction})
 		return err
 	}); err != nil {
 		return err

@@ -76,14 +76,14 @@ starting the next:
    query rather than adding a second read, and added no built-in time series
    without a consumer. Checks passed: metrics controller race tests, metrics
    lab, and metrics-collector lab.
-8. **The one live concurrency lab and scenario 05.** Add a focused lab that
-   proves: two transactions first-increment one absent key to 2; an ordinary
-   compacted produce fills a locked null-head row; committing without produce
-   leaves a row the TTL later removes; a non-null head never expires; and both
-   janitor-first and locker-first races converge without a missing lock or
-   blocked sweep. Rewrite playground scenario 05 around named topic/key
-   handles and `LockCompactionHead`; run the lab under `-race` and build every
-   example.
+8. **The one live concurrency lab and scenario 05.** DONE 2026-09-05. Added
+   `compactionheadlocklab`, which proves: two transactions first-increment one
+   absent key to 2; an ordinary compacted produce fills a lock-created null-head
+   row; committing without produce leaves a row the TTL later removes; a
+   non-null head never expires; and both janitor-first and locker-first races
+   converge without a missing lock or blocked sweep. Rewrote playground
+   scenario 05 around named topic/key handles and `LockCompactionHead`. Checks
+   passed: the focused lab under `-race` and every example build.
 9. **Review-ready closeout.** Remove Proposed from the client guide and update
    table design, config reference, playground scorecard, and [0659] only where
    implementation discovered a real consequence. Recreate the database, run

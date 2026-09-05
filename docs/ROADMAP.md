@@ -280,6 +280,18 @@ documentation; the latter want a surface that has stopped moving.
   as its own round trip; otherwise drop the Warn and keep the verb.
   Surfaced by playground scenario 05.
 
+- **Rewind an existing group + Start-ignored Warn** -- `ConsumerConfig.Start`
+  is read once, when Register creates the cursor row; on an existing group
+  a changed Start changes nothing and logs nothing, since Start is not part
+  of the stored config. Two halves: (1) a declared Warn at Register when
+  the supplied Start names a position other than where the existing cursor
+  sits -- once per Register, off the hot path, carrying topic, group, the
+  requested position, and the committed id; (2) the rewind verb the replay
+  guide (website guides/replay, marked Proposed) already specs, with
+  `AtMessageId` / `AtTime` positions, which is the only way to move an
+  existing group. The guide is the spec; this line is its owner. Surfaced
+  by playground scenario 07.
+
 - **Doc-site breadcrumb structured data** -- emit `BreadcrumbList` JSON-LD
   from the same trail each page already renders, so the machine-readable and
   visible hierarchies cannot disagree. Validate representative board, guide,
