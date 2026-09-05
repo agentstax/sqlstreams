@@ -76,31 +76,6 @@ rewrite-to-the-real-API pass 2026-08-22 [0581], the board rebuild
     rounds finalized never got a doc-comment pass. [0581] fixed
     RoutingKey's in passing; the rest are unreviewed.
 
-- **Compaction API shape** (for the v1 review; the standalone-head-read move
-  into pkg/compaction/controller shipped 2026-08-13):
-  - A dedicated compacted-topic handle — Compact(Producer|Consumer) idea;
-    NATS JetStream KV precedent: one typed handle doing Get + CAS-produce
-    with CompactionKey required. Would sit on top of the compaction
-    controller unchanged.
-    - 2026-08-29 research note (public-API pass): `GetHead(topicId, key)`
-      and `ListHeads(topicId)` exist today; writing is a plain Produce
-      with a message key. JetStream KV's handle is `Get(key) -> (value,
-      revision)`, `Put(key, value)`, `Update(key, value, expectedRevision)`
-      -- the last fails if someone wrote since you read. That is the
-      read-modify-write primitive a KV needs (increment a counter, merge a
-      document) and Vulkan has no way to say "produce under key K only if
-      the head is still message id N". `MessageRow` already carries the
-      id, so the "revision" exists; the missing verb is a conditional
-      produce. The CAS is the piece that makes the handle a KV rather
-      than a cache. Explore leaning fully into the KV mental model as the
-      simplification of compaction -- Get / Put / Update, plus History()
-      (the key's prior messages; `ListKeyMessages` is the existing read)
-      and possibly Watch. To be worked through in this pass.
-  - consumerFunc could hand users a common.MessageRow[Message] instead of
-    payload-arg + context MessageMeta — the typed row moved to pkg/common
-    2026-08-13, so both sides could share it; the consumer's raw internal
-    row (payload + options columns) stays its own struct either way.
-
 - **Public surface trim** (decisions settled 2026-08-01, recorded in
   _public-surface.md; build pending — deliberately late so the decisions get
   re-confirmed after living with the surface through the passes above):
