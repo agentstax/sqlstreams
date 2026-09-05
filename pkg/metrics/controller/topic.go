@@ -7,8 +7,8 @@ import (
 	"github.com/agentstax/vulkan/pkg/metrics"
 )
 
-// IsCompacted reports whether topicId has ever seen a keyed publish -- any
-// compaction_head row means latest-per-key winners outlive retention.
+// IsCompacted reports whether topicId has a materialized compaction head. A
+// headless lock identity alone does not change message-retention behavior.
 func (c *MetricsController) IsCompacted(ctx context.Context, topicId int64) (bool, error) {
 	if topicId <= 0 {
 		return false, fmt.Errorf("topicId must be > 0, got %d", topicId)

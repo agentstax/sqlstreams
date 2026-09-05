@@ -8,8 +8,8 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// IsCompacted reports whether topicId has ever seen a keyed publish -- any
-// compaction_head row means latest-per-key winners outlive retention.
+// IsCompacted reports whether topicId has a materialized compaction head --
+// headless lock identities do not make message retention preserve winners.
 func (d *MetricsDatastore) IsCompacted(ctx context.Context, topicId int64) (bool, error) {
 	var compacted bool
 	err := d.DatastoreRetry.Wrap(ctx, func() error {
@@ -23,7 +23,7 @@ func (d *MetricsDatastore) IsCompacted(ctx context.Context, topicId int64) (bool
 func (d *MetricsDatastore) isCompacted(ctx context.Context, topicId int64) (bool, error) {
 	sql := fmt.Sprintf(`
 		-- vulkan: metrics.isCompacted
-		SELECT EXISTS (SELECT 1 FROM %[1]s.%[2]s);
+		SELECT EXISTS (SELECT 1 FROM %[1]s.%[2]s WHERE head_id IS NOT NULL);
 	`, d.Datastore.Schema, topic.CompactionHeadTable(topicId))
 	var compacted bool
 	err := d.Datastore.Pool.QueryRow(ctx, sql).Scan(&compacted)
@@ -48,7 +48,7 @@ func (d *MetricsDatastore) schemaVersionCounts(ctx context.Context, topicId int6
 		SELECT
 			m.schema_version,
 			count(*) AS messages,
-			count(h.compaction_key) AS compaction_heads
+			count(h.head_id) AS compaction_heads
 		FROM %[1]s.%[2]s m
 		LEFT JOIN %[1]s.%[3]s h ON h.head_id = m.id
 		GROUP BY m.schema_version

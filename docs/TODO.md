@@ -45,8 +45,9 @@ starting the next:
    table-exact row that can carry nulls. Focused validation and adapter tests
    cover the boundary. Checks: build and `go test -race` on compaction,
    produce, topic, and admin packages.
-4. **Every existing head consumer handles null.** Change the produce upsert to
-   advance `head_id IS NULL` and set `updated_at` whenever the winner changes.
+4. **Every existing head consumer handles null.** DONE 2026-09-05. Changed the
+   produce upsert to advance `head_id IS NULL` and set `updated_at` whenever the
+   winner changes.
    Audit every compaction-head query: ordinary head/list reads keep inner-join
    materialized-only behavior; `IsCompacted` ignores null heads; rank,
    retention, key leases, schedule status, schema health, and metrics neither

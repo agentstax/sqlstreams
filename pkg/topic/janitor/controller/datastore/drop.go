@@ -126,8 +126,9 @@ func (d *JanitorDatastore) dropPartition(ctx context.Context, topicId int64, n i
 		}
 	}
 
-	// a dropped partition holding a key's latest row is a dormant key expiring
-	// drop the now-dangling pointer rather than leave it forever
+	// A dropped partition holding a key's latest row is a dormant key expiring;
+	// drop the now-dangling pointer. Headless lock identities do not match this
+	// range and remain owned by their separate TTL cleanup.
 	orphanKeySql := fmt.Sprintf(`
 		-- vulkan: topicjanitor.dropPartition
 		DELETE FROM %[1]s.%[2]s

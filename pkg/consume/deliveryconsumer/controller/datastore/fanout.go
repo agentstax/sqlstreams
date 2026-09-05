@@ -107,6 +107,7 @@ func (d *DeliveryConsumerGroupDatastore) fanOut(ctx context.Context, topicId int
 				OR b.id = (
 					SELECT head_id FROM %[1]s.%[6]s                      -- [6] = compaction_head table
 					WHERE compaction_key = b.message_key
+						AND head_id IS NOT NULL
 				)
 			)
 			ON CONFLICT DO NOTHING

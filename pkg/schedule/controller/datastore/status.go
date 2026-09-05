@@ -118,7 +118,8 @@ func (d *ScheduleDatastore) headId(ctx context.Context, topicId int64, name stri
 		-- vulkan: schedule.headId
 		SELECT head_id
 		FROM %[1]s.%[2]s
-		WHERE compaction_key = $1;
+		WHERE compaction_key = $1
+			AND head_id IS NOT NULL;
 	`, d.Datastore.Schema, topic.CompactionHeadTable(topicId))
 
 	var headId int64

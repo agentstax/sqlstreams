@@ -76,6 +76,7 @@ func (d *MessageConsumerGroupDatastore) readMessages(ctx context.Context, tx pgx
 				OR m.id = (
 					SELECT head_id FROM %[1]s.%[5]s
 					WHERE compaction_key = m.message_key
+						AND head_id IS NOT NULL
 				)
 			)
 		-- rows MUST come back in id order or a batch LIMIT could

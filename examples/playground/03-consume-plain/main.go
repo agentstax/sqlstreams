@@ -10,8 +10,6 @@
 // Traps hit:
 //   - context.Background() into Consume fails with VK0002; the fix is a
 //     Vulkan-specific ctx constructor the user must discover.
-//   - RegisterConsumer's nil config consumes the whole topic -- bindings
-//     live on ConsumerConfig.Bindings, and nothing at the call says so.
 //   - Two `ctx` shapes in one file: the lifecycle ctx for Consume, and the
 //     per-message ctx handed to the handler.
 package main

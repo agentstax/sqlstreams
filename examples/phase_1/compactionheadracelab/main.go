@@ -182,7 +182,7 @@ func scaleCurveScenario(ctx context.Context, pool *pgxpool.Pool) {
 func insertStaleRow(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64) {
 	_, err := ds.Pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (payload, schema_version, message_key, compaction_rank) VALUES ('{}'::jsonb, 1, 'stale', 0);`, ds.Schema, topic.MessageLogTable(topicId)))
 	must(err)
-	_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (compaction_key, head_id, schema_version) VALUES ('stale', 1, 1);`, ds.Schema, topic.CompactionHeadTable(topicId)))
+	_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (compaction_key, head_id, schema_version, compaction_rank) VALUES ('stale', 1, 1, 0);`, ds.Schema, topic.CompactionHeadTable(topicId)))
 	must(err)
 }
 

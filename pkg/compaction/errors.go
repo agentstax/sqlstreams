@@ -4,8 +4,8 @@ import (
 	"github.com/agentstax/vulkan/pkg/common/diagnostic"
 )
 
-// ErrCompactionHeadNotFound means no message produced under the key opted
-// into compaction, so the key has no compaction_head row.
+// ErrCompactionHeadNotFound means no message produced under the key is its
+// current compaction head. A lockable row may exist without a head.
 //
 // Diagnose queries: vulkan explain VK0066
 var ErrCompactionHeadNotFound = diagnostic.NewDiagnosticError("VK0066", diagnostic.RecoveryPermanent,

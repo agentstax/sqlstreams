@@ -29,7 +29,7 @@ the group's rows by it:
 | `MessageMin` / `MessageMax` | floors and ceilings on what a message may request |
 | `ConcurrencyOverride` | run every message under this policy, over the message's own |
 | `Start` | where a brand-new group's cursor is placed — read once, at creation ([where a new group starts](/guides/new-group-start/)) |
-| `Bindings` | the group's whole pattern set ([routing](/concepts/routing/)) |
+| `Bindings` | the group's whole pattern set ([routing](/concepts/routing/)); nil is the whole topic, and a group with any binding stops receiving messages produced without a routing key |
 | `ExceptionInitialBackoff` | the first `can_run_after` delay written on a fresh exception row |
 | `MaxRangeReclaims` | how many reclaims before a range is quarantined |
 

@@ -121,6 +121,8 @@ func (d *JanitorDatastore) sweepBatch(ctx context.Context, topicId int64, n int6
 	anyCompacted := slices.ContainsFunc(swept, func(r sweptRow) bool { return r.CompactionRank != nil })
 
 	if anyCompacted {
+		// NULL head identities do not match and remain owned by their separate
+		// TTL cleanup.
 		orphanKeySql := fmt.Sprintf(`
 			-- vulkan: topicjanitor.sweepBatch
 			DELETE FROM %[1]s.%[2]s

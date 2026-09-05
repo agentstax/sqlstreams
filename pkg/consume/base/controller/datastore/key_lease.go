@@ -49,6 +49,7 @@ func (d *KeyLeaseDatastore) claimCompacted(ctx context.Context, topicId int64, g
 			SELECT head_id
 			FROM %[1]s.%[2]s
 			WHERE compaction_key = $1
+				AND head_id IS NOT NULL
 		), attempt AS (
 			INSERT INTO %[1]s.%[3]s AS kl (consumer_group_id, message_key, lease_token, expires_at)
 			SELECT $2, $1, $5, now() + make_interval(secs => $4)
