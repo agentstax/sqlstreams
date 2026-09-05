@@ -408,3 +408,4 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0653 2026-09-05 accepted (pre-v1) — Consumer names the public group handle
 - 0654 2026-09-05 accepted (pre-v1) — The shared layout qualifies document titles
 - 0655 2026-09-05 accepted (pre-v1) — Code-page meta descriptions come from code facts
+- 0656 2026-09-05 accepted (pre-v1) — Search-engine indexing has one path policy

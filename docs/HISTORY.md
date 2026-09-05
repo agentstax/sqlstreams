@@ -5,6 +5,19 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-05 — Visitor utility pages stay outside search results [0656]
+
+`/search/` and `/whats-new/` now share one search-engine indexing policy. The
+shared layout emits `noindex` for those routes, and Astro's sitemap integration
+uses the same policy to omit them from generated sitemap entries. Ordinary
+documentation remains indexable, with no meta-keyword or thin tag-archive
+surface added.
+
+The path-policy unit test, targeted Vitest and Prettier checks, ESLint, Astro
+check, the website build, and a focused Playwright flow in Chromium, Firefox,
+and WebKit pass. Generated output confirms both utility pages carry `noindex`,
+ordinary docs do not, and the sitemap contains no utility or tag paths.
+
 ## 2026-09-05 — Code-page search snippets come from their facts [0655]
 
 All 96 error, event, metric, and alert pages now derive their meta description

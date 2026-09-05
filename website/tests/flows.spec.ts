@@ -15,6 +15,36 @@ test('a thread suffixes its document title without changing its heading', async 
 	await expect(page.getByRole('heading', { level: 1 })).toHaveText('Quickstart');
 });
 
+test('utility pages stay outside the search-engine index and sitemap', async ({
+	page,
+	request,
+}) => {
+	for (const pathname of ['/search/', '/whats-new/']) {
+		await page.goto(pathname);
+		await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex');
+	}
+
+	await page.goto('/quickstart/');
+	await expect(page.locator('meta[name="robots"]')).toHaveCount(0);
+	await expect(page.locator('meta[name="keywords"]')).toHaveCount(0);
+
+	const indexResponse = await request.get('/sitemap-index.xml');
+	expect(indexResponse.ok()).toBe(true);
+	const indexXml = await indexResponse.text();
+	const sitemapLocations = [...indexXml.matchAll(/<loc>([^<]+)<\/loc>/g)]
+		.map((match) => match[1])
+		.filter((location): location is string => location !== undefined);
+	const sitemapPaths = sitemapLocations.map((location) => new URL(location).pathname);
+	expect(sitemapPaths.length).toBeGreaterThan(0);
+
+	const sitemapXml = (
+		await Promise.all(sitemapPaths.map(async (pathname) => (await request.get(pathname)).text()))
+	).join('\n');
+	expect(sitemapXml).not.toContain('/search/');
+	expect(sitemapXml).not.toContain('/whats-new/');
+	expect(sitemapXml).not.toContain('/tags/');
+});
+
 test('the sandbox boots and its panels show rows', async ({ page }) => {
 	test.setTimeout(sandboxBootTimeout + 30_000);
 	await page.goto('/');

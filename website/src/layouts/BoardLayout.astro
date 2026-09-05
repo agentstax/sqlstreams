@@ -7,6 +7,7 @@ import SiteNotice from '../components/site-notice/site-notice.svelte';
 import CookieNotice from '../components/cookie-notice/cookie-notice.svelte';
 import TrackedVisitBar from '../components/tracked-visit-bar/tracked-visit-bar.svelte';
 import BoardFooter from '../components/board-footer/board-footer.svelte';
+import { isSearchEngineIndexable } from '../search-engine-index';
 import { siteUrl, docsVersion } from '../site';
 import buildManifest from '../../public/versions.json';
 
@@ -18,6 +19,7 @@ type Props = {
 
 const { title, description, navCurrent } = Astro.props;
 const documentTitle = `${title} | Vulkan Docs`;
+const searchEngineIndexable = isSearchEngineIndexable(Astro.url.pathname);
 
 // on a frozen version deployment the canonical still names the live
 // origin, so search engines index one copy of every page
@@ -32,6 +34,7 @@ const versionManifestHref = new URL('/versions.json', siteUrl).href;
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>{documentTitle}</title>
 		<meta name="description" content={description} />
+		{!searchEngineIndexable && <meta name="robots" content="noindex" />}
 		<link rel="canonical" href={canonicalHref} />
 		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 		<link rel="preconnect" href="https://fonts.googleapis.com" />

@@ -6,6 +6,7 @@ import mdx from '@astrojs/mdx';
 import sitemap from '@astrojs/sitemap';
 import svelte from '@astrojs/svelte';
 import { remarkDecisionRecords } from './src/helpers/decision-records.ts';
+import { isSearchEngineIndexable } from './src/search-engine-index.ts';
 import { siteUrl } from './src/site.ts';
 
 // named keyword families only -- keyword.operator stays ink
@@ -25,8 +26,6 @@ const keywordScopes = [
 	'storage',
 	'constant.language',
 ];
-
-const sitemapExcludedPaths = new Set(['/search/', '/whats-new/']);
 
 // https://astro.build/config
 export default defineConfig({
@@ -95,7 +94,7 @@ export default defineConfig({
 		svelte(),
 		mdx(),
 		sitemap({
-			filter: (/** @type {string} */ page) => !sitemapExcludedPaths.has(new URL(page).pathname),
+			filter: (/** @type {string} */ page) => isSearchEngineIndexable(new URL(page).pathname),
 		}),
 	],
 });
