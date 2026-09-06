@@ -18,6 +18,13 @@ func (s *SystemHandle) Metrics() *SystemMetricsHandle {
 	return &SystemMetricsHandle{client: s.client}
 }
 
+// Consumer names a consumer on the system metrics topic. No I/O.
+// Register accepts metric names or patterns in ConsumerConfig.Bindings.
+// Its instance uses the client's normal consumption and upkeep lifecycle.
+func (s *SystemMetricsHandle) Consumer(name string) *ConsumerHandle[Measurement] {
+	return s.client.Topic[Measurement](metrics.MetricsTopicName).Consumer(name)
+}
+
 // Definitions returns every Vulkan built-in metric definition ordered by VK
 // code. It performs no I/O.
 func (s *SystemMetricsHandle) Definitions() []MetricDefinition {

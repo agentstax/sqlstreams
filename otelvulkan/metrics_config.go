@@ -5,11 +5,18 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/agentstax/vulkan/pkg/common"
+	"github.com/agentstax/vulkan/pkg/common/logging"
+	"github.com/agentstax/vulkan/pkg/datastore"
+
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
 )
 
 type MetricsConfig struct {
+	// Schema selects the Vulkan installation. Default: "vulkan".
+	Schema string
+
 	// Meter receives the metric instruments -- pass one from your own
 	// provider to feed your own otel pipeline.
 	// Default: the global otel provider's meter.
@@ -20,9 +27,17 @@ type MetricsConfig struct {
 	// collection may carry no deadline of its own.
 	// Default: 5s.
 	CollectTimeout time.Duration
+
+	// Logger and Retry resolve in the datastore constructed over the caller's pool.
+	// Defaults: warn-level stderr logging and the default datastore retry policy.
+	Logger logging.Logger
+	Retry  *common.RetryPolicy
 }
 
 func (c *MetricsConfig) WithDefaults() *MetricsConfig {
+	if c.Schema == "" {
+		c.Schema = datastore.DefaultSchema
+	}
 	if c.Meter == nil {
 		c.Meter = otel.GetMeterProvider().Meter(meterScopeName)
 	}

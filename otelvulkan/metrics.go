@@ -1,8 +1,8 @@
 // Package otelvulkan exposes a Vulkan deployment's measurements over
 // OpenTelemetry: each series' newest measurement on __system.metrics becomes an
 // observable instrument. Metrics feeds any otel meter you own; Exporter
-// builds on it to serve a Prometheus /metrics endpoint; MetricsProducer and
-// MetricsConsumer publish and read your own measurements on the same topic.
+// builds on it to serve a Prometheus /metrics endpoint. Produce and consume
+// measurements through the Vulkan client's system metrics handle.
 package otelvulkan
 
 import (
@@ -14,10 +14,11 @@ import (
 	"github.com/agentstax/vulkan/pkg/common/diagnostic"
 	"github.com/agentstax/vulkan/pkg/common/logging"
 	compactioncontroller "github.com/agentstax/vulkan/pkg/compaction/controller"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
+	"github.com/agentstax/vulkan/pkg/datastore"
 	"github.com/agentstax/vulkan/pkg/metrics"
 	"github.com/agentstax/vulkan/pkg/migrate"
 	topiccontroller "github.com/agentstax/vulkan/pkg/topic/controller"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 )
@@ -45,17 +46,26 @@ type Metrics struct {
 	registration metric.Registration
 }
 
-// cfg may be nil or a sparse struct -- WithDefaults fills every field left
-// unset, Validate rejects what's out of range.
-func NewMetrics(ds *iDatastore.PostgresDatastore, cfg *MetricsConfig) (*Metrics, error) {
-	if ds == nil {
-		return nil, errors.New("datastore must not be nil")
+// NewMetrics pings pool using ctx and builds its own datastore.
+// The caller owns the pool; cfg may be nil or sparse.
+func NewMetrics(ctx context.Context, pool *pgxpool.Pool, cfg *MetricsConfig) (*Metrics, error) {
+	if pool == nil {
+		return nil, errors.New("pool must not be nil")
 	}
 	if cfg == nil {
 		cfg = &MetricsConfig{}
 	}
 	cfg.WithDefaults()
 	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+
+	ds, err := datastore.NewPostgresDatastore(ctx, pool, &datastore.PostgresDatastoreConfig{
+		Schema: cfg.Schema,
+		Logger: cfg.Logger,
+		Retry:  cfg.Retry,
+	})
+	if err != nil {
 		return nil, err
 	}
 

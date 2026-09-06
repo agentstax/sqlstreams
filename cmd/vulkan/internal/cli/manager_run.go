@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/agentstax/vulkan/otelvulkan"
+	"github.com/agentstax/vulkan/pkg/common/logging"
 	"github.com/agentstax/vulkan/pkg/migrate"
 	"github.com/spf13/cobra"
 )
@@ -57,10 +58,19 @@ func newManagerRunCmd(g *globalFlags) *cobra.Command {
 			defer cancelRun()
 			serverFailed := make(chan error, 1)
 			if metricsAddress != "" {
-				exporter, err := otelvulkan.NewExporter(ds, nil)
+				exporter, err := otelvulkan.NewExporter(ctx, ds.Pool, &otelvulkan.ExporterConfig{
+					Schema: ds.Schema,
+					Logger: logging.NewDefaultLogger(os.Stderr, slog.LevelInfo),
+					Retry:  client.Config.Retry,
+				})
 				if err != nil {
 					return failOp("%s", err.Error())
 				}
+				defer func() {
+					shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
+					defer cancelShutdown()
+					_ = exporter.Close(shutdownCtx)
+				}()
 				if err := exporter.RegisterMetricInstruments(ctx); err != nil {
 					if errors.Is(err, migrate.ErrNotRegistered) {
 						return errSystemNotRegistered()
@@ -81,7 +91,6 @@ func newManagerRunCmd(g *globalFlags) *cobra.Command {
 					shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
 					defer cancelShutdown()
 					_ = server.Shutdown(shutdownCtx)
-					_ = exporter.Close(shutdownCtx)
 				}()
 				runLogger.InfoContext(ctx, "metrics endpoint serving", "address", metricsAddress)
 			}

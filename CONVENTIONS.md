@@ -351,8 +351,9 @@ The domain layers:
   WithDefaults and Validate walk fields in declaration order; a default
   computed from other fields may trail its inputs instead.
 - `Logger` and `Retry` are held once, on `PostgresDatastore`, filled from
-  `ClientConfig` through `PostgresDatastoreConfig` -- no other config
-  carries either [0657]. `Retry` is read from `ds` everywhere. A
+  entry-point configs (`ClientConfig` and otelvulkan's pool-taking constructor
+  configs) through `PostgresDatastoreConfig` -- configs below those entry
+  points carry neither. `Retry` is read from `ds` everywhere. A
   constructor takes a trailing `logger logging.Logger` only when what it
   builds owns a suppression window or a bound identity `ds.Logger` lacks,
   or is part of something that does: a long-lived instance's parts

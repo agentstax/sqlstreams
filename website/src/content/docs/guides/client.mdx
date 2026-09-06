@@ -31,19 +31,6 @@ For example, `vulkan.RetryPolicy` aliases a type declared in `pkg/common`.
 Its exported methods are part of the supported surface. Calling
 `common.NewDefaultRetryPolicy` through a direct import is advanced usage.
 
-### Proposed: datastore access contract
-
-Keep `Client.Datastore()` and the `PostgresDatastore` alias as the integration
-access point. It returns the client's existing datastore, which an exporter
-or an advanced controller can share. It creates no pool or second datastore.
-
-Treat its `Pool`, `Schema`, `Logger`, and `Retry` fields as construction-time
-state: reading them and passing the datastore to integrations is supported;
-replacing those fields or mutating the shared retry policy after construction
-is outside the supported contract. Some components retain earlier values,
-so field assignment cannot consistently reconfigure a running client.
-The caller still owns the pool and closes it after its users stop.
-
 ## Two grammars
 
 The client selects the noun: `Topic[T](name)`, `Scheduler(name)`, and a
@@ -527,6 +514,71 @@ cfg)`, topics nesting under it as
 verbs that own system state already sit there: `Register`, `MigrateTopics`,
 `Bindings`, and `Alerts`. The manager is its
 own `client.Manager()` handle because it is a running subsystem.
+
+## Produce and consume measurements
+
+Use the client's system metrics handle for custom measurements. It shares
+the client's pool, schema, logger, and retry settings; it needs no
+OpenTelemetry dependency or separate connection config. Register the system first.
+
+```go
+producer, err := client.System().Metrics().Producer().Register(ctx, nil)
+if err != nil {
+ return err
+}
+measurement, err := vulkan.NewMeasurement(
+ "billing.queue_depth", vulkan.MetricKindGauge, 7, "",
+ map[string]string{"region": "us-east"}, time.Now(),
+)
+if err != nil {
+ return err
+}
+if _, err := producer.Produce(ctx, measurement); err != nil {
+ return err
+}
+```
+
+The producer derives the routing key from the metric name and the message
+key from the name plus attributes. Compaction keeps the newest value per
+series available to metrics reads and exporters. Names starting with
+`vulkan.` are reserved and rejected by this producer.
+
+`client.System().Metrics().Consumer("forwarder")` returns a
+`ConsumerHandle[Measurement]`. Register it with `ConsumerConfig` as usual;
+`Bindings` accepts metric names or patterns such as `billing.*`.
+Its instance uses the normal `Consume` lifecycle, including cancellation
+and the system manager unless `ClientConfig.DisableManager` is set.
+Compaction applies here too: consuming measurements is not a guarantee of
+receiving every intermediate value.
+
+These paths replace `otelvulkan.NewMetricsProducer` and
+`otelvulkan.NewMetricsConsumer`, including their connection configs.
+The consumer now participates in the client's normal upkeep lifecycle.
+
+## OpenTelemetry integration
+
+The optional `otelvulkan` module takes a caller-owned Postgres pool, like
+`vulkan.NewClient`. Both entry constructors take `(ctx, pool, cfg)`:
+`NewExporter` and `NewMetrics`.
+Each constructs a datastore and pings the pool with `ctx`; construction can
+now return connection or cancellation errors.
+
+```go
+exporter, err := otelvulkan.NewExporter(ctx, pool, &otelvulkan.ExporterConfig{
+ Schema: "vulkan",
+})
+```
+
+Set `Schema` to the same installation as the client. An omitted schema
+selects `vulkan`; it does not inherit another client's schema. Each constructor's
+config also accepts `Logger` and `Retry`, resolved by its datastore with the
+same defaults as the public client. Pass these explicitly when the integration
+should use custom settings. `MetricsConfig.Meter` and `CollectTimeout` keep
+their existing behavior.
+
+This replaces passing `client.Datastore()` into these constructors.
+`Exporter.Close(ctx)` shuts down its meter provider; it does not close the pool.
+Stop all pool users before the caller closes it.
 
 ## Metrics
 

@@ -49,6 +49,7 @@ type (
 	ProducerFunc[Message Versioned]  = produce.ProducerFunc[Message]
 	BatcherConfig                    = batcher.BatcherConfig
 	ProducerConfig                   = producer.ProducerConfig
+	MetricsProducerInstance          = producer.MetricsProducerInstance
 	ProduceItem[Message Versioned]   = producer.ProduceItem[Message]
 	ProduceResult[Message Versioned] = producer.ProduceResult[Message]
 
@@ -166,4 +167,5 @@ var (
 	Beginning            = consume.Beginning
 	Head                 = consume.Head
 	NewCompactionOptions = produce.NewCompactionOptions
+	NewMeasurement       = metrics.NewMeasurement
 )

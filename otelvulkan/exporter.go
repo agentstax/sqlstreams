@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/agentstax/vulkan/pkg/common/logging"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	otelprometheus "go.opentelemetry.io/otel/exporters/prometheus"
@@ -26,11 +26,11 @@ type Exporter struct {
 	registry *prometheus.Registry
 }
 
-// cfg may be nil or a sparse struct -- WithDefaults fills every field left
-// unset, Validate rejects what's out of range.
-func NewExporter(ds *iDatastore.PostgresDatastore, cfg *ExporterConfig) (*Exporter, error) {
-	if ds == nil {
-		return nil, errors.New("datastore must not be nil")
+// NewExporter pings pool using ctx and builds its own datastore.
+// The caller owns the pool; cfg may be nil or sparse.
+func NewExporter(ctx context.Context, pool *pgxpool.Pool, cfg *ExporterConfig) (*Exporter, error) {
+	if pool == nil {
+		return nil, errors.New("pool must not be nil")
 	}
 	if cfg == nil {
 		cfg = &ExporterConfig{}
@@ -49,17 +49,21 @@ func NewExporter(ds *iDatastore.PostgresDatastore, cfg *ExporterConfig) (*Export
 	}
 	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 
-	exporterMetrics, err := NewMetrics(ds, &MetricsConfig{
+	exporterMetrics, err := NewMetrics(ctx, pool, &MetricsConfig{
+		Schema:         cfg.Schema,
 		Meter:          provider.Meter(meterScopeName),
 		CollectTimeout: cfg.CollectTimeout,
+		Logger:         cfg.Logger,
+		Retry:          cfg.Retry,
 	})
 	if err != nil {
+		_ = provider.Shutdown(ctx)
 		return nil, err
 	}
 
 	return &Exporter{
 		Config:   cfg,
-		Logger:   ds.Logger,
+		Logger:   exporterMetrics.Logger,
 		metrics:  exporterMetrics,
 		provider: provider,
 		registry: registry,

@@ -91,8 +91,8 @@ func NewClient(ctx context.Context, pool *pgxpool.Pool, cfg *ClientConfig) (*Cli
 }
 
 // Datastore returns the handle NewClient built over the pool, for the paths
-// vulkan's own verbs do not cover -- otelvulkan's exporter, a diagnostic
-// query. One client is one datastore, so its Schema is always the client's.
+// vulkan's own verbs do not cover, such as an advanced controller or a
+// diagnostic query. It returns shared state, not a copy.
 func (c *Client) Datastore() *datastore.PostgresDatastore {
 	return c.ds
 }
