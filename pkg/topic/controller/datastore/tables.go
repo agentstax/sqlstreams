@@ -104,7 +104,7 @@ func (d *TopicDatastore) createTopicTables(ctx context.Context, tx pgx.Tx, id in
 			status TEXT NOT NULL,                             -- 'ready' | 'processing' | 'inflight' | 'deferred' | 'done' | 'dead'
 			message_key TEXT,                                 -- the message's key; NULL = keyless
 			concurrency TEXT NOT NULL,                        -- 'parallel' | 'exclusive' -- the policy the group resolved for the message when it wrote the row
-			attempts INT NOT NULL default 0,                  -- runs so far; the retry budget is attempts - delays
+			attempts INT NOT NULL DEFAULT 0,                  -- runs so far; the retry budget is attempts - delays
 			delays INT NOT NULL DEFAULT 0,                    -- later runs the handler requested, never counted as failures
 			can_run_after TIMESTAMPTZ NOT NULL DEFAULT NOW(), -- backoff between retries, or the handler's requested delay
 			last_error TEXT,
@@ -278,7 +278,7 @@ func (d *TopicDatastore) createTopicTables(ctx context.Context, tx pgx.Tx, id in
 			patterns TEXT[] NOT NULL,                        -- the full declared set, original NATS-style; empty = whole topic
 			declared_by TEXT NOT NULL,                       -- hostname:pid:<random> of the declaring process, display only
 			declared_at TIMESTAMPTZ NOT NULL,                -- when this declarer first stated this set; constant across its retries
-			attempted_at TIMESTAMPTZ NOT NULL DEFAULT now()  -- when this attempt ran; an installed row's declared_at -> attempted_at is the wait it ended
+			attempted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()  -- when this attempt ran; an installed row's declared_at -> attempted_at is the wait it ended
 		);
 	`, d.Datastore.Schema, topic.BindingConfigLogTable(id))
 	if _, err := tx.Exec(ctx, createBindingConfigLogSql); err != nil {

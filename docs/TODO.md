@@ -67,7 +67,8 @@ docs/decisions/.
      - topic_config_log DEFAULT on `empty_compaction_head_ttl_ns` -- SHIPPED
        2026-09-06 (dropped; the one INSERT supplies every column).
   3. Settle the drift:
-     - case: `default 0` (exception_queue.attempts), `now()` x4 vs `NOW()`.
+     - case drift -- SHIPPED 2026-09-06: `DEFAULT 0` and `DEFAULT NOW()` everywhere
+       in DDL + mirrors (`now()` inside query literals is untouched).
      - worker_config.name comment lists 'janitor'; real names are
        topic_janitor, consumer_group_janitor, cursor_advancer, schedule_producer.
      - index names mix column-named (`_created_at`, `_message_key`, `_attempt`)

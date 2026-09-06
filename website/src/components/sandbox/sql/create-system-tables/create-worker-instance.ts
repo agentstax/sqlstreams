@@ -7,6 +7,6 @@ export const createWorkerInstanceSql = `
 			token UUID NOT NULL DEFAULT gen_random_uuid(), -- renew/release match on it, so only the creating instance can touch its row
 			expires_at TIMESTAMPTZ NOT NULL,               -- heartbeat-renewed; past it the instance is dead
 			attempts INT NOT NULL DEFAULT 0,               -- consecutive run failures. resets on success
-			created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		);
 	`;

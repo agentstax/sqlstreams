@@ -12,6 +12,6 @@ export const createTopicConfigLogSql = `
 			empty_compaction_head_ttl_ns BIGINT NOT NULL,
 			delivery_log_mode TEXT NOT NULL,
 			declared_by TEXT NOT NULL,                   -- hostname:pid:<random> of the declaring process, display only
-			declared_at TIMESTAMPTZ NOT NULL DEFAULT now()
+			declared_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		);
 	`;

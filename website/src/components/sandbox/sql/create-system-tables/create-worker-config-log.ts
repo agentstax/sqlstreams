@@ -8,6 +8,6 @@ export const createWorkerConfigLogSql = `
 			metadata JSONB NOT NULL,
 			target_instances INT NOT NULL,
 			declared_by TEXT NOT NULL,                   -- hostname:pid:<random> of the declaring process, display only
-			declared_at TIMESTAMPTZ NOT NULL DEFAULT now()
+			declared_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		);
 	`;

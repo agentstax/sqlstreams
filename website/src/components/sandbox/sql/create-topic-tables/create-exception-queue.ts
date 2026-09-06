@@ -11,7 +11,7 @@ export const createExceptionQueueSqlTemplate = `
 			status TEXT NOT NULL,                             -- 'ready' | 'processing' | 'inflight' | 'deferred' | 'done' | 'dead'
 			message_key TEXT,                                 -- the message's key; NULL = keyless
 			concurrency TEXT NOT NULL,                        -- 'parallel' | 'exclusive' -- the policy the group resolved for the message when it wrote the row
-			attempts INT NOT NULL default 0,                  -- runs so far; the retry budget is attempts - delays
+			attempts INT NOT NULL DEFAULT 0,                  -- runs so far; the retry budget is attempts - delays
 			delays INT NOT NULL DEFAULT 0,                    -- later runs the handler requested, never counted as failures
 			can_run_after TIMESTAMPTZ NOT NULL DEFAULT NOW(), -- backoff between retries, or the handler's requested delay
 			last_error TEXT,
