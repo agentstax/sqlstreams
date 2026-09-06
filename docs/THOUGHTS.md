@@ -4,8 +4,6 @@
 
 # Docs
 
-cleanup and split out the website docs. They have grown a bit unruly and I much prefer smaller bite sized doc pages.
-
 cleanup root documents and /docs documents (mostly root docs like AGENT.md)
 
 roadmap later item for review code for interesting design decisions to write articles on (big or small things)
@@ -41,5 +39,7 @@ Probably should have one more table name and column review (this will be hard to
 need to make sure we do some manual testing for cli, metrics and alerts
 
 manual review of public user facing comments :(. I don't want to but its got to be done
+
+review of most important website docs
 
 # Other

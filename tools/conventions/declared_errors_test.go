@@ -119,7 +119,7 @@ func TestMetricDeclarationsCarryMetricsVocabulary(t *testing.T) {
 	}
 }
 
-// Codes live at roots (CONVENTIONS.md ## Package layout): every
+// Codes live at roots (CONVENTIONS.md ## Errors): every
 // NewDiagnosticError / NewDiagnosticEvent / NewDiagnosticMetric /
 // NewDiagnosticAlert call in the library initializes an exported var in a
 // root's errors.go, events.go, metrics.go, alerts.go, or a subject-named

@@ -1,4 +1,4 @@
-https://excalidraw.com/#json=xIyANXvjoo9OLRQn1QTJH,FS1ktN84YCRGl2KB0YsbFw
+Architecture sketch (Excalidraw): https://excalidraw.com/#json=xIyANXvjoo9OLRQn1QTJH,FS1ktN84YCRGl2KB0YsbFw
 
 ## Development
 

@@ -111,11 +111,11 @@ func declaredQueries() map[string][]diagnostic.DiagnosticQuery {
 	return queries
 }
 
-// attributeRow matches one row of the ### Attributes table: the name (or the
-// comma-separated pair the "low, high" row carries), then the two spaces that
-// start its description. Continuation lines indent past the name column and
-// so never match.
-var attributeRow = regexp.MustCompile(`^ {6}([a-z_<>]+(?:, [a-z_<>]+)*) {2,}\S`)
+// attributeRow matches one row of the ### Attributes table: the first cell
+// holding one backticked name (or the comma-separated pair the "low, high"
+// row carries). The header and divider rows carry no backticks and so never
+// match.
+var attributeRow = regexp.MustCompile("^\\| (`[a-z_<>]+`(?:, `[a-z_<>]+`)*) \\|")
 
 // registeredAttributes reads the ### Attributes table out of CONVENTIONS.md
 // and reports whether a name appears in it. A row written <verb>_count is a
@@ -141,7 +141,7 @@ func registeredAttributes(t *testing.T) func(string) bool {
 		if match == nil {
 			continue
 		}
-		for _, name := range strings.Split(match[1], ", ") {
+		for _, name := range strings.Split(strings.ReplaceAll(match[1], "`", ""), ", ") {
 			if !strings.HasPrefix(name, "<") {
 				names[name] = true
 				continue

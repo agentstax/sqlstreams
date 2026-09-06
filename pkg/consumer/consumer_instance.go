@@ -8,8 +8,8 @@ import (
 	"uuid"
 
 	"github.com/agentstax/vulkan/pkg/common"
+	"github.com/agentstax/vulkan/pkg/common/concurrency"
 	"github.com/agentstax/vulkan/pkg/common/logging"
-	"github.com/agentstax/vulkan/pkg/concurrency"
 	"github.com/agentstax/vulkan/pkg/consume"
 	consumecontroller "github.com/agentstax/vulkan/pkg/consume/controller"
 	"github.com/agentstax/vulkan/pkg/datastore"

@@ -8,7 +8,7 @@ import (
 	"uuid"
 
 	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/concurrency"
+	"github.com/agentstax/vulkan/pkg/common/concurrency"
 	"github.com/agentstax/vulkan/pkg/consume"
 	"github.com/agentstax/vulkan/pkg/consume/messageconsumer/controller"
 )

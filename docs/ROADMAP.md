@@ -20,12 +20,6 @@ the item is removed.
   proposed contract in `website/src/content/docs/concepts/metrics-export.mdx`.
   Working details live in TODO.md.
 
-- **Cookie-notice art is a placeholder** -- `website/public/i-like-money.gif`
-  and `laughing-pointing.png` are Nickelodeon's and a build publishes them
-  [0600]. Swap for CC0 / CC BY (Kenney, game-icons.net) before the site
-  ships; classic memes are never an option. This line fell out of the
-  ROADMAP in the site-versioning commit and was restored 2026-09-06.
-
 - **Reliability lab -- the hour-long live run** (verdict, not a
   measurement: the sibling of `just compat-lab`, housed under bench/ so
   it shares the container / env / record plumbing, its record carrying a
@@ -143,7 +137,7 @@ the item is removed.
   - Documentation drives this work: the methodology page becomes a doc-site
     page and the user-facing spec is written before the harness is built.
 
-- **TEST.md expand and refine** (14c) — the shutdown/interruption scenarios
+- **docs/TEST.md expand and refine** (14c) — the shutdown/interruption scenarios
   recorded there are Setup/Action/Assert prose from a scratch harness;
   implement as a real pkg/producer/pkg/consumer test suite once the API
   stops moving.
@@ -250,7 +244,7 @@ documentation; the latter want a surface that has stopped moving.
   stops before proposing methods.
 - **A declaration reports what it did** — `Declaration`
   (created / joined / updated) on the consumer and schedule instances,
-  carried as the "Reading the outcome back" aside in guides/client.mdx.
+  carried as the "Reading the outcome back" aside in concepts/api-shape.mdx.
   Cut from the [0625] chunk 12 build, and the strict form it was built
   beside is rejected outright ([0626], parking lot), so this is now the
   whole of what chunk 12 might still be worth. VK0059 already reports an
@@ -268,7 +262,7 @@ documentation; the latter want a surface that has stopped moving.
   outcome and the instance carrying it — so the shape is known.
 
 - **`vulkantest`** — a test helper module, spec'd as the "A test helper"
-  aside in guides/client.mdx. The doc page comes first and the build
+  aside in concepts/api-shape.mdx. The doc page comes first and the build
   after it: [0625] chunk 15 carried it, and it was pulled out because
   nobody had written down what it does. Sizing from that planning:
   roughly 50 lines for `NewClient(t)` standing the real library up

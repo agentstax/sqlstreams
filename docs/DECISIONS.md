@@ -432,3 +432,5 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0677 2026-09-06 accepted (pre-v1) — Public API comments state their contract
 - 0678 2026-09-06 accepted (pre-v1) — Metrics export distinguishes read success and observation freshness
 - 0679 2026-09-06 accepted (pre-v1) — The doc site splits by page kind: a Reference board, one thread per handle
+- 0680 2026-09-06 accepted (pre-v1) — pkg/concurrency is infrastructure and lives under common
+- 0681 2026-09-06 accepted (pre-v1) — The rule files carry no decision citations; the decision map is the index

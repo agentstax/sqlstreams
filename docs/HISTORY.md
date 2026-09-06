@@ -5,6 +5,32 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-06 — Rule files reorganized; pkg/concurrency under common [0680] [0681]
+
+CONVENTIONS.md was reorganized into five parts (where code lives, how it
+reads, persistence, diagnostics, outside the library) with no rule
+removed: eight rules stated twice now appear once, the orphan signature
+rule joined ## Naming & terminology, Package layout gave up config naming,
+validation, code placement, and the tools/ paragraph to the sections that
+own them, and the type-suffix, table-kind, column-name, and log-attribute
+enumerations became tables. Every rule a tools/conventions test enforces
+ends in `(checked)`; inline `[NNNN]` citations are gone from both rule
+files, DECISION_MAP being the index [0681]. Stale facts fixed: the
+declared-condition count, the VK0005 fix text in the Errors example, a
+Comments example naming a nonexistent identifier. AGENTS.md opens with
+Hard limits (never commit, ask before deploy, "show me" edits nothing),
+leads Docs & record-keeping with the lifecycle, and names THOUGHTS.md, the
+tabled drafts a ROADMAP item cites, and docs/archive on the surface.
+
+`pkg/concurrency` moved to `pkg/common/concurrency` so the three-package-
+kinds rule holds without an exception [0680]. `just verify` runs tools/
+with `-count=1`. README's architecture link gained a caption.
+
+Build, vet, gofmt, `go test -race` on the moved package and its importers,
+and tools/conventions pass; its attribute-registry parser now reads the
+### Attributes markdown table and was sabotage-checked (a renamed row
+fails 56 raise sites).
+
 ## 2026-09-06 — The doc site splits by page kind: a Reference board [0679]
 
 guides/client.mdx (7,300 words, 28 H2s, 40% of the site's prose) was four
