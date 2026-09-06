@@ -58,7 +58,8 @@ docs/decisions/.
      - claim_lease leads with `token` -- SHIPPED 2026-09-06: columns and PK now
        (consumer_group_id, token); every claim_lease predicate is a PK-prefix
        seek. 11 consume labs green on a fresh DB.
-     - binding_config lists derived `pattern_regex` before declared `pattern`.
+     - binding_config `pattern` before `pattern_regex` -- SHIPPED 2026-09-06
+       (DDL, mirror, the INSERT list + args; binding/routing labs green).
      - schedule_config puts `schema_version` after `payload` (message_log:
        before); `concurrency`/`timeout_ns` sit between `suspended` and `payload`.
      - topic_config_log carries a DEFAULT on `empty_compaction_head_ttl_ns`

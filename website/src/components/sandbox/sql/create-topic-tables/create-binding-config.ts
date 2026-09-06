@@ -8,8 +8,8 @@ export const createBindingConfigSqlTemplate = `
 		CREATE TABLE IF NOT EXISTS %[1]s.%[2]s (
 			id BIGSERIAL PRIMARY KEY,
 			consumer_group_id BIGINT NOT NULL REFERENCES %[1]s.consumer_group_config (id) ON DELETE CASCADE,
-			pattern_regex TEXT NOT NULL,              -- POSIX regex translated from the declared pattern
 			pattern TEXT,                             -- the declared NATS-style pattern, for humans
+			pattern_regex TEXT NOT NULL,              -- POSIX regex translated from the declared pattern
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			UNIQUE (consumer_group_id, pattern_regex) -- its index also serves the group lookup

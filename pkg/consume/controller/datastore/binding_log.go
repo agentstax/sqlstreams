@@ -135,12 +135,12 @@ func (d *ConsumeDatastore) replaceBindings(ctx context.Context, tx pgx.Tx, topic
 
 	insertSql := fmt.Sprintf(`
 		-- vulkan: consume.replaceBindings
-		INSERT INTO %[1]s.%[2]s (consumer_group_id, pattern_regex, pattern)
+		INSERT INTO %[1]s.%[2]s (consumer_group_id, pattern, pattern_regex)
 		VALUES ($1, $2, $3);
 	`, d.Datastore.Schema, topic.BindingConfigTable(topicId))
 	for _, pattern := range patterns {
 		expression := wildcardToRegex(pattern)
-		if _, err := tx.Exec(ctx, insertSql, groupId, expression, pattern); err != nil {
+		if _, err := tx.Exec(ctx, insertSql, groupId, pattern, expression); err != nil {
 			return err
 		}
 	}
