@@ -1,6 +1,7 @@
 package datastore
 
 import (
+	"time"
 	"uuid"
 
 	"github.com/agentstax/vulkan/pkg/common"
@@ -17,6 +18,7 @@ type Append[Message common.Versioned] struct {
 	Compacted      bool  // the produce enabled Compaction
 	CompactionRank int64 // read only when Compacted
 	Options        *common.MessageOptions
+	ScheduledAt    time.Time // zero on every message a schedule did not produce -- stored as NULL
 }
 
 // Appended is one append's outcome.

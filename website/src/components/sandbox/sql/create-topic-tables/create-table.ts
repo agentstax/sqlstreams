@@ -17,6 +17,7 @@ export const createTableSqlTemplate = `
 			compaction_rank BIGINT,                       -- NULL = this message never opted into compaction
 			payload JSONB NOT NULL,
 			options JSONB,                                -- sparse MessageOptions
+			scheduled_at TIMESTAMPTZ,                     -- the scheduled time a schedule's message is for; NULL on every other message
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		) PARTITION BY RANGE (id);
 	`;

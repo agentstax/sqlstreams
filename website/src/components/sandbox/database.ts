@@ -123,6 +123,7 @@ export class VulkanDatabase {
 			demoSchemaVersion,
 			'',
 			null,
+			null,
 		]);
 		this.nextOrderId += 1;
 	}
@@ -295,6 +296,7 @@ async function seed(db: PGlite): Promise<void> {
 			'orders.eu.created',
 			demoSchemaVersion,
 			'',
+			null,
 			null,
 		]);
 	}

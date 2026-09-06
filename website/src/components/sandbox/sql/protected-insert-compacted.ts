@@ -11,8 +11,15 @@ export const protectedInsertCompactedSqlTemplate = `
 				ON CONFLICT (idempotency_key) DO NOTHING
 				RETURNING idempotency_key
 			), inserted AS (
-				INSERT INTO %[1]s.%[3]s (payload, routing_key, schema_version, message_key, compaction_rank, options)
-				SELECT $2, NULLIF($3, ''), $4, $5, $6, $7  -- if routing_key $3 is empty string '' insert as NULL
+				INSERT INTO %[1]s.%[3]s (payload, routing_key, schema_version, message_key, compaction_rank, options, scheduled_at)
+				SELECT
+					$2,
+					NULLIF($3, ''),                                 -- if routing_key is empty string '' insert as NULL
+					$4,
+					$5,
+					$6,
+					$7,
+					NULLIF($8, '0001-01-01 00:00:00Z'::timestamptz) -- if scheduled_at is the zero time insert as NULL
 				WHERE EXISTS (SELECT 1 FROM claim) -- if claim CTE didn't return anything skip this
 				RETURNING id
 			), latest AS (

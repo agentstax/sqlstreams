@@ -5,12 +5,14 @@ shipped work in HISTORY.md; decision rationale in DECISIONS.md ->
 docs/decisions/.
 
 - **Named-return-params house style — design discussion.**
-  - Proposed: unnamed results by default; named results only when a deferred
-    function must inspect or change the actual returned value. Always spell
-    out return values in functions that return results.
-  - Confirm the rule and what “reviewed surface” includes before applying it.
-    Current examples occur in produce datastores, message-consumer range state,
-    the CLI, and labs; review deferred result use before changing signatures.
+  - Proposed: name every result for signature documentation, using domain
+    names and explicit return expressions. Review a small trial before
+    settling the repository-wide rule and scope.
+  - Trial: NewClient, InTransaction, Client.Topics/Topic,
+    TopicHandle.Register/Get/Producer, ProducerHandle.Register, and
+    ProducerInstance.Produce. Playground 01 exercises the produce chain;
+    playground 02 also exercises InTransaction. Inspect their signatures
+    from the playground call sites; caller bindings remain unchanged.
   - Once settled, record the decision and update CONVENTIONS.md, then apply
     the rule with targeted verification.
 

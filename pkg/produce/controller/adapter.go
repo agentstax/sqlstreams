@@ -15,6 +15,7 @@ func toAppend[Message common.Versioned](idempotencyKey uuid.UUID, payload *Messa
 		RoutingKey:     options.RoutingKey,
 		MessageKey:     options.MessageKey,
 		Options:        options.Message,
+		ScheduledAt:    options.ScheduledAt,
 	}
 	if options.Compaction != nil && options.Compaction.Enable {
 		data.Compacted = true
