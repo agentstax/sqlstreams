@@ -24,7 +24,7 @@ contract before v1. Removed records a decision implemented in this review.
 | --- | --- | --- |
 | Removed (review in progress) | Nested `SystemConfig` stub | Empty configuration offered no choice. The real alert and collector declaration is now `SystemConfig`; registration creates the singleton directly. No settings or stored rows changed. |
 | Renamed (review in progress) | `ErrConsumerNotFound`, `ErrConsumerGroupLive`, `ErrConsumerGroupDeliveriesPending`, `ScheduleConsumerGroupSummary`, `Binding.ConsumerGroupName` | Applied the consumer resource / consumer-group shared-state distinction at the declarations and callers. Binding and schedule JSON use `consumer_group`; the CLI schedule summary collection uses `consumer_groups`. Diagnostic codes VK0014–VK0016 and log attribute keys are unchanged. Old Go names and JSON keys are replaced without compatibility aliases. |
-| Removal agreed; preparation implemented | `Client.Datastore()`, `PostgresDatastore` alias | CLI connections now own pool, resolved config, and client directly. Labs and benchmark drivers construct advanced datastores over their own pools; custom schema/logger settings remain explicit. No repository callers use the accessor. The method and alias are still present, pending the separate removal step and alias-closure verification. OTel takes pools; metric production/consumption uses client handles. |
+| Removed | `Client.Datastore()`, `PostgresDatastore` alias | CLI connections own pool, resolved config, and client directly. Labs and benchmark drivers construct advanced datastores over their own pools, preserving custom settings. Custom SQL uses the caller-owned pool; atomic production retains InTransaction. OTel takes pools; metric production/consumption uses client handles. This is a source compatibility break for callers of the removed method or alias. |
 | Question | `Client.Config`, `Client.Logger` | Exported mutable state can imply live reconfiguration, but different components retain different resolved values. Decide whether these are supported read access, live controls, or construction details. Trace mutations before promising behavior; do not silently make existing assignments ineffective. |
 | Keep | `ProducerConfig.Batch`, `BatcherConfig` | MaxSize, ConcurrencyLimit, AttemptTimeout, and ShutdownGrace express caller-visible batching and cancellation tradeoffs. Their implementation-package location is not a reason to remove them. |
 | Keep | `Tx`, `Querier`, `TransactionFunc`, `Tx.Raw`, InTransaction/InTx methods | These let callers compose SQL and production atomically. Raw explicitly permits pgx access. Keep the transaction ownership and no-automatic-retry contracts visible. |
@@ -70,7 +70,7 @@ that every method's behavior has received a correctness audit.
 | --- | --- | --- |
 | [alert.go](pkg/vulkan/alert.go) | `AlertHandle`, `AlertHandle.Latest`, `AlertHandle.History` | Keep |
 | [binding.go](pkg/vulkan/binding.go) | `BindingHandle`, `SystemHandle.Bindings`, `ConsumerHandle.Binding`, `BindingHandle.Get` | Keep |
-| [client.go](pkg/vulkan/client.go) | `Client`, `NewClient`, `Client.Datastore`, `Client.InTransaction` | Question: shared mutable state; keep other verbs |
+| [client.go](pkg/vulkan/client.go) | `Client`, `NewClient`, `Client.InTransaction` | Keep; mutable fields remain under review |
 | [client_config.go](pkg/vulkan/client_config.go) | `ClientConfig`, `ClientConfig.WithDefaults`, `ClientConfig.Validate` | Keep |
 | [consumer.go](pkg/vulkan/consumer.go) | `ConsumerHandle`, `TopicHandle.Consumers`, `TopicHandle.Consumer`, `ConsumerHandle.Register`, `ConsumerHandle.Get`, `ConsumerHandle.Workers`, `ConsumerHandle.Destroy` | Keep |
 | [consumer_alerts.go](pkg/vulkan/consumer_alerts.go) | `ConsumerAlertsHandle`, `ConsumerHandle.Alerts`, `ConsumerAlertsHandle.Definitions`, `ConsumerAlertsHandle.Latest`, `ConsumerAlertsHandle.Alert` | Keep |
@@ -117,7 +117,6 @@ free constructor for that type is exported by vulkan.
 | `DiagnosticQuery` | [diagnostic.DiagnosticQuery](pkg/common/diagnostic/query.go) | `Placeholders` | Keep |
 | `DiagnosticRecovery` | [diagnostic.DiagnosticRecovery](pkg/common/diagnostic/error.go) | None declared | Keep |
 | `DiagnosticKind` | [diagnostic.DiagnosticKind](pkg/common/diagnostic/registry.go) | None declared | Keep |
-| `PostgresDatastore` | [datastore.PostgresDatastore](pkg/datastore/datastore.go) | None declared | Question |
 | `Querier` | [datastore.Querier](pkg/datastore/querier.go) | `Exec`, `Query`, `QueryRow`, `SendBatch`, `CopyFrom` (interface) | Keep |
 | `Tx` | [datastore.Tx](pkg/datastore/transaction.go) | `Raw`, embedded `Querier` methods (interface) | Keep |
 | `TransactionFunc` | [datastore.TransactionFunc](pkg/datastore/transaction.go) | None declared | Keep |

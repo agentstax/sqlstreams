@@ -90,13 +90,6 @@ func NewClient(ctx context.Context, pool *pgxpool.Pool, cfg *ClientConfig) (*Cli
 	}, nil
 }
 
-// Datastore returns the handle NewClient built over the pool, for the paths
-// vulkan's own verbs do not cover, such as an advanced controller or a
-// diagnostic query. It returns shared state, not a copy.
-func (c *Client) Datastore() *datastore.PostgresDatastore {
-	return c.ds
-}
-
 // InTransaction opens one transaction, runs transactionFunc against it, and
 // commits -- the way to publish to multiple targets atomically via ProduceInTx.
 //

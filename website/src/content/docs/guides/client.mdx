@@ -576,7 +576,10 @@ same defaults as the public client. Pass these explicitly when the integration
 should use custom settings. `MetricsConfig.Meter` and `CollectTimeout` keep
 their existing behavior.
 
-This replaces passing `client.Datastore()` into these constructors.
+`Client.Datastore()` and the `vulkan.PostgresDatastore` alias have been removed.
+Pass the pool directly to these constructors. For custom SQL, use the pool you
+passed to `NewClient`; for atomic production across targets, use
+`client.InTransaction` with `ProduceInTx`.
 `Exporter.Close(ctx)` shuts down its meter provider; it does not close the pool.
 Stop all pool users before the caller closes it.
 

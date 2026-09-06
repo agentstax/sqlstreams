@@ -8,9 +8,9 @@ docs/decisions/.
   holds the current inventory and proposed decisions. Review the remove/question
   rows before implementation; fold final verdicts into one decision record and
   delete the working inventory at close-out.
-  Datastore accessor removal is agreed: CLI/lab/benchmark callers have been
-  migrated to owned pools and explicit datastores. Remove Client.Datastore
-  and the now-unneeded public alias in the next step, then verify alias closure.
+  Client.Datastore and the PostgresDatastore alias are removed; CLI/lab/benchmark
+  callers use owned pools and explicit datastores. Continue with the remaining
+  question rows.
 
 - Table name + column review (pre-v1, last pass before the DDL is expensive
   to change). Automated review 2026-09-06; `tools/conventions` DDL walk
@@ -28,10 +28,10 @@ docs/decisions/.
      - `compaction_head.head_id` -> `message_id` -- SHIPPED 2026-09-06 (13
        library files, 11 labs, 4 sandbox mirrors, VK0066 query + codes.json,
        table-design.mdx; 36 labs green on a fresh DB).
-     - `declared_at` means row-write time in topic_config_log/worker_config_log
-       (`DEFAULT now()`) but first-statement time in binding_config_log, where
-       `attempted_at` is the write time -> one meaning per name across the
-       `_config_log` kind.
+     - `declared_at` across the `_config_log` kind -- DROPPED 2026-09-06: it
+       means the statement instant in all three; binding_config_log's extra
+       `attempted_at` exists only because its declarations retry. The
+       migration_log.created_at -> attempted_at replacement was declined.
      - `schedule_config.schema_version INTEGER` -> BIGINT (message_log,
        compaction_head).
   2. Settle the shape + order findings:

@@ -39,10 +39,9 @@ type (
 	DiagnosticRecovery               = diagnostic.DiagnosticRecovery
 	DiagnosticKind                   = diagnostic.DiagnosticKind
 
-	PostgresDatastore = datastore.PostgresDatastore
-	Querier           = datastore.Querier
-	Tx                = datastore.Tx
-	TransactionFunc   = datastore.TransactionFunc
+	Querier         = datastore.Querier
+	Tx              = datastore.Tx
+	TransactionFunc = datastore.TransactionFunc
 
 	ProduceOptions                   = produce.ProduceOptions
 	CompactionOptions                = produce.CompactionOptions
