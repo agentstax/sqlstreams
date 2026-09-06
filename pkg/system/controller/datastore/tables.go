@@ -209,10 +209,10 @@ func (d *SystemDatastore) createSystemTables(ctx context.Context, tx pgx.Tx) err
 			name TEXT NOT NULL UNIQUE,                       -- also the message key and routing key of every produce
 			expression TEXT NOT NULL,                        -- cron expression; UTC unless it carries TZ=
 			suspended BOOLEAN NOT NULL DEFAULT false,        -- a suspended schedule keeps its expression but never produces
+			schema_version INTEGER NOT NULL,                 -- the payload's Message type version, written on every produce
+			payload JSONB NOT NULL DEFAULT '{}',             -- the message, marshaled once at Register
 			concurrency TEXT NOT NULL DEFAULT 'parallel',    -- 'parallel' | 'exclusive' -> MessageOptions.Concurrency
 			timeout_ns BIGINT NOT NULL,                      -- nanoseconds; -> MessageOptions.Timeout
-			payload JSONB NOT NULL DEFAULT '{}',             -- the message, marshaled once at Register
-			schema_version INTEGER NOT NULL,                 -- the payload's Message type version, written on every produce
 			metadata JSONB NOT NULL DEFAULT '{}',
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

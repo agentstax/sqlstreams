@@ -80,10 +80,10 @@ func (d *ScheduleDatastore) register(ctx context.Context, systemId int64, topicI
 			topic_id,
 			name,
 			expression,
+			schema_version,
+			payload,
 			concurrency,
 			timeout_ns,
-			payload,
-			schema_version,
 			metadata
 		)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, '{}'::jsonb))
@@ -92,8 +92,8 @@ func (d *ScheduleDatastore) register(ctx context.Context, systemId int64, topicI
 	var id int64
 	if err := tx.QueryRow(ctx, insertConfigSql,
 		systemId, topicId,
-		name, expression.String(), string(concurrency), int64(timeout),
-		json.RawMessage(encoded), schemaVersion, metadata,
+		name, expression.String(), schemaVersion, json.RawMessage(encoded),
+		string(concurrency), int64(timeout), metadata,
 	).Scan(&id); err != nil {
 		return nil, err
 	}

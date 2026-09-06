@@ -60,8 +60,9 @@ docs/decisions/.
        seek. 11 consume labs green on a fresh DB.
      - binding_config `pattern` before `pattern_regex` -- SHIPPED 2026-09-06
        (DDL, mirror, the INSERT list + args; binding/routing labs green).
-     - schedule_config puts `schema_version` after `payload` (message_log:
-       before); `concurrency`/`timeout_ns` sit between `suspended` and `payload`.
+     - schedule_config column order -- SHIPPED 2026-09-06: identity, schedule,
+       then schema_version, payload, concurrency, timeout_ns (message_log's
+       shape), metadata, timestamps; register INSERT + replace SET follow.
      - topic_config_log carries a DEFAULT on `empty_compaction_head_ttl_ns`
        only -- leftover from the additive change; snapshot columns take none.
   3. Settle the drift:
