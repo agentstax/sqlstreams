@@ -1,0 +1,56 @@
+---
+title: System
+description: SystemHandle — Register, Get, Migrate, MigrateTopics, Destroy, Bindings; SystemConfig and the built-in alert and collector declarations.
+---
+
+`client.System()` names the singleton system: no I/O, no failure, and no
+name, because one schema is one installation. `Register` declares the
+system's own knobs, the built-in alert schedules and the metrics collector,
+and is safe to run on every startup. A topic's `Register` creates the
+system with defaults if it is absent, so most programs never call it.
+
+```go
+err := client.System().Register(ctx, &vulkan.SystemConfig{
+	PartitionCountAlert: &vulkan.PartitionCountAlertConfig{ScheduleExpression: "0 * * * *"},
+	MetricsCollector:    &vulkan.MetricsCollectorWorkerConfig{PollRate: 10 * time.Second},
+})
+if err != nil {
+	return err
+}
+```
+
+## Verbs
+
+| verb | returns | notes |
+| --- | --- | --- |
+| `Register(ctx, cfg)` | `error` | creates the schema and the control-plane tables when missing ([VK0064](/errors/VK0064/) when the role cannot); `nil` cfg is the defaults; a differing redeclaration replaces the stored worker rows |
+| `Get(ctx)` | `*System` | the comma-ok read: `(nil, nil)` when no system is registered |
+| `Migrate(ctx, targetVersion)` | `error` | moves the control-plane tables to a version ([migrations](/guides/migrations/)) |
+| `MigrationVersion(ctx)` | `int64` | the version the control-plane tables are at; `ErrNotRegistered` |
+| `MigrateTopics(ctx, targetVersion)` | `error` | moves every registered topic to a version |
+| `Destroy(ctx, options)` | `error` | deletes every topic, schedule, consumer group, worker, and the control-plane tables; `ErrDestroyDisabled` unless `ClientConfig.AllowDestroy`; `ErrSystemLive` and `ErrTopicsRegistered` unless `DestroyOptions.Force` |
+| `Bindings(ctx)` | `[]*Binding` | every group's effective binding set and any declarer still waiting, ordered by topic then group; a group reading the whole topic does not appear |
+| `Metrics()` | `*SystemMetricsHandle` | no I/O; [Metrics](/reference/metrics/) |
+| `Alerts()` | `*SystemAlertsHandle` | no I/O; [Alerts](/reference/alerts/) |
+
+## Config
+
+### SystemConfig
+
+| field | default | what it decides |
+| --- | --- | --- |
+| `PartitionCountAlert` | its own defaults | the `partition_count` check: `ScheduleExpression` (`@hourly`) and `Threshold` (`0`, half the lock ceiling Postgres reports) |
+| `CompactionReadCostAlert` | its own defaults | the `compaction_read_cost` check |
+| `WorkerLivenessAlert` | its own defaults | the `worker_liveness` check |
+| `MetricsCollector` | `PollRate: 30s` | how often the collector's measurement pass runs; zero is the default, negative is rejected |
+
+A running collector keeps its rate until its next claim; restart the
+manager to apply a new one immediately.
+
+## Gotchas
+
+- The system is a singleton and a handle anyway. The day that changes, the
+  API grows by one parameter, `client.System(name)`, and
+  `client.Topic[T](name)` stays the default system's shortcut.
+- The manager is not here. It is a running subsystem with its own handle,
+  `client.Manager()` ([Manager](/reference/manager/)).

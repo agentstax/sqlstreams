@@ -1,0 +1,77 @@
+---
+title: Message options
+description: MessageOptions and RetryPolicy — the fields, where each layer's value comes from, and the Fill, Clamp, ResolveConcurrency, and CalculateDelay helpers.
+---
+
+`MessageOptions` is what a message requests from whoever consumes it, and
+the same struct is a consumer group's default, floor, and ceiling. Three
+layers resolve per field: the produced message's own options, then the
+producer's `ProducerConfig.Message`, then the consumer's
+`ConsumerConfig.Message`, clamped by `MessageMin` and `MessageMax`
+([consumer group config](/concepts/consumer-group-config/)).
+
+```go
+options := &vulkan.MessageOptions{
+	Timeout:     10 * time.Second,
+	Concurrency: vulkan.ConcurrencyExclusive,
+	Retry:       &vulkan.RetryPolicy{MaxRetries: 5, BaseDelay: 2 * time.Second},
+}
+```
+
+## Config
+
+### MessageOptions
+
+| field | default | what it decides |
+| --- | --- | --- |
+| `Concurrency` | `ConcurrencyParallel` | the policy for this message's key: `ConcurrencyParallel`, `ConcurrencyExclusive`, `ConcurrencyOrdered`; requires a message key ([ordering](/concepts/ordering/)) |
+| `Timeout` | `30s` as a consumer's default; `0` on a message means the consumer's applies | how long the handler may run |
+| `Retry` | `MaxRetries: 3` on the default curve as a consumer's default; `nil` on a message means the consumer's applies whole | the redelivery policy; unset fields fall to the consumer's per field |
+| `ScheduledAt` | zero | the scheduled time a schedule's message is for, set by the schedule producer; a fact, never a knob |
+
+### RetryPolicy
+
+The same type serves two jobs, `ClientConfig.Retry` for Postgres calls and
+`MessageOptions.Retry` for redelivery, with different defaults.
+
+| field | default | what it decides |
+| --- | --- | --- |
+| `MaxRetries` | `6` (`3` as a consumer's `Message.Retry`) | failed attempts allowed, the first included; a delivery dead-letters once it is reached |
+| `MaxDelays` | `0` (no cap) | handler-requested later runs (`vulkan.Delay`) before the delivery dead-letters; redelivery only |
+| `BaseDelay` | `1s` | the first backoff delay |
+| `MaxDelay` | `5m` | the ceiling every later delay is capped at |
+| `Exponent` | `2` | delay = `BaseDelay * Exponent^attempt` |
+
+## Helpers
+
+| helper | what it does |
+| --- | --- |
+| `options.Fill(defaults)` | fills unset fields from `defaults`, copying the nested retry policy |
+| `options.Clamp(minimum, maximum)` | applies positive numeric bounds to timeout and retry fields; zero bounds do not constrain |
+| `options.ResolveConcurrency(override)` | a nonempty override, else the requested policy, else parallel; shares the retry pointer |
+| `options.Equal(other)` | compares stored values without filling defaults; `ScheduledAt` as an instant |
+| `policy.WithDefaults()`, `policy.Validate()` | resolve, then check; `Validate` rejects a total sleep exceeding the largest `time.Duration` |
+| `policy.CalculateDelay(attempt)` | the sleep before zero-based `attempt`, capped at `MaxDelay`; it does not stop at `MaxRetries` |
+| `policy.CalculateTotalDelay()` | the sum of every sleep up to `MaxRetries` |
+| `policy.Equal(other)` | compares stored fields, `MaxDelays` included, without filling defaults |
+
+For a policy with four attempts, a `1s` base, exponent `2`, and a `5s`
+cap, the sleeps are `1s`, `2s`, `4s` and `CalculateTotalDelay` returns
+`7s`. That excludes time spent in the operation itself; success, a
+permanent error, or cancellation ends the loop earlier. `MaxDelays`
+affects neither calculation.
+
+## Gotchas
+
+- None of the helpers validates its input or changes its receiver.
+  `Fill(nil)` on nil returns nil, `Clamp` on nil returns nil,
+  `ResolveConcurrency` on nil returns a fresh struct holding the override
+  or parallel.
+- A `billing` group defaulting to `30s` and capping at `10s` resolves a
+  message that requested `20s` to `10s`. A parallel `ConcurrencyOverride`
+  also replaces an exclusive request, independently of the numeric bounds.
+- `ScheduledAt` passes through `Fill` and `Clamp` unchanged; defaults and
+  bounds never supply or constrain it.
+- Producer construction also checks that its retry sleeps plus the
+  per-attempt create-ahead allowance fit in `time.Duration`; an oversized
+  combined budget fails `Register`.

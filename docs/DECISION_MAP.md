@@ -23,6 +23,6 @@ are in `docs/DECISIONS.md`. A new record adds its number to its line.
 - declarations: newest-wins, CLI never writes config, worker metadata: 0515-0521 0626 0670
 - client shape, handles, Register, lifecycle ctx, shutdown, named return parameters: 0361-0377 0625 0633-0646 0657 0664-0665 0670 0672
 - CLI: nested module, flags, --output json: 0354-0355 0576
-- doc site: board, sandbox, versioning, voice, cookie, errors, links: 0581-0610 0651 0677
+- doc site: board, sandbox, versioning, voice, cookie, errors, links, page size, reference board: 0581-0610 0651 0677 0679
 - rejected/reverted (do not re-suggest): 0270 latest_key backfill, 0379 PartitionsAhead, 0591 pglite prefetch, 0594 byte ceilings, 0672 mandatory named client results, 0673 0675 scheduled time as a message_log column / sent_at, 0323 a library retry inside InTransaction, 0536 a never-nil MessageOptions (NULLIF/COALESCE reshape), 0578 any fillfactor change without measured HOT-ratio degradation, 0626 strict declaration forms (RequireMatch, a stale-build gate)
 - playground, examples, handler placement, handle and instance names: 0674

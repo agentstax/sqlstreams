@@ -14,10 +14,10 @@ The behavior proposed below has not shipped.
 The system manager runs a claimed metrics collector. Its default poll rate is
 30 seconds. It measures the deployment and writes observations to the system
 metrics topic. Consumer instances also write changed session counters, and
-applications can [produce custom measurements](/guides/client/#produce-and-consume-measurements).
+applications can [produce custom measurements](/reference/metrics/#your-own-measurements).
 
 The metrics topic retains history with a 24-hour retention setting. The
-[metrics handles](/guides/client/#metrics) read the latest retained values and
+[metrics handles](/reference/metrics/) read the latest retained values and
 their history without an external monitoring service. `Measurement.At` carries
 the observation time. Reading a retained value does not run a new measurement.
 

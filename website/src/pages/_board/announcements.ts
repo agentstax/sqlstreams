@@ -6,6 +6,11 @@ export type Announcement = {
 
 export const announcements: Announcement[] = [
 	{
+		title: 'A Reference board — one thread per handle, every default checked against the library',
+		href: '/reference/',
+		date: '2026-09-06',
+	},
+	{
 		title: 'Migration compat gate ships — old binaries stay safe through additive releases',
 		href: '/guides/migrations/',
 		date: '2026-08-22',

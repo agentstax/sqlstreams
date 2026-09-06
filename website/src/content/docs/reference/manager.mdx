@@ -1,0 +1,55 @@
+---
+title: Manager
+description: ManagerHandle.Run — the deployment's upkeep, what claims it, and the target_instances dial.
+---
+
+`client.Manager().Run(ctx)` claims the system's manager row and reconciles
+every worker row in the deployment until `ctx` cancels, then returns
+`nil`. Most deployments never call it: `Consume` and
+`SchedulerInstance.Schedule` run the same manager beside their session, so
+a process with one live consumer already keeps the fleet-wide workers
+running, the topic janitor, the schedule producer, the metrics collector,
+and the built-in checks, for every topic in the deployment. `Run` is for
+the process with no consumer to hang upkeep on: `vulkan manager run`, or a
+service that carries it explicitly.
+
+```go
+return client.Manager().Run(ctx)
+```
+
+## Verbs
+
+| verb | returns | notes |
+| --- | --- | --- |
+| `Run(ctx)` | `error` | blocks; safe to run N-way; `nil` when `ctx` cancels |
+
+## The dial
+
+Nothing is refused. Every `Consume`, `Run`, and `Schedule` call in the
+fleet starts its own reconcile loop, and they all try to claim one row:
+`manager` under the system's owner, declared `target_instances = 1`. One
+claim wins, the losers retry every 30 seconds and take over within that
+window when the holder stops. That column takes effect with no deploy:
+
+| `target_instances` | what runs |
+| --- | --- |
+| `0` | nothing, everywhere; the loop logs [VK0035](/errors/VK0035/) and reconciles no rows |
+| `1` | one process reconciles, the rest wait. The default |
+| `N` | N processes reconcile |
+| `-1` | every process reconciles, no cap |
+
+## Gotchas
+
+- `ClientConfig.DisableManager` is the per-process opt-out: consumer pods
+  beside a dedicated `vulkan manager run`, and consumers under a database
+  role with no DDL rights, since the topic janitor creates and drops
+  partitions.
+- Admin verbs run nothing and the producer runs nothing. A deployment that
+  only produces accumulates partitions; `ProducerHandle.Register` logs
+  [VK0063](/errors/VK0063/) naming the unclaimed rows, and the hourly
+  `worker_liveness` check keeps an alert active on `__system.alerts` until
+  the rows are claimed again.
+- The topic janitor gives each of its five cleanup steps its own
+  five-second deadline, retries included. A step that times out returns its
+  error and the remaining steps still run; a pass with any error counts as
+  a failed tick and backs off. The start log reports `cleanup_timeout`.

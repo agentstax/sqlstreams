@@ -1,0 +1,153 @@
+---
+title: Metrics
+description: The metrics handles on the system, a topic, and a consumer group — Definitions, Snapshot, Latest, History, the built-in selectors, Metric, and producing your own measurements.
+---
+
+`.Metrics()` on the [system](/reference/system/), a
+[topic](/reference/topic/), or a [consumer](/reference/consumer/) handle
+returns that scope's metrics handle: no I/O, no failure. Metrics split live
+state from collected history. `Snapshot(ctx)` asks the source tables what
+is true now; `Latest(ctx)` and `History(ctx, limit)` read observations
+already written to `__system.metrics`.
+
+```go
+groupMetrics := client.Topic[PaymentRequestedV1]("payments.requested").Consumer("charge-cards").Metrics()
+live, err := groupMetrics.Snapshot(ctx) // *vulkan.ConsumerGroupSnapshot, the source tables now
+if err != nil {
+	return err
+}
+collected, err := groupMetrics.CursorBacklog().Latest(ctx) // *vulkan.Measurement, newest retained
+if err != nil {
+	return err
+}
+history, err := groupMetrics.CursorBacklog().History(ctx, 20) // newest first
+```
+
+## Verbs
+
+On every scope:
+
+| verb | returns | notes |
+| --- | --- | --- |
+| `Definitions()` | `[]MetricDefinition` | the built-ins Vulkan can produce for the scope, ordered by VK code; in-memory, never Postgres |
+| a built-in selector | `*MetricHandle` | no I/O; the topic and group names on the resource handle supply its attributes |
+
+On the system handle:
+
+| verb | returns | notes |
+| --- | --- | --- |
+| `Latest(ctx)` | `[]*Measurement` | the newest retained point for every series ever produced, built-in and user, ordered by name then attributes; `nil` until the first collection |
+| `Metric(name, attributes)` | `*MetricHandle` | the string escape hatch: a user-produced series, a built-in selected from a definition, a consumer-session series |
+| `Producer()` | `*MetricsProducerHandle` | its `Register(ctx, cfg)` returns a `MetricsProducerInstance` for your own measurements |
+| `Consumer(name)` | `*ConsumerHandle[Measurement]` | a consumer group on `__system.metrics`; `Bindings` takes metric names or patterns such as `billing.*` |
+
+On a topic or group handle:
+
+| verb | returns | notes |
+| --- | --- | --- |
+| `Snapshot(ctx)` | `*TopicSnapshot`, `*ConsumerGroupSnapshot` | live, and the existence check: `ErrTopicNotFound`, `ErrConsumerNotFound` |
+
+On a `MetricHandle`:
+
+| verb | returns | notes |
+| --- | --- | --- |
+| `Latest(ctx)` | `*Measurement` | `(nil, nil)` when the exact series has no retained point |
+| `History(ctx, limit)` | `[]*Measurement` | newest first; `limit` must be positive; empty for the same absence |
+
+The built-in selectors, one per declared metric:
+
+```go
+// system levels
+systemMetrics.UnclaimedWorkers()
+systemMetrics.OldestUnclaimedAge()
+systemMetrics.FailingWorkers()
+systemMetrics.OverdueSchedules()
+systemMetrics.OldestDueAge()
+systemMetrics.SuspendedSchedules()
+systemMetrics.ActiveAlerts()
+systemMetrics.ResolvedAlerts()
+
+// one built-in check; the alert name becomes the series' `alert` attribute
+systemMetrics.CheckTopicsEvaluated("partition_count")
+systemMetrics.CheckTopicsFailed("partition_count")
+systemMetrics.CheckPublishedAlerts("partition_count")
+systemMetrics.CheckResolvedAlerts("partition_count")
+
+// topic level
+topicMetrics.Compacted()
+
+// consumer-group levels
+groupMetrics.CursorHead()
+groupMetrics.CursorClaimed()
+groupMetrics.CursorCommitted()
+groupMetrics.CursorBacklog()
+groupMetrics.CursorInflight()
+groupMetrics.ReadyExceptions()
+groupMetrics.InflightExceptions()
+groupMetrics.DeferredExceptions()
+groupMetrics.DeadExceptions()
+groupMetrics.OldestUnresolvedAge()
+groupMetrics.OpenLeases()
+groupMetrics.AbandonedRoutinesOutstanding()
+groupMetrics.AbandonedRoutinesTotal()
+groupMetrics.AbandonedRoutinesSelfClearLatencyAverage()
+```
+
+## Scopes
+
+A definition is metadata, never a value: `Code`, `Name`, `Kind`, `Unit`,
+`Description`, `Scope`, `AttributeKeys`. The scopes and their required
+attributes are fixed:
+
+| scope | required attributes |
+| --- | --- |
+| `MetricScopeSystem` | none, except alert-check series require `alert` |
+| `MetricScopeTopic` | `topic` |
+| `MetricScopeConsumerGroup` | `topic`, `group` |
+| `MetricScopeConsumerSession` | `topic`, `group`, `version`, `session` |
+
+Built-in observations come from the manager's metrics collector, every 30
+seconds by default with jitter; the rate is
+`SystemConfig.MetricsCollector.PollRate` ([System](/reference/system/)).
+Consumer-session series have no typed handle yet and are read through
+`Metric(name, attributes)`.
+
+## Your own measurements
+
+```go
+producer, err := client.System().Metrics().Producer().Register(ctx, nil)
+if err != nil {
+	return err
+}
+measurement, err := vulkan.NewMeasurement(
+	"billing.queue_depth", vulkan.MetricKindGauge, 7, "",
+	map[string]string{"region": "us-east"}, time.Now(),
+)
+if err != nil {
+	return err
+}
+if _, err := producer.Produce(ctx, measurement); err != nil {
+	return err
+}
+```
+
+The producer derives the routing key from the metric name and the message
+key from the name plus attributes; compaction keeps the newest value per
+series. Names starting with `vulkan.` are reserved and rejected. A user
+series appears in `Latest` and never in `Definitions`.
+
+## Gotchas
+
+- `Latest` means newest retained, not fresh. The collector writes backlog
+  `27` at 10:03, work finishes, and at 10:07 `Snapshot` says `19` while
+  `Latest` still says `27` with `Measurement.At` at 10:03. A caller with a
+  freshness requirement compares `At` to its own threshold; the library
+  never turns an old collected value into live state.
+- A collected read proves nothing about the resource: a series can outlive
+  its topic, and a new group can exist before the collector reaches it.
+  `Snapshot` is the existence check.
+- Consuming `__system.metrics` is not a guarantee of every intermediate
+  value: compaction applies there too.
+- The optional `otelvulkan` module exports these through OpenTelemetry and
+  Prometheus; [metrics export](/concepts/metrics-export/) is the proposal
+  for the parts still open.

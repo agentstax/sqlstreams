@@ -1,0 +1,94 @@
+---
+title: Producer
+description: ProducerHandle and ProducerInstance — Register; Produce, ProduceBatch, ProduceFunc, ProduceInTx, ProduceFuncInTx; every ProducerConfig and ProduceOptions field with its default.
+---
+
+`topic.Producer()` names the topic as a produce target: no I/O, no failure.
+`Register` resolves the topic and returns the `ProducerInstance[T]` that
+appends to it. A producer declares nothing durable, since it has no row of
+its own; `ProducerConfig` is this process's message defaults and batching.
+
+```go
+requests, err := client.Topic[PaymentRequestedV1]("payments.requested").Producer().Register(ctx,
+	&vulkan.ProducerConfig{
+		Message: &vulkan.MessageOptions{Timeout: 10 * time.Second},
+	})
+if err != nil {
+	return err
+}
+
+produced, err := requests.Produce(ctx, &PaymentRequestedV1{OrderId: "order-812"}, nil)
+if err != nil {
+	return err
+}
+fmt.Printf("message id=%d\n", produced.Id)
+```
+
+## Verbs
+
+On the handle:
+
+| verb | returns | notes |
+| --- | --- | --- |
+| `Register(ctx, cfg)` | `*ProducerInstance[T]` | resolves the topic, `ErrTopicNotFound`; `nil` cfg is the defaults; logs [VK0063](/errors/VK0063/) when the topic's upkeep workers have no live instance |
+
+On the instance:
+
+| verb | returns | notes |
+| --- | --- | --- |
+| `Produce(ctx, message, options)` | `*ProduceResult[T]` | returns once the message is durably committed; concurrent calls share a batched transaction |
+| `ProduceBatch(ctx, items...)` | `[]*ProduceResult[T]` | every item in one transaction, none land unless all do; build items with `vulkan.NewProduceItem(message, options)` |
+| `ProduceFunc(ctx, producerFunc, options)` | `*ProduceResult[T]` | your closure runs inside the message's own transaction and returns the message |
+| `ProduceInTx(ctx, tx, message, options)` | `*ProduceResult[T]` | appends inside a transaction you own, from `client.InTransaction` |
+| `ProduceFuncInTx(ctx, tx, producerFunc, options)` | `*ProduceResult[T]` | the closure form of `ProduceInTx` |
+
+`nil` options means the defaults on every verb. `producerFunc` is
+`func(ctx context.Context, tx vulkan.Tx) (*T, error)`; `tx` runs your own
+statements before the message is appended
+([transactional produce](/guides/transactional-produce/)). A payload that
+`json.Marshal` cannot encode returns `ErrPayloadNotEncodable`, without the
+value.
+
+## Config
+
+### ProducerConfig
+
+| field | default | what it decides |
+| --- | --- | --- |
+| `Message` | `nil` | this producer's default `MessageOptions`, merged under every produce; fields unset in both stay unset and the consumer decides |
+| `Batch` | below | the shared-transaction batching of concurrent `Produce` calls |
+| `SlowProduceThreshold` | `0` (off) | a produce running longer logs [VK0038](/errors/VK0038/); the closure verbs include your closure |
+
+### BatcherConfig
+
+| field | default | what it decides |
+| --- | --- | --- |
+| `MaxSize` | `100` | messages sharing one batched transaction |
+| `ConcurrencyLimit` | `4` | workers committing a topic's batches at once, one pooled connection each |
+| `AttemptTimeout` | `10s` | bound on one batch transaction attempt |
+| `ShutdownGrace` | `15s` | how long a cancelled `Produce` keeps waiting for its real outcome; negative abandons immediately |
+
+### ProduceOptions
+
+| field | default | what it decides |
+| --- | --- | --- |
+| `RoutingKey` | `""` (no key) | matched against a group's bindings; a keyless message reaches only groups with no bindings ([routing](/concepts/routing/)) |
+| `MessageKey` | `""` (no key) | the entity the message is about; read by compaction and by the exclusive and ordered policies ([message key](/concepts/message-key/)) |
+| `Compaction` | `nil` (not compacted) | opts the message into compaction under its key; build with `vulkan.NewCompactionOptions(rank)` |
+| `IdempotencyKey` | `""` (minted per call) | dedups your own retries across a restart; a UUID string is stored verbatim, anything else is hashed to one |
+| `Message` | `nil` | what this message requests from its consumer ([message options](/reference/message-options/)) |
+
+## Gotchas
+
+- A caller-supplied `IdempotencyKey` routes the call to a per-call
+  transaction, never a batch. On a hot path prefer time-ordered UUIDv7
+  strings; random-shaped keys cost extra WAL once the claim table holds
+  millions of unexpired rows.
+- A hot message key caps batched throughput: same-key batches commit one
+  after another, and adding producer processes makes a hot key slower, not
+  faster.
+- `ConcurrencyExclusive` in `Message` without a `MessageKey` errors at
+  produce time.
+- A deployment that only produces runs no upkeep. Its `Register` logs
+  [VK0063](/errors/VK0063/) naming the unclaimed rows; run
+  `vulkan manager run` beside it ([Manager](/reference/manager/)).

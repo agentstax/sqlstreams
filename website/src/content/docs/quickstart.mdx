@@ -137,7 +137,7 @@ by Vulkan itself — there is no SQL migration file to apply by hand.
    handler receives your typed payload; returning an error schedules a
    retry with exponential backoff (`vulkan.Terminal` and
    `vulkan.Delay` are the other two answers —
-   [handler outcomes](/guides/handler-outcomes/)).
+   [handler outcomes](/concepts/handler-outcomes/)).
 
    ```go
    package main
@@ -222,7 +222,7 @@ by Vulkan itself — there is no SQL migration file to apply by hand.
 
    Everything is rows in your database. The tables live in the `vulkan`
    schema unless you set another one
-   ([the schema](/guides/client/#the-schema)), and each topic owns its
+   ([the schema](/reference/client/#the-schema)), and each topic owns its
    physical tables, named by the topic's id
    ([the whole map](/concepts/table-design/)) — resolve it once from
    the catalog:

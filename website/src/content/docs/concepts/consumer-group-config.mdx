@@ -11,8 +11,8 @@ rate, shutdown budget — and it may differ per box. Both used to live in
 one struct on `NewConsumer`, and nothing made the group half actually
 shared: two replicas of `charge-cards` with different `Message.Retry`
 gave the same message a different retry budget depending on which
-replica claimed it. The client these calls hang off is
-[its own page](/guides/client/).
+replica claimed it. The verbs and every field's default are on the
+[Consumer](/reference/consumer/) reference thread.
 
 ## One question sorts every field
 
@@ -83,7 +83,7 @@ return payments.Consume(ctx, func(ctx context.Context, payment *PaymentRequested
 `Consumer(name).Register` resolves the topic, writes the declaration it was
 handed, and returns the typed instance. Newest wins, and an overwrite
 warns [VK0059](/errors/VK0059/)
-([what a declaration does](/guides/client/#what-a-declaration-does)).
+([what a declaration does](/concepts/api-shape/#what-a-declaration-does)).
 
 `Register` writes the config into the group's `worker_config` rows —
 the fleet table where every group-owned worker (`message_consumer`,
@@ -172,120 +172,26 @@ Every replica follows within one refresh interval. A message sitting
 at attempt 3, about to dead-letter, gets attempts 4 and 5 under the
 new budget instead.
 
-## The producer's version
+## The same ladder everywhere
 
-The same ladder, minus the stored half. A producer's `Message`
-defaults have no stored home on purpose: they're merged under each
-produce and written into the message's own options document, so
-they're already durable — per message, where the consumer reads them.
-There is no durable producer-side resource to hang a config on, and
-inventing one would add a second place a message's options come from.
-`Batch` and `SlowProduceThreshold` are process facts. One config
-struct, nothing declared, no split.
+The client holds the ambient config once (`ClientConfig`: `Schema`,
+`Logger`, `Retry`, `AllowDestroy`). Every durable resource is declared by
+a `Register` verb that carries its config and stores it on the resource's
+row: the [topic](/reference/topic/) with `TopicConfig`, the
+[system](/reference/system/) with `SystemConfig`, the
+[scheduler](/reference/scheduler/) with `SchedulerConfig` beside the
+expression and payload. Session and per-call options ride the verb that
+acts: `Consume`, `Produce`.
 
-The rungs mirror: `client.Topic[T](topic).Producer().Register(ctx, cfg)` takes
-the config, and `Produce` already had its options.
+The [producer](/reference/producer/) is the same ladder minus the stored
+half. Its `Message` defaults have no stored home on purpose: they are
+merged under each produce and written into the message's own options
+document, so they are already durable, per message, where the consumer
+reads them. There is no durable producer-side resource to hang a config
+on, and inventing one would add a second place a message's options come
+from.
 
-```go
-requests, err := client.Topic[PaymentRequestedV1]("payments.requested").Producer().Register(ctx,
-	&vulkan.ProducerConfig{
-		Message: &vulkan.MessageOptions{Timeout: 10 * time.Second},
-	})
-if err != nil {
-	return err
-}
-
-produced, err := requests.Produce(ctx, &PaymentRequestedV1{OrderId: "order-812"}, nil)
-if err != nil {
-	return err
-}
-```
-
-One registered producer is one topic, so its `Message` defaults have an
-unambiguous scope. Batching loses nothing: the batcher already runs
-per topic — per registered instance, even — so there was never a
-cross-topic batch to give up.
-
-## Admin already fits
-
-Nothing moves in what admin declares: each declaring verb already
-takes the resource's config and stores it on the resource's row with
-a `_config_log` trail. `TopicHandle.Register` is the template this whole page
-copies; where the rest of admin's verbs live is
-[the client page](/guides/client/#admin-resource-by-resource).
-
-```go
-registered, err := client.Topic[PaymentRequestedV1]("payments.requested").Register(ctx, nil)
-if err != nil {
-	return err
-}
-```
-
-`AllowDestroy` is the client's, on `ClientConfig`, beside `Logger` and
-`Retry`; nothing resource-shaped hides in it. After the restructure
-each durable resource is declared by the
-surface that owns its lifecycle: admin declares the system and
-topics, the consumer declares its group, the
-[scheduler](/guides/schedules/) declares schedules, and the producer
-declares nothing because it has nothing durable of its own.
-
-## The scheduler's version
-
-A schedule is already a declared resource done right: `Register`
-takes the config, stores it on the `schedule_config` row, and the
-newest declaration wins. The name, the target topic, and the cron
-expression are selected through one `SchedulerHandle`; the config sits beside
-the target and expression at `Register`.
-
-```go
-nightly, err := client.Scheduler("nightly-report").Register(ctx,
-	"reports.requested", "0 3 * * *",
-	&ReportRequestedV1{Kind: "nightly"}, &vulkan.SchedulerConfig{
-		Timeout:     time.Minute,
-		Concurrency: vulkan.ConcurrencyExclusive,
-	})
-if err != nil {
-	return err
-}
-
-return nightly.Schedule(ctx)
-```
-
-`SchedulerConfig` is handed to `SchedulerHandle.Register`: `Timeout`,
-`Concurrency`, and `Metadata` are the schedule's declared semantics and
-land on the row with the expression and payload; nothing ambient sits
-beside them. `SchedulerInstance.Schedule` runs the system manager,
-which produces every registered schedule — and takes no options: a
-schedule session has no tuning of its own.
-
-One inconsistency this surfaces: topic, worker, and binding
-declarations keep a `_config_log` trail; `schedule_config` has none —
-a redeclared expression leaves no history. Open whether it earns one.
-
-## The manager's version
-
-The manager spans the whole deployment, so `client.Manager()` takes no
-identity, and its config is the client's
-`Logger` and `Retry` — every knob its workers actually run under is a
-declared `metadata` document on a `worker_config` row, read from the
-fleet at provision. The manager owns no config because the fleet
-already declares it — the same ecosystem the group config joins.
-
-```go
-return client.Manager().Run(ctx)
-```
-
-The full ladder, then: the client holds the ambient config once; every
-durable resource is declared by a `Register*` verb that carries its
-config; session and per-call options ride the verb that acts —
-`Consume`, `Produce`.
-
-## Groups from before the split
-
-A group row written by an older build has no document -> every field
-resolves to the library default -> its first `Register` on a build
-carrying the split writes the group's first declaration. The tuning
-fields moved off `ConsumerConfig` to `ConsumeOptions` at `Consume`, and
-`ConsumerConfig` itself moved from `NewConsumer` to
-`client.Topic[T](topic).Consumer(group).Register` — old call sites break at compile time, and
-the group fields kept their meaning.
+The [manager](/reference/manager/) owns no config at all. Every knob its
+workers run under is a declared `metadata` document on a `worker_config`
+row, read from the fleet at provision, the same ecosystem the group config
+joins.

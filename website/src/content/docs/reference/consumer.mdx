@@ -1,0 +1,120 @@
+---
+title: Consumer
+description: ConsumerHandle and ConsumerInstance — Register, Get, Workers, Destroy, Binding; Consume; every ConsumerConfig and ConsumeOptions field with its default.
+---
+
+`topic.Consumer(name)` names a consumer group on its topic: no I/O, no
+failure. `Register` writes the group's declaration and returns the
+`ConsumerInstance[T]` whose `Consume` runs a session. What the group means
+is declared at `Register` and stored on the group's rows; how one session
+runs is passed to `Consume`
+([consumer group config](/concepts/consumer-group-config/) explains the
+split).
+
+```go
+payments, err := client.Topic[PaymentRequestedV1]("payments.requested").Consumer("charge-cards").Register(ctx,
+	&vulkan.ConsumerConfig{
+		Message: &vulkan.MessageOptions{
+			Timeout: 10 * time.Second,
+			Retry:   &vulkan.RetryPolicy{MaxRetries: 3, BaseDelay: 2 * time.Second},
+		},
+	})
+if err != nil {
+	return err
+}
+
+return payments.Consume(ctx, func(ctx context.Context, payment *PaymentRequestedV1) error {
+	fmt.Printf("charging %s\n", payment.OrderId)
+	return nil
+}, &vulkan.ConsumeOptions{BatchLimit: 20})
+```
+
+## Verbs
+
+On the handle:
+
+| verb | returns | notes |
+| --- | --- | --- |
+| `Register(ctx, cfg)` | `*ConsumerInstance[T]` | resolves the topic, writes the declaration, creates the cursor row on first registration; `nil` cfg is the defaults; newest declaration wins, and a differing one logs [VK0059](/errors/VK0059/) |
+| `Get(ctx)` | `*Consumer` | the comma-ok read: `(nil, nil)` when the topic or the group is not registered |
+| `Workers(ctx)` | `[]*Worker` | the group's own worker rows, each with its stored config document in `Worker.Metadata` |
+| `Destroy(ctx, options)` | `error` | deletes the group's cursor, bindings, leases, delivery rows, workers, and schedules; the topic and its messages stay; `ErrDestroyDisabled` unless `ClientConfig.AllowDestroy`; `ErrConsumerGroupLive` while an instance is live and `ErrConsumerGroupDeliveriesPending` while delivery rows remain, both skipped by `DestroyOptions.Force` |
+| `Binding()` | `*BindingHandle` | no I/O; its `Get(ctx)` reads the group's effective binding set, `(nil, nil)` when the group never declared one and reads the whole topic |
+| `Metrics()` | `*ConsumerMetricsHandle` | no I/O; [Metrics](/reference/metrics/) |
+| `Alerts()` | `*ConsumerAlertsHandle` | no I/O; [Alerts](/reference/alerts/) |
+
+On the instance:
+
+| verb | returns | notes |
+| --- | --- | --- |
+| `Consume(ctx, consumerFunc, options)` | `error` | blocks for the session; cancel `ctx` to start graceful shutdown and get `nil` back; `nil` options is the defaults; a second call on the same instance returns `ErrAlreadyConsuming` |
+
+`consumerFunc` is `func(ctx context.Context, message *T) error`, and its
+return value is the delivery's outcome: `nil` succeeds, any error retries,
+`vulkan.Terminal(err)` dead-letters now, `vulkan.Delay(d)` runs later
+without counting a failure
+([handler outcomes](/concepts/handler-outcomes/)).
+`vulkan.MetaFromContext(ctx)` inside the handler returns the delivery's
+`MessageMeta`: message id, routing and message keys, attempt count, and the
+resolved options it runs under.
+
+`Consume` runs the system manager beside the session unless
+`ClientConfig.DisableManager` is set, so one live consumer keeps the whole
+deployment's upkeep running ([Manager](/reference/manager/)). A context
+that can never be cancelled returns `ErrLifecycleContextNotCancellable`
+unless `DisableGracefulShutdown` is set, and that case runs no manager.
+
+## Config
+
+### ConsumerConfig
+
+Declared at `Register`, stored on the group's `worker_config` rows, the
+same for every instance.
+
+| field | default | what it decides |
+| --- | --- | --- |
+| `Message` | timeout `30s`, retry `MaxRetries: 3` on the default curve | the `MessageOptions` filling whatever the produced message left unset |
+| `MessageMin` | `nil` | per-option floors on what a message may request |
+| `MessageMax` | `Message`'s values | per-option ceilings; a message cannot request above the group's defaults unless raised here |
+| `ConcurrencyOverride` | `""` (honor the message's own) | run every message under this policy: `ConcurrencyParallel`, `ConcurrencyExclusive`, `ConcurrencyOrdered` |
+| `Start` | `vulkan.Beginning()` | where a new group's cursor is placed; read once, at creation ([where a new group starts](/guides/new-group-start/)) |
+| `Bindings` | `nil` (the whole topic) | the group's whole pattern set ([routing](/concepts/routing/)) |
+| `ExceptionInitialBackoff` | `5s` | the first `can_run_after` delay on a fresh exception row |
+| `MaxRangeReclaims` | `3` | reclaims after which a range is quarantined |
+
+### ConsumeOptions
+
+Passed to `Consume`, one session's own.
+
+| field | default | what it decides |
+| --- | --- | --- |
+| `BatchLimit` | `1` | messages claimed per poll |
+| `QueueSize` | `BatchLimit` | claimed messages buffered ahead of processing; at least `BatchLimit` |
+| `MessageConcurrency` | `1` | messages this instance processes at once |
+| `ClaimPollRate` | `5s` | how often an idle instance polls |
+| `QueueMargin` | `5s` | lease padding for time a claim sits queued |
+| `RecordMargin` | `2s` | lease padding for recording the outcome |
+| `TimeoutGrace` | `100ms` | slack for a handler that respected `ctx.Done()` to unwind before the hard cutoff abandons it |
+| `SlowDispatchThreshold` | `0` (off) | a dispatch running longer logs [VK0039](/errors/VK0039/) |
+| `InstanceTTL` | `30s` | how long this instance's `worker_instance` rows stay live without a heartbeat |
+| `BindingRetryInterval` | `10s` | how often a waiting binding declaration is retried |
+| `ConfigRefreshInterval` | `30s` | how often the stored group config is re-read: the staleness window for a redeclaration |
+| `ShutdownTimeout` | `MessageMax.Timeout + TimeoutGrace + RecordMargin` | how long the drain waits for in-flight handlers before the rest is released |
+| `DisableGracefulShutdown` | `false` | accept a context that can never be cancelled, leaving process exit as the only stop |
+
+## Gotchas
+
+- `MessageConcurrency` is how many messages this instance runs at once;
+  `ConcurrencyOverride` is what a message key means. They sound alike and
+  sit on opposite sides of the split.
+- A group's config wants exactly one declaring service. Two services
+  declaring `charge-cards` differently overwrite each other on every
+  restart, and the same [VK0059](/errors/VK0059/) line on every restart is
+  the tell.
+- Handlers should be idempotent: redelivery after a crash or timeout is
+  normal at-least-once behavior
+  ([side effects and retries](/guides/side-effects-and-retries/)).
+- `Worker.Metadata` is the stored document, sparse: an absent `timeout`
+  means it was omitted, not that deliveries have no timeout. Defaults are
+  resolved when an instance reads it, and worker-specific fields are
+  outside the stable contract.

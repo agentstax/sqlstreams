@@ -1,0 +1,83 @@
+---
+title: Message key
+description: KeyHandle — CompactionHead, LockCompactionHead, and Messages for one key on its topic.
+---
+
+`topic.Key(messageKey)` names one message key on its topic. No I/O, no
+failure; every verb resolves the topic when called and returns the
+not-found error itself. The key is a message property with two readers,
+compaction and the concurrency policy
+([message key](/concepts/message-key/)), which is why the handle is named
+for the key and not for compaction.
+
+```go
+device := client.Topic[DeviceConfig]("devices.config").Key("dev-7")
+head, err := device.CompactionHead(ctx) // *vulkan.StoredMessage[DeviceConfig]
+if err != nil {
+	return err
+}
+history, err := device.Messages(ctx, 20)
+```
+
+## Verbs
+
+| verb | returns | notes |
+| --- | --- | --- |
+| `CompactionHead(ctx)` | `*StoredMessage[T]` | the key's winning message; `ErrCompactionHeadNotFound` ([VK0066](/errors/VK0066/)) when no compacted message was produced under it |
+| `LockCompactionHead(ctx, tx)` | `*StoredMessage[T]` | ensures the key has a lockable row and holds it `FOR UPDATE` until `tx` resolves; `nil` when the locked row has no head |
+| `Messages(ctx, limit)` | `[]*StoredMessage[T]` | the key's retained messages, newest first; `limit` must be positive |
+
+## Locking a head
+
+`LockCompactionHead` is how two transactions computing the next version of
+a key do not both start from the same value. A new key returns a nil head,
+but the row is locked: another transaction running the same locked read
+waits and then sees the first transaction's value.
+
+```go
+compaction, err := vulkan.NewCompactionOptions(0)
+if err != nil {
+	return err
+}
+
+device := devices.Key("dev-7")
+err = client.InTransaction(ctx, func(ctx context.Context, tx vulkan.Tx) error {
+	head, err := device.LockCompactionHead(ctx, tx)
+	if err != nil {
+		return err
+	}
+
+	next := DeviceConfig{DeviceId: "dev-7"}
+	if head != nil {
+		next = *head.Message
+	}
+	next.Restarts++
+
+	_, err = configs.ProduceInTx(ctx, tx, &next, &vulkan.ProduceOptions{
+		MessageKey: "dev-7",
+		Compaction: compaction,
+	})
+	return err
+})
+```
+
+For `devices.config` topic id `41`, two transactions starting with no
+`dev-7` value do not both calculate from zero. The first creates and locks
+the empty row, writes message `901` with `Restarts=1`, and commits. The
+second then locks that same row, reads `901`, and writes `902` with
+`Restarts=2`.
+
+## Gotchas
+
+- The handle resolves the topic through the supplied `tx` before it names
+  `compaction_head_41`; the lookup and the row lock stay in one database
+  transaction.
+- Lock several keys in the same order in every transaction, or you get the
+  usual row-lock deadlock.
+- A row with no head is swept by the topic janitor after
+  `TopicConfig.EmptyCompactionHeadTTL` (one hour) without a lock. The
+  janitor skips a row while a transaction holds its lock, and the TTL never
+  applies once the row points at a head. `TopicSnapshot` reports
+  `CompactionRowsWithoutHead` and `OldestCompactionRowWithoutHeadAge`.
+- `CompactionHeads` on the [topic](/reference/topic/) lists every key's
+  head, all of them, unpaged.

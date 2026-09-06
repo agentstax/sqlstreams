@@ -9,6 +9,8 @@ export type Board = {
 	threads: (ids: string[]) => string[];
 };
 
+// each board holds one kind of thread: orientation, explanation, how-to,
+// API lookup, code lookup, comparison, history [0679]
 export const boards: Board[] = [
 	{
 		title: 'Getting Started',
@@ -20,12 +22,15 @@ export const boards: Board[] = [
 		title: 'Concepts',
 		slug: 'concepts',
 		description:
-			'queue & log, lifecycle, message key, ordering, routing, fan-out, architecture, table design',
+			'queue & log, the shape of the API, lifecycle, handler outcomes, consumer group config, message key, ordering, routing, fan-out, architecture, table design',
 		threads: () => [
 			'concepts/queue-and-log',
+			'concepts/api-shape',
 			'concepts/architecture',
 			'concepts/table-design',
 			'concepts/lifecycle',
+			'concepts/handler-outcomes',
+			'concepts/consumer-group-config',
 			'concepts/fan-out',
 			'concepts/routing',
 			'concepts/message-key',
@@ -37,21 +42,41 @@ export const boards: Board[] = [
 		title: 'Guides',
 		slug: 'guides',
 		description:
-			'transactional produce, side effects & retries, dead letters, consumer timeouts, group config, the client, replay, migrations, schedules',
+			'transactional produce, side effects & retries, replay, dead letters, where a new group starts, ordered delivery, consumer timeouts, schema versions, migrations, schedules',
 		threads: () => [
 			'guides/transactional-produce',
 			'guides/side-effects-and-retries',
 			'guides/replay',
 			'guides/dead-letters',
-			'guides/handler-outcomes',
 			'guides/new-group-start',
-			'guides/consumer-group-config',
-			'guides/client',
 			'guides/ordered-delivery',
 			'guides/consumer-timeouts',
 			'guides/schema-versions',
 			'guides/migrations',
 			'guides/schedules',
+		],
+	},
+	{
+		title: 'Reference',
+		slug: 'reference',
+		description:
+			'one thread per handle and instance — every verb and every config field with its default, checked against the shipped library',
+		// the index thread leads, then the handles in the order a program meets them
+		threads: () => [
+			'reference',
+			'reference/client',
+			'reference/pool',
+			'reference/topic',
+			'reference/producer',
+			'reference/consumer',
+			'reference/key',
+			'reference/scheduler',
+			'reference/system',
+			'reference/manager',
+			'reference/metrics',
+			'reference/alerts',
+			'reference/message-options',
+			'reference/diagnostics',
 		],
 	},
 	{

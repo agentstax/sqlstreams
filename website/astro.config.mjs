@@ -30,6 +30,12 @@ const keywordScopes = [
 // https://astro.build/config
 export default defineConfig({
 	site: siteUrl,
+	// threads that moved boards or split [0679]; the old URL keeps working
+	redirects: {
+		'/guides/client/': '/reference/',
+		'/guides/consumer-group-config/': '/concepts/consumer-group-config/',
+		'/guides/handler-outcomes/': '/concepts/handler-outcomes/',
+	},
 	vite: {
 		build: {
 			// Vite 8's baseline-widely-available list, pinned -- the default

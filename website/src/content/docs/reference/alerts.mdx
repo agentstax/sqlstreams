@@ -1,0 +1,90 @@
+---
+title: Alerts
+description: The alert handles on the system, a topic, and a consumer group — Definitions, Latest, History, the three built-in selectors, and Alert(name).
+---
+
+`.Alerts()` on the [system](/reference/system/), a
+[topic](/reference/topic/), or a [consumer](/reference/consumer/) handle
+returns that scope's alerts handle: no I/O, no failure. An alert is a
+retained message on `__system.alerts` about one resource, keyed by the
+alert's name and its owner, and it takes the metrics grammar: `Latest`
+reads the newest retained one, `History` reads retained ones newest first,
+`Definitions` says what Vulkan can raise.
+
+```go
+topic := client.Topic[PaymentRequestedV1]("payments.requested")
+current, err := topic.Alerts().PartitionCount().Latest(ctx) // *vulkan.Alert; nil before the first
+if err != nil {
+	return err
+}
+history, err := topic.Alerts().WorkerLiveness().History(ctx, 20)
+if err != nil {
+	return err
+}
+all, err := client.System().Alerts().Latest(ctx) // every current alert, active or resolved
+```
+
+## Verbs
+
+On every scope:
+
+| verb | returns | notes |
+| --- | --- | --- |
+| `Definitions()` | `[]AlertDefinition` | the built-ins owned by the scope; in-memory |
+| `Latest(ctx)` | `[]*Alert` | the newest retained alert per name and owner in the scope, active or resolved, ordered by message key; the system list is every alert |
+| `Alert(name)` | `*AlertHandle` | no I/O; the alert named `name` whose owner is this resource, which is where a user-produced alert on it is read |
+
+On the topic handle, one selector per built-in: `PartitionCount()`,
+`CompactionReadCost()`, `WorkerLiveness()`. Each is `Alert(name)` with
+the name filled in.
+
+On an `AlertHandle`:
+
+| verb | returns | notes |
+| --- | --- | --- |
+| `Latest(ctx)` | `*Alert` | `(nil, nil)` when the owner exists and nothing is retained under the key |
+| `History(ctx, limit)` | `[]*Alert` | newest first; `limit` must be positive |
+
+A definition is metadata, never a value: `Code`, `Name`, `Description`,
+`Scope`, `Severity`. Severity is fixed per built-in; message, detail,
+hint, data, and `At`, the time the check observed the condition, change
+per finding and stay on the `Alert`.
+
+| scope | owner |
+| --- | --- |
+| `MetricScopeSystem` | the system |
+| `MetricScopeTopic` | the topic |
+| `MetricScopeConsumerGroup` | the topic and group |
+
+Three built-ins today, every one owned by a topic: `partition_count`,
+`compaction_read_cost`, `worker_liveness`. Each has a VK code, so
+`vulkan explain VK0094` and its page say what an active one means. The
+system and group handles carry no selector yet: their `Definitions()` is
+empty and `Alert(name)` is their whole read.
+
+## Consuming the alert topic
+
+`__system.alerts` is a topic like any other, and a consumer group on it is
+the push side: a Slack or PagerDuty hook hangs off `Consume`, the `Latest`
+reads are the pull side.
+
+```go
+pager, err := client.Topic[vulkan.Alert](vulkan.AlertTopicName).Consumer("alert-pager").Register(ctx, nil)
+```
+
+A new group starts at the beginning of retained history, so it replays
+what retention holds. Declare `Start: vulkan.Head()` to hear only alerts
+raised after it registered, and read `Latest` once at startup for what is
+already active.
+
+## Gotchas
+
+- An alert's key is its owner's id, so the read resolves the name first.
+  Destroy the topic and `topic.Alerts().PartitionCount().Latest(ctx)`
+  returns `ErrTopicNotFound` rather than the last alert; a missing group is
+  `ErrConsumerNotFound` the same way. The id is also what makes an alert
+  follow its topic through `Rename`.
+- Nothing raises a test alert. To watch the pipeline on a healthy system,
+  declare `PartitionCountAlert: &vulkan.PartitionCountAlertConfig{Threshold: 1}`,
+  which alerts on every topic with a partition, and put the real threshold
+  back on the next register.

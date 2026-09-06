@@ -5,6 +5,28 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-06 — The doc site splits by page kind: a Reference board [0679]
+
+guides/client.mdx (7,300 words, 28 H2s, 40% of the site's prose) was four
+kinds of page in one file. It became a Reference board: an index thread plus
+thirteen threads, one per handle or instance and per shared value type, each
+on one skeleton (the opening example, Verbs, Config with defaults from the
+declaration's Default: line, Gotchas), checked against pkg/vulkan's
+signatures and config structs. Its explanation sections became
+concepts/api-shape; its changelog residue was deleted. handler-outcomes and
+consumer-group-config moved from Guides to Concepts so every board holds one
+kind of thread, and consumer-group-config lost its per-instance sections to
+the reference threads. Three redirects keep the old URLs, the nav gains a
+Reference link, and website/CONVENTIONS.md ## Content gained the board
+kinds, the page-size triggers, and the reference-thread skeleton. One stale
+claim fixed on the way: a new group on `__system.alerts` starts at the
+beginning of retained history, not at head.
+
+remark-lint, Vale at error level, Prettier and ESLint on the edited
+TypeScript, astro check, svelte-check, Vitest, the Playwright flows, the
+site build with its Pagefind index, and a scratch-module compile of every
+Go fence on the new pages pass.
+
 ## 2026-09-06 — Public API documentation review closed [0677]
 
 Audited every declaration reachable through `vulkan` against the code, with

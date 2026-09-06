@@ -1,0 +1,73 @@
+---
+title: Scheduler
+description: SchedulerHandle and SchedulerInstance — Register, Get, Suspend, Unsuspend, Run, Status, Messages, Destroy; Schedule; SchedulerConfig and ScheduleRunOptions.
+---
+
+`client.Scheduler(name)` names a schedule on the client: no I/O, no
+failure. `Register` declares it against a target topic, a cron expression,
+and the payload it produces, and returns a `SchedulerInstance[T]`. The
+schedule is the one handle outside the typed tree: only `Register` knows a
+payload type, and Go infers it from the payload argument.
+
+```go
+nightly, err := client.Scheduler("nightly-report").Register(ctx,
+	"reports.requested", "0 3 * * *",
+	&ReportRequestedV1{Kind: "nightly"}, &vulkan.SchedulerConfig{
+		Timeout:     time.Minute,
+		Concurrency: vulkan.ConcurrencyExclusive,
+	})
+if err != nil {
+	return err
+}
+
+return nightly.Schedule(ctx)
+```
+
+## Verbs
+
+On the handle:
+
+| verb | returns | notes |
+| --- | --- | --- |
+| `Register(ctx, topicName, cron, payload, cfg)` | `*SchedulerInstance[T]` | newest declaration wins, and a differing one logs [VK0062](/errors/VK0062/); `nil` cfg is the defaults; `ErrTopicNotFound` |
+| `Get(ctx)` | `*Schedule` | the comma-ok read: `(nil, nil)` when not registered |
+| `Suspend(ctx)` | `error` | stops producing until unsuspended; `ErrScheduleNotFound` |
+| `Unsuspend(ctx)` | `error` | resumes at the next scheduled time; a run that came due while suspended is dropped, not produced late |
+| `Run(ctx, options)` | `*ProduceResult[ScheduleStoredMessage]` | produces the stored message now, outside the expression; `nil` options is the defaults |
+| `Status(ctx)` | `[]*ScheduleConsumerGroupSummary` | the schedule's messages rolled up per consumer group |
+| `Messages(ctx, limit)` | `[]*ScheduleMessageStatus` | produced messages newest first, each with its outcome: pending, deferred, succeeded, failed, superseded |
+| `Destroy(ctx)` | `error` | deletes the schedule; `ErrDestroyDisabled` unless `ClientConfig.AllowDestroy` |
+
+On the instance:
+
+| verb | returns | notes |
+| --- | --- | --- |
+| `Schedule(ctx)` | `error` | blocks running the system manager, whose schedule producer produces every registered schedule; cancel `ctx` to stop and get `nil` back |
+
+## Config
+
+### SchedulerConfig
+
+| field | default | what it decides |
+| --- | --- | --- |
+| `Timeout` | `30s` | how long one produced message's delivery may run |
+| `Concurrency` | `ConcurrencyParallel` | whether a run may overlap a previous one still running; `ConcurrencyExclusive` waits |
+| `Metadata` | `nil` (stored as `{}`) | opaque JSON on the row, shown by `vulkan schedule get`; not part of the produced message |
+
+### ScheduleRunOptions
+
+| field | default | what it decides |
+| --- | --- | --- |
+| `Concurrency` | `ConcurrencyParallel` | the early run's own policy; `ConcurrencyExclusive` runs early without overlapping a request already running |
+
+## Gotchas
+
+- `Schedule` runs every worker in the fleet, not just this schedule, the
+  way `Consume` does. A program that registers a schedule and exits has
+  registered one that never fires until something in the deployment runs a
+  manager, and any consumer does ([schedules](/guides/schedules/)).
+- The schedule name lives on the handle, so it cannot trade places with
+  the target topic in `Register`. Every verb but `Register` is keyed by the
+  name alone.
+- `schedule_config` keeps no `_config_log` trail: a redeclared expression
+  leaves no history.

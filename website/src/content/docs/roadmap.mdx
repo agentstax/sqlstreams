@@ -50,7 +50,7 @@ docs themselves are mid-rewrite to that standard.
 ## Next: the v1 surface
 
 The public-surface review is complete. The
-[client API](/guides/client/) retains batching, transaction controls, and
+[API reference](/reference/) retains batching, transaction controls, and
 resource-specific migration operations. Shared client construction state and
 diagnostic declarations now have explicit ownership; SQL owner-column helpers
 live outside the supported client surface.
@@ -60,7 +60,7 @@ errors, and destructive effects on the retained handles and instances.
 The entry package's future location is still undecided. v1 means the surface stops moving.
 
 Implementation packages remain importable for advanced use, outside the
-[supported API boundary](/guides/client/#the-supported-api).
+[supported API boundary](/concepts/api-shape/#the-supported-api).
 
 ## Later: what a workload has to earn
 

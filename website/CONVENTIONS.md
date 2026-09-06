@@ -254,7 +254,30 @@ preprocessor, no utility framework, no third-party token pack.
   edits one; vale and remark-lint do not run over them.
 - Each page does ONE job -- tutorial, how-to, reference, or
   explanation; a guide that starts explaining links to the concept
-  page instead of drifting.
+  page instead of drifting. Boards are that split and each holds one
+  kind of thread [0679]: Getting Started (orientation), Concepts
+  (explanation), Guides (how-to), Reference (API lookup),
+  Troubleshooting (code lookup), Compare, Decision records. A thread
+  joins the board of its kind; one that fits two boards is two threads.
+- Page size has mechanical triggers, not taste [0679]: a guide or
+  concept thread splits past six H2s or roughly 1,500 words; a topic
+  under three sentences folds into its neighbor; a reference thread may
+  run long but never mixes kinds. A thread that has become several kinds
+  of page (a tutorial, an explanation, a reference, a changelog) splits
+  by kind, and changelog prose ("X has been removed") is deleted, never
+  kept -- the decision records hold history. A moved or split thread
+  leaves an astro.config `redirects` entry at its old URL.
+- A Reference thread is one handle or instance, or one shared value
+  type, and reads the same way everywhere: the opening says what the
+  value is and how you get one, with the one example; then `## Verbs`
+  as a table (verb, returns, notes naming the Err* variables it
+  returns); `## Config` with an H3 per struct as a table (field,
+  default, what it decides), defaults spelled from the declaration's
+  `Default:` line; a subject-named section only for a mechanism the
+  thread owns; `## Gotchas` last. A section with nothing to say is
+  omitted, never written empty. A change to a verb's contract or a
+  field's default updates its row in the same change -- the sibling of
+  the error-page rule.
 - Code samples show real error handling -- `if err != nil { return err }`
   or `_` for an unused value -- never a `must()` helper: it hides the
   path readers copy and is not a real API. Pages that still carry one

@@ -1,0 +1,30 @@
+---
+title: API reference
+description: One thread per handle and instance on the client — every verb, every config field with its default, checked against the shipped library.
+---
+
+Everything a program spells lives in `github.com/agentstax/vulkan/pkg/vulkan`:
+one client over your pool, a handle per resource named from it, the verbs on
+the handle they act on. [The shape of the API](/concepts/api-shape/) explains
+why it looks that way; this board is the lookup table.
+
+| you hold | you get it from | verbs | thread |
+| --- | --- | --- | --- |
+| `Client` | `vulkan.NewClient(ctx, pool, cfg)` | `Topics`, `Topic`, `Schedulers`, `Scheduler`, `System`, `Manager`, `InTransaction` | [Client](/reference/client/) |
+| `*pgxpool.Pool` | `vulkan.NewPostgresPool` or `pgxpool.New` | yours to close | [Postgres pool](/reference/pool/) |
+| `TopicHandle[T]` | `client.Topic[T](name)` | `Register`, `Get`, `Migrate`, `MigrationVersion`, `Rename`, `Destroy`, `Health`, `CompactionHeads`, `Consumers`, and the handles under it | [Topic](/reference/topic/) |
+| `KeyHandle[T]` | `topic.Key(messageKey)` | `CompactionHead`, `LockCompactionHead`, `Messages` | [Message key](/reference/key/) |
+| `ConsumerHandle[T]`, `ConsumerInstance[T]` | `topic.Consumer(name)`, then `Register` | `Register`, `Get`, `Workers`, `Destroy`, `Binding`; `Consume` | [Consumer](/reference/consumer/) |
+| `ProducerHandle[T]`, `ProducerInstance[T]` | `topic.Producer()`, then `Register` | `Register`; `Produce`, `ProduceBatch`, `ProduceFunc`, `ProduceInTx`, `ProduceFuncInTx` | [Producer](/reference/producer/) |
+| `SchedulerHandle`, `SchedulerInstance[T]` | `client.Scheduler(name)`, then `Register` | `Register`, `Get`, `Suspend`, `Unsuspend`, `Run`, `Status`, `Messages`, `Destroy`; `Schedule` | [Scheduler](/reference/scheduler/) |
+| `SystemHandle` | `client.System()` | `Register`, `Get`, `Migrate`, `MigrationVersion`, `MigrateTopics`, `Destroy`, `Bindings` | [System](/reference/system/) |
+| `ManagerHandle` | `client.Manager()` | `Run` | [Manager](/reference/manager/) |
+| the metrics handles | `.Metrics()` on the system, a topic, a consumer | `Definitions`, `Snapshot`, `Latest`, `History`, the built-in selectors, `Metric`, `Producer` | [Metrics](/reference/metrics/) |
+| the alert handles | `.Alerts()` on the system, a topic, a consumer | `Definitions`, `Latest`, `History`, the built-in selectors, `Alert` | [Alerts](/reference/alerts/) |
+| `MessageOptions`, `RetryPolicy` | literals inside configs and options | `Fill`, `Clamp`, `ResolveConcurrency`, `Equal`; `CalculateDelay`, `CalculateTotalDelay` | [Message options](/reference/message-options/) |
+| `DiagnosticError`, `DiagnosticEvent`, `Owner` | returned errors, the `Err*` and `Event*` variables | `GetCode`, `Recovery`, `Problem`, `Fix`, `With`, `errors.Is` | [Errors and events](/reference/diagnostics/) |
+
+Every thread reads the same way: what the value is and how you get one, its
+verbs, its config fields with their defaults, then the traps. A `VK` code in a
+table links to that code's own thread on
+[Troubleshooting](/boards/troubleshooting/).
