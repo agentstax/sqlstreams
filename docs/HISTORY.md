@@ -5,6 +5,33 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-06 — Table name and column review [0667] [0668] [0669]
+
+The last naming and column-order pass before v1 makes the DDL expensive to
+change. Sixteen automated findings, settled one at a time: twelve shipped,
+two reversed into their opposite direction and shipped, one dropped, one
+kept. Renames: `message_key_lease.lease_token` -> `token`,
+`migration_log.migration_version` -> `version`, `compaction_head.head_id`
+-> `message_id`. Every version column is INTEGER (a version is an ordinal;
+BIGINT stays for ids, `_ns` durations, sizes, and compaction_rank). Every
+`_config` table carries `created_at` and `updated_at` and every config
+UPDATE sets it [0667]; schedule_cursor gained the surrogate `id` +
+owner-UNIQUE shape of consumer_group_cursor [0668]; twelve indexes are
+named `<table>_<leading columns>` [0669]. claim_lease leads with
+consumer_group_id in columns and primary key, binding_config declares
+`pattern` before `pattern_regex`, schedule_config is ordered identity /
+schedule / message / metadata / timestamps, topic_config_log lost a dead
+DEFAULT, DDL defaults are uppercase, and the worker_config.name comment
+lists all nine worker names. Kept on the user's call: `attempts` on
+worker_instance, `declared_at` as is, and `migration_log.consumer_group_id`.
+
+Three conventions tests enforce the new rules, each sabotage-checked; the
+DDL walk now names per-topic statements from their table-name call. The
+website sandbox mirror was found four literals behind the compaction-head
+redesign and re-synced, so its byte-exact drift test guards every column
+move again. The exclusive lab now surfaces a background Run error instead
+of timing out. Full fresh-DB suite: 51 of 51 labs passed.
+
 ## 2026-09-06 — Public surface review closed [0670]
 
 Closed the review under [0665] with one decision record. System and schedule

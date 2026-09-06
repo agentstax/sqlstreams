@@ -16,6 +16,7 @@ roadmap later item for review code for interesting design decisions to write art
 - client builder pattern choice
 - writing your own commit messages
 - Decision tracking and index
+- AI Native projects -- faster but lose context and learning etc. Is it right or fair? What of long term? Where is right balance?
 
 # Review
 
