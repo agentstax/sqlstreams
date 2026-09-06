@@ -5,6 +5,26 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-06 — Public API documentation review closed [0677]
+
+Audited every declaration reachable through `vulkan` against the code, with
+the alias closure as the inventory. Fixed the claims the code contradicted
+(MessageOptions defaults, Health's data source, the TopicConfig TTL zero
+semantics), sixteen stale verb names, and about thirty missing contracts:
+Default: lines, returned Err* variables, cancellation, destructive effects,
+handler outcomes. About sixty uncommented reachable declarations gained a
+comment; protocol methods and self-describing fields stayed bare. Deleted
+the Validate convention sentence from 36 files and unified the nil-config
+clauses. CONVENTIONS ## Comments gained the public-contract rule and
+tools/conventions its Default: walk. Sixteen site pages and six error pages
+now spell the client API; two fix strings and one event consequence changed
+in Go and codes.json was regenerated. [0664] [0670]
+
+Root build, vet, race tests on the touched packages, the conventions suite,
+a scratch-module compile of every rewritten site sample, and prettier and
+remark on the edited pages pass. No fresh-DB lab suite was run: the changes
+are comments, three diagnostic strings, and site prose.
+
 ## 2026-09-06 — Admin responsibilities and validation aligned [0676]
 
 Admin keeps orchestration, identity resolution, and operation policy.
