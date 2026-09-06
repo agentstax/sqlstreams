@@ -5,6 +5,25 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-06 — Public surface review closed [0670]
+
+Closed the review under [0665] with one decision record. System and schedule
+configuration names now follow their owners; admin/CLI consumer names distinguish
+registered consumers from shared consumer-group state. Metric production and
+consumption use client handles; OTel integration takes caller-owned pools.
+Removed the client datastore accessor, mutable config/logger fields, Owner SQL
+helpers, and diagnostic declaration mutation methods/fields. Kept batching,
+transactions, migration/destruction scopes, useful option helpers, and worker
+metadata inspection with explicit contracts. Retry arithmetic now rejects
+unrepresentable budgets and caps backoff before duration conversion.
+
+Targeted race tests, convention/alias checks, library and integration builds,
+and affected schema, schema-gate, worker-claim, create-ahead, multi-target, and
+producer-batch labs passed during implementation. Diagnostic JSON export was
+verified byte-for-byte unchanged. This was not a release or full fresh-DB suite.
+Removed the working inventory; ScheduledAt separation, entry-package relocation,
+and the broader documentation audit remain separately tracked.
+
 ## 2026-09-06 — The payload never reaches a log line or an error [0666]
 
 A review of every log call and raise site closed the two paths a payload

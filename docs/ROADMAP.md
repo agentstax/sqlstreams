@@ -21,28 +21,6 @@ rewrite-to-the-real-API pass 2026-08-22 [0581], the board rebuild
 2026-08-23 [0582] [0583] [0584], the consumer-flow sandbox 2026-08-25
 [0585] [0586] [0587]. All three are in HISTORY.md.
 
-- **Supported public API review** [0665] — review what callers can reach
-  through `pkg/vulkan`, including exported fields and methods on aliases.
-  Other packages remain importable advanced options without a stability
-  commitment; package hiding and low-level constructor demotions are no
-  longer this task. Current keep/question/remove inventory: `_public-surface.md`.
-  - The empty nested `SystemConfig` was removed and the remaining declaration
-    config became `system.SystemConfig`. Vocabulary roots may compose other
-    roots' data through acyclic imports; admin retains system registration.
-    Schedule run-now now takes
-    `ScheduleRunOptions` from its scheduler owner. Admin operations and CLI
-    commands now name the resource `consumer`; shared ownership and metrics
-    retain `ConsumerGroup`. Error aliases, schedule summaries, and binding
-    fields now follow the same rule; binding/schedule JSON uses
-    `consumer_group` and the CLI summary list uses `consumer_groups`. Settle
-    utility methods exposed
-    through `Owner`, `RetryPolicy`, `MessageOptions`, and diagnostic aliases.
-  - Keep useful batching and transaction controls; preserve separate single-topic
-    and all-topic migration operations. Review each proposed removal's callers,
-    replacement, documentation, and compatibility impact before implementation.
-  - The eventual move of `pkg/vulkan` to its public import location is separate
-    follow-through: update imports and path-aware tooling once that path is
-    chosen. No module split or destination path is selected yet.
 - **Separate scheduled occurrence metadata from delivery options.**
   `MessageOptions.ScheduledAt` describes an occurrence, but also appears in
   consumer defaults and bounds where it has no effect. Keep
@@ -65,7 +43,7 @@ rewrite-to-the-real-API pass 2026-08-22 [0581], the board rebuild
   keep the rest running. Surfaced 2026-09-06 by the exclusive lab.
 - **Named-return-params house style** — decide and apply consistently across
   the reviewed surface.
-- **Public API documentation review** — after the supported public API review, audit
+- **Public API documentation review** — the supported surface review is closed [0670]; audit
   exported handles, instances, and the declaring packages behind aliases
   against current behavior. Apply CONVENTIONS.md's existing comment and SQL
   rules; refine them only where a concrete gap remains. [0664]
@@ -96,11 +74,12 @@ rewrite-to-the-real-API pass 2026-08-22 [0581], the board rebuild
 
 ## Next
 
-**The 14b cleanup / public API design pass** — naming, shape, comments, and
-internal cleanup; no new behavior. Locks the surface before v1.
+- **Move the public entry package out of pkg/** — follow through on [0665]
+  and [0670] once its destination is selected. Update imports and path-aware
+  tooling separately from semantic API changes; no module split is selected.
 
-Ordered: internal restructuring first, public-surface decisions late so they
-stay revisable, text polish (naming/errors/logging/comments) last.
+The public-surface review is closed [0670]. Remaining cleanup and documentation
+work build on those decisions before v1 freezes the supported contract.
 
 - **Reliability lab -- the hour-long live run** (verdict, not a
   measurement: the sibling of `just compat-lab`, housed under bench/ so

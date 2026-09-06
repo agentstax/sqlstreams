@@ -4,27 +4,6 @@ Sliding window of in-flight work only. Future work lives in ROADMAP.md;
 shipped work in HISTORY.md; decision rationale in DECISIONS.md ->
 docs/decisions/.
 
-- Supported public API review [0665]: boundary settled; `_public-surface.md`
-  holds the current inventory and proposed decisions. Review the remove/question
-  rows before implementation; fold final verdicts into one decision record and
-  delete the working inventory at close-out.
-  Client.Datastore and the PostgresDatastore alias are removed; CLI/lab/benchmark
-  callers use owned pools and explicit datastores. Continue with the remaining
-  review close-out. Worker.Metadata stays
-  public as a documented stored-configuration inspection snapshot.
-  Client.Config and Client.Logger are also removed; construction
-  captures settings and copies the supplied retry policy.
-  Diagnostic error/event declarations now use private fields and read accessors;
-  constructors own query values, Queries returns snapshots, and Diagnose is removed.
-  Owner retains fields and Kind; SQL column conversion moved to pkg/datastore,
-  and the unused IdColumns method is removed.
-  RetryPolicy helpers stay public; comments and contract tests are complete.
-  Validate now directly rejects total retry sleep overflow; CalculateTotalDelay
-  only calculates the validated budget. Producer construction also rejects
-  overflow when adding its operation allowance. CalculateDelay now caps before
-  converting floating-point backoff to time.Duration. Arithmetic follow-ups are
-  complete; details are in `_public-surface.md`.
-
 - Table name + column review (pre-v1, last pass before the DDL is expensive
   to change). Automated review 2026-09-06; `tools/conventions` DDL walk
   (kinds, `_at`/`_after`, `_ns`) passes, so everything below is what it does
@@ -74,9 +53,9 @@ docs/decisions/.
        declared Worker* names.
      - index names -- SHIPPED 2026-09-06 [0669]: `<table>_<leading columns>`,
        twelve renamed in DDL + mirrors; conventions test enforces it.
-     - migration_log.consumer_group_id: both version reads filter it IS NULL and
-       no group-scope migration exists -> confirm, then drop column + CHECK
-       term (pre-v1 baseline edit, no two-release dance).
+     - migration_log.consumer_group_id -- KEPT 2026-09-06 (USER-SETTLED):
+       confirmed never written (no group registry, reads filter IS NULL), kept
+       as the owner-shape placeholder for flexibility.
   4. Write the decision record for whatever 1-3 settle (column-order rule,
      `_config` timestamp rule, cursor-table shape), amend CONVENTIONS ## Tables,
      extend the `tools/conventions` DDL walk for any newly machine-checkable
