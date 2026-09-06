@@ -12,9 +12,9 @@ import (
 
 // SchedulerInstance is a registered schedule: Schedule keeps the system producing it.
 type SchedulerInstance[Message common.Versioned] struct {
-	Registered *schedule.Schedule
-	Payload    *Message
-	Config     *SchedulerConfig
+	Registered *schedule.Schedule // the schedule row as Register left it
+	Payload    *Message           // the stored payload every run produces
+	Config     *SchedulerConfig   // the resolved config Register stored
 
 	ds *datastore.PostgresDatastore
 }

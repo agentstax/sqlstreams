@@ -28,6 +28,8 @@ func newSchedulerInstance[Message Versioned](client *Client, instance *scheduler
 	}, nil
 }
 
+// Schedule blocks running the system manager, which produces every
+// registered schedule; cancel ctx to stop and return nil.
 func (s *SchedulerInstance[Message]) Schedule(ctx context.Context) error {
 	return s.client.manager.Run(ctx)
 }

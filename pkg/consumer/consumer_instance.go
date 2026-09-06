@@ -20,9 +20,9 @@ import (
 // ConsumerInstance is a registered consumer group: Consume runs its manager,
 // which spawns and heals every worker in the group's chain.
 type ConsumerInstance[Message common.Versioned] struct {
-	Owner  *common.Owner
-	Config *ConsumerConfig
-	Logger logging.Logger
+	Owner  *common.Owner   // the group's identity: topic id, group id, and name
+	Config *ConsumerConfig // the declaration Register resolved -- what the group means
+	Logger logging.Logger  // bound to the group; every worker in the chain logs through it
 
 	ds           *datastore.PostgresDatastore
 	metrics      *metricsproducer.MetricsProducer
@@ -88,6 +88,10 @@ func newConsumerInstance[Message common.Versioned](owner *common.Owner, ds *data
 // instance down and returns here. ctx must be cancellable, unless
 // ConsumeOptions.DisableGracefulShutdown declares otherwise.
 // options may be nil for the defaults.
+//
+// Returns ErrLifecycleContextNotCancellable for a ctx that can never be
+// cancelled, and ErrAlreadyConsuming while another Consume on this instance
+// is still running -- one session per instance.
 func (i *ConsumerInstance[Message]) Consume(ctx context.Context, consumerFunc ConsumerFunc[Message], options *ConsumeOptions) error {
 	if consumerFunc == nil {
 		return errors.New("consumerFunc must not be nil")

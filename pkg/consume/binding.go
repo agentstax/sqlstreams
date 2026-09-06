@@ -13,7 +13,8 @@ const (
 
 // Binding is one declarer's newest declaration on a group.
 // BindingInstalled is the group's effective set.
-// BindingWaiting a declarer still blocked on changing effective set.
+// BindingJoined is a declarer that found its set already stored.
+// BindingWaiting is a declarer still blocked on changing the effective set.
 type Binding struct {
 	ConsumerGroupName string         `json:"consumer_group"`
 	TopicName         string         `json:"topic"`

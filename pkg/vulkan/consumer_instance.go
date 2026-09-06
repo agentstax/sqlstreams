@@ -34,6 +34,7 @@ func newConsumerInstance[Message Versioned](instance *consumer.ConsumerInstance[
 //
 // A context without cancellation returns ErrLifecycleContextNotCancellable
 // unless options.DisableGracefulShutdown is set; that case runs no manager.
+// A second Consume on the same instance returns ErrAlreadyConsuming.
 //
 // The manager runs beside the session unless ClientConfig.DisableManager is set.
 // A manager error before its first claim tears the session down; later manager

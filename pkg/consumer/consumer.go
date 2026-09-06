@@ -23,7 +23,10 @@ import (
 )
 
 // ConsumerFunc handles one delivered message. It should be idempotent --
-// redelivery after a crash or timeout is normal.
+// redelivery after a crash or timeout is normal. nil records success; a
+// plain error retries under the message's RetryPolicy; consume.Terminal
+// dead-letters now; consume.Delay runs it again later without counting a
+// failure.
 type ConsumerFunc[Message common.Versioned] func(ctx context.Context, message *Message) error
 
 // Consumer runs a consumer group on one topic. Failed messages retry with

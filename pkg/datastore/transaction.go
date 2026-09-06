@@ -18,6 +18,9 @@ type Tx interface {
 	Raw() pgx.Tx
 }
 
+// TransactionFunc runs inside the transaction InTransaction opened. A nil
+// return commits; an error rolls back and is returned as-is. It is called
+// once -- InTransaction never reruns it.
 type TransactionFunc func(ctx context.Context, tx Tx) error
 
 type vulkanTx struct {

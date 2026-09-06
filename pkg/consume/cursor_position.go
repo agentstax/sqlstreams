@@ -27,10 +27,14 @@ type CursorPosition struct {
 	Kind CursorPositionKind
 }
 
+// Beginning places a new group's cursor at the oldest retained message, so
+// it reads history before live traffic. The default.
 func Beginning() CursorPosition {
 	return CursorPosition{Kind: CursorPositionBeginning}
 }
 
+// Head places a new group's cursor at the log's MAX(id) when its row is
+// written, so it reads only messages produced after that.
 func Head() CursorPosition {
 	return CursorPosition{Kind: CursorPositionHead}
 }

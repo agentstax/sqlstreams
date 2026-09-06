@@ -8,13 +8,31 @@ import (
 
 const MIN_DELAY = 0
 
-// RetryPolicy is the tunable retry config
+// RetryPolicy is an exponential backoff curve. ClientConfig.Retry applies it
+// to the client's own Postgres calls; MessageOptions.Retry applies it to a
+// message's redelivery. Zero fields take the defaults.
 type RetryPolicy struct {
-	MaxRetries int           `json:"max_retries,omitempty"`
-	MaxDelays  int           `json:"max_delays,omitempty"` // handler-requested later runs before the delivery dead-letters; 0 = no cap. Redelivery only -- meaningless for datastore retries
-	BaseDelay  time.Duration `json:"base_delay,omitempty"`
-	MaxDelay   time.Duration `json:"max_delay,omitempty"`
-	Exponent   int           `json:"exponent,omitempty"`
+	// MaxRetries - failed attempts allowed, the first included: a Postgres
+	// call gives up, a delivery dead-letters, once it is reached.
+	// Default: 6 (3 as a consumer's Message.Retry).
+	MaxRetries int `json:"max_retries,omitempty"`
+
+	// MaxDelays - handler-requested later runs (consume.Delay) before the
+	// delivery dead-letters. Redelivery only; meaningless for Postgres calls.
+	// Default: 0 (no cap).
+	MaxDelays int `json:"max_delays,omitempty"`
+
+	// BaseDelay - the first backoff delay.
+	// Default: 1s.
+	BaseDelay time.Duration `json:"base_delay,omitempty"`
+
+	// MaxDelay - the ceiling every later delay is capped at.
+	// Default: 5m.
+	MaxDelay time.Duration `json:"max_delay,omitempty"`
+
+	// Exponent - the per-attempt multiplier: delay = BaseDelay * Exponent^attempt.
+	// Default: 2.
+	Exponent int `json:"exponent,omitempty"`
 }
 
 func NewDefaultRetryPolicy() *RetryPolicy {

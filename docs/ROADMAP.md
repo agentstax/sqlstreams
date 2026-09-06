@@ -74,7 +74,7 @@ the item is removed.
       the rule from the standing bullet above and a tools/conventions
       walk checking the Default: line on WithDefaults-filled fields.
       Refine nothing else.
-    - [ ] 6. Missing contracts (~20): Consume names neither VK error it
+    - [x] 6. Missing contracts (~20): Consume names neither VK error it
       returns; Produce/ProduceBatch name no Err*; nine ConsumeOptions /
       ConsumerConfig fields have no Default line; ConsumerFunc omits
       Terminal/Delay; Beginning/Head/TransactionFunc/NewMeasurement
@@ -90,23 +90,6 @@ the item is removed.
       The Logger/Retry field boilerplate is already gone [0657].
     - [ ] 9. Close-out: routing-lab if fanout.go comments moved, decision
       record for the rule in task 5, HISTORY entry, remove this item.
-
-## Next
-
-- **Move the public entry package out of pkg/** — follow through on [0665]
-  and [0670] once its destination is selected. Update imports and path-aware
-  tooling separately from semantic API changes; no module split is selected.
-
-The public-surface review is closed [0670]. Remaining cleanup and documentation
-work build on those decisions before v1 freezes the supported contract.
-
-- **Potential project rename away from "vulkan".** No candidate yet; decide
-  before v1 -- after v1 the name is public API. A rename ripples through the
-  module path, the CLI binary, the docs site (docsBaseURL const in
-  pkg/common/error.go), and the VK error-code prefix (isErrorCode validation
-  plus every declared code -- codes never renumber after v1, so the prefix
-  must be final first).
-  - need to make sure we build out new logo sheet as well
 
 - **Reliability lab -- the hour-long live run** (verdict, not a
   measurement: the sibling of `just compat-lab`, housed under bench/ so
@@ -157,6 +140,26 @@ work build on those decisions before v1 freezes the supported contract.
     asset in both); a compacted topic with keys; a schema-version mix;
     bindings / fan-out; schedules; metrics and alert assertions. TEST.md
     stays the unit-scale complement.
+
+## Next
+
+- **Move the public entry package out of pkg/** — follow through on [0665]
+  and [0670] once its destination is selected. Update imports and path-aware
+  tooling separately from semantic API changes; no module split is selected.
+
+The public-surface review is closed [0670]. Remaining cleanup and documentation
+work build on those decisions before v1 freezes the supported contract.
+
+- **Contributor documentation** — write the guide for setting up a development
+  environment, making and verifying a change, and submitting it for review.
+
+- **Potential project rename away from "vulkan".** No candidate yet; decide
+  before v1 -- after v1 the name is public API. A rename ripples through the
+  module path, the CLI binary, the docs site (docsBaseURL const in
+  pkg/common/error.go), and the VK error-code prefix (isErrorCode validation
+  plus every declared code -- codes never renumber after v1, so the prefix
+  must be final first).
+  - need to make sure we build out new logo sheet as well
 
 - **Search-engine submission** -- after the doc-site sitemap is deployed,
   verify the canonical site property in Google Search Console and Bing

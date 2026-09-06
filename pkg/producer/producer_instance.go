@@ -20,9 +20,9 @@ import (
 // Register resolved. Shutdown is per call -- a cancelled ctx refuses that
 // call's message, the instance itself never stops accepting work.
 type ProducerInstance[Message common.Versioned] struct {
-	Topic  *topic.Topic
-	Config *ProducerConfig
-	Logger logging.Logger
+	Topic  *topic.Topic    // the topic row Register resolved
+	Config *ProducerConfig // the resolved config every verb reads -- not the caller's struct
+	Logger logging.Logger  // bound to the topic; the batcher logs through it
 
 	controller *controller.ProduceController
 	batcher    *batcher.Batcher[Message]
@@ -68,7 +68,10 @@ func NewProducerInstance[Message common.Versioned](resolvedTopic *topic.Topic, p
 // the rerun dedups against whatever actually landed, reported as
 // ProduceResult.Duplicate == true.
 //
-// options may be nil for the defaults.
+// options may be nil for the defaults. Returns ErrPayloadNotEncodable for
+// a message json.Marshal rejects, and ErrPartitionCreationBehind or
+// ErrPartitionLockTimeout when the id lands past the created partitions
+// and the write path cannot create the next one in time.
 func (p *ProducerInstance[Message]) Produce(ctx context.Context, message *Message, options *produce.ProduceOptions) (*ProduceResult[Message], error) {
 	defer p.warnSlowProduce(ctx, time.Now())
 	ctx = logging.WithLogBuffer(ctx)
@@ -109,6 +112,10 @@ func (p *ProducerInstance[Message]) Produce(ctx context.Context, message *Messag
 // Items must not set an IdempotencyKey (see NewProduceItem), so nothing
 // dedups across calls: retrying past a ctx cancelled mid-commit (or your
 // own crash) can publish every item twice, exactly as with unkeyed Produce.
+//
+// Empty items is an error before any transaction opens. An error from one
+// item is wrapped as `item N: ...` with N its index in items, and Produce's
+// declared errors apply per item.
 func (p *ProducerInstance[Message]) ProduceBatch(ctx context.Context, items ...*ProduceItem[Message]) ([]*ProduceResult[Message], error) {
 	if len(items) == 0 {
 		return nil, errors.New("items must not be empty")

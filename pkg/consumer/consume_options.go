@@ -9,21 +9,21 @@ import (
 // runs, free to differ per instance. What the group means lives on
 // ConsumerConfig at Register. Sparse: zero fields take the defaults.
 type ConsumeOptions struct {
-	BatchLimit         int
+	BatchLimit         int // messages claimed per poll. Default: 1.
 	QueueSize          int // claimed messages buffered ahead of processing -- must be >= BatchLimit or the prefetcher can never claim a full batch. Default: BatchLimit.
 	MessageConcurrency int // messages processed concurrently. Default: 1.
 
-	ClaimPollRate time.Duration
-	QueueMargin   time.Duration // lease padding for time a claimed item sits queued before a worker starts on it
-	RecordMargin  time.Duration // lease padding for recording success/failure after consumerFunc returns
+	ClaimPollRate time.Duration // how often an idle instance polls for claimable messages. Default: 5s.
+	QueueMargin   time.Duration // lease padding for time a claimed item sits queued before a worker starts on it. Default: 5s.
+	RecordMargin  time.Duration // lease padding for recording success/failure after consumerFunc returns. Default: 2s.
 	// TimeoutGrace is scheduling slack for a consumerFunc that DID respect
 	// ctx.Done() to actually unwind and send on the result channel before the
 	// hard cutoff abandons it -- not extra time to keep working. Go's own
 	// scheduler wakeup after a context deadline fires is sub-millisecond at p99
 	// even under load (measured); this budget is really covering the caller's
 	// own cancellation-response time (e.g. a DB driver's cancel-request round
-	// trip), which pkg/consumer can't know in general. Default assumes one
-	// same-region network round trip's worth of slack.
+	// trip), which pkg/consumer can't know in general.
+	// Default: 100ms -- one same-region network round trip's worth of slack.
 	TimeoutGrace time.Duration
 	// SlowDispatchThreshold - a delivery dispatch running longer than this
 	// logs a warn line with its duration; consumerFunc time is the dominant

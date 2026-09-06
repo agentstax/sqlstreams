@@ -87,6 +87,9 @@ type Measurement struct {
 
 func (Measurement) SchemaVersion() int { return 1 }
 
+// NewMeasurement builds a custom measurement for the system metrics topic.
+// name, a valid kind and unit, and a non-zero at are required; attributes
+// may be nil. Names under the "vulkan." prefix are refused at produce time.
 func NewMeasurement(name string, kind MetricKind, value float64, unit MetricUnit, attributes map[string]string, at time.Time) (*Measurement, error) {
 	if name == "" {
 		return nil, errors.New("name is required")

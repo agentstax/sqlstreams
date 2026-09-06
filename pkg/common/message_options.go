@@ -19,14 +19,14 @@ type MessageOptions struct {
 
 	// Timeout - how long this message's consumerFunc may run.
 	// On a produced message, 0 means the consumer's own Timeout applies.
-	// As a consumer's Message default, 0 resolves to 30s.
+	// Default: 30s as a consumer's Message default.
 	Timeout time.Duration `json:"timeout,omitempty"`
 
 	// Retry - redelivery policy for this message. Unset fields fall
-	// to the consumer's policy per-field.
-	// On a produced message, nil means the consumer's policy applies whole.
-	// As a consumer's Message default, nil resolves to MaxRetries 3 over
-	// the default curve.
+	// to the consumer's policy per-field; on a produced message, nil means
+	// the consumer's policy applies whole.
+	// Default: MaxRetries 3 over the default curve, as a consumer's
+	// Message default.
 	Retry *RetryPolicy `json:"retry,omitempty"`
 
 	// ScheduledAt - the scheduled time a schedule's message is for, set

@@ -42,8 +42,8 @@ type ConsumerConfig struct {
 	// Default: nil (the whole topic).
 	Bindings []string
 
-	ExceptionInitialBackoff time.Duration // can_run_after delay when an exception/terminal row is first written (Commit/PartialCommit) -- Message.Retry takes over on later retries
-	MaxRangeReclaims        int           // past this many reclaims a range is POISON -- quarantined into the exception window instead of handed out again
+	ExceptionInitialBackoff time.Duration // can_run_after delay when an exception/terminal row is first written (Commit/PartialCommit) -- Message.Retry takes over on later retries. Default: 5s.
+	MaxRangeReclaims        int           // past this many reclaims a range is POISON -- quarantined into the exception window instead of handed out again. Default: 3.
 }
 
 func (c *ConsumerConfig) WithDefaults() *ConsumerConfig {
