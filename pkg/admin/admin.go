@@ -29,6 +29,7 @@ type MessageAdmin struct {
 	Logger logging.Logger
 	Retry  *common.RetryPolicy
 
+	ds                 *datastore.PostgresDatastore
 	systemController   *systemcontroller.SystemController
 	topicController    *topiccontroller.TopicController
 	scheduleController *schedulecontroller.ScheduleController
@@ -78,7 +79,7 @@ func NewMessageAdmin(ds *datastore.PostgresDatastore, cfg *MessageAdminConfig) (
 		return nil, err
 	}
 
-	systemController, err := systemcontroller.NewSystemController(ds, ds.Logger, scheduleProducerProvisioner, metricsCollectorProvisioner, consumerGroupJanitorProvisioner, managerProvisioner)
+	systemController, err := systemcontroller.NewSystemController(ds, ds.Logger, scheduleProducerProvisioner, consumerGroupJanitorProvisioner, managerProvisioner)
 	if err != nil {
 		return nil, err
 	}
@@ -145,6 +146,7 @@ func NewMessageAdmin(ds *datastore.PostgresDatastore, cfg *MessageAdminConfig) (
 	}
 
 	return &MessageAdmin{
+		ds:                 ds,
 		Logger:             ds.Logger,
 		Retry:              ds.Retry,
 		systemController:   systemController,

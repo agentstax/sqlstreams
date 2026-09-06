@@ -413,3 +413,4 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0658 2026-09-05 accepted (pre-v1) — Built-in alert config names the alert, not its scheduled work
 - 0659 2026-09-05 superseded in part by 0660 (pre-v1) — A missing compaction head has a lockable row
 - 0660 2026-09-05 accepted (pre-v1) — Ensuring a compaction head is one upsert
+- 0661 2026-09-05 accepted (pre-v1) — The system declaration configures the metrics collector

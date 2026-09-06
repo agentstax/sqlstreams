@@ -86,6 +86,7 @@ type (
 	PartitionCountAlertConfig     = alert.PartitionCountAlertConfig
 	CompactionReadCostAlertConfig = alert.CompactionReadCostAlertConfig
 	WorkerLivenessAlertConfig     = alert.WorkerLivenessAlertConfig
+	MetricsCollectorWorkerConfig  = metrics.MetricsCollectorWorkerConfig
 
 	TopicSnapshot                 = metrics.TopicSnapshot
 	ConsumerGroupSnapshot         = metrics.ConsumerGroupSnapshot

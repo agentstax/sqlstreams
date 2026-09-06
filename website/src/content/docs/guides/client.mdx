@@ -513,6 +513,23 @@ includes Vulkan built-ins and user-produced metrics. It says what exists in
 storage, where `Definitions()` says what Vulkan knows how to produce before
 anything has been collected.
 
+Built-in observations come from the manager's metrics collector. The first
+pass starts when the collector is claimed; later passes use a 30-second
+poll rate by default, with jitter. `Latest` is nil until a measurement is
+collected. The rate is part of the system declaration:
+
+```go
+err := client.System().Register(ctx, &vulkan.RegisterSystemConfig{
+	MetricsCollector: &vulkan.MetricsCollectorWorkerConfig{PollRate: 10 * time.Second},
+})
+```
+
+Zero uses the 30-second default; negative rates are rejected. Registering
+again replaces the stored rate. A running collector keeps its current rate
+until its next claim; restart the system manager to apply it immediately.
+Worker metadata changes are logged, and the collector's start log reports
+the rate it uses.
+
 A definition is metadata, never a value:
 
 ```go
@@ -717,6 +734,29 @@ with a later topic that reuses the name.
 `Latest` returns `(nil, nil)` when the owner exists and nothing has been
 retained under the key. `History` requires a positive limit and returns an
 empty slice for that same absence.
+
+### Consuming the alert topic
+
+`__system.alerts` is a topic like any other, and a consumer group on it is
+the push side: a Slack or PagerDuty hook hangs off `Consume`, the `Latest`
+reads above are the pull side. Only `RegisterTopic` guards the `__system.`
+prefix; registering a group there is supported.
+
+```go
+pager, err := client.Topic[vulkan.Alert](vulkan.AlertTopicName).Consumer("alert-pager").Register(ctx, nil)
+```
+
+A new group starts at head, so an alert that went active before the group
+existed is never delivered to it: `partition_count` fires at 08:30, the
+pager registers at 09:00, and the pager hears nothing until the 12:30
+repeat while `System().Alerts().Latest` has shown it active the whole time.
+Read `Latest` once at startup for what is already active, or declare the
+group with `Start: vulkan.Beginning()` to replay what retention holds.
+
+Nothing publishes a test alert. To see the pipeline fire on a healthy
+system, declare a check with a threshold it cannot pass -- `PartitionCountAlert:
+&vulkan.PartitionCountAlertConfig{Threshold: 1}` alerts on every topic with
+a partition -- and put the real threshold back on the next register.
 
 ## Where the old verbs went
 

@@ -13,7 +13,7 @@ are in `docs/DECISIONS.md`. A new record adds its number to its line.
 - compaction, message key, rank, ordered/exclusive/parallel, key lease, deadlock: 0261-0273 0403 0463 0574 0612 0617 0659-0660
 - produce, ProduceInTx, batch, idempotency key, uuid: 0021-0023 0283-0284 0321-0323 0376 0525 0622-0623 0634
 - synchronous_commit, crash lab, bench method: 0081-0086
-- errors (VK codes, fix, diagnose), logging (levels, buffer, suppression, stop line), metrics declarations: 0302-0305 0326 0522-0524 0550-0554 0558-0569 0589-0590 0647-0648
+- errors (VK codes, fix, diagnose), logging (levels, buffer, suppression, stop line), metrics declarations, collector poll rate: 0302-0305 0326 0522-0524 0550-0554 0558-0569 0589-0590 0647-0648 0661
 - migrations, schema versioning, advisory lock, MinCompatibleVersion, Postgres schema/search_path: 0341-0347 0501 0526-0527 0579-0580 0588 0629-0632 0650
 - workers, worker_instance, system manager, liveness, instance target, Run loop: 0421-0431 0537 0545-0549 0627 0635-0642
 - schedules, cron, missed runs, job status: 0461-0473 0621

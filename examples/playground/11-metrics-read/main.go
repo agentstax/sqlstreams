@@ -11,9 +11,8 @@
 //
 // Traps hit:
 //   - A retained measurement exists only after the manager's metrics collector
-//     ticks (30s default poll): Latest initially returns nil, and nothing on
-//     ClientConfig or RegisterSystemConfig sets the collector's rate -- it
-//     is worker metadata the client surface never reaches.
+//     ticks (30s default poll, RegisterSystemConfig.MetricsCollector.PollRate
+//     sets it): Latest initially returns nil until then.
 //   - Latest is the newest collected value, not live state. Measurement.At is
 //     the observation time; Snapshot asks the source tables what is true now.
 //   - The Group metrics handle supplies topic and group attributes. A typed

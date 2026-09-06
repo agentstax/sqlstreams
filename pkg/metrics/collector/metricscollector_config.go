@@ -8,6 +8,10 @@ import (
 )
 
 type MetricsCollectorConfig struct {
+	// PollRate - the collection interval declared on the worker row.
+	// Default: 30s.
+	PollRate time.Duration
+
 	// InstanceTTL is how long the claimed worker_instance row stays live
 	// without a renewal -- past it the instance counts as dead and a
 	// replacement can claim. The heartbeat renews at half this.
@@ -30,6 +34,9 @@ type MetricsCollectorConfig struct {
 }
 
 func (c *MetricsCollectorConfig) WithDefaults() *MetricsCollectorConfig {
+	if c.PollRate == 0 {
+		c.PollRate = 30 * time.Second
+	}
 	if c.InstanceTTL == 0 {
 		c.InstanceTTL = 30 * time.Second
 	}
@@ -46,6 +53,9 @@ func (c *MetricsCollectorConfig) WithDefaults() *MetricsCollectorConfig {
 // Validate runs after WithDefaults -- anything still out of range here was
 // set by the caller, not left unset.
 func (c *MetricsCollectorConfig) Validate() error {
+	if c.PollRate <= 0 {
+		return fmt.Errorf("PollRate must be > 0, got %v", c.PollRate)
+	}
 	if c.InstanceTTL <= 0 {
 		return fmt.Errorf("InstanceTTL must be > 0, got %v", c.InstanceTTL)
 	}

@@ -97,6 +97,48 @@ func run() (err error) {
 
 	ds := client.Datastore()
 
+	step("declare the collector rate through the public system config")
+	must(client.System().Register(ctx, nil))
+	defer func() { must(client.System().Register(ctx, nil)) }()
+	system, err := client.System().Get(ctx)
+	must(err)
+	systemOwner, err := iCommon.NewSystemOwner(system.Id)
+	must(err)
+	workers, err := workercontroller.NewWorkerController(ds, ds.Logger)
+	must(err)
+	row, err := workers.GetWorker(ctx, collector.WorkerMetricsCollector, systemOwner)
+	must(err)
+	collectorId := row.Id
+	for _, rate := range []time.Duration{0, 10 * time.Second, collectorRate} {
+		must(client.System().Register(ctx, &vulkan.RegisterSystemConfig{
+			MetricsCollector: &vulkan.MetricsCollectorWorkerConfig{PollRate: rate},
+		}))
+		row, err = workers.GetWorker(ctx, collector.WorkerMetricsCollector, systemOwner)
+		must(err)
+		stored, err := workercontroller.ParseMetadata[map[string]time.Duration](row.Metadata)
+		must(err)
+		expectedRate := rate
+		if expectedRate == 0 {
+			expectedRate = 30 * time.Second
+		}
+		if row.Id != collectorId || (*stored)["poll_rate"] != expectedRate {
+			die("collector declaration changed its identity or stored the wrong rate")
+		}
+	}
+	err = client.System().Register(ctx, &vulkan.RegisterSystemConfig{
+		MetricsCollector: &vulkan.MetricsCollectorWorkerConfig{PollRate: -time.Second},
+	})
+	if err == nil || !strings.Contains(err.Error(), "MetricsCollector: PollRate") {
+		die("negative collector rate did not report its config field")
+	}
+	row, err = workers.GetWorker(ctx, collector.WorkerMetricsCollector, systemOwner)
+	must(err)
+	stored, err := workercontroller.ParseMetadata[map[string]time.Duration](row.Metadata)
+	must(err)
+	if (*stored)["poll_rate"] != collectorRate {
+		die("rejected collector rate changed stored metadata")
+	}
+
 	step("seed 6 topics x 2 groups x 5 messages -- more topics than TopicConcurrency")
 	consumers, err := consumecontroller.NewConsumeController(ds, ds.Logger)
 	must(err)
@@ -152,13 +194,7 @@ func run() (err error) {
 	fmt.Println("  ✓ Latest is nil, History is empty, and limit must be positive")
 
 	step("claim the real metrics_collector worker at a fast poll rate")
-	system, err := client.System().Get(ctx)
-	must(err)
-	systemOwner, err := iCommon.NewSystemOwner(system.Id)
-	must(err)
-	workers, err := workercontroller.NewWorkerController(ds, ds.Logger)
-	must(err)
-	row, err := workers.GetWorker(ctx, collector.WorkerMetricsCollector, systemOwner)
+	row, err = workers.GetWorker(ctx, collector.WorkerMetricsCollector, systemOwner)
 	must(err)
 
 	provisioner, err := collector.NewMetricsCollectorProvisioner(ds, &collector.MetricsCollectorConfig{
@@ -168,8 +204,6 @@ func run() (err error) {
 
 	// a crashed earlier run's claim lingers until its InstanceTTL expires --
 	// retry past it instead of dying
-	row.Metadata = map[string]any{"poll_rate": int64(collectorRate)}
-
 	var execution worker.Execution
 	deadline := time.Now().Add(60 * time.Second)
 	for {

@@ -4,12 +4,13 @@ import (
 	"fmt"
 
 	"github.com/agentstax/vulkan/pkg/alert"
+	"github.com/agentstax/vulkan/pkg/metrics"
 	"github.com/agentstax/vulkan/pkg/system"
 )
 
-// RegisterSystemConfig is RegisterSystem's spec -- the system's own settings
-// plus the schedule each built-in alert is evaluated on. Every field is
-// optional.
+// RegisterSystemConfig is RegisterSystem's spec -- the system's own settings,
+// the schedule each built-in alert is evaluated on, and the metrics
+// collector's poll rate. Every field is optional.
 type RegisterSystemConfig struct {
 	// System - the control-plane settings scoped to no single topic.
 	// Default: SystemConfig's own defaults.
@@ -26,6 +27,10 @@ type RegisterSystemConfig struct {
 	// WorkerLivenessAlert - the worker_liveness alert declaration.
 	// Default: its own defaults.
 	WorkerLivenessAlert *alert.WorkerLivenessAlertConfig
+
+	// MetricsCollector - the metrics_collector worker declaration.
+	// Default: its own defaults.
+	MetricsCollector *metrics.MetricsCollectorWorkerConfig
 }
 
 func (c *RegisterSystemConfig) WithDefaults() *RegisterSystemConfig {
@@ -45,6 +50,10 @@ func (c *RegisterSystemConfig) WithDefaults() *RegisterSystemConfig {
 		c.WorkerLivenessAlert = &alert.WorkerLivenessAlertConfig{}
 	}
 	c.WorkerLivenessAlert.WithDefaults()
+	if c.MetricsCollector == nil {
+		c.MetricsCollector = &metrics.MetricsCollectorWorkerConfig{}
+	}
+	c.MetricsCollector.WithDefaults()
 	return c
 }
 
@@ -62,6 +71,9 @@ func (c *RegisterSystemConfig) Validate() error {
 	}
 	if err := c.WorkerLivenessAlert.Validate(); err != nil {
 		return fmt.Errorf("WorkerLivenessAlert: %w", err)
+	}
+	if err := c.MetricsCollector.Validate(); err != nil {
+		return fmt.Errorf("MetricsCollector: %w", err)
 	}
 	return nil
 }

@@ -15,15 +15,6 @@
 //   - The default check schedules are @hourly; tightening them means
 //     knowing all three JobConfig fields by name -- there is no single
 //     "check interval" knob.
-//   - Nothing can fire a test alert: on a healthy system this consumer
-//     prints nothing, so the pager integration is unverifiable until
-//     something actually breaks.
-//   - The __system. prefix guard exists only on RegisterTopic; nothing
-//     states whether a consumer group on a system topic is supported or
-//     accidental.
-//   - The group's cursor starts at head, so alerts active before startup
-//     are never delivered -- ListAlerts is the read for current state, and
-//     nothing points from one to the other.
 package main
 
 import (

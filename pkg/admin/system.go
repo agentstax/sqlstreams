@@ -11,6 +11,7 @@ import (
 	"github.com/agentstax/vulkan/pkg/alert/workerliveness"
 	"github.com/agentstax/vulkan/pkg/common"
 	"github.com/agentstax/vulkan/pkg/metrics"
+	"github.com/agentstax/vulkan/pkg/metrics/collector"
 	metricscontroller "github.com/agentstax/vulkan/pkg/metrics/controller"
 	"github.com/agentstax/vulkan/pkg/migrate"
 	"github.com/agentstax/vulkan/pkg/schedule"
@@ -25,7 +26,7 @@ import (
 // The first RegisterTopic against an empty database runs it with a nil cfg,
 // so calling it directly matters when cfg does. Safe to call on every startup:
 // cfg is applied on every call, so changing a value and redeploying changes
-// the system's topics and its built-in alerts' schedules.
+// the system's topics, its built-in alerts' schedules, and its collector rate.
 //   - cfg: may be nil or sparse -- WithDefaults fills every field left unset
 func (a *MessageAdmin) RegisterSystem(ctx context.Context, cfg *RegisterSystemConfig) error {
 	if cfg == nil {
@@ -46,6 +47,12 @@ func (a *MessageAdmin) RegisterSystem(ctx context.Context, cfg *RegisterSystemCo
 		return err
 	}
 	workerLivenessJob, err := workerliveness.NewJob(cfg.WorkerLivenessAlert)
+	if err != nil {
+		return err
+	}
+	metricsCollectorProvisioner, err := collector.NewMetricsCollectorProvisioner(a.ds, &collector.MetricsCollectorConfig{
+		PollRate: cfg.MetricsCollector.PollRate,
+	}, a.Logger)
 	if err != nil {
 		return err
 	}
@@ -77,6 +84,9 @@ func (a *MessageAdmin) RegisterSystem(ctx context.Context, cfg *RegisterSystemCo
 	// topic to create their consumer groups and worker rows
 	owner, err := common.NewSystemOwner(registered.Id)
 	if err != nil {
+		return err
+	}
+	if err := metricsCollectorProvisioner.Declare(ctx, owner); err != nil {
 		return err
 	}
 	for _, declarer := range a.alertDeclarers {

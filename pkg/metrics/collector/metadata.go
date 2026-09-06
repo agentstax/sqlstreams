@@ -17,14 +17,3 @@ func (m *metricsCollectorMetadata) Validate() error {
 	}
 	return nil
 }
-
-// ***************
-// *** HELPERS ***
-// ***************
-
-// defaultMetricsCollectorMetadata is the config the system's declaration
-// starts with -- 30s keeps a measurement fresher than the typical scrape interval
-// without the snapshot queries running hot.
-func defaultMetricsCollectorMetadata() *metricsCollectorMetadata {
-	return &metricsCollectorMetadata{PollRate: 30 * time.Second}
-}

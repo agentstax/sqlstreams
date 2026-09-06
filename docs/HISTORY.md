@@ -5,6 +5,20 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-05 — System registration sets the metrics collector rate [0661]
+
+`RegisterSystemConfig.MetricsCollector.PollRate` now reaches the collector
+provisioner's own definition and existing declaration method. Zero keeps
+the 30-second default; negative rates are rejected before writes. Repeated
+registration updates stored metadata; a running collector adopts it on its
+next claim. The client guide documents that timing and the existing logs.
+
+The collector lab now declares its fast rate through the public API and
+checks defaults, replacement on the same worker id, and rejection without
+changing stored metadata. The lab passes under `-race`, including collection
+and the manager's HTTP scrape. Root build, targeted package race tests, and
+the conventions tests pass.
+
 ## 2026-09-05 — Missing compaction heads are lockable [0659][0660]
 
 `Topic[Message](name).Key(messageKey).LockCompactionHead(ctx, tx)` now gives a

@@ -71,7 +71,7 @@ func NewMetricsCollectorProvisioner(ds *iDatastore.PostgresDatastore, cfg *Metri
 		return nil, err
 	}
 
-	definition, err := worker.NewDefinition(WorkerMetricsCollector, common.OwnerSystem, 1, defaultMetricsCollectorMetadata())
+	definition, err := worker.NewDefinition(WorkerMetricsCollector, common.OwnerSystem, 1, toMetricsCollectorMetadata(cfg))
 	if err != nil {
 		return nil, err
 	}
