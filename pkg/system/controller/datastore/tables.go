@@ -209,7 +209,7 @@ func (d *SystemDatastore) createSystemTables(ctx context.Context, tx pgx.Tx) err
 			concurrency TEXT NOT NULL DEFAULT 'parallel',    -- 'parallel' | 'exclusive' -> MessageOptions.Concurrency
 			timeout_ns BIGINT NOT NULL,                      -- nanoseconds; -> MessageOptions.Timeout
 			payload JSONB NOT NULL DEFAULT '{}',             -- the message, marshaled once at Register
-			schema_version INTEGER NOT NULL,                 -- the payload's Message type version, written on every produce
+			schema_version BIGINT NOT NULL,                  -- the payload's Message type version, written on every produce
 			metadata JSONB NOT NULL DEFAULT '{}',
 			CHECK (timeout_ns > 0)
 		);

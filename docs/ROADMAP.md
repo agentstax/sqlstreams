@@ -35,7 +35,7 @@ rewrite-to-the-real-API pass 2026-08-22 [0581], the board rebuild
     retain `ConsumerGroup`. Error aliases, schedule summaries, and binding
     fields now follow the same rule; binding/schedule JSON uses
     `consumer_group` and the CLI summary list uses `consumer_groups`. Settle
-    mutable client fields and utility methods exposed
+    utility methods exposed
     through `Owner`, `RetryPolicy`, `MessageOptions`, and diagnostic aliases.
   - Keep useful batching and transaction controls; preserve separate single-topic
     and all-topic migration operations. Review each proposed removal's callers,

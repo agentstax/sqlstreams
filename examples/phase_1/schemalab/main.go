@@ -76,10 +76,7 @@ func run() (err error) {
 	leftSchema := fmt.Sprintf("schemalab_left_%d", runId)
 	rightSchema := fmt.Sprintf("schemalab_right_%d", runId)
 
-	// ONE base config, copied per client: NewClient resolves the pointer it is
-	// handed, so clients sharing one would all end on the last schema written
-	// into it, and pipeline Args concatenate on merge -- a shared config would
-	// name every installation on every line any of them logs
+	// Each installation selects its schema from the same base settings.
 	shared := &vulkan.ClientConfig{AllowDestroy: true}
 	left, leftDs := openClient(ctx, leftSchema, shared)
 	defer leftDs.Pool.Close()
@@ -119,11 +116,11 @@ func run() (err error) {
 	}
 	fmt.Printf("   ✅ each client lists %d topics -- its own, not the other's\n", len(leftTopics))
 
-	leftBound, rightBound := boundSchemas(left.Logger), boundSchemas(right.Logger)
+	leftBound, rightBound := boundSchemas(leftDs.Logger), boundSchemas(rightDs.Logger)
 	if len(leftBound) != 1 || leftBound[0] != leftSchema || len(rightBound) != 1 || rightBound[0] != rightSchema {
-		die(fmt.Sprintf("each client should bind only its own schema, got left %v right %v", leftBound, rightBound))
+		die(fmt.Sprintf("each datastore should bind only its own schema, got left %v right %v", leftBound, rightBound))
 	}
-	fmt.Printf("   ✅ every line each client logs names one schema -- %q and %q\n", leftBound[0], rightBound[0])
+	fmt.Printf("   ✅ every line each datastore logs names one schema -- %q and %q\n", leftBound[0], rightBound[0])
 
 	fmt.Println("\n=== 2. independence ===")
 
@@ -287,12 +284,12 @@ func openClient(ctx context.Context, schema string, cfg *vulkan.ClientConfig) (*
 	return client, ds
 }
 
-// boundSchemas lists the schema values a client's logger binds onto every
+// boundSchemas lists the schema values a datastore's logger binds onto every
 // line it writes.
 func boundSchemas(logger logging.Logger) []string {
 	pipeline, ok := logger.(*logging.PipelineLogger)
 	if !ok {
-		die("a client's logger should be a pipeline")
+		die("a datastore's logger should be a pipeline")
 	}
 
 	found := []string{}

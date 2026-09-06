@@ -31,6 +31,29 @@ For example, `vulkan.RetryPolicy` aliases a type declared in `pkg/common`.
 Its exported methods are part of the supported surface. Calling
 `common.NewDefaultRetryPolicy` through a direct import is advanced usage.
 
+## Client configuration ownership
+
+`ClientConfig` supplies construction-time settings. `NewClient` captures them
+and copies the supplied retry policy. Editing the input config after it returns
+does not reconfigure that client. The existing `WithDefaults` convention still
+applies; retry defaults are filled on the client's copy.
+
+`Client.Config` and `Client.Logger` have been removed. Existing reads and
+assignments to those fields fail to compile. To run the `billing` consumer
+without automatic upkeep, select that behavior when constructing its client:
+
+```go
+client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{
+ DisableManager: true,
+ Logger: logger,
+})
+```
+
+Use a separate client over the same pool when another consumer needs different
+settings. Existing instances keep their original settings. Keep the application
+logger for application logs; Vulkan retains that logger, and its own
+concurrency-safe controls can still change its output level.
+
 ## Two grammars
 
 The client selects the noun: `Topic[T](name)`, `Scheduler(name)`, and a

@@ -6,6 +6,8 @@ import (
 	"github.com/agentstax/vulkan/pkg/datastore"
 )
 
+// ClientConfig supplies construction-time settings. NewClient captures values
+// and copies Retry; later edits do not reconfigure the client. Logger is shared.
 type ClientConfig struct {
 	// Schema - the Postgres namespace holding every vulkan table.
 	// Default: "vulkan".

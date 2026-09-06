@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/agentstax/vulkan/otelvulkan"
+	"github.com/agentstax/vulkan/pkg/common/logging"
 	"github.com/agentstax/vulkan/pkg/migrate"
 	"github.com/spf13/cobra"
 )
@@ -50,7 +51,9 @@ func newManagerRunCmd(g *globalFlags) *cobra.Command {
 			}
 			defer connection.Close()
 			client := connection.client
-			runLogger := client.Logger
+			runLogger := logging.NewPipelineLogger(connection.config.Logger, &logging.PipelineLoggerConfig{
+				Args: []any{"schema", connection.config.Schema},
+			})
 
 			// a server failure cancels runCtx so the manager drains too
 			runCtx, cancelRun := context.WithCancel(ctx)

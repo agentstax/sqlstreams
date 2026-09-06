@@ -34,7 +34,7 @@ func (h *ConsumerHandle[Message]) Register(ctx context.Context, cfg *ConsumerCon
 	if err != nil {
 		return nil, err
 	}
-	return newConsumerInstance(instance, h.client.manager, !h.client.Config.DisableManager)
+	return newConsumerInstance(instance, h.client.manager, !h.client.disableManager)
 }
 
 // Get reads the group's row. Returns (nil, nil) when the topic or the

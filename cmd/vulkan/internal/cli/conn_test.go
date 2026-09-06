@@ -52,8 +52,8 @@ func TestConnectionPoolOwnership(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if advanced.Schema != "from_flag" || connection.client.Config.Schema != "from_flag" {
-		t.Fatal("flag schema did not reach both client and advanced datastore")
+	if advanced.Schema != "from_flag" {
+		t.Fatal("flag schema did not reach the advanced datastore")
 	}
 	if advanced.Pool != connection.pool || advanced.Retry != connection.config.Retry {
 		t.Fatal("advanced datastore did not reuse the owned pool and resolved retry settings")

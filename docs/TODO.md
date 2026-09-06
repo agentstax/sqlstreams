@@ -10,7 +10,8 @@ docs/decisions/.
   delete the working inventory at close-out.
   Client.Datastore and the PostgresDatastore alias are removed; CLI/lab/benchmark
   callers use owned pools and explicit datastores. Continue with the remaining
-  question rows.
+  question rows. Client.Config and Client.Logger are also removed; construction
+  captures settings and copies the supplied retry policy.
 
 - Table name + column review (pre-v1, last pass before the DDL is expensive
   to change). Automated review 2026-09-06; `tools/conventions` DDL walk
@@ -32,8 +33,8 @@ docs/decisions/.
        means the statement instant in all three; binding_config_log's extra
        `attempted_at` exists only because its declarations retry. The
        migration_log.created_at -> attempted_at replacement was declined.
-     - `schedule_config.schema_version INTEGER` -> BIGINT (message_log,
-       compaction_head).
+     - `schedule_config.schema_version INTEGER` -> BIGINT -- SHIPPED 2026-09-06
+       (DDL + sandbox mirror; schedule, alert, schema-evolution labs green).
   2. Settle the shape + order findings:
      - `_config` timestamps follow no rule: system both, topic both,
        consumer_group created only, worker/schedule/binding none -> pick one.

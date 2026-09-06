@@ -9,7 +9,6 @@ import (
 	"errors"
 
 	"github.com/agentstax/vulkan/pkg/admin"
-	"github.com/agentstax/vulkan/pkg/common/logging"
 	"github.com/agentstax/vulkan/pkg/consumer"
 	"github.com/agentstax/vulkan/pkg/datastore"
 	"github.com/agentstax/vulkan/pkg/producer"
@@ -19,8 +18,7 @@ import (
 )
 
 type Client struct {
-	Config *ClientConfig
-	Logger logging.Logger
+	disableManager bool
 
 	ds        *datastore.PostgresDatastore
 	admin     *admin.MessageAdmin
@@ -33,7 +31,8 @@ type Client struct {
 // NewClient builds every registration object over pool and pings it once, so a wrong
 // address or credential fails here instead of at the first query. The pool
 // stays the caller's -- vulkan never closes it. cfg may be nil or a sparse
-// struct.
+// struct. Settings are captured at construction, including a copy of Retry;
+// later edits to cfg do not reconfigure the client. The supplied logger is shared.
 func NewClient(ctx context.Context, pool *pgxpool.Pool, cfg *ClientConfig) (*Client, error) {
 	if pool == nil {
 		return nil, errors.New("pool must not be nil")
@@ -46,10 +45,16 @@ func NewClient(ctx context.Context, pool *pgxpool.Pool, cfg *ClientConfig) (*Cli
 		return nil, err
 	}
 
+	var retry *RetryPolicy
+	if cfg.Retry != nil {
+		policy := *cfg.Retry
+		retry = &policy
+	}
+
 	ds, err := datastore.NewPostgresDatastore(ctx, pool, &datastore.PostgresDatastoreConfig{
 		Schema: cfg.Schema,
 		Logger: cfg.Logger,
-		Retry:  cfg.Retry,
+		Retry:  retry,
 	})
 	if err != nil {
 		return nil, err
@@ -79,14 +84,13 @@ func NewClient(ctx context.Context, pool *pgxpool.Pool, cfg *ClientConfig) (*Cli
 	}
 
 	return &Client{
-		Config:    cfg,
-		Logger:    ds.Logger,
-		ds:        ds,
-		admin:     messageAdmin,
-		consumer:  messageConsumer,
-		producer:  messageProducer,
-		scheduler: messageScheduler,
-		manager:   systemManager,
+		disableManager: cfg.DisableManager,
+		ds:             ds,
+		admin:          messageAdmin,
+		consumer:       messageConsumer,
+		producer:       messageProducer,
+		scheduler:      messageScheduler,
+		manager:        systemManager,
 	}, nil
 }
 
