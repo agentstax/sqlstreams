@@ -48,3 +48,11 @@ SELECT
 FROM {schema}.claim_lease_{topic_id}
 WHERE consumer_group_id = {group_id};`),
 	)
+
+// ErrPayloadNotEncodable means encoding/json rejected the payload -- a NaN
+// float, a channel or func field, a MarshalJSON that returned an error. The
+// payload is encoded in Go before it reaches pgx because pgx's own encode
+// failure prints the value it could not encode.
+var ErrPayloadNotEncodable = diagnostic.NewDiagnosticError("VK0097", diagnostic.RecoveryPermanent,
+	"payload cannot be encoded as JSON",
+	"give the payload a shape encoding/json accepts -- the cause names what it could not encode")

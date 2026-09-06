@@ -813,7 +813,7 @@
       "queries": [
         {
           "label": "every declaration this topic has received, newest first",
-          "sql": "SELECT\n\tname,\n\tretention_ttl_ns,\n\tallow_drop_past_committed,\n\tidempotency_key_ttl_ns,\n\tdelivery_log_mode,\n\tdeclared_by,\n\tdeclared_at\nFROM {schema}.topic_config_log\nWHERE topic_id = {topic_id}\nORDER BY id DESC\nLIMIT 10;",
+          "sql": "SELECT\n\tname,\n\tretention_ttl_ns,\n\tallow_drop_past_committed,\n\tidempotency_key_ttl_ns,\n\tempty_compaction_head_ttl_ns,\n\tdelivery_log_mode,\n\tdeclared_by,\n\tdeclared_at\nFROM {schema}.topic_config_log\nWHERE topic_id = {topic_id}\nORDER BY id DESC\nLIMIT 10;",
           "placeholders": [
             "schema",
             "topic_id"
@@ -1223,6 +1223,13 @@
       "description": "a topic's worker rows have no live instance, so nothing runs its upkeep",
       "scope": "topic",
       "severity": "warn"
+    },
+    "VK0097": {
+      "code": "VK0097",
+      "kind": "error",
+      "problem": "payload cannot be encoded as JSON",
+      "recovery": "permanent",
+      "fix": "give the payload a shape encoding/json accepts -- the cause names what it could not encode"
     }
   }
 }

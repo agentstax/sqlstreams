@@ -18,6 +18,13 @@ group. Nothing expires behind your back (dead rows live until the
 retention drop that removes their log rows), and no separate
 dead-letter queue needs provisioning per consumer.
 
+`last_error` is the handler's own error text, verbatim, plus the panic
+value and stack when the handler panicked. Vulkan never writes the payload
+into it and never logs it: the dead-letter log line names the message id
+and stops. The one way a payload ends up in `last_error` is a handler that
+formats it into its error, so name the id in the error and leave the
+document in the message log.
+
 ## Triage with the tools you already have
 
 Each topic's tables are named by its id — resolve it once

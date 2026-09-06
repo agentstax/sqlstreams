@@ -2,6 +2,7 @@ package datastore
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -24,12 +25,19 @@ func (d *ScheduleDatastore) Register(ctx context.Context, systemId int64, topicI
 // register registers behind a per-name advisory lock, NOT ON CONFLICT.
 // This is to prevent race condition errors between two concurrent calls.
 func (d *ScheduleDatastore) register(ctx context.Context, systemId int64, topicId int64, name string, expression *schedule.ScheduleExpression, concurrency common.ConcurrencyPolicy, timeout time.Duration, payload any, schemaVersion int, metadata any) (*ScheduleConfigRow, error) {
+	// encoded in Go, not by pgx: pgx's encode failure prints the value it
+	// could not encode, which could log sensitive information.
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return nil, common.ErrPayloadNotEncodable.Wrap(err)
+	}
+
 	found, err := d.get(ctx, d.Datastore.Pool, name)
 	if err != nil {
 		return nil, err
 	}
 	if found != nil {
-		return d.replaceConfig(ctx, found, topicId, expression, concurrency, timeout, payload, schemaVersion, metadata)
+		return d.replaceConfig(ctx, found, topicId, expression, concurrency, timeout, encoded, schemaVersion, metadata)
 	}
 
 	tx, err := d.Datastore.Pool.Begin(ctx)
@@ -57,7 +65,7 @@ func (d *ScheduleDatastore) register(ctx context.Context, systemId int64, topicI
 		return nil, err
 	}
 	if found != nil {
-		return d.replaceConfig(ctx, found, topicId, expression, concurrency, timeout, payload, schemaVersion, metadata)
+		return d.replaceConfig(ctx, found, topicId, expression, concurrency, timeout, encoded, schemaVersion, metadata)
 	}
 
 	next, err := d.nextScheduledTime(ctx, tx, expression)
@@ -85,7 +93,7 @@ func (d *ScheduleDatastore) register(ctx context.Context, systemId int64, topicI
 	if err := tx.QueryRow(ctx, insertConfigSql,
 		systemId, topicId,
 		name, expression.String(), string(concurrency), int64(timeout),
-		payload, schemaVersion, metadata,
+		json.RawMessage(encoded), schemaVersion, metadata,
 	).Scan(&id); err != nil {
 		return nil, err
 	}

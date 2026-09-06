@@ -418,3 +418,4 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0663 2026-09-05 accepted (pre-v1) — The janitor timeout names cleanup
 - 0664 2026-09-06 accepted (pre-v1) — Defaults use the normal client API
 - 0665 2026-09-06 accepted (pre-v1) — Vulkan defines the supported public API
+- 0666 2026-09-06 accepted (pre-v1) — The payload never reaches a log line or an error

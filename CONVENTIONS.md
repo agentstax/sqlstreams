@@ -288,7 +288,10 @@ The domain layers:
 - Method bodies are a linear sequence of named calls -- no inline shaping
   wads. `any` values go straight to pgx as query args (driver encodes JSONB;
   never hand-call json.Marshal); nil/empty shaping happens SQL-side
-  (`NULLIF`, `COALESCE`).
+  (`NULLIF`, `COALESCE`). The one exception is the user's payload: the
+  datastore that binds it calls json.Marshal first and raises
+  `common.ErrPayloadNotEncodable` on failure, because pgx's own encode
+  error prints the value it could not encode [0666].
 - A `*common.Owner` is never nil -- no nil-safe receivers. A param nothing
   can populate yet gets deleted, not nil-tolerated.
 - Controllers own verbs, not tables. A datastore transaction contains every
@@ -603,6 +606,10 @@ vulkan command in the CLI).
   message text -- wording stays free to improve everywhere at once.
 - A wrapping layer adds only the fact it owns (`item %d: %w`); an error
   is returned or logged, never both.
+- A user document -- a message payload, a schedule's `Metadata` -- is never
+  attached, wrapped, or formatted into an error: not as a With value, not
+  inside a struct rendered with `%v`, not through a driver error that prints
+  its argument [0666].
 
 ### When writing a plain error
 
@@ -759,6 +766,9 @@ the code is the line's breadcrumb to its own explanation.
       worker_id     worker row id
       metadata      a worker row's stored config document; a replace
                     logs "old -> new"
+      payload_changed  a schedule redeclaration changed the stored payload
+                    -- the document itself is never logged
+      metadata_changed  the same for a schedule's Metadata document
       target_instances  the worker row's live-instance cap -- 0 is
                     suspended, -1 is no cap
       message_id    message id
@@ -787,6 +797,13 @@ the code is the line's breadcrumb to its own explanation.
 - Counts of affected rows end in `_count`; durations pass as
   time.Duration values (units render free); ids use their column's own
   name.
+- A user document -- a message payload, a schedule's `Metadata` -- never
+  reaches a log line: not as an attribute, not inside a row struct, not
+  through `%v` of a struct that holds one, not through a wrapped driver
+  error. A line says a document changed (`payload_changed`) and nothing of
+  what it holds. A handler's own error text is stored in `last_error` and
+  never logged. Keys (`message_key`, `idempotency_key`) are identifiers and
+  do appear [0666].
 
 ### The start line
 

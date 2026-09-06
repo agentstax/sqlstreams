@@ -20,6 +20,7 @@ var (
 	ErrCommitConfirmationLost         = common.ErrCommitConfirmationLost
 	ErrLeaseLost                      = common.ErrLeaseLost
 	ErrLifecycleContextNotCancellable = common.ErrLifecycleContextNotCancellable
+	ErrPayloadNotEncodable            = common.ErrPayloadNotEncodable
 	ErrCompactionHeadNotFound         = compaction.ErrCompactionHeadNotFound
 	ErrDeliveryDelayed                = consume.ErrDeliveryDelayed
 	ErrDeliveryTerminal               = consume.ErrDeliveryTerminal

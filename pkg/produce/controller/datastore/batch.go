@@ -67,8 +67,11 @@ func (d *ProduceDatastore) appendMessageBatchTransaction[Message common.Versione
 	defer tx.Rollback(ctx)
 
 	statements := &pgx.Batch{}
-	for _, data := range appends {
-		sql, args := protectedInsertSQL(topicId, data.Payload, data, d.Datastore.Schema)
+	for i, data := range appends {
+		sql, args, err := protectedInsertSQL(topicId, data.Payload, data, d.Datastore.Schema)
+		if err != nil {
+			return nil, i, err
+		}
 		statements.Queue(sql, args...)
 	}
 

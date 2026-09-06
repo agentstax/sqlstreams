@@ -2,6 +2,7 @@ package datastore
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -11,7 +12,7 @@ import (
 
 // replaceConfig overwrites an already-registered schedule's mutable config:
 // the newest registration wins.
-func (d *ScheduleDatastore) replaceConfig(ctx context.Context, found *ScheduleConfigRow, topicId int64, expression *schedule.ScheduleExpression, concurrency common.ConcurrencyPolicy, timeout time.Duration, payload any, schemaVersion int, metadata any) (*ScheduleConfigRow, error) {
+func (d *ScheduleDatastore) replaceConfig(ctx context.Context, found *ScheduleConfigRow, topicId int64, expression *schedule.ScheduleExpression, concurrency common.ConcurrencyPolicy, timeout time.Duration, payload json.RawMessage, schemaVersion int, metadata any) (*ScheduleConfigRow, error) {
 	// a scheduled time already due under the old schedule is dropped, not
 	// produced late -- the new schedule decides when the schedule next runs
 	var next *time.Time
@@ -102,13 +103,14 @@ func configChanges(found *ScheduleConfigRow, updated *ScheduleConfigRow) []any {
 		changes = append(changes, "timeout", replaced(time.Duration(found.TimeoutNs), time.Duration(updated.TimeoutNs)))
 	}
 
-	// both sides are jsonb-normalized by the database, so equal values print
-	// identical text
+	// payload and metadata are the user's documents: the line says they
+	// changed, never what they hold. Both sides are jsonb-normalized by the
+	// database, so equal values compare as identical text.
 	if string(found.Payload) != string(updated.Payload) {
-		changes = append(changes, "payload", replaced(string(found.Payload), string(updated.Payload)))
+		changes = append(changes, "payload_changed", true)
 	}
 	if string(found.Metadata) != string(updated.Metadata) {
-		changes = append(changes, "metadata", replaced(string(found.Metadata), string(updated.Metadata)))
+		changes = append(changes, "metadata_changed", true)
 	}
 	return changes
 }

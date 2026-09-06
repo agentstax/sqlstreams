@@ -115,3 +115,7 @@ default, then the topic janitor sweeps it. A retry that arrives after
 that window is a new message, not a duplicate, and nothing logs it.
 Size the TTL to your upstream's retry horizon: a webhook provider
 that retries for three days needs a three-day TTL on that topic.
+
+The key is an identifier and is logged as one: a duplicate publish narrates
+`idempotency_key` at Debug, and a produce failure line carries that
+narration. Build it from ids, not from the document's contents.

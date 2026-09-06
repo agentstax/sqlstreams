@@ -159,6 +159,6 @@ func (d *DeliveryConsumerGroupDatastore) recordTerminal(ctx context.Context, del
 		return err
 	}
 
-	d.Logger.WarnContext(ctx, consume.EventMessageDeadLettered.Message, "code", consume.EventMessageDeadLettered.Code, "group_id", delivery.ConsumerGroupId, "topic_id", delivery.TopicId, "message_id", delivery.MessageId, "error", terminalErr)
+	d.Logger.WarnContext(ctx, consume.EventMessageDeadLettered.Message, "code", consume.EventMessageDeadLettered.Code, "group_id", delivery.ConsumerGroupId, "topic_id", delivery.TopicId, "message_id", delivery.MessageId)
 	return nil
 }

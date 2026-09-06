@@ -24,6 +24,11 @@ treat them as versions of one thing or as one serial queue; that's the
 whole test. The key lands in `message_log`'s `message_key` column, and a
 key with neither feature enabled is just that — a recorded fact.
 
+The key is an identifier and is treated like one: it shows up in log lines
+and error values as `message_key` whenever a lease or a compaction head is
+involved. The payload never does. A key that is itself sensitive, an email
+address say, ends up in your logs, so hash it or use the internal id.
+
 ## Compaction: the key's latest version wins
 
 Compaction answers "what is this key's current state." A message that

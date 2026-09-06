@@ -5,6 +5,17 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-06 — The payload never reaches a log line or an error [0666]
+
+A review of every log call and raise site closed the two paths a payload
+reached logs on. The schedule redeclaration line now reports
+`payload_changed` / `metadata_changed` instead of the documents; the produce
+and schedule datastores encode the payload in Go and raise VK0097 on failure,
+so pgx's `%#v` encode error can no longer print it; the delivery-consumer
+dead-letter line drops the handler's error text (it lives in `last_error`).
+CONVENTIONS gains the rule under Datastores, Errors, and Logging; the
+message-key, idempotency, and dead-letters pages say what does get logged.
+
 ## 2026-09-06 — The supported API boundary is explicit [0665]
 
 CONVENTIONS.md and the client guide now identify vulkan and its reachable
