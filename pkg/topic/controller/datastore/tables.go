@@ -122,7 +122,7 @@ func (d *TopicDatastore) createTopicTables(ctx context.Context, tx pgx.Tx, id in
 	// the same-key predecessor lookup: an earlier unresolved row on this key
 	createExceptionQueueMessageKeyIndexSql := fmt.Sprintf(`
 		-- vulkan: topic.createTopicTables
-		CREATE INDEX IF NOT EXISTS %[2]s_message_key ON %[1]s.%[3]s (consumer_group_id, message_key, message_id);
+		CREATE INDEX IF NOT EXISTS %[2]s_consumer_group_id_message_key ON %[1]s.%[3]s (consumer_group_id, message_key, message_id);
 	`, d.Datastore.Schema, topic.ExceptionQueueTable(id), topic.ExceptionQueueTable(id))
 	if _, err := tx.Exec(ctx, createExceptionQueueMessageKeyIndexSql); err != nil {
 		return err
@@ -157,7 +157,7 @@ func (d *TopicDatastore) createTopicTables(ctx context.Context, tx pgx.Tx, id in
 	// give the triage joins
 	createDeliveryLogAttemptIndexSql := fmt.Sprintf(`
 		-- vulkan: topic.createTopicTables
-		CREATE INDEX IF NOT EXISTS %[2]s_attempt ON %[1]s.%[3]s (consumer_group_id, message_id, attempt);
+		CREATE INDEX IF NOT EXISTS %[2]s_consumer_group_id ON %[1]s.%[3]s (consumer_group_id, message_id, attempt);
 	`, d.Datastore.Schema, topic.DeliveryLogTable(id), topic.DeliveryLogTable(id))
 	if _, err := tx.Exec(ctx, createDeliveryLogAttemptIndexSql); err != nil {
 		return err
@@ -238,7 +238,7 @@ func (d *TopicDatastore) createTopicTables(ctx context.Context, tx pgx.Tx, id in
 	// by the same activity timestamp the janitor drains from the front
 	createCompactionHeadEmptyUpdatedAtIndexSql := fmt.Sprintf(`
 		-- vulkan: topic.createTopicTables
-		CREATE INDEX IF NOT EXISTS %[2]s_empty_updated_at ON %[1]s.%[2]s (updated_at, compaction_key)
+		CREATE INDEX IF NOT EXISTS %[2]s_updated_at ON %[1]s.%[2]s (updated_at, compaction_key)
 			WHERE message_id IS NULL;
 	`, d.Datastore.Schema, topic.CompactionHeadTable(id))
 	if _, err := tx.Exec(ctx, createCompactionHeadEmptyUpdatedAtIndexSql); err != nil {
@@ -289,7 +289,7 @@ func (d *TopicDatastore) createTopicTables(ctx context.Context, tx pgx.Tx, id in
 	// scan a long wait's appended retry rows
 	createBindingConfigLogIndexSql := fmt.Sprintf(`
 		-- vulkan: topic.createTopicTables
-		CREATE INDEX IF NOT EXISTS %[2]s_group ON %[1]s.%[3]s (consumer_group_id, status, declared_by, id);
+		CREATE INDEX IF NOT EXISTS %[2]s_consumer_group_id ON %[1]s.%[3]s (consumer_group_id, status, declared_by, id);
 	`, d.Datastore.Schema, topic.BindingConfigLogTable(id), topic.BindingConfigLogTable(id))
 	_, err := tx.Exec(ctx, createBindingConfigLogIndexSql)
 	return err

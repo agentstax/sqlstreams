@@ -74,7 +74,7 @@ func (d *SystemDatastore) createSystemTables(ctx context.Context, tx pgx.Tx) err
 	// the one lookup shape: a topic's rows in change order
 	createTopicConfigLogIndexSql := fmt.Sprintf(`
 		-- vulkan: system.createSystemTables
-		CREATE INDEX IF NOT EXISTS topic_config_log_topic ON %[1]s.topic_config_log (topic_id, id);
+		CREATE INDEX IF NOT EXISTS topic_config_log_topic_id ON %[1]s.topic_config_log (topic_id, id);
 	`, d.Datastore.Schema)
 	if _, err := tx.Exec(ctx, createTopicConfigLogIndexSql); err != nil {
 		return err
@@ -122,15 +122,15 @@ func (d *SystemDatastore) createSystemTables(ctx context.Context, tx pgx.Tx) err
 	for _, indexSql := range []string{
 		fmt.Sprintf(`
 			-- vulkan: system.createSystemTables
-			CREATE UNIQUE INDEX IF NOT EXISTS worker_config_topic_name ON %[1]s.worker_config (name, topic_id) WHERE topic_id IS NOT NULL;
+			CREATE UNIQUE INDEX IF NOT EXISTS worker_config_name_topic_id ON %[1]s.worker_config (name, topic_id) WHERE topic_id IS NOT NULL;
 		`, d.Datastore.Schema),
 		fmt.Sprintf(`
 			-- vulkan: system.createSystemTables
-			CREATE UNIQUE INDEX IF NOT EXISTS worker_config_group_name ON %[1]s.worker_config (name, consumer_group_id) WHERE consumer_group_id IS NOT NULL;
+			CREATE UNIQUE INDEX IF NOT EXISTS worker_config_name_consumer_group_id ON %[1]s.worker_config (name, consumer_group_id) WHERE consumer_group_id IS NOT NULL;
 		`, d.Datastore.Schema),
 		fmt.Sprintf(`
 			-- vulkan: system.createSystemTables
-			CREATE UNIQUE INDEX IF NOT EXISTS worker_config_system_name ON %[1]s.worker_config (name, system_id) WHERE system_id IS NOT NULL;
+			CREATE UNIQUE INDEX IF NOT EXISTS worker_config_name_system_id ON %[1]s.worker_config (name, system_id) WHERE system_id IS NOT NULL;
 		`, d.Datastore.Schema),
 	} {
 		if _, err := tx.Exec(ctx, indexSql); err != nil {
@@ -160,7 +160,7 @@ func (d *SystemDatastore) createSystemTables(ctx context.Context, tx pgx.Tx) err
 	// the one lookup shape: a worker's rows in change order
 	createWorkerConfigLogIndexSql := fmt.Sprintf(`
 		-- vulkan: system.createSystemTables
-		CREATE INDEX IF NOT EXISTS worker_config_log_worker ON %[1]s.worker_config_log (worker_id, id);
+		CREATE INDEX IF NOT EXISTS worker_config_log_worker_id ON %[1]s.worker_config_log (worker_id, id);
 	`, d.Datastore.Schema)
 	if _, err := tx.Exec(ctx, createWorkerConfigLogIndexSql); err != nil {
 		return err
@@ -186,11 +186,11 @@ func (d *SystemDatastore) createSystemTables(ctx context.Context, tx pgx.Tx) err
 	for _, indexSql := range []string{
 		fmt.Sprintf(`
 			-- vulkan: system.createSystemTables
-			CREATE INDEX IF NOT EXISTS worker_instance_worker ON %[1]s.worker_instance (worker_id);
+			CREATE INDEX IF NOT EXISTS worker_instance_worker_id ON %[1]s.worker_instance (worker_id);
 		`, d.Datastore.Schema),
 		fmt.Sprintf(`
 			-- vulkan: system.createSystemTables
-			CREATE INDEX IF NOT EXISTS worker_instance_expiry ON %[1]s.worker_instance (expires_at);
+			CREATE INDEX IF NOT EXISTS worker_instance_expires_at ON %[1]s.worker_instance (expires_at);
 		`, d.Datastore.Schema),
 	} {
 		if _, err := tx.Exec(ctx, indexSql); err != nil {
@@ -243,7 +243,7 @@ func (d *SystemDatastore) createSystemTables(ctx context.Context, tx pgx.Tx) err
 	// scan's join, not this index
 	createScheduleCursorDueIndexSql := fmt.Sprintf(`
 		-- vulkan: system.createSystemTables
-		CREATE INDEX IF NOT EXISTS schedule_cursor_due ON %[1]s.schedule_cursor (next_scheduled_at);
+		CREATE INDEX IF NOT EXISTS schedule_cursor_next_scheduled_at ON %[1]s.schedule_cursor (next_scheduled_at);
 	`, d.Datastore.Schema)
 	if _, err := tx.Exec(ctx, createScheduleCursorDueIndexSql); err != nil {
 		return err
