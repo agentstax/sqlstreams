@@ -17,6 +17,7 @@ func toMessage(data datastore.MessageLogRow) Message {
 		CompactionRank: data.CompactionRank,
 		Compacted:      data.Compacted,
 		Options:        data.Options,
+		ScheduledAt:    data.ScheduledAt,
 	}
 }
 

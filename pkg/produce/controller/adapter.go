@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"time"
 	"uuid"
 
 	"github.com/agentstax/vulkan/pkg/common"
@@ -8,14 +9,14 @@ import (
 	"github.com/agentstax/vulkan/pkg/produce/controller/datastore"
 )
 
-func toAppend[Message common.Versioned](idempotencyKey uuid.UUID, payload *Message, options produce.ProduceOptions) *datastore.Append[Message] {
+func toAppend[Message common.Versioned](idempotencyKey uuid.UUID, scheduledAt time.Time, payload *Message, options produce.ProduceOptions) *datastore.Append[Message] {
 	data := &datastore.Append[Message]{
 		IdempotencyKey: idempotencyKey,
 		Payload:        payload,
 		RoutingKey:     options.RoutingKey,
 		MessageKey:     options.MessageKey,
 		Options:        options.Message,
-		ScheduledAt:    options.ScheduledAt,
+		ScheduledAt:    scheduledAt,
 	}
 	if options.Compaction != nil && options.Compaction.Enable {
 		data.Compacted = true

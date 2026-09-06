@@ -34,6 +34,7 @@ export type MessageRow = {
 	compaction_rank: number;
 	compacted: boolean;
 	options: unknown;
+	scheduled_at: Date;
 };
 
 // what every message on the sandbox topic carries, the seed's and the reader's

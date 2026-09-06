@@ -15,7 +15,7 @@ type MessageMeta struct {
 	MessageKey     string    `json:"message_key"`
 	CompactionRank int64     `json:"compaction_rank"`
 	CreatedAt      time.Time `json:"created_at"`
-	ScheduledAt    time.Time `json:"scheduled_at"` // the scheduled time a schedule's message is for; zero on every other message
+	ScheduledAt    time.Time `json:"scheduled_at"` // the time the message is for: a schedule's due time, else when it was produced
 	Attempts       int       `json:"attempts"`     // runs before this one -- 0 on the first delivery
 	Delays         int       `json:"delays"`       // later runs the handler requested so far
 

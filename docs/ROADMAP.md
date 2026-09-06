@@ -28,6 +28,14 @@ the item is removed.
   - Preserve occurrence time versus creation time and manual-run timestamps.
     Ordinary producers can currently supply this value; making it scheduler-only
     is a separate decision, not an implied consequence of moving the field.
+  - Settled 2026-09-06 in build: `scheduled_at` is NOT NULL on every message
+    -- a schedule's due time, else the moment of the produce, resolved once
+    at the controller beside the idempotency key. No NULLIF/COALESCE shaping.
+
+- **Rename `scheduled_at` / `MessageMeta.ScheduledAt`.** Now that every
+  message carries the time it is for, "scheduled" overstates an ordinary
+  produce. Public rename, so its own item. The user does not like
+  `occurred_at`; no candidate yet.
 
 - **Comment sweeps** — execution list for the documentation review above;
   verify current package paths and remaining duplication before editing:

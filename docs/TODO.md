@@ -8,17 +8,19 @@ docs/decisions/.
   ROADMAP Now). Proposal drafted 2026-09-06 as the `## Proposed` section of
   website/src/content/docs/guides/schedules.mdx; review it before any code.
   - Shape: `MessageOptions.ScheduledAt` -> `ProduceOptions.ScheduledAt`;
-    message_log gains `scheduled_at TIMESTAMPTZ` (NULL on ordinary
-    messages); the `options` document holds delivery settings only;
-    `MessageMeta.ScheduledAt` unchanged. Any producer may still set it --
-    scheduler-only stays a separate decision.
+    message_log gains `scheduled_at TIMESTAMPTZ NOT NULL` -- a schedule's
+    due time, else the moment of the produce, resolved once at the
+    controller beside the idempotency key (user-settled 2026-09-06 over a
+    nullable column: the zero was a format trap nothing branched on); the
+    `options` document holds delivery settings only; `MessageMeta.ScheduledAt`
+    unchanged. Any producer may still set it -- scheduler-only stays a
+    separate decision. Rename parked as its own ROADMAP Now item.
   - Storage choice: a dedicated column, not the JSON key. Keeping the key
     means the struct that marshals `options` still carries the field, so
     the split would exist on the public surface only and every claim scan
     of `options` would need a second struct.
   - Trace (each site touched when built): produce insert (single and
-    batch, one `protectedInsertSQL`) -- new column, `NULLIF` on the zero
-    time; schedule producer `produceDue` and `RunSchedule` -- set the
+    batch, one `protectedInsertSQL`) -- new column, plain bind; schedule producer `produceDue` and `RunSchedule` -- set the
     ProduceOptions field (manual run keeps `time.Now().UTC()`);
     messageconsumer readMessages (fresh and reclaim both call it) and
     exceptionconsumer.claim's two SELECTs -- select `m.scheduled_at` into

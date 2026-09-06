@@ -14,11 +14,11 @@ export const protectedInsertUncompactedSqlTemplate = `
 			INSERT INTO %[1]s.%[3]s (payload, routing_key, schema_version, message_key, options, scheduled_at)
 			SELECT
 				$2,
-				NULLIF($3, ''),                                 -- if routing_key is empty string '' insert as NULL
+				NULLIF($3, ''), -- if routing_key is empty string '' insert as NULL
 				$4,
-				NULLIF($5, ''),                                 -- if message_key is empty string '' insert as NULL
+				NULLIF($5, ''), -- if message_key is empty string '' insert as NULL
 				$6,
-				NULLIF($7, '0001-01-01 00:00:00Z'::timestamptz) -- if scheduled_at is the zero time insert as NULL
+				$7
 			WHERE EXISTS (SELECT 1 FROM claim) -- if claim CTE didn't return anything skip this
 			RETURNING id;
 		`;

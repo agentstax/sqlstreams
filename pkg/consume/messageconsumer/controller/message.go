@@ -17,4 +17,5 @@ type Message struct {
 	CompactionRank int64  // 0 if not compacted
 	Compacted      bool   // the produce enabled Compaction
 	Options        *common.MessageOptions
+	ScheduledAt    time.Time
 }

@@ -30,6 +30,7 @@ type ClaimedException struct {
 	CompactionRank  int64 // 0 if not compacted
 	Compacted       bool  // the produce enabled Compaction
 	Options         *common.MessageOptions
+	ScheduledAt     time.Time
 }
 
 // Kill marks expired 'inflight' rows that are out of attempts 'dead'

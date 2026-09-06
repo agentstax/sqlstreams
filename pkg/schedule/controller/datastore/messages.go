@@ -61,7 +61,7 @@ func (d *ScheduleDatastore) keyMessages(ctx context.Context, topicId int64, name
 		-- vulkan: schedule.keyMessages
 		SELECT
 			m.id,
-			(m.options->>'scheduled_at')::timestamptz,
+			m.scheduled_at,
 			m.created_at
 		FROM %[1]s.%[2]s m
 		WHERE m.message_key = $1

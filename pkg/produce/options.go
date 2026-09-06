@@ -60,10 +60,9 @@ type ProduceOptions struct {
 	// Default: nil (defaults to Producer Defaults > Consumer Defaults).
 	Message *common.MessageOptions
 
-	// ScheduledAt - the scheduled time this message is for, read by the
-	// handler as MessageMeta.ScheduledAt. The schedule producer sets it to
-	// the due time; a manual schedule run sets it to the moment it ran.
-	// Default: zero (stored as NULL; the message is for no scheduled time).
+	// ScheduledAt - the time this message is for, read by the handler as
+	// MessageMeta.ScheduledAt. The schedule producer sets it to the due time.
+	// Default: zero (the moment the message is produced).
 	ScheduledAt time.Time
 }
 
