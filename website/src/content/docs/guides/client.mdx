@@ -70,9 +70,12 @@ these calculations.
 `Equal` compares stored fields, including `MaxDelays`, without filling defaults.
 Two nil policies are equal. Nil and an explicit default policy are different.
 
-The total must fit in `time.Duration`. `Validate` currently checks individual
-fields but does not reject a policy whose total overflows; such a sum can
-return a negative duration. Arithmetic overflow handling remains under review.
+`Validate` rejects policies whose calculated total retry sleep exceeds the
+largest `time.Duration`. Resolve defaults and validate before calling
+`CalculateTotalDelay`, including after editing a policy. Previously accepted
+oversized sleep budgets now return a validation error instead of wrapping.
+Operation time is excluded from this check; adding it to the budget and
+single-delay floating-point conversion remain under review.
 
 ## Message-option helpers
 

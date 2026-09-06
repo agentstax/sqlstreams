@@ -34,11 +34,16 @@ func (p *RetryPolicy) CalculateDelay(attempt int) time.Duration {
 }
 
 // CalculateTotalDelay sums sleeps before the final datastore attempt, excluding
-// operation time and early exits. The defaulted, valid policy's sum must fit time.Duration.
+// operation time and early exits. Call WithDefaults and Validate before calculating.
 func (p *RetryPolicy) CalculateTotalDelay() time.Duration {
 	var total time.Duration
 	for attempt := range p.MaxRetries - 1 {
-		total += p.CalculateDelay(attempt)
+		delay := p.CalculateDelay(attempt)
+		// Constant backoff and the capped tail need only one multiplication.
+		if p.Exponent == 1 || delay == p.MaxDelay {
+			return total + delay*time.Duration(p.MaxRetries-1-attempt)
+		}
+		total += delay
 	}
 	return total
 }
@@ -105,6 +110,22 @@ func (p *RetryPolicy) Validate() error {
 	// Exponent < 1 flips CalculateDelay's sign on alternating attempts
 	if p.Exponent < 1 {
 		return fmt.Errorf("Exponent must be >= 1, got %d", p.Exponent)
+	}
+
+	remaining := time.Duration(math.MaxInt64)
+	for attempt := range p.MaxRetries - 1 {
+		delay := p.CalculateDelay(attempt)
+		count := 1
+		if p.Exponent == 1 || delay == p.MaxDelay {
+			count = p.MaxRetries - 1 - attempt
+		}
+		if delay > 0 && time.Duration(count) > remaining/delay {
+			return fmt.Errorf("total retry delay exceeds maximum supported duration (%s)", time.Duration(math.MaxInt64))
+		}
+		remaining -= delay * time.Duration(count)
+		if count > 1 {
+			break
+		}
 	}
 	return nil
 }

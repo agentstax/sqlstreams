@@ -1,9 +1,44 @@
 package common
 
 import (
+	"math"
+	"strings"
 	"testing"
 	"time"
 )
+
+func TestRetryPolicyValidatesTotalDelay(t *testing.T) {
+	for _, sample := range []struct {
+		name      string
+		policy    RetryPolicy
+		want      time.Duration
+		overflows bool
+	}{
+		{"constant overflow", RetryPolicy{MaxRetries: 3, BaseDelay: 1 << 62, MaxDelay: 1 << 62, Exponent: 1}, 0, true},
+		{"constant fits", RetryPolicy{MaxRetries: 2, BaseDelay: 1 << 62, MaxDelay: 1 << 62, Exponent: 1}, 1 << 62, false},
+		{"growing fits", RetryPolicy{MaxRetries: 4, BaseDelay: 1 << 60, MaxDelay: 1 << 62, Exponent: 2}, 7 << 60, false},
+		{"capped overflow", RetryPolicy{MaxRetries: 5, BaseDelay: 1 << 60, MaxDelay: 1 << 62, Exponent: 2}, 0, true},
+		{"no sleeps", RetryPolicy{MaxRetries: 1, BaseDelay: 1 << 62, MaxDelay: 1 << 62, Exponent: 2}, 0, false},
+		{"many tiny sleeps", RetryPolicy{MaxRetries: math.MaxInt, BaseDelay: 1, MaxDelay: 1, Exponent: 1}, time.Duration(math.MaxInt - 1), false},
+		{"many capped sleeps", RetryPolicy{MaxRetries: math.MaxInt, BaseDelay: 1 << 62, MaxDelay: 1 << 62, Exponent: 2}, 0, true},
+	} {
+		t.Run(sample.name, func(t *testing.T) {
+			err := sample.policy.Validate()
+			if sample.overflows {
+				if err == nil || !strings.Contains(err.Error(), "total retry delay exceeds") {
+					t.Fatalf("expected total-delay validation error, got %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := sample.policy.CalculateTotalDelay(); got != sample.want {
+				t.Fatalf("validated total = %v, want %v", got, sample.want)
+			}
+		})
+	}
+}
 
 func TestRetryPolicyDelaySchedule(t *testing.T) {
 	policy := &RetryPolicy{

@@ -19,9 +19,10 @@ docs/decisions/.
   Owner retains fields and Kind; SQL column conversion moved to pkg/datastore,
   and the unused IdColumns method is removed.
   RetryPolicy helpers stay public; comments and contract tests are complete.
-  Boundary verification found total-delay overflow for valid fields. Review
-  arithmetic handling with the producer's added operation allowance before
-  closing this item; details are in `_public-surface.md`.
+  Validate now directly rejects total retry sleep overflow; CalculateTotalDelay
+  only calculates the validated budget. Review the producer's added operation
+  allowance and single-delay conversion before closing this item; details
+  are in `_public-surface.md`.
 
 - Table name + column review (pre-v1, last pass before the DDL is expensive
   to change). Automated review 2026-09-06; `tools/conventions` DDL walk
