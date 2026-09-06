@@ -34,7 +34,7 @@ contract before v1. Removed records a decision implemented in this review.
 | Removed mutation surface | Diagnostic aliases' `Diagnose` methods and mutable declaration fields | Error/event declaration fields are private with read accessors; constructors copy trailing query arguments and register complete declarations. Queries returns detached values. With/Wrap, matching, rendering, recovery, and docs remain. Old field reads/assignments and Diagnose calls require migration. Application values attached via With and exported variable reassignment remain outside these guarantees. |
 | Keep | Configuration WithDefaults/Validate and enum validation | Existing caller-visible default/validation pattern. Review correctness and documentation, not export removal by default. |
 | Keep | Metrics, alerts, Worker/Owner/InstanceTarget read-models | Operators need these through the public handles. Do not demote merely because worker or metrics packages own declarations. |
-| Question | `Worker.Metadata any` | Keep observability, but specify what shape callers may rely on. A supported field does not automatically make every implementation metadata JSON shape a stable control API. |
+| Keep | `Worker.Metadata any` | Documented as a stored JSON-compatible configuration snapshot with worker-specific fields and omitted defaults, not an instance's effective settings. Local edits do not update the worker. Preserve operator inspection without making implementation metadata types or field shapes stable client contracts. |
 | Keep | `Topic.Migrate`, `System.Migrate`, `System.MigrateTopics` | Different resources/scopes, not redundant spellings. Migration registries stay importable advanced options. |
 | Keep | Current topic/group/system/schedule Destroy methods | Distinct resource operations. DestroyTopicVersion and AlterSystem are not current vulkan methods; no consolidation based on those stale examples. |
 
@@ -147,7 +147,7 @@ free constructor for that type is exported by vulkan.
 | `ScheduleMessageOutcome` | [schedule.ScheduleMessageOutcome](pkg/schedule/message_status.go) | None declared | Keep |
 | `ScheduleStoredMessage` | [schedule.ScheduleStoredMessage](pkg/schedule/stored_message.go) | `SchemaVersion`, `MarshalJSON` | Keep |
 | `System` | [system.System](pkg/system/system.go) | None declared | Keep |
-| `Worker` | [worker.Worker](pkg/worker/worker.go) | None declared | Question |
+| `Worker` | [worker.Worker](pkg/worker/worker.go) | None declared | Keep |
 | `InstanceTarget` | [worker.InstanceTarget](pkg/worker/worker.go) | `Suspended`, `Validate` | Keep |
 | `DestroyOptions` | [admin.DestroyOptions](pkg/admin/topic.go) | None declared | Keep |
 | `SystemConfig` | [system.SystemConfig](pkg/system/system_config.go) | `WithDefaults`, `Validate` | Keep; domain-owned declaration, composed from alert and metrics configs; admin retains registration orchestration |

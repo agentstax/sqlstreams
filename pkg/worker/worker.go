@@ -29,9 +29,11 @@ func (t InstanceTarget) Validate() error {
 
 // Worker is one row of the worker_config table.
 type Worker struct {
-	Id              int64          `json:"id"`
-	Name            string         `json:"worker"`
-	Owner           *common.Owner  `json:"owner"`
-	Metadata        any            `json:"metadata"` // JSONB; each caller owns its shape
+	Id    int64         `json:"id"`
+	Name  string        `json:"worker"`
+	Owner *common.Owner `json:"owner"`
+	// Metadata is a stored configuration snapshot with worker-specific fields and omitted defaults.
+	// It is not an instance's effective configuration; editing it does not update the worker.
+	Metadata        any            `json:"metadata"`
 	TargetInstances InstanceTarget `json:"target_instances"`
 }

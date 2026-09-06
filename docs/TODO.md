@@ -10,7 +10,9 @@ docs/decisions/.
   delete the working inventory at close-out.
   Client.Datastore and the PostgresDatastore alias are removed; CLI/lab/benchmark
   callers use owned pools and explicit datastores. Continue with the remaining
-  question rows. Client.Config and Client.Logger are also removed; construction
+  review close-out after the retry arithmetic follow-up. Worker.Metadata stays
+  public as a documented stored-configuration inspection snapshot.
+  Client.Config and Client.Logger are also removed; construction
   captures settings and copies the supplied retry policy.
   Diagnostic error/event declarations now use private fields and read accessors;
   constructors own query values, Queries returns snapshots, and Diagnose is removed.

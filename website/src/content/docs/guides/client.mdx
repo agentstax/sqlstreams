@@ -146,6 +146,24 @@ no queries; a nil query argument is rejected. Arbitrary application values
 attached through `With` are not deep-copied, and exported package error variables
 can still be reassigned.
 
+## Worker metadata
+
+`ConsumerHandle.Workers(ctx)` exposes each worker's stored configuration through
+`Worker.Metadata`. The field contains a JSON-compatible inspection snapshot;
+its fields depend on the worker kind and can omit defaults. It does not report
+the effective configuration of every running instance. Editing the returned
+value does not update the worker.
+
+For example, the `billing` consumer's message-consumer worker may contain
+`"message": {"timeout": 10000000000}`: a 10-second timeout was stored. An absent
+`timeout` means it was omitted, not that deliveries have no timeout. Defaults
+are resolved when the worker reads its configuration.
+
+The supported API preserves access to this stored document. Worker-specific
+metadata fields and implementation metadata types are outside the stable
+client contract; callers should tolerate unfamiliar or absent fields when
+displaying it. Use the public configuration types when registering resources.
+
 ## Two grammars
 
 The client selects the noun: `Topic[T](name)`, `Scheduler(name)`, and a
