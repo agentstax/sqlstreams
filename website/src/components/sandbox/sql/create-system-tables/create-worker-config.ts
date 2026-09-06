@@ -6,7 +6,7 @@ export const createWorkerConfigSql = `
 			system_id BIGINT REFERENCES %[1]s.system_config (id) ON DELETE CASCADE,
 			topic_id BIGINT REFERENCES %[1]s.topic_config (id) ON DELETE CASCADE,
 			consumer_group_id BIGINT REFERENCES %[1]s.consumer_group_config (id) ON DELETE CASCADE,
-			name TEXT NOT NULL,                      -- 'janitor' | 'cursor_advancer' | 'schedule_producer' | user-defined
+			name TEXT NOT NULL,                      -- 'manager' | 'topic_janitor' | 'consumer_group_janitor' | 'cursor_advancer' | 'message_consumer' | 'delivery_consumer' | 'exception_consumer' | 'schedule_producer' | 'metrics_collector' | user-defined
 			metadata JSONB NOT NULL DEFAULT '{}',    -- per-worker config, written by the declaration that creates the row
 			target_instances INT NOT NULL DEFAULT 1, -- 0 = suspended, -1 = unbounded
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

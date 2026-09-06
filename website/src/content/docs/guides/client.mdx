@@ -74,8 +74,10 @@ Two nil policies are equal. Nil and an explicit default policy are different.
 largest `time.Duration`. Resolve defaults and validate before calling
 `CalculateTotalDelay`, including after editing a policy. Previously accepted
 oversized sleep budgets now return a validation error instead of wrapping.
-Operation time is excluded from this check; adding it to the budget and
-single-delay floating-point conversion remain under review.
+Operation time is excluded from retry-policy validation. Producer construction
+also checks that retry sleeps plus its per-attempt create-ahead operation
+allowance fit in `time.Duration`; an oversized combined budget fails construction.
+Single-delay floating-point conversion remains under review.
 
 ## Message-option helpers
 
