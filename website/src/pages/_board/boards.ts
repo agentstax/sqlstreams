@@ -36,6 +36,7 @@ export const boards: Board[] = [
 			'concepts/message-key',
 			'concepts/ordering',
 			'concepts/metrics-export',
+			'concepts/alert-history',
 		],
 	},
 	{

@@ -1,0 +1,182 @@
+---
+title: 'Proposed: alerts from measurement history'
+description: Collector progress, sampled pending duration, restart gaps, and alert production without user-managed timers.
+---
+
+Vulkan would own pending duration and produce actionable `active` and
+`resolved` alerts. These implementation choices are proposed for review;
+the history-based direction is agreed, but none of this behavior has shipped.
+[OTel export](/concepts/metrics-export/) is independent of alert evaluation.
+
+## Proposed: start with collector progress
+
+Add one system-scoped warning alert, `metrics_collector_progress`, enabled
+through normal system registration. Keep `partition_count`,
+`compaction_read_cost`, and `worker_liveness` unchanged, including their
+hourly defaults. No custom alert framework or new backlog alert is included.
+
+| Choice | Proposed behavior |
+| --- | --- |
+| Check cadence | Every minute, using existing scheduled-alert machinery |
+| Maximum completion age | Greater of two minutes or three collector poll intervals by default |
+| Pending duration | Two minutes of consecutive unhealthy observations |
+| Maximum observation gap | Two minutes; a larger gap breaks the sequence |
+| Freshness | Newest observation must be at most two minutes old |
+| Recovery | One fresh healthy observation resolves an active alert |
+| Reminder | Existing four-hour repeat default, bounded by alert retention |
+
+Proposed `MetricsCollectorProgressAlertConfig` adds `MaximumAge` and
+`PendingDuration` through `SystemConfig.MetricsCollectorProgressAlert`.
+Zero `MaximumAge` derives the default from the live collector poll rate;
+zero `PendingDuration` defaults to two minutes. Both resolved durations must
+be positive. Cadence, maximum gap, and freshness stay fixed for this check.
+Slow full collection passes can require a larger explicit `MaximumAge`.
+
+Each run resolves one policy and applies it to the whole history window.
+Changing settings can change the next verdict using existing observations;
+it does not start a new timer or rewrite history.
+
+## Proposed: record completion and progress
+
+Use two attribute-free gauges in `__system.metrics`, with unit `s`:
+
+| Measurement name | Value | `At` |
+| --- | --- | --- |
+| `vulkan.metrics.collector.completed_timestamp` | Completion time as Unix seconds | When the full pass completed |
+| `vulkan.metrics.collector.observed_completion_timestamp` | Latest completion time seen, or 0 for no retained evidence | When the independent check read the evidence |
+
+Both Prometheus names replace dots with underscores and append `_seconds`.
+Completion timestamps must be after the Unix epoch; 0 is explicitly absent
+evidence, never an actual completion or a healthy value. Absence stays in the
+same series, so losing evidence does not split the history across labels.
+Storing a timestamp follows [Prometheus instrumentation guidance](https://prometheus.io/docs/practices/instrumentation/#timestamps-not-time-since).
+
+The completion write follows every collection read and measurement write,
+including concurrent topic work. A failed pass produces no completion; a
+completion write that cannot commit is not evidence of success. Startup
+never refreshes it. Use the Postgres clock for these new built-in timestamps
+so switching evaluator processes does not switch clock sources.
+For these two series, use `At.UnixMicro()` as the existing compaction rank:
+a late write must not replace a newer observation's head. History still
+retains both writes; this does not change other metrics' head ordering.
+
+The independent check records a real read at execution time, not at the
+schedule's intended time. Replaying yesterday's scheduled request cannot
+manufacture yesterday's observations. A read error records no sample and
+returns the error through normal worker diagnostics. Retrying the same
+sample's write reuses its idempotency key; a new read is a new observation.
+
+## Proposed: calculate the sampled duration
+
+This is logical pseudocode, not a callable API:
+
+```text
+unhealthy(observation, maximumAge):
+    return observation.Value == 0
+        or observation.At - completionTime(observation.Value) > maximumAge
+
+evaluate(history, evaluationTime, policy):
+    order eligible observations by At, then stored message id
+    for equal At, use the highest message id
+    if no observations exist or newest is older than two minutes:
+        return insufficient_evidence
+    if newest contains a completion later than its observation time:
+        return insufficient_evidence
+    if not unhealthy(newest, policy.MaximumAge):
+        return healthy
+
+    walk backward through unhealthy observations
+        stop at healthy or unusable evidence, or a gap > two minutes
+    if newest.At - earliest.At >= policy.PendingDuration:
+        return active
+    return pending
+```
+
+A completion exactly at the maximum age is healthy. A gap exactly two
+minutes is allowed. Reaching the pending duration activates; one old sample
+cannot activate just because the evaluator waits. Historical samples use
+their own observation times, never today's age of their recorded completion.
+
+Only fresh healthy evidence resolves. Pending, missing history, unreadable
+history, and unusable timestamps cannot resolve an existing active alert.
+Missing completion evidence is different: a successful read recording 0 is
+an unhealthy observation and can contribute to an activation.
+
+## Proposed: read enough history
+
+Read one complete retained window through the existing core history path.
+For evaluation time `E`, pending duration `P`, and maximum gap `G = 2m`, use
+the inclusive window `[E - P - 2G, E]`. With defaults this is six minutes.
+It includes the predecessor needed to cross the pending boundary even when
+the newest observation is almost two minutes old. Do not interpolate across
+the boundary or truncate the result to a fixed number of rows.
+
+Use `Measurement.At` for eligibility and ordering; message id only breaks
+ties, never proves commit order. One database read supplies the visible
+evidence set. A late commit can change the next evaluation, but does not
+rewrite a verdict already produced. Preserve public `History(ctx, limit)`
+behavior; this work does not reinterpret custom backdated measurements.
+
+The metrics topic keeps its 24-hour retention setting. Require retention
+longer than `P + 2G`, or disabled retention, and reject an incompatible policy
+with an actionable error. Physical partition cleanup is not an exact sample
+expiry; enforce the logical window even when older rows remain. Missing
+coverage cannot establish the required span. Read or decoding failures abort
+evaluation, without producing a recovery.
+
+## Proposed: restart behavior
+
+For system 1, measurement message 8100 records a successful completion at
+17:00. Vulkan then stops overnight. These are illustrative stored ids:
+
+```text
+09:00  message 9201 sees yesterday's completion -> pending, sampled span 0m
+09:01  message 9202 sees yesterday's completion -> pending, sampled span 1m
+09:02  message 9203 sees yesterday's completion -> active, sampled span 2m
+```
+
+If collection instead completes at 09:01:15, the 09:02 observation is healthy
+and no new active alert is produced. If an alert was already active before
+shutdown, pending observations leave it active until fresh healthy evidence
+resolves it. Restarting just the evaluator during a qualifying sequence
+does not reset the span. Missing a check for more than two minutes does.
+
+Detection includes the completion-age allowance, the sampled pending span,
+and scheduling delay. These defaults are a tolerance policy, not a guarantee
+to detect failure within two wall-clock minutes. A stopped observer or an
+unreadable database cannot report its own outage while it remains stopped.
+
+## Proposed: produce transitions and reminders safely
+
+Record the raw observation before alert evaluation, so evidence survives an
+alert-write failure. Reuse the existing alert compaction head for serializing
+decisions; it stores produced alert state, not a pending timer.
+
+```text
+begin transaction
+    LockHead(alert name + system owner)
+    read current history and evaluation time after acquiring the lock
+    calculate state with this run's resolved policy
+    healthy -> existing recovery classification
+    active  -> existing activation / reminder classification
+    pending or insufficient_evidence -> produce nothing
+    ProduceInTx only when classification requires an alert
+commit
+```
+
+The existing `LockHead` and `ProduceInTx` seams can carry this operation.
+[Postgres row locks](https://www.postgresql.org/docs/17/explicit-locking.html#LOCKING-ROWS)
+hold competing writers until the transaction ends. Refreshing history after
+the lock avoids committing a verdict calculated before a competing check.
+Use one record/classification path; strengthen its atomicity without changing
+the three existing alerts' conditions or reminder policy.
+The new check uses its database evaluation time for reminder comparisons too.
+
+Against a retained active head, repeated evaluation stays quiet until the
+repeat interval passes; reminders require currently sufficient active
+evidence. A fresh healthy result produces one resolution. Retry an ambiguous
+commit by rereading the head and evidence, never blindly resending the old
+verdict. This protects recorded transitions under the shared lock, not
+external notification delivery: consuming an alert can still be retried.
+Once alert retention removes its head, previous notification state is no
+longer known and a qualifying active result can produce a new alert.

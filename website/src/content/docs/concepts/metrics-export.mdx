@@ -1,14 +1,15 @@
 ---
 title: 'Proposed: exporting retained measurements'
-description: The agreed direction for OTel export, history-based alerts, and collector progress without caller-managed pending state.
+description: Proposed OTel producer behavior, source-read health, portable naming, and lifecycle ownership.
 ---
 
 Vulkan would derive alerts from recorded measurement history and export
 retained values through an OTel producer. Core owns alert timing and restart
 behavior; integrations consume actionable `active` and `resolved` alerts
 without maintaining pending timers or suppressing startup alerts themselves.
-This proposal is agreed in direction and has not shipped. Implementation
-details still requiring review are listed at the end.
+The direction is agreed and has not shipped. The concrete names below are
+proposed for review; core timing is specified in
+[history-based alerts](/concepts/alert-history/).
 
 ## What exists today
 
@@ -65,7 +66,16 @@ deltas. See the SDK's [periodic reader](https://github.com/open-telemetry/opente
 
 Keep the upstream OTel Prometheus exporter and expose source-read success.
 HTTP 200 alone would not establish that Postgres was read successfully.
-These signal names are shorthand; their public names remain under review.
+The proposed health signals are collection-local gauges with no attributes:
+
+| OTel name | Unit | Prometheus name |
+| --- | --- | --- |
+| `vulkan.otel.source.read_success` | none | `vulkan_otel_source_read_success` |
+| `vulkan.otel.measurements.rejected` | `{measurement}` | `vulkan_otel_measurements_rejected` |
+
+They describe this adapter's collection, never persisted core measurements.
+The rejection value counts retained rows omitted, once each, not families or
+a lifetime total. A rejected family omits all its rows.
 
 | Source result | Producer result | Prometheus result |
 | --- | --- | --- |
@@ -86,6 +96,12 @@ attribute names. Reject conflicting kind or unit within a metric family,
 ambiguous translated names or attribute keys, and custom names that enter
 the reserved `vulkan_` or exporter-owned namespace. Healthy families still
 export; a current-collection rejection count and diagnostic identify loss.
+Report rejection through the warning diagnostic `measurements cannot be
+exported`, naming the conflicting original names and reason, without payloads.
+Partial rejection does not return a
+collection error: periodic readers must still export the healthy families.
+Reserve the two health names even against retained built-in measurements;
+reserve upstream metadata names and `otel_scope_` attribute names as well.
 
 For example, custom `billing.queue_depth` and `billing_queue_depth` both
 translate to `billing_queue_depth`. Reject both families rather than choose
@@ -95,108 +111,30 @@ metadata immutability across time.
 
 ## Proposed: derive alerts from history
 
-Pending duration would be calculated from consecutive qualifying
-observations. There is no pending-state table, persisted pending deadline,
-or evaluator-revision mechanism. A fixed history, evaluation time, and policy
-give the same result.
-
-The following is logical pseudocode, not a new API:
-
-```text
-evaluate(history, evaluationTime, condition, pendingDuration, maximumGap):
-    select observations at or before evaluationTime
-    order them by observation time
-
-    if no observations exist or the newest is too old:
-        return insufficient_evidence
-
-    if the newest observation does not meet the condition:
-        return healthy
-
-    walk backward through qualifying observations
-        stop at an observation that does not qualify
-        stop at a gap larger than maximumGap
-
-    duration = newest observation time - earliest time in that sequence
-    if duration >= pendingDuration:
-        return active
-    return pending
-```
-
-For `orders` / `billing`, suppose backlog
-[VK0083](/errors/VK0083/) must stay above 100 for two minutes.
-These values and thresholds are illustrative, not a new built-in backlog
-alert or selected defaults:
-
-```text
-Yesterday 17:00  backlog 140
-                [Vulkan is off overnight]
-Today     09:00  backlog 130 -> pending; the overnight gap breaks the sequence
-          09:00:30       125
-          09:01         120
-          09:01:30      115
-          09:02         110 -> active; two minutes of qualifying observations
-```
-
-An evaluator restart during those two minutes changes no timer state.
-A fresh healthy observation can resolve an active alert; pending or
-insufficient evidence does not resolve one automatically. Alert production
-retains responsibility for repeats and concurrency. Deterministic evaluation
-does not itself prevent duplicate alert messages.
-
-The history must cover the required window. An arbitrary row limit or
-retention gap cannot establish continuous evidence. Session counters that
-skip unchanged totals and custom measurements with application-owned cadence
-need condition-specific rules; elapsed time alone does not prove failure.
+Core would calculate pending duration from consecutive recorded observations,
+with no pending-state table or user-managed timer. The proposed first use is
+the system-scoped `metrics_collector_progress` alert. Existing alerts retain
+their current conditions and schedules; this adds no custom alert framework
+or backlog alert. The [history contract](/concepts/alert-history/) covers the
+defaults, pseudocode, restart example, and repeat/concurrency boundaries.
 
 ## Proposed: observe collector progress independently
 
-Core would record successful collector completion only after every part of
-the pass and its measurement writes succeed. A partially completed pass
-cannot advance that completion evidence. Restart never resets it.
+The collector would record completion only after the whole pass succeeds.
+An independent scheduled check records which completion it can see, including
+explicit absent evidence. [Collector observations](/concepts/alert-history/#proposed-record-completion-and-progress)
+use the existing measurement shape; neither OTel nor a separate user-run
+server owns them. If all checking machinery stops, Vulkan cannot produce an
+outage report while it is stopped.
 
-A separate check in Vulkan's existing scheduled-alert machinery would read
-that evidence and record progress observations in measurement history.
-It runs independently of the collector, with no extra server for users to
-manage. Conceptually, an observation holds its own observation time and the
-last successful completion it found, or an explicit absence of retained
-success evidence. The concrete metric representation remains under review.
+## Proposed: deployment boundary
 
-```text
-on a collector-progress check:
-    read the latest successful completion
-    if the read cannot complete:
-        return the error; record no fabricated observation
+Configure one logical export target per installation. Multiple adapter
+replicas read the same deployment totals; summing those replicas duplicates
+the measurement. Provider resource identity belongs to the caller and must
+identify the installation; the adapter adds no replica coordination.
 
-    record the progress observation
-    read its retained history
-    evaluate each sample using its own observation time
-    derive pending or active from the qualifying sequence
-    send the result through normal alert production
-```
-
-This adds one logical observation per check, not stored alert timing state.
-After a day offline, the first observation starts a new sequence. If the
-collector recovers before enough unhealthy observations accumulate, no new
-active alert is produced. If it stays stuck while the check keeps running,
-the evidence can establish an active alert.
-
-A read with no retained completion evidence differs from a read error.
-Neither a stopped observer nor an unreadable database can prove recovery.
-If all checking machinery stops, Vulkan cannot produce an outage report
-while it is stopped.
-
-## Before implementation
-
-- Review the collector completion and independent progress-observation
-  representations, including public names and absent evidence.
-- Set check cadence, progress thresholds, pending durations, and permitted
-  gaps. Define the time-window read, ordering of late observations, and
-  retention requirements through existing core machinery.
-- Review alert activation, recovery, repeats, and concurrent or repeated
-  evaluation against fixed evidence. Apply history-based behavior to the
-  intended checks explicitly; existing alerts do not change silently.
-- Verify empty sources, read errors, rejected families, newly appearing
-  names, concurrent collections, shutdown, and restart gaps. Document one
-  logical export target per installation so replicas are not summed as
-  independent deployment measurements.
+Implementation must verify empty sources, read errors, partial rejection,
+new names, concurrent collections, cancellation, and shutdown against the
+pinned SDK. Diagnostic codes are allocated with their declarations and
+reference pages when implemented; this proposal does not reserve serials.
