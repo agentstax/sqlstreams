@@ -5,6 +5,21 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-05 — Janitor cleanup steps have separate deadlines [0662][0663]
+
+The topic janitor now gives each of its five explicit controller calls a
+separate timeout, collects their errors, and stops further steps when the
+parent context is canceled. `JanitorConfig.CleanupTimeout` defaults to five
+seconds and includes datastore retries. The start log reports the timeout;
+the existing tick runner reports the combined errors and applies backoff.
+The client guide documents partial progress and the managed fleet's default.
+
+Root build, janitor package race tests, conventions tests, the retention
+sweep lab, and the guide's Markdown checks pass. Regression tests exercise
+separate deadlines through the controller/retry/pool-acquisition path,
+collection of all five timeout errors, and parent cancellation stopping
+later steps without opening database connections.
+
 ## 2026-09-05 — System registration sets the metrics collector rate [0661]
 
 `RegisterSystemConfig.MetricsCollector.PollRate` now reaches the collector

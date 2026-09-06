@@ -3,6 +3,7 @@ package janitor
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/agentstax/vulkan/pkg/common"
 	"github.com/agentstax/vulkan/pkg/common/logging"
@@ -54,7 +55,7 @@ func newJanitorInstance(janitor *JanitorProvisioner, current *topic.Topic, claim
 // Run sweeps until ctx cancels; a requested stop returns nil. The claimed
 // instance releases on the way out however Run exits.
 func (i *JanitorInstance) Run(ctx context.Context) error {
-	i.Logger.InfoContext(ctx, "janitor starting", "vulkan_version", common.BuildVersion(), "rate", i.metadata.PollRate)
+	i.Logger.InfoContext(ctx, "janitor starting", "vulkan_version", common.BuildVersion(), "rate", i.metadata.PollRate, "cleanup_timeout", i.Config.CleanupTimeout)
 
 	err := i.runner.Run(ctx, i.sweep)
 	if err == nil {
@@ -66,17 +67,62 @@ func (i *JanitorInstance) Run(ctx context.Context) error {
 // sweep is one janitor pass.
 func (i *JanitorInstance) sweep(ctx context.Context) error {
 	current := i.Topic
-	if err := i.controller.DropExpiredPartitions(ctx, current.Id, current.PartitionSize, current.RetentionTTL, current.AllowDropPastCommitted, current.DeliveryLogMode); err != nil {
+	var sweepErrors []error
+
+	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if err := i.controller.SweepExpiredPartitions(ctx, current.Id, current.PartitionSize, current.RetentionTTL, current.AllowDropPastCommitted, i.metadata.SweepBatchSize, current.DeliveryLogMode); err != nil {
-		return err
+
+	dropCtx, cancelDrop := context.WithTimeout(ctx, i.Config.CleanupTimeout)
+	err := i.controller.DropExpiredPartitions(dropCtx, current.Id, current.PartitionSize, current.RetentionTTL, current.AllowDropPastCommitted, current.DeliveryLogMode)
+	cancelDrop()
+	if err != nil {
+		sweepErrors = append(sweepErrors, fmt.Errorf("drop expired partitions: %w", err))
 	}
-	if err := i.controller.SweepExpiredIdempotencyKeys(ctx, current.Id, current.IdempotencyKeyTTL, i.metadata.SweepBatchSize); err != nil {
-		return err
+
+	if err := ctx.Err(); err != nil {
+		return errors.Join(append(sweepErrors, err)...)
 	}
-	if err := i.controller.SweepExpiredEmptyCompactionHeads(ctx, current.Id, current.EmptyCompactionHeadTTL, i.metadata.SweepBatchSize); err != nil {
-		return err
+
+	partitionsCtx, cancelPartitions := context.WithTimeout(ctx, i.Config.CleanupTimeout)
+	err = i.controller.SweepExpiredPartitions(partitionsCtx, current.Id, current.PartitionSize, current.RetentionTTL, current.AllowDropPastCommitted, i.metadata.SweepBatchSize, current.DeliveryLogMode)
+	cancelPartitions()
+	if err != nil {
+		sweepErrors = append(sweepErrors, fmt.Errorf("sweep expired partitions: %w", err))
 	}
-	return i.controller.SweepExpiredKeyLeases(ctx, current.Id, i.metadata.SweepBatchSize)
+
+	if err := ctx.Err(); err != nil {
+		return errors.Join(append(sweepErrors, err)...)
+	}
+
+	idempotencyKeysCtx, cancelIdempotencyKeys := context.WithTimeout(ctx, i.Config.CleanupTimeout)
+	err = i.controller.SweepExpiredIdempotencyKeys(idempotencyKeysCtx, current.Id, current.IdempotencyKeyTTL, i.metadata.SweepBatchSize)
+	cancelIdempotencyKeys()
+	if err != nil {
+		sweepErrors = append(sweepErrors, fmt.Errorf("sweep expired idempotency keys: %w", err))
+	}
+
+	if err := ctx.Err(); err != nil {
+		return errors.Join(append(sweepErrors, err)...)
+	}
+
+	emptyCompactionHeadsCtx, cancelEmptyCompactionHeads := context.WithTimeout(ctx, i.Config.CleanupTimeout)
+	err = i.controller.SweepExpiredEmptyCompactionHeads(emptyCompactionHeadsCtx, current.Id, current.EmptyCompactionHeadTTL, i.metadata.SweepBatchSize)
+	cancelEmptyCompactionHeads()
+	if err != nil {
+		sweepErrors = append(sweepErrors, fmt.Errorf("sweep expired empty compaction heads: %w", err))
+	}
+
+	if err := ctx.Err(); err != nil {
+		return errors.Join(append(sweepErrors, err)...)
+	}
+
+	keyLeasesCtx, cancelKeyLeases := context.WithTimeout(ctx, i.Config.CleanupTimeout)
+	err = i.controller.SweepExpiredKeyLeases(keyLeasesCtx, current.Id, i.metadata.SweepBatchSize)
+	cancelKeyLeases()
+	if err != nil {
+		sweepErrors = append(sweepErrors, fmt.Errorf("sweep expired key leases: %w", err))
+	}
+
+	return errors.Join(sweepErrors...)
 }

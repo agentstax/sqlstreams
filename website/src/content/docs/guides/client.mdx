@@ -828,6 +828,21 @@ deployments need it: consumer pods beside a dedicated `vulkan manager
 run`, and consumers under a database role with no DDL rights, since
 the topic janitor creates and drops partitions.
 
+The topic janitor gives each of its five cleanup steps a separate five-second
+deadline, including datastore retries. A step that times out returns its error;
+the remaining steps still run with fresh deadlines. Shutdown or loss of the
+worker claim stops the remaining steps. A pass with any errors is recorded as
+a failed tick and follows the existing retry backoff, even when other steps
+completed. The start log reports `cleanup_timeout`; the tick error names
+each cleanup step that returned an error.
+
+For example, if partition sweeping for `orders.placed` (topic id `42`) times
+out, expired key-lease cleanup for `billing` (group id `7`) still gets its own
+five seconds. Earlier committed batches remain committed. The five deadlines
+are separate from the poll delay, so a pass can take longer than five seconds.
+`pkg/topic/janitor.JanitorConfig.CleanupTimeout` configures this duration for
+a directly constructed provisioner; the managed fleet uses the default.
+
 Admin verbs run nothing. The producer runs nothing, and that is the
 one gap: a deployment that only produces accumulates partitions with
 no log line saying why.

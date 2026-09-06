@@ -8,6 +8,10 @@ import (
 )
 
 type JanitorConfig struct {
+	// CleanupTimeout limits each cleanup operation, including its queries and retries.
+	// Default: 5s.
+	CleanupTimeout time.Duration
+
 	// InstanceTTL is how long the claimed worker_instance row stays live
 	// without a renewal -- past it the instance counts as dead and a
 	// replacement can claim. The heartbeat renews at half this.
@@ -23,6 +27,9 @@ type JanitorConfig struct {
 }
 
 func (c *JanitorConfig) WithDefaults() *JanitorConfig {
+	if c.CleanupTimeout == 0 {
+		c.CleanupTimeout = 5 * time.Second
+	}
 	if c.InstanceTTL == 0 {
 		c.InstanceTTL = 30 * time.Second
 	}
@@ -36,6 +43,9 @@ func (c *JanitorConfig) WithDefaults() *JanitorConfig {
 // Validate runs after WithDefaults -- anything still out of range here was
 // set by the caller, not left unset.
 func (c *JanitorConfig) Validate() error {
+	if c.CleanupTimeout <= 0 {
+		return fmt.Errorf("CleanupTimeout must be > 0, got %v", c.CleanupTimeout)
+	}
 	if c.InstanceTTL <= 0 {
 		return fmt.Errorf("InstanceTTL must be > 0, got %v", c.InstanceTTL)
 	}
