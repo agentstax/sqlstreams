@@ -9,9 +9,9 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// ConsumerInstance is a registered consumer group whose Consume also keeps
-// the deployment's upkeep running: the system manager runs beside the
-// session unless ClientConfig.DisableManager opted out.
+// ConsumerInstance is a registered consumer group. Consume runs its session
+// and, when its context supports cancellation, the deployment's upkeep
+// unless ClientConfig.DisableManager is set.
 type ConsumerInstance[Message Versioned] struct {
 	instance *consumer.ConsumerInstance[Message]
 
@@ -29,17 +29,22 @@ func newConsumerInstance[Message Versioned](instance *consumer.ConsumerInstance[
 	return &ConsumerInstance[Message]{instance: instance, manager: manager, runManager: runManager}, nil
 }
 
-// Consume runs the group's session and the system manager beside it. A
-// manager error before its first claim tears the session down; after that,
-// manager failures are logged and retried, never returned (SystemManager.Run).
+// Consume blocks for the group's session; cancel ctx to start graceful shutdown.
+// options may be nil for defaults. LifecycleContext supplies a shutdown context.
+//
+// A context without cancellation returns ErrLifecycleContextNotCancellable
+// unless options.DisableGracefulShutdown is set; that case runs no manager.
+//
+// The manager runs beside the session unless ClientConfig.DisableManager is set.
+// A manager error before its first claim tears the session down; later manager
+// failures are logged and retried. Session exit stops the paired manager.
 func (i *ConsumerInstance[Message]) Consume(ctx context.Context, consumerFunc ConsumerFunc[Message], options *ConsumeOptions) error {
 	if !i.runManager {
 		return i.instance.Consume(ctx, consumerFunc, options)
 	}
 
-	// if we can't cancel the context then we can't rely on errgroup
-	// to correctly stop manager. So if user has an uncancellable context
-	// AND they have DisabledGracefulShutdown let them run consumer only.
+	// Preserve the session's cancellation guard before deriving a cancellable
+	// context; the explicit opt-out runs only the consumer.
 	if ctx.Done() == nil {
 		return i.instance.Consume(ctx, consumerFunc, options)
 	}

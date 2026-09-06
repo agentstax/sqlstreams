@@ -21,28 +21,6 @@ rewrite-to-the-real-API pass 2026-08-22 [0581], the board rebuild
 2026-08-23 [0582] [0583] [0584], the consumer-flow sandbox 2026-08-25
 [0585] [0586] [0587]. All three are in HISTORY.md.
 
-- **Library work the doc pass surfaced.**
-  - **DefaultProducer / DefaultConsumer** for easier quickstarts, with
-    comments and maybe a log line recommending against production use.
-    UNBLOCKED: this was sequenced behind the quickstart rewrite so the
-    Default constructors would be built against observed friction rather
-    than guessed, and that rewrite shipped in [0581].
-    - The friction it observed, mostly closed by the one-client shape
-      (HISTORY 2026-09-01): a consumer needing a MessageAdmin and
-      RegisterSystem just to GetTopic ([0624] + `client.Topic(name)`),
-      ConsumerConfig.Retry beside Message.Retry (ambient config is held
-      once on the client), produce-only deployments getting no upkeep
-      silently (VK0063, [0627]), `&topiccontroller.TopicConfig{}` for the
-      common case (it is `vulkan.TopicConfig` and nil is verified —
-      playground 01), and pkg/common and pkg/topic inviting aliasing in
-      user code (every user-spelled type is in `vulkan`). What is left:
-      Consume's cancellable-ctx requirement is still a
-      context.Background() trap, VK0002, discoverable only by hitting
-      it.
-  - Go doc comments on the public API — the surfaces the worker and schedule
-    rounds finalized never got a doc-comment pass. [0581] fixed
-    RoutingKey's in passing; the rest are unreviewed.
-
 - **Public surface trim** (decisions settled 2026-08-01, recorded in
   _public-surface.md; build pending — deliberately late so the decisions get
   re-confirmed after living with the surface through the passes above):
@@ -70,9 +48,19 @@ rewrite-to-the-real-API pass 2026-08-22 [0581], the board rebuild
     gets deleted until a real system-wide knob exists ([0516]).
 - **Named-return-params house style** — decide and apply consistently across
   the reviewed surface.
-- **Comment conventions for public surfaces** — a standard: description,
-  defaults, errors, doc links. Plus standardized SQL formatting.
-- **Comment sweeps:**
+- **Public API documentation review** — after public surface trim, audit
+  exported handles, instances, and the declaring packages behind aliases
+  against current behavior. Apply CONVENTIONS.md's existing comment and SQL
+  rules; refine them only where a concrete gap remains. [0664]
+  - Cover meaningful defaults, lifecycle/cancellation requirements, errors,
+    and destructive effects; link to the relevant guide where it helps.
+    Review what callers see through `vulkan`, not the old worker/schedule
+    constructor inventory.
+  - Reconcile quickstarts and the public roadmap with the one-client API.
+    The normal constructors already supply defaults; no separate
+    DefaultProducer / DefaultConsumer path is planned.
+- **Comment sweeps** — execution list for the documentation review above;
+  verify current package paths and remaining duplication before editing:
   - fanOut (pkg/consumer/deliveryconsumer/controller/datastore/fanout.go) —
     both the Go comments and the ones inside snapshotSql/scanSql. SQL
     comments ship to Postgres, so every comment edit needs a live lab re-run

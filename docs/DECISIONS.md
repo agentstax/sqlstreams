@@ -416,3 +416,4 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0661 2026-09-05 accepted (pre-v1) — The system declaration configures the metrics collector
 - 0662 2026-09-05 superseded in part by 0663 (pre-v1) — Janitor cleanup steps have separate deadlines
 - 0663 2026-09-05 accepted (pre-v1) — The janitor timeout names cleanup
+- 0664 2026-09-06 accepted (pre-v1) — Defaults use the normal client API

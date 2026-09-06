@@ -208,9 +208,11 @@ by Vulkan itself — there is no SQL migration file to apply by hand.
    Two things here are load-bearing:
 
    - `vulkan.LifecycleContext` wires SIGINT/SIGTERM into the context.
-     `Consume` requires a cancellable context — it refuses
-     `context.Background()` — because graceful shutdown is part of the
-     contract, not an option. Ctrl-C drains cleanly.
+     `Consume` requires a cancellable context by default and refuses
+     `context.Background()`. Ctrl-C starts graceful shutdown. Explicitly
+     setting `ConsumeOptions.DisableGracefulShutdown` permits a context
+     without cancellation; that session also runs without the embedded
+     manager, so a separate manager or consumer session must carry upkeep.
    - `ConsumerConfig.Bindings` is the group's binding set; leaving it
      unset means the whole topic. Handlers should be idempotent —
      redelivery after a crash or timeout is normal at-least-once behavior.

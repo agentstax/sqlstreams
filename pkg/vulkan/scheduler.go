@@ -66,6 +66,8 @@ func (s *SchedulerHandle) Messages(ctx context.Context, limit int) ([]*ScheduleM
 	return s.client.admin.ScheduleMessages(ctx, s.name, limit)
 }
 
+// Destroy permanently deletes the schedule. Returns ErrDestroyDisabled
+// unless ClientConfig.AllowDestroy is set.
 func (s *SchedulerHandle) Destroy(ctx context.Context) error {
 	return s.client.admin.DestroySchedule(ctx, s.name)
 }

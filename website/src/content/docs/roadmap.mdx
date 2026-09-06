@@ -50,10 +50,11 @@ docs themselves are mid-rewrite to that standard.
 ## Next: the v1 surface
 
 A deliberate public-API design pass before anything is frozen: naming and
-shape review across the whole surface, a `DefaultProducer` /
-`DefaultConsumer` short path for quickstarts (today's constructors are
-explicit on purpose, but the first program shouldn't need six of them),
-and finished doc comments. v1 means the surface stops moving.
+shape review first, then a documentation audit of the retained surface.
+The [client API](/guides/client/) already provides defaults through its
+normal constructors. The remaining documentation work covers defaults,
+shutdown requirements, errors, and destructive effects on the public handles
+and instances. v1 means the surface stops moving.
 
 ## Later: what a workload has to earn
 

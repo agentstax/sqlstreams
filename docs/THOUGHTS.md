@@ -2,24 +2,6 @@
 
 09 and 11 - need to review again and make sure code makes sense and clearly outlines what it intends to describe.
 
-janitor sweep step need to be non blocking with a timeout context, otherwise can get blocked
-func (i *JanitorInstance) sweep(ctx context.Context) error {
-	current := i.Topic
-	if err := i.controller.DropExpiredPartitions(ctx, current.Id, current.PartitionSize, current.RetentionTTL, current.AllowDropPastCommitted, current.DeliveryLogMode); err != nil {
-		return err
-	}
-	if err := i.controller.SweepExpiredPartitions(ctx, current.Id, current.PartitionSize, current.RetentionTTL, current.AllowDropPastCommitted, i.metadata.SweepBatchSize, current.DeliveryLogMode); err != nil {
-		return err
-	}
-	if err := i.controller.SweepExpiredIdempotencyKeys(ctx, current.Id, current.IdempotencyKeyTTL, i.metadata.SweepBatchSize); err != nil {
-		return err
-	}
-	if err := i.controller.SweepExpiredEmptyCompactionHeads(ctx, current.Id, current.EmptyCompactionHeadTTL, i.metadata.SweepBatchSize); err != nil {
-		return err
-	}
-	return i.controller.SweepExpiredKeyLeases(ctx, current.Id, i.metadata.SweepBatchSize)
-}
-
 # Docs
 
 Make small little comment about client api being design for old timers who still like to hand write code occassionally

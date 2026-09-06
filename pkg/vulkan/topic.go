@@ -48,6 +48,9 @@ func (t *TopicHandle[Message]) MigrationVersion(ctx context.Context) (int64, err
 	return t.client.admin.TopicMigrationVersion(ctx, t.name)
 }
 
+// Rename changes the registered name and returns the updated topic. This handle
+// keeps its old name; registered instances keep working through the topic id.
+// Returns ErrTopicNotFound for an absent topic or ErrTopicNameTaken on conflict.
 func (t *TopicHandle[Message]) Rename(ctx context.Context, newName string) (*Topic, error) {
 	return t.client.admin.RenameTopic(ctx, t.name, newName)
 }
@@ -58,6 +61,8 @@ func (t *TopicHandle[Message]) Destroy(ctx context.Context, options *DestroyOpti
 	return t.client.admin.DestroyTopic(ctx, t.name, options)
 }
 
+// Health reports each payload version's retirement verdict from stored metrics
+// snapshots. An unregistered topic returns ErrTopicNotFound.
 func (t *TopicHandle[Message]) Health(ctx context.Context) ([]*TopicVersionHealth, error) {
 	return t.client.admin.TopicHealth(ctx, t.name)
 }

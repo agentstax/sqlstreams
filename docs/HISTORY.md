@@ -5,6 +5,18 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-06 — Quickstart defaults use the normal client API [0664]
+
+Retired the DefaultProducer / DefaultConsumer proposal and consolidated the
+remaining documentation audit after public surface trim, with comment sweeps
+as its execution list. The public roadmap now describes the one-client API.
+Public Consume comments and the quickstart explain cancellation and the
+explicit opt-out's effect on the embedded manager. Topic Rename and Health
+and schedule Destroy now describe their contracts. Runtime behavior is unchanged.
+
+Root build, vulkan package race tests, conventions tests, and Markdown checks
+for the edited site pages pass. The broader public API audit remains on ROADMAP.
+
 ## 2026-09-05 — Janitor cleanup steps have separate deadlines [0662][0663]
 
 The topic janitor now gives each of its five explicit controller calls a
