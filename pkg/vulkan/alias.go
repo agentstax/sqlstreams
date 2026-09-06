@@ -73,7 +73,6 @@ type (
 	ScheduleMessageOutcome = schedule.ScheduleMessageOutcome
 	ScheduleStoredMessage  = schedule.ScheduleStoredMessage
 
-	SystemConfig   = system.SystemConfig
 	System         = system.System
 	Worker         = worker.Worker
 	InstanceTarget = worker.InstanceTarget

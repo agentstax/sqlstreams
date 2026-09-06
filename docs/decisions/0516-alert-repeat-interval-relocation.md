@@ -29,5 +29,6 @@ silently broke the active-head-republishes-before-sweep guarantee.
 
 **Consequences.** The system row is a bare singleton anchor;
 ErrSystemConfigMismatch has nothing to compare until a future knob lands.
+
 CLI system get/alter shrink to the stub. The repeat-vs-retention invariant
 is now enforced against live state instead of a registration default.

@@ -5,17 +5,12 @@ import (
 
 	"github.com/agentstax/vulkan/pkg/alert"
 	"github.com/agentstax/vulkan/pkg/metrics"
-	"github.com/agentstax/vulkan/pkg/system"
 )
 
-// RegisterSystemConfig is RegisterSystem's spec -- the system's own settings,
-// the schedule each built-in alert is evaluated on, and the metrics
-// collector's poll rate. Every field is optional.
+// RegisterSystemConfig is RegisterSystem's spec -- the schedule each built-in
+// alert is evaluated on and the metrics collector's poll rate. Every field is
+// optional.
 type RegisterSystemConfig struct {
-	// System - the control-plane settings scoped to no single topic.
-	// Default: SystemConfig's own defaults.
-	System *system.SystemConfig
-
 	// PartitionCountAlert - the partition_count alert declaration.
 	// Default: its own defaults.
 	PartitionCountAlert *alert.PartitionCountAlertConfig
@@ -34,10 +29,6 @@ type RegisterSystemConfig struct {
 }
 
 func (c *RegisterSystemConfig) WithDefaults() *RegisterSystemConfig {
-	if c.System == nil {
-		c.System = &system.SystemConfig{}
-	}
-	c.System.WithDefaults()
 	if c.PartitionCountAlert == nil {
 		c.PartitionCountAlert = &alert.PartitionCountAlertConfig{}
 	}
@@ -60,9 +51,6 @@ func (c *RegisterSystemConfig) WithDefaults() *RegisterSystemConfig {
 // Validate runs after WithDefaults -- anything still out of range here was
 // set by the caller, not left unset.
 func (c *RegisterSystemConfig) Validate() error {
-	if err := c.System.Validate(); err != nil {
-		return fmt.Errorf("System: %w", err)
-	}
 	if err := c.PartitionCountAlert.Validate(); err != nil {
 		return fmt.Errorf("PartitionCountAlert: %w", err)
 	}

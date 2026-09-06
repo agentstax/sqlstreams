@@ -56,7 +56,7 @@ func (a *MessageAdmin) RegisterSystem(ctx context.Context, cfg *RegisterSystemCo
 	if err != nil {
 		return err
 	}
-	registered, err := a.systemController.Register(ctx, cfg.System)
+	registered, err := a.systemController.Register(ctx)
 	if err != nil {
 		return err
 	}

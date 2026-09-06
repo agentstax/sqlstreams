@@ -18,11 +18,11 @@ separate from semantic changes so import changes do not obscure API changes.
 ## Decisions to review first
 
 Keep means retain the current capability. Question means settle its public
-contract before v1. Remove means a recommended removal, still awaiting review.
+contract before v1. Removed records a decision implemented in this review.
 
 | Verdict | Surface | Recommendation and consequence |
 | --- | --- | --- |
-| Remove | `RegisterSystemConfig.System`, `SystemConfig` alias | Empty configuration offers no choice. Retain RegisterSystemConfig and its alert/collector fields. Remove the member and alias together; adapt registration's internal default construction. Existing callers setting System would need to omit it. No settings or stored rows should be lost. |
+| Removed (review in progress) | `RegisterSystemConfig.System`, `SystemConfig` alias | Empty configuration offered no choice. RegisterSystemConfig retains alert and collector settings; registration creates the singleton directly. No settings or stored rows changed. |
 | Question | `Client.Datastore()`, `PostgresDatastore` alias | This returns shared state with writable Pool, Schema, Logger, and Retry. Decide whether this is an intentional supported escape hatch. Keep until direct users and integrations are checked; deleting only the alias cannot hide a reachable return type. A replacement must preserve custom SQL/integration needs without creating a second datastore. |
 | Question | `Client.Config`, `Client.Logger` | Exported mutable state can imply live reconfiguration, but different components retain different resolved values. Decide whether these are supported read access, live controls, or construction details. Trace mutations before promising behavior; do not silently make existing assignments ineffective. |
 | Keep | `ProducerConfig.Batch`, `BatcherConfig` | MaxSize, ConcurrencyLimit, AttemptTimeout, and ShutdownGrace express caller-visible batching and cancellation tradeoffs. Their implementation-package location is not a reason to remove them. |
@@ -127,7 +127,6 @@ free constructor for that type is exported by vulkan.
 | `ScheduleMessageStatus` | [schedule.ScheduleMessageStatus](pkg/schedule/message_status.go) | None declared | Keep |
 | `ScheduleMessageOutcome` | [schedule.ScheduleMessageOutcome](pkg/schedule/message_status.go) | None declared | Keep |
 | `ScheduleStoredMessage` | [schedule.ScheduleStoredMessage](pkg/schedule/stored_message.go) | `SchemaVersion`, `MarshalJSON` | Keep |
-| `SystemConfig` | [system.SystemConfig](pkg/system/system_config.go) | `WithDefaults`, `Validate` | Remove (proposed) |
 | `System` | [system.System](pkg/system/system.go) | None declared | Keep |
 | `Worker` | [worker.Worker](pkg/worker/worker.go) | None declared | Question |
 | `InstanceTarget` | [worker.InstanceTarget](pkg/worker/worker.go) | `Suspended`, `Validate` | Keep |
@@ -186,7 +185,7 @@ noted above, not their availability to users.
 | Broad internal moves / datastore interfaces | No blanket relocation or interface introduction. Revisit only a concrete use case. |
 | Unexport common retry helpers | Not reachable through vulkan as free functions; no supported-surface benefit. |
 | DestroyTopicVersion / AlterSystem examples | Obsolete names; inspect current handles instead. |
-| Delete field-less RegisterSystem config | RegisterSystemConfig now has real settings. Review only its empty System member. |
+| Delete field-less RegisterSystem config | Implemented during this review: removed only the empty System member; RegisterSystemConfig retains its real settings. |
 
 ## Implementation order after review
 
