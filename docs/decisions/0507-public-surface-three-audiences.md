@@ -1,5 +1,5 @@
 ---
-status: superseded by 0665
+status: superseded
 date: 2026-08-01
 phase: "13"
 ---

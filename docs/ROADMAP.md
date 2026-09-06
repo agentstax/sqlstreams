@@ -16,6 +16,16 @@ the item is removed.
 
 ## Now
 
+- **Metrics export contract and package alignment** — direction [0678];
+  proposed contract in `website/src/content/docs/concepts/metrics-export.mdx`.
+  Working details live in TODO.md.
+
+- **Cookie-notice art is a placeholder** -- `website/public/i-like-money.gif`
+  and `laughing-pointing.png` are Nickelodeon's and a build publishes them
+  [0600]. Swap for CC0 / CC BY (Kenney, game-icons.net) before the site
+  ships; classic memes are never an option. This line fell out of the
+  ROADMAP in the site-versioning commit and was restored 2026-09-06.
+
 - **Reliability lab -- the hour-long live run** (verdict, not a
   measurement: the sibling of `just compat-lab`, housed under bench/ so
   it shares the container / env / record plumbing, its record carrying a
@@ -72,12 +82,6 @@ the item is removed.
   and [0670] once its destination is selected. Update imports and path-aware
   tooling separately from semantic API changes; no module split is selected.
 
-The public-surface review is closed [0670]. Remaining cleanup and documentation
-work build on those decisions before v1 freezes the supported contract.
-
-- **Contributor documentation** — write the guide for setting up a development
-  environment, making and verifying a change, and submitting it for review.
-
 - **Potential project rename away from "vulkan".** No candidate yet; decide
   before v1 -- after v1 the name is public API. A rename ripples through the
   module path, the CLI binary, the docs site (docsBaseURL const in
@@ -85,6 +89,9 @@ work build on those decisions before v1 freezes the supported contract.
   plus every declared code -- codes never renumber after v1, so the prefix
   must be final first).
   - need to make sure we build out new logo sheet as well
+
+- **Contributor documentation** — write the guide for setting up a development
+  environment, making and verifying a change, and submitting it for review.
 
 - **Search-engine submission** -- after the doc-site sitemap is deployed,
   verify the canonical site property in Google Search Console and Bing

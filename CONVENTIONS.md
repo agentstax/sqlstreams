@@ -102,7 +102,10 @@ surfaces it.
 | sentinel | coinage for a declared error value | named error variable; error value |
 | attr, attrs | shorthand for a word the reader should never have to expand | attribute; log attribute (`slog.Attr` is stdlib and keeps its name) |
 | hole (a template's blank) | coinage for a blank the reader fills in | placeholder |
-| park, give-back, IOU, slot, settle, cede | coined mechanism shorthand | the row/column/status/action it literally is |
+| park, give-back, IOU, slot, settle, cede, squat, arm (a predicate branch) | coined mechanism shorthand | the row/column/status/action it literally is |
+| work (a variable holding a message) | a job-queue noun for the deserialized message | `message` |
+| staffed, unstaffed (a worker row) | coinage for the count of live claim rows | claimed, unclaimed (live worker_instance rows) |
+| firing (an alert) | Prometheus's word for an alert status | active; a republish is a "repeat", never a "re-fire" |
 | snooze | a job-queue verb for what is a handler-requested later run | delay; `consume.Delay`, the `delays` column, `RetryPolicy.MaxDelays` |
 | allow, defer (concurrency policy values) | verbs for what the new message does; the values name what the key permits | parallel, exclusive, ordered (`deferred` stays the row status) |
 | compaction key (the message's key) | the key is a message property; compaction is one of its two readers [0612] | message key (compaction_head's own compaction_key column keeps its name) |
@@ -116,6 +119,11 @@ surfaces it.
   oversized diff for the feature's conceptual size is itself the smell.
 - No new shared packages for logic both producer and consumer need -- write it
   on each side's datastore in its local style. Duplication beats abstraction.
+  That rule covers logic with NO owning domain: when a domain package already
+  owns the logic (an alert's condition, its thresholds and texts), each side
+  builds that domain's controller from `ds` and injects it -- never a copy.
+  An import cycle in the way is a layering bug to fix, not a reason to
+  duplicate.
 - One established mechanism per fact -- never introduce a second read path or
   derivation for something the codebase already computes one way.
 - One concept = one named home. Policy tables become a pure classify function
@@ -306,7 +314,10 @@ More complex validation may justify sharing; duplication alone does not.
 
 - Every public datastore method is EXACTLY a `DatastoreRetry.Wrap` around a
   same-named private method -- all SQL, scanning, and result shaping live in
-  the private, even for one-query reads.
+  the private, even for one-query reads. A method that runs inside a caller's
+  transaction cannot Wrap, and still keeps the pair: its public is a bare
+  pass-through (`return d.claimDueSchedule(ctx, q, id)`). Never collapse a
+  pair.
 - Every scan-destination row struct tags each field `db:"column"` with the
   column or alias its query returns -- the tag is the field's column
   contract regardless of scan style. Write shapes, derived outcomes, and
@@ -363,7 +374,11 @@ More complex validation may justify sharing; duplication alone does not.
 - A Config struct holds ONLY optional fields: every field is either filled
   by WithDefaults or meaningful at zero. A Validate error on a field
   WithDefaults never fills is a required value hiding in the config -- move
-  it into the constructor's params.
+  it into the constructor's params. A Config holds static values only --
+  never a func or other runnable field, even an optional one. Two things
+  that must run together are composed in the layer that already holds both
+  (the `vulkan.ConsumerInstance` wrapper running the system manager beside
+  Consume [0642]), never through a callable on a config or a runnable param.
 - Config fields order domain-first, grouped by concern with blank lines,
   ending with any per-loop retry curves (SweepRetry, TickRetry).
   WithDefaults and Validate walk fields in declaration order; a default
@@ -407,8 +422,14 @@ More complex validation may justify sharing; duplication alone does not.
   is itself pointer-classified (`[]*Topic`); never `[]*T` to make room for
   nil entries.
 - Config structs are passed as `*Config` while being resolved --
-  `WithDefaults()` mutates in place. A long-lived instance stores a value
-  copy once resolved, so caller mutations after construction change nothing.
+  `WithDefaults()` mutates in place. A long-lived instance stores the
+  resolved pointer as `Config *<X>Config`, the shape every instance,
+  provisioner, and worker kind already has; never convert one to a value
+  copy.
+- A loop passing value-slice elements to a read-only adapter takes the range
+  variable's address: `for _, data := range xs { toThing(&data) }`, never
+  `&xs[i]`. Reserve `&xs[i]` for a callee that must mutate the element in
+  place.
 - Constructors return `(*Struct, error)`, nil on error: a caller that
   ignores the error panics at first use with a stack trace, instead of
   proceeding on a zero value that looks meaningful.
@@ -466,7 +487,12 @@ topic's family -- never both.
 - Column names [0613]: instants end `_at` -- past events as past
   participles (created_at, attempted_at), expiry always expires_at -- and
   a lower-bound gate ends `_after` (can_run_after). Durations are BIGINT
-  nanoseconds ending `_ns`. The user's opaque document is `payload`
+  nanoseconds ending `_ns`. A version column is an ordinal and INTEGER;
+  BIGINT is for ids, `_ns` durations, sizes, and compaction_rank -- never
+  widen a version column. A table's own `id BIGSERIAL` surrogate is never
+  dropped in favour of a natural key, and a column kept for flexibility
+  (migration_log.consumer_group_id) is never dropped for being unwritten.
+  The user's opaque document is `payload`
   everywhere. A fact about the row itself is bare; a fact about an
   attached concept carries that concept's prefix (claim_lease.token vs
   exception_queue.lease_token); `last_` marks latest-of-many. Singular =
@@ -714,7 +740,10 @@ classification question.
 - `logging.NewPipelineLogger` is the ONE wrapper: its config declares
   what the pipeline composes -- `Buffer` (WithLogBuffer boundaries),
   `Suppress` (repeat collapse), `Args` (bound attributes) -- and building
-  over an existing pipeline merges instead of nesting.
+  over an existing pipeline merges instead of nesting. `Args` CONCATENATE on
+  merge, so a bound logger goes to a local, never back into the config field
+  it was built from -- two clients sharing one `*ClientConfig` would
+  otherwise name both schemas on every line.
 - Identity is bound once: a long-lived component binds its attributes at
   construction -- `NewPipelineLogger` with `Args` -- and its call sites
   never repeat the bound keys.

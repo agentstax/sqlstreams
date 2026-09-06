@@ -13,7 +13,7 @@ are in `docs/DECISIONS.md`. A new record adds its number to its line.
 - compaction, message key, rank, ordered/exclusive/parallel, key lease, deadlock: 0261-0273 0403 0463 0574 0612 0617 0659-0660
 - produce, ProduceInTx, batch, idempotency key, uuid: 0021-0023 0283-0284 0321-0323 0376 0525 0622-0623 0634
 - synchronous_commit, crash lab, bench method: 0081-0086
-- errors (VK codes, fix, diagnose), logging (levels, buffer, suppression, stop line), metrics declarations, collector poll rate, payload never logged: 0302-0305 0326 0522-0524 0550-0554 0558-0569 0589-0590 0647-0648 0661 0666 0670
+- errors (VK codes, fix, diagnose), logging (levels, buffer, suppression, stop line), metrics declarations, collector poll rate, export freshness, otel, Prometheus, payload never logged: 0302-0305 0326 0522-0524 0550-0554 0558-0569 0589-0590 0647-0648 0661 0666 0670 0678
 - migrations, schema versioning, advisory lock, MinCompatibleVersion, Postgres schema/search_path: 0341-0347 0501 0526-0527 0579-0580 0588 0629-0632 0650
 - workers, worker_instance, system manager, liveness, instance target, Run loop, fatal consumption errors: 0421-0431 0537 0545-0549 0627 0635-0642 0671
 - schedules, cron, missed runs, job status: 0461-0473 0621
@@ -24,5 +24,5 @@ are in `docs/DECISIONS.md`. A new record adds its number to its line.
 - client shape, handles, Register, lifecycle ctx, shutdown, named return parameters: 0361-0377 0625 0633-0646 0657 0664-0665 0670 0672
 - CLI: nested module, flags, --output json: 0354-0355 0576
 - doc site: board, sandbox, versioning, voice, cookie, errors, links: 0581-0610 0651 0677
-- rejected/reverted (do not re-suggest): 0270 latest_key backfill, 0379 PartitionsAhead, 0591 pglite prefetch, 0594 byte ceilings, 0672 mandatory named client results, 0673 0675 scheduled time as a message_log column / sent_at
+- rejected/reverted (do not re-suggest): 0270 latest_key backfill, 0379 PartitionsAhead, 0591 pglite prefetch, 0594 byte ceilings, 0672 mandatory named client results, 0673 0675 scheduled time as a message_log column / sent_at, 0323 a library retry inside InTransaction, 0536 a never-nil MessageOptions (NULLIF/COALESCE reshape), 0578 any fillfactor change without measured HOT-ratio degradation, 0626 strict declaration forms (RequireMatch, a stale-build gate)
 - playground, examples, handler placement, handle and instance names: 0674

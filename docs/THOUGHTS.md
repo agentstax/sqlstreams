@@ -2,14 +2,11 @@
 
 09 and 11 - need to review again and make sure code makes sense and clearly outlines what it intends to describe.
 
-Need to review otel package again and re-align and make sure serves purposes well and in consistent patterns
-
 # Docs
 
-Need contributor doc
+cleanup and split out the website docs. They have grown a bit unruly and I much prefer smaller bite sized doc pages.
 
-Make small little comment about client api being design for old timers who still like to hand write code occassionally
-- ie can easily discover through dot tree notation what is available
+cleanup root documents and /docs documents (mostly root docs like AGENT.md)
 
 roadmap later item for review code for interesting design decisions to write articles on (big or small things)
 - diagnostic code system
@@ -35,9 +32,11 @@ roadmap later item for review code for interesting design decisions to write art
 
 # Review
 
-Probably should have one more table name and column review (this will be hard to change later)
-
 should probably look to see if we could speed up claim query its gotten unruly with ctes and conditionals
+
+## Manual
+
+Probably should have one more table name and column review (this will be hard to change later)
 
 need to make sure we do some manual testing for cli, metrics and alerts
 

@@ -30,6 +30,7 @@ export const boards: Board[] = [
 			'concepts/routing',
 			'concepts/message-key',
 			'concepts/ordering',
+			'concepts/metrics-export',
 		],
 	},
 	{

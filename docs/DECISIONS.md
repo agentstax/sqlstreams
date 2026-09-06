@@ -430,3 +430,4 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0675 2026-09-06 rejected (pre-v1) — The message's own time is sent_at
 - 0676 2026-09-06 accepted (pre-v1) — Admin owns orchestration and domains own validation rules and resource reads
 - 0677 2026-09-06 accepted (pre-v1) — Public API comments state their contract
+- 0678 2026-09-06 accepted (pre-v1) — Metrics export distinguishes read success and observation freshness

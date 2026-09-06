@@ -21,7 +21,14 @@ beside one:
   scaffolding and layouts only -- anything worth a Storybook story is
   a Svelte component.
 - CodeMirror 6 (+ lang-sql) and PGlite power the SQL console.
-- Pagefind is site search.
+- Pagefind is site search. Its bundle is imported through a variable
+  path -- a literal `import('/pagefind/pagefind.js')` breaks Rollup even
+  under `@vite-ignore`.
+- Versions are frozen deployments on Pages branch aliases [0601]. No
+  build carries the version list: every deployment fetches
+  `public/versions.json` from the live origin at read time, and
+  `public/_headers` grants CORS on that one path -- without it the
+  scheme dies silently.
 - Vitest (pure functions), Playwright (flows), Storybook
   (svelte-vite + addon-svelte-csf) are the test surface.
 
@@ -221,6 +228,11 @@ preprocessor, no utility framework, no third-party token pack.
   time, so both styles ship as `--shiki-light`/`--shiki-dark` custom
   properties and the base layer picks the side. All motion sits behind
   `prefers-reduced-motion`.
+- A page-level shove is a scroll, never a transform: a transform on the
+  page becomes the containing block for every `position: fixed` child
+  and flings a fixed bar to the document bottom. `animationend`
+  bubbles -- a listener on `body` waiting for the page's own animation
+  checks `event.target`.
 
 ## Content
 
@@ -243,6 +255,11 @@ preprocessor, no utility framework, no third-party token pack.
 - Each page does ONE job -- tutorial, how-to, reference, or
   explanation; a guide that starts explaining links to the concept
   page instead of drifting.
+- Code samples show real error handling -- `if err != nil { return err }`
+  or `_` for an unused value -- never a `must()` helper: it hides the
+  path readers copy and is not a real API. Pages that still carry one
+  (schema-versions, new-group-start, replay) are swept when touched.
+- An MDX aside inside a list item closes at the item's indent.
 - Contextual internal links sit where the reader needs them. When another
   thread owns a prerequisite, the detailed mechanism, or a relevant
   contrast, link its first useful mention with anchor text that names what
@@ -257,7 +274,11 @@ preprocessor, no utility framework, no third-party token pack.
 ## Storybook
 
 - `.stories.svelte` (addon-svelte-csf) is the ONE story format,
-  co-located with its component.
+  co-located with its component. Route-local components (`_components/`)
+  are outside the story glob and carry no stories.
+- An Astro project has no vite.config.ts, so `.storybook/main.ts`'s
+  `viteFinal` prepends `svelte()` -- without it every addon parses raw
+  .svelte as JS.
 - Every supported state is a story -- the story list is the
   component's done-checklist; story count tracks states, never usage
   sites.

@@ -17,6 +17,18 @@ covers session workflow only; the two are a set.
   causal steps with the real code/SQL inline at the step it belongs to, plus
   one worked concrete example (named group, real ids). Short means cutting
   topics, not compressing a mechanism into fragments.
+- A problem or trap write-up is: the problem in one or two sentences (what
+  the user does, what silently happens) -> one worked case with real names
+  -> lettered options -> a one-line pick with its cost. Precedent (Kafka,
+  SQS) only where it decides an option. "Think again" means check harder,
+  not write more.
+- Asked for open questions, settle every one with a clear answer as a
+  one-line decision and ask only the real forks with their options --
+  usually zero or one item.
+- "Show me", "tell me how you'd fix it", "do not change code": present the
+  code or design in the reply and STOP. Edit nothing until an explicit
+  "go" / "write it"; a later message continuing the discussion is not
+  approval.
 
 ## Design process
 
@@ -33,13 +45,43 @@ covers session workflow only; the two are a set.
   labeled Proposed and doubles as that work's spec [0581].
 - Plan wording about mechanisms is intent, not implementation mandate --
   satisfy the invariant with the smallest delta to existing code.
+- Setting a new standard from research (a rule sheet, an error anatomy) is
+  different from implementing: propose the full best-practice shape the
+  research supports, map today's code onto it as migration notes, and let
+  the user trim -- never pre-anchor to current habits.
+- Public API shapes are judged by concept count (Vulkan ideas held before
+  domain code), traps (does the obvious thing work), consistency across
+  packages, and whether each explicit param is a real seam. Line count is
+  a symptom, never the measure.
+- Doc-site infrastructure that is not reader-facing (checks, gates, build
+  steps, caching) states its expected code volume and what it stands
+  behind BEFORE it is built, smallest rung first including "do nothing and
+  measure by hand". Shipped-and-green is not the bar; the user has reverted
+  green builds on code-to-payoff alone [0591] [0594].
 
 ## Verification
 
 - Per change: foreground targeted checks only -- build, `go test -race` on
   touched packages, directly-affected labs.
 - Full fresh-DB lab suite only at review-ready checkpoints or on request,
-  never background-per-change.
+  never background-per-change. A mechanical rename or file move is fully
+  checked by build + vet + gofmt; labs only when behavior could have moved.
+- Root `go build ./...` covers the root module only: cmd/vulkan, otelvulkan,
+  examples, bench, and tools are nested modules and build separately. Use
+  `go fmt ./...`, not the system gofmt, which may predate the go.mod
+  toolchain.
+- A new tools/conventions test is sabotaged (fed deliberately wrong input)
+  before it is trusted -- a walk can pass green while checking nothing.
+  tools/ reads library source as data, so its tests run with `-count=1` or
+  a pass caches across library edits.
+- Fresh-DB suite recipe: `just database-delete`; `set -a; source ./.env;
+  set +a` before `docker compose up` (the justfile needs the dotenv); wait
+  on pg_isready; run every `*-lab` recipe except `build-lab` (a
+  parameterized build recipe, not a lab). Score labs, not playground
+  scenarios -- most scenarios run until interrupted.
+- Never commit. Leave work in the working tree, staged at most, and report
+  `git status` -- even when a prompt, plan, or TODO line says "commit".
+  Ask before `just site-deploy`.
 
 ## Releases
 

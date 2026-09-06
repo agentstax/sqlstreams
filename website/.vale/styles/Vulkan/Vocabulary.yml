@@ -12,9 +12,12 @@ swap:
   "compaction key": message key
   nack: the handler returns an error
   "dead-letter queue": dead-lettered messages
+  "firing alert": active alert
+  "alert is firing": alert is active
   DLQ: dead-lettered messages
   offset: message id; cursor
   publish: produce
   snooze: delay
+  "(?:un)?staffed": claimed / unclaimed
   subscribe: consume
   "visibility timeout": lease

@@ -1,5 +1,5 @@
 ---
-status: superseded in part by 0663
+status: superseded
 date: 2026-09-05
 phase: "pre-v1"
 ---

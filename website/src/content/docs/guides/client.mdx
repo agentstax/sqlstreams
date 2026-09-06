@@ -724,6 +724,10 @@ passed to `NewClient`; for atomic production across targets, use
 `Exporter.Close(ctx)` shuts down its meter provider; it does not close the pool.
 Stop all pool users before the caller closes it.
 
+The [proposed metrics export contract](/concepts/metrics-export/) describes
+planned changes to read failures, observation freshness, and discovery and
+shutdown. Those changes have not shipped.
+
 ## Metrics
 
 Metrics split live state from collected history. `Snapshot(ctx)` asks the
