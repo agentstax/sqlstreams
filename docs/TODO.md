@@ -20,8 +20,9 @@ docs/decisions/.
   and the unused IdColumns method is removed.
   RetryPolicy helpers stay public; comments and contract tests are complete.
   Validate now directly rejects total retry sleep overflow; CalculateTotalDelay
-  only calculates the validated budget. Review the producer's added operation
-  allowance and single-delay conversion before closing this item; details
+  only calculates the validated budget. Producer construction also rejects
+  overflow when adding its operation allowance. Review single-delay conversion
+  before closing this item; details
   are in `_public-surface.md`.
 
 - Table name + column review (pre-v1, last pass before the DDL is expensive
@@ -69,8 +70,8 @@ docs/decisions/.
   3. Settle the drift:
      - case drift -- SHIPPED 2026-09-06: `DEFAULT 0` and `DEFAULT NOW()` everywhere
        in DDL + mirrors (`now()` inside query literals is untouched).
-     - worker_config.name comment lists 'janitor'; real names are
-       topic_janitor, consumer_group_janitor, cursor_advancer, schedule_producer.
+     - worker_config.name comment -- SHIPPED 2026-09-06: lists all nine
+       declared Worker* names.
      - index names mix column-named (`_created_at`, `_message_key`, `_attempt`)
        and purpose-named (`_due`, `_expiry`, `_group`, `_topic`, `_worker`).
      - migration_log.consumer_group_id: both version reads filter it IS NULL and

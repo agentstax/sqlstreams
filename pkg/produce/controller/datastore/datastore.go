@@ -2,6 +2,7 @@ package datastore
 
 import (
 	"errors"
+	"math"
 	"time"
 
 	"github.com/agentstax/vulkan/pkg/common"
@@ -39,7 +40,12 @@ func NewProduceDatastore(ds *datastore.PostgresDatastore, logger logging.Logger)
 
 	// the full retry schedule plus per-attempt DB work -- so the timeout only
 	// cuts what lock_timeout can't bound (head-read lock waits, network hangs)
-	createAheadTimeout := datastoreRetry.CalculateTotalDelay() +
+	retryDelay := datastoreRetry.CalculateTotalDelay()
+	remaining := time.Duration(math.MaxInt64) - retryDelay
+	if time.Duration(datastoreRetry.MaxRetries) > remaining/createAheadAttemptAllowance {
+		return nil, errors.New("create-ahead timeout exceeds maximum supported duration")
+	}
+	createAheadTimeout := retryDelay +
 		time.Duration(datastoreRetry.MaxRetries)*createAheadAttemptAllowance
 
 	return &ProduceDatastore{
