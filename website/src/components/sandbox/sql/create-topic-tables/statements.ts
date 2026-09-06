@@ -34,6 +34,10 @@ import {
 	createMessageKeyLeaseSqlTemplate,
 } from './create-message-key-lease';
 import { createCompactionHeadSql, createCompactionHeadSqlTemplate } from './create-compaction-head';
+import {
+	createCompactionHeadEmptyUpdatedAtIndexSql,
+	createCompactionHeadEmptyUpdatedAtIndexSqlTemplate,
+} from './create-compaction-head-empty-updated-at-index';
 import { createBindingConfigSql, createBindingConfigSqlTemplate } from './create-binding-config';
 import {
 	createBindingConfigLogSql,
@@ -58,6 +62,7 @@ export const createTopicTablesTemplates: string[] = [
 	createClaimLeaseSqlTemplate,
 	createMessageKeyLeaseSqlTemplate,
 	createCompactionHeadSqlTemplate,
+	createCompactionHeadEmptyUpdatedAtIndexSqlTemplate,
 	createBindingConfigSqlTemplate,
 	createBindingConfigLogSqlTemplate,
 	createBindingConfigLogIndexSqlTemplate,
@@ -78,6 +83,7 @@ export function createTopicTablesStatements(topicId: number, partitionSize: numb
 		createClaimLeaseSql(topicId),
 		createMessageKeyLeaseSql(topicId),
 		createCompactionHeadSql(topicId),
+		createCompactionHeadEmptyUpdatedAtIndexSql(topicId),
 		createBindingConfigSql(topicId),
 		createBindingConfigLogSql(topicId),
 		createBindingConfigLogIndexSql(topicId),

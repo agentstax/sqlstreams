@@ -19,9 +19,14 @@ export const protectedInsertCompactedSqlTemplate = `
 				INSERT INTO %[1]s.%[4]s AS h (compaction_key, head_id, schema_version, compaction_rank)
 				SELECT $5, id, $4, $6 FROM inserted
 				ON CONFLICT (compaction_key) DO UPDATE
-				SET head_id = EXCLUDED.head_id, schema_version = EXCLUDED.schema_version, compaction_rank = EXCLUDED.compaction_rank
+				SET
+					head_id = EXCLUDED.head_id,
+					schema_version = EXCLUDED.schema_version,
+					compaction_rank = EXCLUDED.compaction_rank,
+					updated_at = NOW()
 				-- a newer payload version always wins; within a version rank first, then head_id
-				WHERE (h.schema_version, h.compaction_rank, h.head_id) < (EXCLUDED.schema_version, EXCLUDED.compaction_rank, EXCLUDED.head_id)
+				WHERE h.head_id IS NULL
+					OR (h.schema_version, h.compaction_rank, h.head_id) < (EXCLUDED.schema_version, EXCLUDED.compaction_rank, EXCLUDED.head_id)
 			)
 			SELECT id FROM inserted;
 		`;

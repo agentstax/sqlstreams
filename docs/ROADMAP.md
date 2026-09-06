@@ -30,7 +30,9 @@ rewrite-to-the-real-API pass 2026-08-22 [0581], the board rebuild
     config became `system.SystemConfig`. Vocabulary roots may compose other
     roots' data through acyclic imports; admin retains system registration.
     Schedule run-now now takes
-    `ScheduleRunOptions` from its scheduler owner. Settle
+    `ScheduleRunOptions` from its scheduler owner. Admin operations and CLI
+    commands now name the resource `consumer`; shared ownership and metrics
+    retain `ConsumerGroup`. Settle
     `Client.Datastore()` and mutable client fields, and utility methods exposed
     through `Owner`, `RetryPolicy`, `MessageOptions`, and diagnostic aliases.
   - Keep useful batching and transaction controls; preserve separate single-topic
@@ -41,6 +43,12 @@ rewrite-to-the-real-API pass 2026-08-22 [0581], the board rebuild
     chosen. No module split or destination path is selected yet.
 - **Table name + column review** -- last naming/column-order pass before
   v1 makes the DDL expensive to change. Expanded in TODO.md.
+- **Manager stops on one instance's permanent error** -- a worker
+  instance's Run returns a non-lease error straight through the manager
+  runner, so one consumer's permanent failure (a schema mismatch, say)
+  ends the whole manager Run. Returned-not-logged is right; decide before
+  v1 whether the manager should instead suspend that one instance and
+  keep the rest running. Surfaced 2026-09-06 by the exclusive lab.
 - **Named-return-params house style** — decide and apply consistently across
   the reviewed surface.
 - **Public API documentation review** — after the supported public API review, audit
@@ -560,7 +568,7 @@ prerequisite if quorum-as-a-fraction wins.
   wording ("every lifetime counter the instance keeps") already covers
   counter-less lines until then.
 - **Log-viewing as product** (post-v1 rungs from the logging research,
-  [0558]): a `vulkan tail`-style verb with --topic/--group/--level filters
+  [0558]): a `vulkan tail`-style verb with --topic/--consumer/--level filters
   (Laravel Pail / heroku logs -t precedent); a per-delivery "full story"
   CLI view assembled from delivery_log + deliveries (Telescope/Rails
   request block as CLI); an OBS-loganalyzer-style script diagnosing common
