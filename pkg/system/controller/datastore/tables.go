@@ -61,7 +61,7 @@ func (d *SystemDatastore) createSystemTables(ctx context.Context, tx pgx.Tx) err
 			retention_ttl_ns BIGINT NOT NULL,
 			allow_drop_past_committed BOOLEAN NOT NULL,
 			idempotency_key_ttl_ns BIGINT NOT NULL,
-			empty_compaction_head_ttl_ns BIGINT NOT NULL DEFAULT 3600000000000,
+			empty_compaction_head_ttl_ns BIGINT NOT NULL,
 			delivery_log_mode TEXT NOT NULL,
 			declared_by TEXT NOT NULL,                   -- hostname:pid:<random> of the declaring process, display only
 			declared_at TIMESTAMPTZ NOT NULL DEFAULT now()

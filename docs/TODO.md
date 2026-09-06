@@ -64,8 +64,8 @@ docs/decisions/.
      - schedule_config column order -- SHIPPED 2026-09-06: identity, schedule,
        then schema_version, payload, concurrency, timeout_ns (message_log's
        shape), metadata, timestamps; register INSERT + replace SET follow.
-     - topic_config_log carries a DEFAULT on `empty_compaction_head_ttl_ns`
-       only -- leftover from the additive change; snapshot columns take none.
+     - topic_config_log DEFAULT on `empty_compaction_head_ttl_ns` -- SHIPPED
+       2026-09-06 (dropped; the one INSERT supplies every column).
   3. Settle the drift:
      - case: `default 0` (exception_queue.attempts), `now()` x4 vs `NOW()`.
      - worker_config.name comment lists 'janitor'; real names are
