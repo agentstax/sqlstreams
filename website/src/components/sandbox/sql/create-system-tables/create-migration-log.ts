@@ -6,10 +6,10 @@ export const createMigrationLogSql = `
 			system_id BIGINT REFERENCES %[1]s.system_config (id) ON DELETE CASCADE,
 			topic_id BIGINT REFERENCES %[1]s.topic_config (id) ON DELETE CASCADE,
 			consumer_group_id BIGINT REFERENCES %[1]s.consumer_group_config (id) ON DELETE CASCADE,
-			version BIGINT NOT NULL,
-			min_compatible_version BIGINT NOT NULL DEFAULT 0, -- the step's MinCompatibleVersion; 0 on baseline and down rows
-			status TEXT NOT NULL,                             -- 'success' | 'failure' (extensible)
-			error TEXT,                                       -- populated when status = 'failure'
+			version INTEGER NOT NULL,
+			min_compatible_version INTEGER NOT NULL DEFAULT 0, -- the step's MinCompatibleVersion; 0 on baseline and down rows
+			status TEXT NOT NULL,                              -- 'success' | 'failure' (extensible)
+			error TEXT,                                        -- populated when status = 'failure'
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			CHECK (num_nonnulls(system_id, topic_id, consumer_group_id) = 1)
 		);

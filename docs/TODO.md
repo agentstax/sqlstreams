@@ -33,8 +33,11 @@ docs/decisions/.
        means the statement instant in all three; binding_config_log's extra
        `attempted_at` exists only because its declarations retry. The
        migration_log.created_at -> attempted_at replacement was declined.
-     - `schedule_config.schema_version INTEGER` -> BIGINT -- SHIPPED 2026-09-06
-       (DDL + sandbox mirror; schedule, alert, schema-evolution labs green).
+     - version column width -- SHIPPED 2026-09-06, REVERSED direction: a
+       version is an ordinal, so every version column is INTEGER (schedule_config
+       and message_log and compaction_head schema_version, migration_log version
+       and min_compatible_version); BIGINT stays for ids, `_ns`, sizes, and
+       compaction_rank. 18 labs green on a fresh DB.
   2. Settle the shape + order findings:
      - `_config` timestamps follow no rule: system both, topic both,
        consumer_group created only, worker/schedule/binding none -> pick one.

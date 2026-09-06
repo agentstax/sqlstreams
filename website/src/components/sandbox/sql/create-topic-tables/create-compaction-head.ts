@@ -8,7 +8,7 @@ export const createCompactionHeadSqlTemplate = `
 		CREATE TABLE IF NOT EXISTS %[1]s.%[2]s (
 			compaction_key  TEXT   NOT NULL PRIMARY KEY,
 			message_id      BIGINT,                    -- NULL while the key has a lockable row but no winning message
-			schema_version  BIGINT,                    -- the winner's payload version; compared before rank
+			schema_version  INTEGER,                   -- the winner's payload version; compared before rank
 			compaction_rank BIGINT,                    -- the winner's rank
 			created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),

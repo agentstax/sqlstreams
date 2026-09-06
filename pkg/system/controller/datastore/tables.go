@@ -209,7 +209,7 @@ func (d *SystemDatastore) createSystemTables(ctx context.Context, tx pgx.Tx) err
 			concurrency TEXT NOT NULL DEFAULT 'parallel',    -- 'parallel' | 'exclusive' -> MessageOptions.Concurrency
 			timeout_ns BIGINT NOT NULL,                      -- nanoseconds; -> MessageOptions.Timeout
 			payload JSONB NOT NULL DEFAULT '{}',             -- the message, marshaled once at Register
-			schema_version BIGINT NOT NULL,                  -- the payload's Message type version, written on every produce
+			schema_version INTEGER NOT NULL,                 -- the payload's Message type version, written on every produce
 			metadata JSONB NOT NULL DEFAULT '{}',
 			CHECK (timeout_ns > 0)
 		);
@@ -251,10 +251,10 @@ func (d *SystemDatastore) createSystemTables(ctx context.Context, tx pgx.Tx) err
 			system_id BIGINT REFERENCES %[1]s.system_config (id) ON DELETE CASCADE,
 			topic_id BIGINT REFERENCES %[1]s.topic_config (id) ON DELETE CASCADE,
 			consumer_group_id BIGINT REFERENCES %[1]s.consumer_group_config (id) ON DELETE CASCADE,
-			version BIGINT NOT NULL,
-			min_compatible_version BIGINT NOT NULL DEFAULT 0, -- the step's MinCompatibleVersion; 0 on baseline and down rows
-			status TEXT NOT NULL,                             -- 'success' | 'failure' (extensible)
-			error TEXT,                                       -- populated when status = 'failure'
+			version INTEGER NOT NULL,
+			min_compatible_version INTEGER NOT NULL DEFAULT 0, -- the step's MinCompatibleVersion; 0 on baseline and down rows
+			status TEXT NOT NULL,                              -- 'success' | 'failure' (extensible)
+			error TEXT,                                        -- populated when status = 'failure'
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			CHECK (num_nonnulls(system_id, topic_id, consumer_group_id) = 1)
 		);
