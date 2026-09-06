@@ -16,22 +16,6 @@ the item is removed.
 
 ## Now
 
-- **Separate scheduled occurrence metadata from delivery options.**
-  `MessageOptions.ScheduledAt` describes an occurrence, but also appears in
-  consumer defaults and bounds where it has no effect. Keep
-  `MessageMeta.ScheduledAt`; consider moving the write field to
-  `ProduceOptions` so delivery-option resolution carries only delivery settings.
-  - Review the doc-site proposal before implementation. Choose between retaining
-    the existing `options.scheduled_at` JSON through a storage representation
-    and a dedicated message-log column; trace both scheduler production paths,
-    message claims, redelivery, schedule inspection, and schema compatibility.
-  - Preserve occurrence time versus creation time and manual-run timestamps.
-    Ordinary producers can currently supply this value; making it scheduler-only
-    is a separate decision, not an implied consequence of moving the field.
-  - Settled 2026-09-06 in build: `scheduled_at` is NOT NULL on every message
-    -- a schedule's due time, else the moment of the produce, resolved once
-    at the controller beside the idempotency key. No NULLIF/COALESCE shaping.
-
 - **Rename `scheduled_at` / `MessageMeta.ScheduledAt`.** Now that every
   message carries the time it is for, "scheduled" overstates an ordinary
   produce. Public rename, so its own item. The user does not like

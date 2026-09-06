@@ -144,7 +144,6 @@ func (i *ScheduleProducerInstance) produceDue(ctx context.Context, id int64) err
 			Message: &common.MessageOptions{
 				Concurrency: row.Concurrency,
 				Timeout:     row.Timeout,
-				ScheduledAt: scheduledTime,
 			},
 		})
 		if err != nil {

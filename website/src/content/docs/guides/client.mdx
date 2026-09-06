@@ -107,14 +107,13 @@ None changes its input during the call. `Fill(nil)` on nil returns nil;
 `Clamp` on nil returns nil; `ResolveConcurrency` on nil returns an options
 struct with the override or parallel policy.
 
-`Equal` compares stored values without filling defaults. It compares
-`ScheduledAt` as an instant, so different time zones representing the same
-instant compare equal. Two nil options are equal; nil and an empty struct differ.
+`Equal` compares stored values without filling defaults. Two nil options
+are equal; nil and an empty struct differ.
 
-`ScheduledAt` passes through from the message unchanged; defaults and bounds
-do not supply or constrain it. Moving it off `MessageOptions` is
-[proposed](/guides/schedules/#proposed-the-scheduled-time-off-the-options-document);
-its current public field and stored representation remain.
+The time a message is for is not a delivery setting. It is
+`ProduceOptions.ScheduledAt` on the way in and `MessageMeta.ScheduledAt` on
+the way out ([schedules](/guides/schedules/#what-register-stores)), so
+defaults and bounds never see it.
 
 ## Owner identity
 
