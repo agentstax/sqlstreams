@@ -66,6 +66,35 @@ func TestRetryPolicyDelaySchedule(t *testing.T) {
 	}
 }
 
+func TestRetryPolicyCapsDelayBeforeConversion(t *testing.T) {
+	for _, sample := range []struct {
+		name    string
+		base    time.Duration
+		maximum time.Duration
+		attempt int
+		want    time.Duration
+	}{
+		{"first attempt", time.Second, 5 * time.Second, 0, time.Second},
+		{"below cap", time.Second, 5 * time.Second, 2, 4 * time.Second},
+		{"at cap", time.Second, 4 * time.Second, 2, 4 * time.Second},
+		{"above cap", time.Second, 5 * time.Second, 3, 5 * time.Second},
+		{"beyond duration range", time.Second, 5 * time.Minute, 40, 5 * time.Minute},
+		{"infinite backoff", time.Second, 5 * time.Minute, 1024, 5 * time.Minute},
+		{"maximum cap", time.Second, time.Duration(math.MaxInt64), 40, time.Duration(math.MaxInt64)},
+		{"rounded cap", time.Duration(math.MaxInt64 - 1), time.Duration(math.MaxInt64 - 1), 0, time.Duration(math.MaxInt64 - 1)},
+	} {
+		t.Run(sample.name, func(t *testing.T) {
+			policy := &RetryPolicy{MaxRetries: 1, BaseDelay: sample.base, MaxDelay: sample.maximum, Exponent: 2}
+			if err := policy.Validate(); err != nil {
+				t.Fatal(err)
+			}
+			if got := policy.CalculateDelay(sample.attempt); got != sample.want {
+				t.Fatalf("delay = %v, want %v", got, sample.want)
+			}
+		})
+	}
+}
+
 func TestRetryPolicyEqualUsesStoredFields(t *testing.T) {
 	var absent *RetryPolicy
 	policy := NewDefaultRetryPolicy()

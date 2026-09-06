@@ -421,3 +421,4 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0666 2026-09-06 accepted (pre-v1) — The payload never reaches a log line or an error
 - 0667 2026-09-06 accepted (pre-v1) — Every _config table carries created_at and updated_at
 - 0668 2026-09-06 accepted (pre-v1) — A cursor table carries its own id and the owner's id as UNIQUE
+- 0669 2026-09-06 accepted (pre-v1) — An index is named for its table then its leading columns

@@ -10,7 +10,7 @@ docs/decisions/.
   delete the working inventory at close-out.
   Client.Datastore and the PostgresDatastore alias are removed; CLI/lab/benchmark
   callers use owned pools and explicit datastores. Continue with the remaining
-  review close-out after the retry arithmetic follow-up. Worker.Metadata stays
+  review close-out. Worker.Metadata stays
   public as a documented stored-configuration inspection snapshot.
   Client.Config and Client.Logger are also removed; construction
   captures settings and copies the supplied retry policy.
@@ -21,9 +21,9 @@ docs/decisions/.
   RetryPolicy helpers stay public; comments and contract tests are complete.
   Validate now directly rejects total retry sleep overflow; CalculateTotalDelay
   only calculates the validated budget. Producer construction also rejects
-  overflow when adding its operation allowance. Review single-delay conversion
-  before closing this item; details
-  are in `_public-surface.md`.
+  overflow when adding its operation allowance. CalculateDelay now caps before
+  converting floating-point backoff to time.Duration. Arithmetic follow-ups are
+  complete; details are in `_public-surface.md`.
 
 - Table name + column review (pre-v1, last pass before the DDL is expensive
   to change). Automated review 2026-09-06; `tools/conventions` DDL walk
@@ -72,8 +72,8 @@ docs/decisions/.
        in DDL + mirrors (`now()` inside query literals is untouched).
      - worker_config.name comment -- SHIPPED 2026-09-06: lists all nine
        declared Worker* names.
-     - index names mix column-named (`_created_at`, `_message_key`, `_attempt`)
-       and purpose-named (`_due`, `_expiry`, `_group`, `_topic`, `_worker`).
+     - index names -- SHIPPED 2026-09-06 [0669]: `<table>_<leading columns>`,
+       twelve renamed in DDL + mirrors; conventions test enforces it.
      - migration_log.consumer_group_id: both version reads filter it IS NULL and
        no group-scope migration exists -> confirm, then drop column + CHECK
        term (pre-v1 baseline edit, no two-release dance).

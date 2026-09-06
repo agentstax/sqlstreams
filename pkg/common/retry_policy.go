@@ -29,8 +29,11 @@ func NewDefaultRetryPolicy() *RetryPolicy {
 // CalculateDelay returns BaseDelay * Exponent^attempt, capped at MaxDelay.
 // Use a defaulted, valid policy and a zero-based, nonnegative attempt; MaxRetries is not enforced.
 func (p *RetryPolicy) CalculateDelay(attempt int) time.Duration {
-	delay := time.Duration(float64(p.BaseDelay) * math.Pow(float64(p.Exponent), float64(attempt)))
-	return max(MIN_DELAY, min(delay, p.MaxDelay))
+	delay := float64(p.BaseDelay) * math.Pow(float64(p.Exponent), float64(attempt))
+	if delay >= float64(p.MaxDelay) {
+		return p.MaxDelay
+	}
+	return time.Duration(delay)
 }
 
 // CalculateTotalDelay sums sleeps before the final datastore attempt, excluding

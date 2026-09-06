@@ -459,10 +459,17 @@ topic's family -- never both.
   any constraint, and every UPDATE on a config row sets
   `updated_at = NOW()` [0667]. Consistency across the kind outranks the
   redundancy with the `_config_log` trail.
+- An index is named `<table>_<columns>` [0669]: its table, then its
+  leading columns in index order, as many as it takes to be distinct
+  from the primary key and the table's other indexes
+  (`worker_instance_expires_at`, `worker_config_name_topic_id`). A
+  partial predicate adds nothing to the name. Postgres truncates names
+  at 63 bytes, so a per-topic index checks its length with a ten-digit
+  topic id.
 - tools/conventions walks the baseline DDL for the machine-checkable
   half of these rules: table kinds, `_at`/`_after` on TIMESTAMPTZ
   columns, `_ns` on durations, both timestamps on `_config` tables,
-  the surrogate id on `_cursor` tables.
+  the surrogate id on `_cursor` tables, index names.
 - A new table splits per-topic when every row has exactly one owning topic
   (directly or through its consumer group) and no reader needs the table
   before knowing the topic. It stays shared when rows can exist at system

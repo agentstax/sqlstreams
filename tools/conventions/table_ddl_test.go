@@ -5,7 +5,8 @@ package conventions
 // CONVENTIONS.md ## Tables naming rules [0611][0613]: table names end in a
 // known kind, TIMESTAMPTZ columns end _at/_after, duration columns are
 // BIGINT nanoseconds ending _ns, every _config table carries created_at and
-// updated_at, every _cursor table opens with its own id. Judgment rules (root wording, prefix choice) stay review-time.
+// updated_at, every _cursor table opens with its own id, every index is named
+// for its table then its leading columns. Judgment rules (root wording, prefix choice) stay review-time.
 
 import (
 	"go/ast"
@@ -114,6 +115,33 @@ func TestCursorTablesCarryTheirOwnId(t *testing.T) {
 		first := statement.Columns[0]
 		if first.Name != "id" || first.Type != "BIGSERIAL" {
 			t.Errorf("%s _cursor table %q opens with %s %s, not id BIGSERIAL [0668]", first.Position, statement.Name, first.Name, first.Type)
+		}
+	}
+}
+
+// indexStatement is one CREATE INDEX literal: the name after its table
+// prefix and the columns it covers, in order.
+type indexStatement struct {
+	Position string
+	Name     string   // the full name as written
+	Suffix   string   // Name minus "<table>_" (or "%[2]s_" per-topic)
+	Columns  []string // the parenthesised column list, in order
+}
+
+// TestIndexNamesAreTableThenLeadingColumns is [0669]'s rule: an index is
+// named for its table and then its leading columns, in column order, as
+// many as it takes to be distinct on that table -- never for a purpose.
+func TestIndexNamesAreTableThenLeadingColumns(t *testing.T) {
+	for _, index := range baselineIndexStatements(t) {
+		matched := false
+		for count := 1; count <= len(index.Columns); count++ {
+			if index.Suffix == strings.Join(index.Columns[:count], "_") {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			t.Errorf("%s index %q: suffix %q is not the leading columns of (%s) [0669]", index.Position, index.Name, index.Suffix, strings.Join(index.Columns, ", "))
 		}
 	}
 }
@@ -269,6 +297,78 @@ func camelToSnake(name string) string {
 		out.WriteRune(r | 0x20)
 	}
 	return out.String()
+}
+
+// createIndexLine reads the name, table, and column list off one CREATE
+// INDEX line.
+var createIndexLine = regexp.MustCompile(`CREATE (?:UNIQUE )?INDEX IF NOT EXISTS (\S+) ON (\S+) \(([^)]*)\)`)
+
+func baselineIndexStatements(t *testing.T) []indexStatement {
+	t.Helper()
+	root := repoRoot(t)
+
+	var indexes []indexStatement
+	err := filepath.WalkDir(filepath.Join(root, "pkg"), func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+
+		fileSet := token.NewFileSet()
+		parsed, err := parser.ParseFile(fileSet, path, nil, 0)
+		if err != nil {
+			return err
+		}
+		relative, err := filepath.Rel(root, path)
+		if err != nil {
+			relative = path
+		}
+		ast.Inspect(parsed, func(node ast.Node) bool {
+			literal, ok := node.(*ast.BasicLit)
+			if !ok || literal.Kind != token.STRING || !strings.Contains(literal.Value, "CREATE INDEX") && !strings.Contains(literal.Value, "CREATE UNIQUE INDEX") {
+				return true
+			}
+			text, err := strconv.Unquote(literal.Value)
+			if err != nil {
+				return true
+			}
+			match := createIndexLine.FindStringSubmatch(text)
+			if match == nil {
+				return true
+			}
+			indexes = append(indexes, parseIndexLine(match, relative+":"+strconv.Itoa(fileSet.Position(literal.Pos()).Line)))
+			return true
+		})
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return indexes
+}
+
+// parseIndexLine splits a matched CREATE INDEX into its parts. A shared
+// table's index carries the bare table name as its prefix; a per-topic
+// index carries the same %[2]s verb its table name is filled from.
+func parseIndexLine(match []string, position string) indexStatement {
+	name, table, columnList := match[1], match[2], match[3]
+	table = strings.TrimPrefix(table, schemaQualifier)
+	prefix := table + "_"
+	if strings.Contains(name, "%") {
+		prefix = name[:strings.Index(name, "s_")+2]
+	}
+	var columns []string
+	for _, column := range strings.Split(columnList, ",") {
+		columns = append(columns, strings.TrimSpace(column))
+	}
+	return indexStatement{
+		Position: position,
+		Name:     name,
+		Suffix:   strings.TrimPrefix(name, prefix),
+		Columns:  columns,
+	}
 }
 
 // schemaQualifier is what every SQL literal writes ahead of a table name.

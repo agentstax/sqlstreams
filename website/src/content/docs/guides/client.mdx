@@ -77,7 +77,10 @@ oversized sleep budgets now return a validation error instead of wrapping.
 Operation time is excluded from retry-policy validation. Producer construction
 also checks that retry sleeps plus its per-attempt create-ahead operation
 allowance fit in `time.Duration`; an oversized combined budget fails construction.
-Single-delay floating-point conversion remains under review.
+`CalculateDelay` compares the floating-point backoff with `MaxDelay` before
+converting to `time.Duration`, returning the original cap when reached.
+Large attempt indices, including those whose exponential result is infinite,
+therefore return the cap. Calculation below the cap still uses floating point.
 
 ## Message-option helpers
 
