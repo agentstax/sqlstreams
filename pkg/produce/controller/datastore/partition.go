@@ -62,7 +62,7 @@ func (d *ProduceDatastore) createNextIdPartition(ctx context.Context, topicId in
 	}
 
 	next := lastValue + 1
-	d.Logger.WarnContext(ctx, produce.EventPartitionCreatedOnInsert.Message, "code", produce.EventPartitionCreatedOnInsert.Code, "topic_id", topicId, "message_id", next)
+	d.Logger.WarnContext(ctx, produce.EventPartitionCreatedOnInsert.Message(), "code", produce.EventPartitionCreatedOnInsert.GetCode(), "topic_id", topicId, "message_id", next)
 
 	return d.ensureCoveringPartition(ctx, topicId, partitionSize, next)
 }
@@ -147,7 +147,7 @@ func (d *ProduceDatastore) createPartitionAhead(topicId int64, partitionSize int
 				d.createAheadGate.delete(topicId)
 				return
 			}
-			d.Logger.WarnContext(ctx, produce.EventPartitionNotCreatedAhead.Message, "code", produce.EventPartitionNotCreatedAhead.Code, "topic_id", topicId, "error", err)
+			d.Logger.WarnContext(ctx, produce.EventPartitionNotCreatedAhead.Message(), "code", produce.EventPartitionNotCreatedAhead.GetCode(), "topic_id", topicId, "error", err)
 		}
 	}()
 }

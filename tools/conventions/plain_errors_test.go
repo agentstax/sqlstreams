@@ -73,8 +73,8 @@ func TestPlainConstraintGuardsCarryTheValue(t *testing.T) {
 func TestPlainRaiseStringsNeverRestateDeclaredProblems(t *testing.T) {
 	for _, site := range plainRaiseSites(t) {
 		for _, registered := range diagnostic.Errors() {
-			if strings.Contains(site.Message, registered.Problem) {
-				t.Errorf("%s restates %s -- raise the declared variable instead: %q", site.Position, registered.Code, site.Message)
+			if strings.Contains(site.Message, registered.Problem()) {
+				t.Errorf("%s restates %s -- raise the declared variable instead: %q", site.Position, registered.GetCode(), site.Message)
 			}
 		}
 	}

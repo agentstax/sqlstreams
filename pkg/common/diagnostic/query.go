@@ -33,3 +33,21 @@ func NewDiagnosticQuery(label string, sql string) *DiagnosticQuery {
 func (q *DiagnosticQuery) Placeholders() []string {
 	return placeholderNames(q.Sql)
 }
+
+// ***************
+// *** HELPERS ***
+// ***************
+
+func copyDiagnosticQueries(queries []*DiagnosticQuery) []DiagnosticQuery {
+	if queries == nil {
+		return nil
+	}
+	copied := make([]DiagnosticQuery, len(queries))
+	for index, query := range queries {
+		if query == nil {
+			panic("diagnose query must not be nil")
+		}
+		copied[index] = *query
+	}
+	return copied
+}

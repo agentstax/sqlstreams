@@ -66,7 +66,7 @@ func (d *ExceptionConsumerGroupDatastore) kill(ctx context.Context, topicId int6
 		return 0, err
 	}
 	if killTag.RowsAffected() > 0 {
-		d.Logger.WarnContext(ctx, consume.EventKillBackstopFired.Message, "code", consume.EventKillBackstopFired.Code, "group_id", groupId, "topic_id", topicId, "dead_count", killTag.RowsAffected())
+		d.Logger.WarnContext(ctx, consume.EventKillBackstopFired.Message(), "code", consume.EventKillBackstopFired.GetCode(), "group_id", groupId, "topic_id", topicId, "dead_count", killTag.RowsAffected())
 	}
 	return killTag.RowsAffected(), nil
 }

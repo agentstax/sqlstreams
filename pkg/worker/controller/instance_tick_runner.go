@@ -91,7 +91,7 @@ func (r *InstanceTickRunner) ticker(ctx context.Context, onTick func(context.Con
 		tickStart := time.Now()
 		err := onTick(logging.WithLogBuffer(ctx))
 		if duration := time.Since(tickStart); duration > r.pollRate {
-			r.Logger.WarnContext(ctx, worker.EventSlowTick.Message, "code", worker.EventSlowTick.Code, "duration", duration, "rate", r.pollRate)
+			r.Logger.WarnContext(ctx, worker.EventSlowTick.Message(), "code", worker.EventSlowTick.GetCode(), "duration", duration, "rate", r.pollRate)
 		}
 
 		// re-jittered every tick so replicas' phases keep drifting apart
@@ -126,7 +126,7 @@ func (r *InstanceTickRunner) ticker(ctx context.Context, onTick func(context.Con
 
 			// a streak past the curve's cap stopped being a blip -- escalate
 			if attempts > r.Config.TickRetry.MaxRetries {
-				r.Logger.ErrorContext(ctx, worker.EventTickBackoffCurveExhausted.Message, "code", worker.EventTickBackoffCurveExhausted.Code, "attempts", attempts, "delay", delay, "error", err)
+				r.Logger.ErrorContext(ctx, worker.EventTickBackoffCurveExhausted.Message(), "code", worker.EventTickBackoffCurveExhausted.GetCode(), "attempts", attempts, "delay", delay, "error", err)
 			} else {
 				r.Logger.WarnContext(ctx, "could not run worker tick -- backing off", "attempts", attempts, "delay", delay, "error", err)
 			}

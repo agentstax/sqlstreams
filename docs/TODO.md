@@ -12,6 +12,8 @@ docs/decisions/.
   callers use owned pools and explicit datastores. Continue with the remaining
   question rows. Client.Config and Client.Logger are also removed; construction
   captures settings and copies the supplied retry policy.
+  Diagnostic error/event declarations now use private fields and read accessors;
+  constructors own query values, Queries returns snapshots, and Diagnose is removed.
   Owner retains fields and Kind; SQL column conversion moved to pkg/datastore,
   and the unused IdColumns method is removed.
   RetryPolicy helpers stay public; comments and contract tests are complete.
@@ -51,8 +53,9 @@ docs/decisions/.
      - 1:1 cursor tables -- SHIPPED 2026-09-06 [0668], REVERSED direction:
        USER-SETTLED surrogate `id` stays (flexibility), schedule_cursor gained
        one; natural/composite-keyed hot tables untouched. Conventions test.
-     - claim_lease leads with `token` (columns + PK); every other per-group
-       table leads with consumer_group_id.
+     - claim_lease leads with `token` -- SHIPPED 2026-09-06: columns and PK now
+       (consumer_group_id, token); every claim_lease predicate is a PK-prefix
+       seek. 11 consume labs green on a fresh DB.
      - binding_config lists derived `pattern_regex` before declared `pattern`.
      - schedule_config puts `schema_version` after `payload` (message_log:
        before); `concurrency`/`timeout_ns` sit between `suspended` and `payload`.

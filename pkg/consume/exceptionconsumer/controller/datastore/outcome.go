@@ -241,7 +241,7 @@ func (d *ExceptionConsumerGroupDatastore) recordTerminal(ctx context.Context, ex
 		}
 	}
 
-	d.Logger.WarnContext(ctx, consume.EventExceptionDeadLettered.Message, "code", consume.EventExceptionDeadLettered.Code, "group_id", exception.ConsumerGroupId, "topic_id", exception.TopicId, "message_id", exception.MessageId, "attempts", exception.Attempts)
+	d.Logger.WarnContext(ctx, consume.EventExceptionDeadLettered.Message(), "code", consume.EventExceptionDeadLettered.GetCode(), "group_id", exception.ConsumerGroupId, "topic_id", exception.TopicId, "message_id", exception.MessageId, "attempts", exception.Attempts)
 	return nil
 }
 

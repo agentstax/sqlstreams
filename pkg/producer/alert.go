@@ -29,8 +29,8 @@ func (p *Producer) logAlerts(ctx context.Context, current *topic.Topic, logger l
 		if found == nil {
 			continue
 		}
-		logger.WarnContext(ctx, alert.EventAlertConditionHolds.Message,
-			"code", alert.EventAlertConditionHolds.Code,
+		logger.WarnContext(ctx, alert.EventAlertConditionHolds.Message(),
+			"code", alert.EventAlertConditionHolds.GetCode(),
 			"alert", found.Name, "alert_message", found.Message,
 			"detail", found.Detail, "hint", found.Hint,
 			"owner", found.Owner.Name, "severity", found.Severity)

@@ -148,10 +148,10 @@ func (p *MetricsProducer) flushGoRoutineEvents(ctx context.Context, instance *iP
 		return
 	}
 	if produceErr != nil {
-		p.Logger.WarnContext(ctx, metrics.EventGoRoutineEventsDropped.Message, "code", metrics.EventGoRoutineEventsDropped.Code, "dropped_count", dropped, "error", produceErr)
+		p.Logger.WarnContext(ctx, metrics.EventGoRoutineEventsDropped.Message(), "code", metrics.EventGoRoutineEventsDropped.GetCode(), "dropped_count", dropped, "error", produceErr)
 		return
 	}
-	p.Logger.WarnContext(ctx, metrics.EventGoRoutineEventsDropped.Message, "code", metrics.EventGoRoutineEventsDropped.Code, "dropped_count", dropped)
+	p.Logger.WarnContext(ctx, metrics.EventGoRoutineEventsDropped.Message(), "code", metrics.EventGoRoutineEventsDropped.GetCode(), "dropped_count", dropped)
 }
 
 func (p *MetricsProducer) produceGoRoutineEvents(ctx context.Context, instance *iProducer.ProducerInstance[metrics.GoRoutineEvent], events []*metrics.GoRoutineEvent) error {

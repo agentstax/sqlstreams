@@ -22,9 +22,9 @@ var EventTargetKeepsNoSuccessRows = diagnostic.NewDiagnosticEvent("VK0058",
 // Diagnose queries: vulkan explain VK0062
 var EventScheduleConfigReplaced = diagnostic.NewDiagnosticEvent("VK0062",
 	"schedule config replaced",
-	"the newest declaration wins; if this is unexpected or repeats on every restart, two services declare this schedule with different configs and overwrite each other").
-	Diagnose(
-		diagnostic.NewDiagnosticQuery("the schedule row as stored now (schedule_config keeps no declaration trail)", `
+	"the newest declaration wins; if this is unexpected or repeats on every restart, two services declare this schedule with different configs and overwrite each other",
+
+	diagnostic.NewDiagnosticQuery("the schedule row as stored now (schedule_config keeps no declaration trail)", `
 SELECT
 	name,
 	expression,
@@ -33,4 +33,4 @@ SELECT
 	suspended
 FROM {schema}.schedule_config
 WHERE id = {schedule_id};`),
-	)
+)

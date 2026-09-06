@@ -84,7 +84,7 @@ func (s *Scheduler) Register[Message common.Versioned](ctx context.Context, name
 	}
 
 	if target.DeliveryLogMode != topic.DeliveryLogModeAll {
-		s.ds.Logger.WarnContext(ctx, schedule.EventTargetKeepsNoSuccessRows.Message, "code", schedule.EventTargetKeepsNoSuccessRows.Code, "schedule", name, "topic", target.Name, "delivery_log_mode", string(target.DeliveryLogMode))
+		s.ds.Logger.WarnContext(ctx, schedule.EventTargetKeepsNoSuccessRows.Message(), "code", schedule.EventTargetKeepsNoSuccessRows.GetCode(), "schedule", name, "topic", target.Name, "delivery_log_mode", string(target.DeliveryLogMode))
 	}
 
 	registered, err := scheduleController.Register(ctx, sys.Id, name, cron, target.Id, payload, cfg.Timeout, cfg.Concurrency, cfg.Metadata)

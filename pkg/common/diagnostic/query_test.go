@@ -2,6 +2,7 @@ package diagnostic
 
 import (
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -80,51 +81,43 @@ func TestQueryPlaceholders(t *testing.T) {
 	}
 }
 
-func TestDiagnoseAttachesToTheRegisteredDeclaration(t *testing.T) {
+func TestConstructorsOwnDiagnosticQueries(t *testing.T) {
 	query := NewDiagnosticQuery("the delivery row", deliverySql)
-
-	declared := NewDiagnosticError("VK9001", RecoveryPermanent, "a condition with state to look at", "do the thing").
-		Diagnose(query)
-	if len(declared.Queries) != 1 || declared.Queries[0] != query {
-		t.Fatalf("queries = %v, want the declared one", declared.Queries)
+	declared := NewDiagnosticError("VK9001", RecoveryPermanent, "a condition with state to look at", "do the thing", query)
+	event := NewDiagnosticEvent("VK9002", "a thing happened", "", query)
+	query.Sql = "changed constructor input"
+	raised := declared.With("topic", "orders").Wrap(nil)
+	for _, queries := range [][]DiagnosticQuery{declared.Queries(), event.Queries(), raised.Queries()} {
+		if len(queries) != 1 || queries[0].Sql != strings.TrimSpace(deliverySql) {
+			t.Fatalf("constructor did not copy its queries: %v", queries)
+		}
+		queries[0].Sql = "changed returned snapshot"
 	}
-
-	// the registry holds the same pointer, so every surface reads the
-	// queries back rather than a bare declaration
+	for _, queries := range [][]DiagnosticQuery{declared.Queries(), event.Queries(), raised.Queries()} {
+		if queries[0].Sql != strings.TrimSpace(deliverySql) {
+			t.Fatal("query snapshot mutated shared declaration")
+		}
+	}
 	registered := false
 	for _, listed := range Errors() {
-		if listed.Code == "VK9001" {
-			registered = len(listed.Queries) == 1
+		if listed.GetCode() == "VK9001" {
+			registered = len(listed.Queries()) == 1
 		}
 	}
 	if !registered {
-		t.Error("the registered declaration carries no queries")
+		t.Fatal("registry did not receive the completed declaration")
 	}
 }
 
-func TestDiagnoseOnAnEvent(t *testing.T) {
-	declared := NewDiagnosticEvent("VK9002", "a thing happened", "").
-		Diagnose(NewDiagnosticQuery("the row it wrote", deliverySql))
-	if len(declared.Queries) != 1 {
-		t.Fatalf("queries = %d, want 1", len(declared.Queries))
-	}
-}
-
-func TestDiagnosePanics(t *testing.T) {
-	cases := map[string]func(){
-		"with no queries": func() {
-			NewDiagnosticError("VK9003", RecoveryPermanent, "a condition", "").Diagnose()
-		},
-		"when already declared": func() {
-			query := NewDiagnosticQuery("the delivery row", deliverySql)
-			NewDiagnosticError("VK9004", RecoveryPermanent, "a condition", "").Diagnose(query).Diagnose(query)
-		},
-	}
-	for name, declare := range cases {
+func TestConstructorsRejectNilDiagnosticQueries(t *testing.T) {
+	for name, declare := range map[string]func(){
+		"error": func() { NewDiagnosticError("VK9003", RecoveryPermanent, "a condition", "", nil) },
+		"event": func() { NewDiagnosticEvent("VK9004", "a condition", "", nil) },
+	} {
 		t.Run(name, func(t *testing.T) {
 			defer func() {
 				if recover() == nil {
-					t.Error("Diagnose returned instead of panicking")
+					t.Fatal("nil query was accepted")
 				}
 			}()
 			declare()

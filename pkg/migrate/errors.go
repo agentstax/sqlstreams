@@ -16,9 +16,9 @@ var ErrNotRegistered = diagnostic.NewDiagnosticError("VK0017", diagnostic.Recove
 // Diagnose queries: vulkan explain VK0022
 var ErrSchemaOlderThanBuild = diagnostic.NewDiagnosticError("VK0022", diagnostic.RecoveryPermanent,
 	"schema version is older than this build requires",
-	"migrate the {owner_kind} schema up from {version} to {build_version}").
-	Diagnose(
-		diagnostic.NewDiagnosticQuery("the steps this database recorded, newest first", `
+	"migrate the {owner_kind} schema up from {version} to {build_version}",
+
+	diagnostic.NewDiagnosticQuery("the steps this database recorded, newest first", `
 SELECT
 	id,
 	version,
@@ -28,7 +28,7 @@ SELECT
 FROM {schema}.migration_log
 ORDER BY id DESC
 LIMIT 20;`),
-	)
+)
 
 // ErrSchemaNewerThanBuild means the database was migrated past this build by
 // a step whose MinCompatibleVersion is above it.
@@ -36,9 +36,9 @@ LIMIT 20;`),
 // Diagnose queries: vulkan explain VK0023
 var ErrSchemaNewerThanBuild = diagnostic.NewDiagnosticError("VK0023", diagnostic.RecoveryPermanent,
 	"schema version is newer than this build understands",
-	"upgrade the binary to one whose build version is at least {version}").
-	Diagnose(
-		diagnostic.NewDiagnosticQuery("the steps this database recorded, newest first", `
+	"upgrade the binary to one whose build version is at least {version}",
+
+	diagnostic.NewDiagnosticQuery("the steps this database recorded, newest first", `
 SELECT
 	id,
 	version,
@@ -48,7 +48,7 @@ SELECT
 FROM {schema}.migration_log
 ORDER BY id DESC
 LIMIT 20;`),
-		diagnostic.NewDiagnosticQuery("which step raised the floor past this build", `
+	diagnostic.NewDiagnosticQuery("which step raised the floor past this build", `
 SELECT
 	version,
 	min_compatible_version,
@@ -56,7 +56,7 @@ SELECT
 FROM {schema}.migration_log
 WHERE min_compatible_version > {build_version}
 ORDER BY version;`),
-	)
+)
 
 // ErrStepLockTimeout reclassifies a lock_timeout expiry (55P03) on the txn
 // step path: lock contention is what the step retry exists to ride out, while

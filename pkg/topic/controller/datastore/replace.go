@@ -79,8 +79,8 @@ func (d *TopicDatastore) replaceConfig(ctx context.Context, found *TopicConfigRo
 		return nil, err
 	}
 
-	d.Logger.WarnContext(ctx, topic.EventTopicConfigReplaced.Message,
-		append([]any{"code", topic.EventTopicConfigReplaced.Code, "topic", updated.Name, "topic_id", updated.Id}, changes...)...)
+	d.Logger.WarnContext(ctx, topic.EventTopicConfigReplaced.Message(),
+		append([]any{"code", topic.EventTopicConfigReplaced.GetCode(), "topic", updated.Name, "topic_id", updated.Id}, changes...)...)
 	return updated, nil
 }
 

@@ -70,22 +70,22 @@ type CodeRecord struct {
 
 func newErrorRecord(declared *diagnostic.DiagnosticError) CodeRecord {
 	return CodeRecord{
-		Code:            declared.Code,
+		Code:            declared.GetCode(),
 		Kind:            string(diagnostic.DiagnosticKindError),
-		Problem:         declared.Problem,
-		Recovery:        string(declared.Recovery),
-		Fix:             declared.Fix,
+		Problem:         declared.Problem(),
+		Recovery:        string(declared.Recovery()),
+		Fix:             declared.Fix(),
 		FixPlaceholders: declared.FixPlaceholders(),
-		Queries:         newQueryRecords(declared.Queries),
+		Queries:         newQueryRecords(declared.Queries()),
 	}
 }
 
 func newEventRecord(declared *diagnostic.DiagnosticEvent) CodeRecord {
 	return CodeRecord{
-		Code:    declared.Code,
+		Code:    declared.GetCode(),
 		Kind:    string(diagnostic.DiagnosticKindEvent),
-		Message: declared.Message,
-		Queries: newQueryRecords(declared.Queries),
+		Message: declared.Message(),
+		Queries: newQueryRecords(declared.Queries()),
 	}
 }
 
@@ -122,7 +122,7 @@ type QueryRecord struct {
 	Placeholders []string `json:"placeholders"`
 }
 
-func newQueryRecords(queries []*diagnostic.DiagnosticQuery) []QueryRecord {
+func newQueryRecords(queries []diagnostic.DiagnosticQuery) []QueryRecord {
 	records := make([]QueryRecord, 0, len(queries))
 	for _, query := range queries {
 		records = append(records, QueryRecord{

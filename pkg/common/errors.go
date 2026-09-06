@@ -26,9 +26,9 @@ var ErrLeaseLost = diagnostic.NewDiagnosticError("VK0003", diagnostic.RecoveryPe
 //
 // Diagnose queries: vulkan explain VK0019
 var ErrCommitConfirmationLost = diagnostic.NewDiagnosticError("VK0019", diagnostic.RecoveryPermanent,
-	"commit confirmation was lost", "").
-	Diagnose(
-		diagnostic.NewDiagnosticQuery("whether the outcomes landed -- rows updated at the commit", `
+	"commit confirmation was lost", "",
+
+	diagnostic.NewDiagnosticQuery("whether the outcomes landed -- rows updated at the commit", `
 SELECT
 	message_id,
 	status,
@@ -38,7 +38,7 @@ FROM {schema}.exception_queue_{topic_id}
 WHERE consumer_group_id = {group_id}
 ORDER BY updated_at DESC
 LIMIT 20;`),
-		diagnostic.NewDiagnosticQuery("the range lease whose expiry settles it either way", `
+	diagnostic.NewDiagnosticQuery("the range lease whose expiry settles it either way", `
 SELECT
 	token,
 	low,
@@ -47,7 +47,7 @@ SELECT
 	reclaims
 FROM {schema}.claim_lease_{topic_id}
 WHERE consumer_group_id = {group_id};`),
-	)
+)
 
 // ErrPayloadNotEncodable means encoding/json rejected the payload -- a NaN
 // float, a channel or func field, a MarshalJSON that returned an error. The

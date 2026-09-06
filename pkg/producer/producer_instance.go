@@ -226,7 +226,7 @@ func (p *ProducerInstance[Message]) warnSlowProduce(ctx context.Context, start t
 	if p.Config.SlowProduceThreshold <= 0 || duration <= p.Config.SlowProduceThreshold {
 		return
 	}
-	p.Logger.WarnContext(ctx, produce.EventSlowProduce.Message, "code", produce.EventSlowProduce.Code, "topic", p.Topic.Name, "duration", duration, "threshold", p.Config.SlowProduceThreshold)
+	p.Logger.WarnContext(ctx, produce.EventSlowProduce.Message(), "code", produce.EventSlowProduce.GetCode(), "topic", p.Topic.Name, "duration", duration, "threshold", p.Config.SlowProduceThreshold)
 }
 
 // toAppend shapes one batch item for the controller: fills message options

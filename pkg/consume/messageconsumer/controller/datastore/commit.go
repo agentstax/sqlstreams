@@ -60,7 +60,7 @@ func (d *MessageConsumerGroupDatastore) commit(ctx context.Context, topicId int6
 	}
 
 	if terminals > 0 {
-		d.Logger.WarnContext(ctx, consume.EventMessagesDeadLettered.Message, "code", consume.EventMessagesDeadLettered.Code, "group_id", groupId, "topic_id", topicId, "dead_count", terminals)
+		d.Logger.WarnContext(ctx, consume.EventMessagesDeadLettered.Message(), "code", consume.EventMessagesDeadLettered.GetCode(), "group_id", groupId, "topic_id", topicId, "dead_count", terminals)
 	}
 	return nil
 }
@@ -121,7 +121,7 @@ func (d *MessageConsumerGroupDatastore) partialCommit(ctx context.Context, topic
 	}
 
 	if terminals > 0 {
-		d.Logger.WarnContext(ctx, consume.EventMessagesDeadLettered.Message, "code", consume.EventMessagesDeadLettered.Code, "group_id", groupId, "topic_id", topicId, "dead_count", terminals)
+		d.Logger.WarnContext(ctx, consume.EventMessagesDeadLettered.Message(), "code", consume.EventMessagesDeadLettered.GetCode(), "group_id", groupId, "topic_id", topicId, "dead_count", terminals)
 	}
 	return nil
 }

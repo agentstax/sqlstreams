@@ -120,6 +120,32 @@ to select the owning ID and NULL for the other columns. For that consumer
 group, the result is `(NULL, NULL, 34)`. This conversion is outside the
 supported client API; ownership values and stored rows are unchanged.
 
+## Diagnostic declarations
+
+Errors and events expose declaration data through read methods. Replace
+`.Code` with `.GetCode()`, and field reads for `Recovery`, `Problem`, `Fix`,
+`Message`, and `Queries` with calls to the same-named methods on the relevant
+type. Direct assignments and struct literals using those old fields no longer
+compile.
+
+`Queries()` returns a slice of query values detached from the declaration.
+Changing that slice or its query fields does not change Vulkan's diagnostics.
+`With` and `Wrap` still return error copies; matching with `errors.Is`,
+attached values, recovery classification, rendered errors, and documentation
+links retain their behavior.
+
+For example, a service can attach context to `ErrTopicNotFound` with
+`With("topic", "orders")` and still match it with
+`errors.Is(raised, vulkan.ErrTopicNotFound)`. It cannot change the shared
+definition's retry classification through a writable `Recovery` field.
+
+Advanced diagnostic declarations pass query pointers as trailing constructor
+arguments. The constructor copies each query before registering the declaration;
+the former `.Diagnose(...)` chaining method is removed. No query arguments means
+no queries; a nil query argument is rejected. Arbitrary application values
+attached through `With` are not deep-copied, and exported package error variables
+can still be reassigned.
+
 ## Two grammars
 
 The client selects the noun: `Topic[T](name)`, `Scheduler(name)`, and a

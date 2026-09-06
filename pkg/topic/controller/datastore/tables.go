@@ -186,13 +186,13 @@ func (d *TopicDatastore) createTopicTables(ctx context.Context, tx pgx.Tx, id in
 	createClaimLeaseSql := fmt.Sprintf(`
 		-- vulkan: topic.createTopicTables
 		CREATE TABLE IF NOT EXISTS %[1]s.%[2]s (
-			token UUID NOT NULL DEFAULT gen_random_uuid(),
 			consumer_group_id BIGINT NOT NULL,
+			token UUID NOT NULL DEFAULT gen_random_uuid(),
 			low BIGINT NOT NULL,             -- low of claimed range of lease
 			high BIGINT NOT NULL,            -- high of claimed range of lease
 			expires_at TIMESTAMPTZ NOT NULL, -- past it the lease is reclaimed
 			reclaims INT NOT NULL DEFAULT 0, -- times this range has been reclaimed; past MaxReclaims it's quarantined
-			PRIMARY KEY (token, consumer_group_id)
+			PRIMARY KEY (consumer_group_id, token)
 		);
 	`, d.Datastore.Schema, topic.ClaimLeaseTable(id))
 	if _, err := tx.Exec(ctx, createClaimLeaseSql); err != nil {

@@ -86,7 +86,7 @@ func (r *exceptionRunner[Message]) refresh(ctx context.Context) error {
 				return err
 			}
 
-			r.Logger.WarnContext(ctx, consume.EventGroupConfigNotRefreshed.Message, "code", consume.EventGroupConfigNotRefreshed.Code, "group", r.Owner.Name, "topic_id", r.Topic.Id, "worker", WorkerExceptionConsumer, "error", err)
+			r.Logger.WarnContext(ctx, consume.EventGroupConfigNotRefreshed.Message(), "code", consume.EventGroupConfigNotRefreshed.GetCode(), "group", r.Owner.Name, "topic_id", r.Topic.Id, "worker", WorkerExceptionConsumer, "error", err)
 		}
 	}
 }

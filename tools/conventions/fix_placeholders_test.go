@@ -24,7 +24,7 @@ func TestFixPlaceholdersAreAttachedAtEveryRaiseSite(t *testing.T) {
 	substituted := map[string][]string{}
 	for _, registered := range diagnostic.Errors() {
 		if placeholders := registered.FixPlaceholders(); len(placeholders) > 0 {
-			substituted[registered.Code] = placeholders
+			substituted[registered.GetCode()] = placeholders
 		}
 	}
 	if len(substituted) == 0 {

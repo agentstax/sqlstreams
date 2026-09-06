@@ -10,9 +10,9 @@ import (
 // Diagnose queries: vulkan explain VK0034
 var EventInstanceLost = diagnostic.NewDiagnosticEvent("VK0034",
 	"worker instance lost",
-	"stopping, a replacement may already be running").
-	Diagnose(
-		diagnostic.NewDiagnosticQuery("the instances holding this worker's rows now", `
+	"stopping, a replacement may already be running",
+
+	diagnostic.NewDiagnosticQuery("the instances holding this worker's rows now", `
 SELECT
 	worker_instance.id,
 	worker_instance.token,
@@ -22,7 +22,7 @@ FROM {schema}.worker_instance
 JOIN {schema}.worker_config ON worker_config.id = worker_instance.worker_id
 WHERE worker_config.name = '{worker}'
 ORDER BY worker_instance.expires_at DESC;`),
-	)
+)
 
 // EventManagerRowSuspended means the manager's own row has target_instances
 // 0, so its workers stop being reconciled.
@@ -30,9 +30,9 @@ ORDER BY worker_instance.expires_at DESC;`),
 // Diagnose queries: vulkan explain VK0035
 var EventManagerRowSuspended = diagnostic.NewDiagnosticEvent("VK0035",
 	"manager row suspended",
-	"its chain goes unreconciled until target_instances is restored").
-	Diagnose(
-		diagnostic.NewDiagnosticQuery("every suspended worker row -- target_instances 0", `
+	"its chain goes unreconciled until target_instances is restored",
+
+	diagnostic.NewDiagnosticQuery("every suspended worker row -- target_instances 0", `
 SELECT
 	id,
 	name,
@@ -42,7 +42,7 @@ SELECT
 FROM {schema}.worker_config
 WHERE target_instances = 0
 ORDER BY name;`),
-	)
+)
 
 // EventTickBackoffCurveExhausted means a tick loop's failure streak passed
 // its TickRetry cap -- the failure is no longer self-healing.
@@ -50,9 +50,9 @@ ORDER BY name;`),
 // Diagnose queries: vulkan explain VK0036
 var EventTickBackoffCurveExhausted = diagnostic.NewDiagnosticEvent("VK0036",
 	"worker tick backoff curve exhausted",
-	"ticks continue at its cap").
-	Diagnose(
-		diagnostic.NewDiagnosticQuery("this worker's rows and their failure streaks", `
+	"ticks continue at its cap",
+
+	diagnostic.NewDiagnosticQuery("this worker's rows and their failure streaks", `
 SELECT
 	worker_config.id,
 	worker_config.target_instances,
@@ -62,7 +62,7 @@ FROM {schema}.worker_config
 LEFT JOIN {schema}.worker_instance ON worker_instance.worker_id = worker_config.id
 WHERE worker_config.name = '{worker}'
 ORDER BY worker_instance.attempts DESC;`),
-	)
+)
 
 // EventSlowTick means one tick ran longer than the row's own poll_rate --
 // the worker is behind its own schedule.
@@ -76,9 +76,9 @@ var EventSlowTick = diagnostic.NewDiagnosticEvent("VK0040",
 // Diagnose queries: vulkan explain VK0059
 var EventWorkerConfigReplaced = diagnostic.NewDiagnosticEvent("VK0059",
 	"worker config replaced",
-	"the newest declaration wins; if this is unexpected or repeats on every restart, two services declare this worker with different configs and overwrite each other").
-	Diagnose(
-		diagnostic.NewDiagnosticQuery("every declaration this worker row has received, newest first", `
+	"the newest declaration wins; if this is unexpected or repeats on every restart, two services declare this worker with different configs and overwrite each other",
+
+	diagnostic.NewDiagnosticQuery("every declaration this worker row has received, newest first", `
 SELECT
 	metadata,
 	declared_by,
@@ -87,4 +87,4 @@ FROM {schema}.worker_config_log
 WHERE worker_id = {worker_id}
 ORDER BY id DESC
 LIMIT 10;`),
-	)
+)

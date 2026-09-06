@@ -141,8 +141,8 @@ func (s *SystemManager) Run(ctx context.Context) error {
 		jitter := 1 + s.Config.JitterFraction*(2*rand.Float64()-1)
 		delay := time.Duration(float64(s.Config.RunRetry.CalculateDelay(min(attempt, s.Config.RunRetry.MaxRetries))) * jitter)
 		if err != nil {
-			s.Logger.ErrorContext(ctx, system.EventSystemManagerStopped.Message,
-				"code", system.EventSystemManagerStopped.Code,
+			s.Logger.ErrorContext(ctx, system.EventSystemManagerStopped.Message(),
+				"code", system.EventSystemManagerStopped.GetCode(),
 				"attempt", attempt+1,
 				"delay", delay,
 				"error", err)

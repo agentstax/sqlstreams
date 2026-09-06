@@ -34,8 +34,8 @@ func (d *MessageConsumerGroupDatastore) reclaimWithCursor(ctx context.Context, t
 			reclaims = reclaims + 1,
 			expires_at = now() + make_interval(secs => $2),
 			token = gen_random_uuid()
-		WHERE (token, consumer_group_id) IN (
-			SELECT token, consumer_group_id FROM %[1]s.%[3]s
+		WHERE (consumer_group_id, token) IN (
+			SELECT consumer_group_id, token FROM %[1]s.%[3]s
 			WHERE consumer_group_id = $1
 				AND expires_at < now()
 			LIMIT 1
@@ -64,7 +64,7 @@ func (d *MessageConsumerGroupDatastore) reclaimWithCursor(ctx context.Context, t
 		return nil, err
 	}
 
-	d.Logger.WarnContext(ctx, consume.EventLeaseReclaimed.Message, "code", consume.EventLeaseReclaimed.Code, "group_id", groupId, "topic_id", topicId, "low", lease.Low, "high", lease.High, "reclaims", lease.Reclaims)
+	d.Logger.WarnContext(ctx, consume.EventLeaseReclaimed.Message(), "code", consume.EventLeaseReclaimed.GetCode(), "group_id", groupId, "topic_id", topicId, "low", lease.Low, "high", lease.High, "reclaims", lease.Reclaims)
 
 	if lease.Reclaims >= maxRangeReclaims {
 		if err := d.quarantine(ctx, tx, topicId, groupId, lease, deliveryLogMode); err != nil {
@@ -98,7 +98,7 @@ func (d *MessageConsumerGroupDatastore) reclaimWithCursor(ctx context.Context, t
 // AdvanceCommitted's exception-blocker term pins committed on whichever
 // resolves last, so one bad message no longer holds up its siblings forever.
 func (d *MessageConsumerGroupDatastore) quarantine(ctx context.Context, tx pgx.Tx, topicId int64, groupId int64, lease ClaimLeaseRow, deliveryLogMode topic.DeliveryLogMode) error {
-	d.Logger.WarnContext(ctx, consume.EventRangeQuarantined.Message, "code", consume.EventRangeQuarantined.Code, "group_id", groupId, "topic_id", topicId, "low", lease.Low, "high", lease.High, "reclaims", lease.Reclaims)
+	d.Logger.WarnContext(ctx, consume.EventRangeQuarantined.Message(), "code", consume.EventRangeQuarantined.GetCode(), "group_id", groupId, "topic_id", topicId, "low", lease.Low, "high", lease.High, "reclaims", lease.Reclaims)
 
 	var deliverySql string
 	if deliveryLogMode == topic.DeliveryLogModeOff {

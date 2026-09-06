@@ -75,7 +75,7 @@ func (r *InstanceRunner) Run(ctx context.Context, work func(context.Context) err
 
 	switch {
 	case errors.Is(err, worker.ErrInstanceLost):
-		r.Logger.WarnContext(ctx, worker.EventInstanceLost.Message, "code", worker.EventInstanceLost.Code)
+		r.Logger.WarnContext(ctx, worker.EventInstanceLost.Message(), "code", worker.EventInstanceLost.GetCode())
 		return err
 	case errors.Is(err, context.Canceled):
 		return nil

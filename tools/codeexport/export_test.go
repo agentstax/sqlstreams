@@ -19,15 +19,15 @@ func TestNewExportCoversTheRegistry(t *testing.T) {
 		t.Fatalf("export carries %d codes, want %d", len(export.Codes), wanted)
 	}
 	for _, declared := range diagnostic.Errors() {
-		record, found := export.Codes[declared.Code]
+		record, found := export.Codes[declared.GetCode()]
 		if !found {
-			t.Fatalf("%s is missing from the export", declared.Code)
+			t.Fatalf("%s is missing from the export", declared.GetCode())
 		}
-		if record.Problem != declared.Problem || record.Fix != declared.Fix {
-			t.Errorf("%s exports %q/%q, want %q/%q", declared.Code, record.Problem, record.Fix, declared.Problem, declared.Fix)
+		if record.Problem != declared.Problem() || record.Fix != declared.Fix() {
+			t.Errorf("%s exports %q/%q, want %q/%q", declared.GetCode(), record.Problem, record.Fix, declared.Problem(), declared.Fix())
 		}
 		if record.Kind != "error" {
-			t.Errorf("%s exports kind %q, want \"error\"", declared.Code, record.Kind)
+			t.Errorf("%s exports kind %q, want \"error\"", declared.GetCode(), record.Kind)
 		}
 	}
 	for _, declared := range diagnostic.Metrics() {
@@ -90,15 +90,16 @@ func TestNewExportOmitsAbsentParts(t *testing.T) {
 
 // A map would drop one of two records sharing a code, and a dropped code is
 // a page with no data behind it.
-func TestNewExportRefusesACodeTwoKindsClaim(t *testing.T) {
+func TestPutRecordRefusesACodeTwoKindsClaim(t *testing.T) {
 	declared := diagnostic.Errors()[0]
-	colliding := &diagnostic.DiagnosticEvent{Code: declared.Code, Message: "a message"}
+	colliding := CodeRecord{Code: declared.GetCode(), Kind: "event", Message: "a message"}
 
-	_, err := NewExport([]*diagnostic.DiagnosticError{declared}, []*diagnostic.DiagnosticEvent{colliding}, nil, nil)
+	codes := map[string]CodeRecord{declared.GetCode(): newErrorRecord(declared)}
+	err := putRecord(codes, colliding)
 	if err == nil {
 		t.Fatal("NewExport accepted a code declared as two kinds")
 	}
-	if !strings.Contains(err.Error(), declared.Code) {
+	if !strings.Contains(err.Error(), declared.GetCode()) {
 		t.Errorf("the error does not name the code: %v", err)
 	}
 }

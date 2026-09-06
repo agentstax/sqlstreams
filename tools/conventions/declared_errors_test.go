@@ -19,16 +19,16 @@ import (
 
 func TestProblemTenseFollowsRecovery(t *testing.T) {
 	for _, registered := range diagnostic.Errors() {
-		startsCouldNot := strings.HasPrefix(registered.Problem, "could not ")
+		startsCouldNot := strings.HasPrefix(registered.Problem(), "could not ")
 
-		switch registered.Recovery {
+		switch registered.Recovery() {
 		case diagnostic.RecoveryTransient:
 			if !startsCouldNot {
-				t.Errorf(`%s is Transient but its problem does not start "could not ": %q`, registered.Code, registered.Problem)
+				t.Errorf(`%s is Transient but its problem does not start "could not ": %q`, registered.GetCode(), registered.Problem())
 			}
 		case diagnostic.RecoveryPermanent:
 			if startsCouldNot {
-				t.Errorf(`%s is Permanent but its problem starts "could not ": %q`, registered.Code, registered.Problem)
+				t.Errorf(`%s is Permanent but its problem starts "could not ": %q`, registered.GetCode(), registered.Problem())
 			}
 		}
 	}
@@ -40,22 +40,22 @@ var bannedWords = regexp.MustCompile(`(?i)\b(failed|invalid|bad|illegal|unable|u
 
 func TestProblemAvoidsBannedWords(t *testing.T) {
 	for _, registered := range diagnostic.Errors() {
-		if match := bannedWords.FindString(registered.Problem); match != "" {
-			t.Errorf("%s problem contains banned word %q: %q", registered.Code, match, registered.Problem)
+		if match := bannedWords.FindString(registered.Problem()); match != "" {
+			t.Errorf("%s problem contains banned word %q: %q", registered.GetCode(), match, registered.Problem())
 		}
-		if strings.Contains(registered.Problem, "!") {
-			t.Errorf("%s problem contains an exclamation point: %q", registered.Code, registered.Problem)
+		if strings.Contains(registered.Problem(), "!") {
+			t.Errorf("%s problem contains an exclamation point: %q", registered.GetCode(), registered.Problem())
 		}
 	}
 }
 
 func TestLogEventMessageAvoidsBannedWords(t *testing.T) {
 	for _, registered := range diagnostic.Events() {
-		if match := bannedWords.FindString(registered.Message); match != "" {
-			t.Errorf("%s message contains banned word %q: %q", registered.Code, match, registered.Message)
+		if match := bannedWords.FindString(registered.Message()); match != "" {
+			t.Errorf("%s message contains banned word %q: %q", registered.GetCode(), match, registered.Message())
 		}
-		if strings.Contains(registered.Message, "!") {
-			t.Errorf("%s message contains an exclamation point: %q", registered.Code, registered.Message)
+		if strings.Contains(registered.Message(), "!") {
+			t.Errorf("%s message contains an exclamation point: %q", registered.GetCode(), registered.Message())
 		}
 	}
 }
@@ -130,10 +130,10 @@ func TestMetricDeclarationsCarryMetricsVocabulary(t *testing.T) {
 func TestCodesDeclaredAtRoots(t *testing.T) {
 	registered := map[string]bool{}
 	for _, entry := range diagnostic.Errors() {
-		registered[entry.Code] = true
+		registered[entry.GetCode()] = true
 	}
 	for _, entry := range diagnostic.Events() {
-		registered[entry.Code] = true
+		registered[entry.GetCode()] = true
 	}
 	for _, entry := range diagnostic.Metrics() {
 		registered[entry.Code] = true

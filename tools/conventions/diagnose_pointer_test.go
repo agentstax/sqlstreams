@@ -101,7 +101,7 @@ func declarationDocComments(t *testing.T) []declaration {
 					name:       value.Names[0].Name,
 					code:       code,
 					doc:        general.Doc.Text() + value.Doc.Text(),
-					hasQueries: chainsDiagnose(value.Values[0]),
+					hasQueries: declaresQueries(value.Values[0]),
 					where:      filepath.Base(where.Filename) + ":" + strconv.Itoa(where.Line),
 				})
 			}
@@ -119,8 +119,7 @@ func declarationDocComments(t *testing.T) []declaration {
 // ***************
 
 // declaredCode returns the VK code a declaration call opens with. The call
-// may sit under a Diagnose chain, so the walk descends to the innermost
-// constructor.
+// is identified by its constructor name.
 func declaredCode(value ast.Expr) (string, bool) {
 	code := ""
 	ast.Inspect(value, func(node ast.Node) bool {
@@ -144,16 +143,22 @@ func declaredCode(value ast.Expr) (string, bool) {
 	return code, code != ""
 }
 
-func chainsDiagnose(value ast.Expr) bool {
+func declaresQueries(value ast.Expr) bool {
 	found := false
 	ast.Inspect(value, func(node ast.Node) bool {
 		call, ok := node.(*ast.CallExpr)
 		if !ok {
 			return true
 		}
-		if selector, ok := call.Fun.(*ast.SelectorExpr); ok && selector.Sel.Name == "Diagnose" {
-			found = true
-			return false
+		if selector, ok := call.Fun.(*ast.SelectorExpr); ok {
+			switch selector.Sel.Name {
+			case "NewDiagnosticError":
+				found = len(call.Args) > 4
+				return false
+			case "NewDiagnosticEvent":
+				found = len(call.Args) > 3
+				return false
+			}
 		}
 		return true
 	})

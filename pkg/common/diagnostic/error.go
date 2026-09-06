@@ -25,19 +25,18 @@ const (
 // - values
 // - wrapped cause attached per raise via With and Wrap
 type DiagnosticError struct {
-	Code     string
-	Recovery DiagnosticRecovery
-	Problem  string
-	Fix      string             // "" when the code cannot know the remedy; may carry {attribute} placeholders
-	Queries  []*DiagnosticQuery // none when the condition has no state to look at
+	code     string
+	recovery DiagnosticRecovery
+	problem  string
+	fix      string            // "" when the code cannot know the remedy; may carry {attribute} placeholders
+	queries  []DiagnosticQuery // none when the condition has no state to look at
 	values   []slog.Attr
 	wrapped  error
 }
 
-// NewDiagnosticError declares an error condition and registers its code. Declaration
-// happens at package init, so structural mistakes panic
-// instead of returning an error nothing would check.
-func NewDiagnosticError(code string, recovery DiagnosticRecovery, problem string, fix string) *DiagnosticError {
+// NewDiagnosticError copies queries and registers the completed declaration.
+// Structural mistakes panic because declarations are built at package init.
+func NewDiagnosticError(code string, recovery DiagnosticRecovery, problem string, fix string, queries ...*DiagnosticQuery) *DiagnosticError {
 	if recovery != RecoveryTransient && recovery != RecoveryPermanent {
 		panic("recovery must be RecoveryTransient or RecoveryPermanent: " + string(recovery))
 	}
@@ -45,29 +44,32 @@ func NewDiagnosticError(code string, recovery DiagnosticRecovery, problem string
 		panic("problem must not be empty: " + code)
 	}
 
-	declared := &DiagnosticError{Code: code, Recovery: recovery, Problem: problem, Fix: fix}
+	declared := &DiagnosticError{code: code, recovery: recovery, problem: problem, fix: fix, queries: copyDiagnosticQueries(queries)}
 	register(declared)
 	return declared
 }
 
-// Diagnose attaches the queries that show an operator the state behind this
-// condition, and returns the same declaration so it chains onto NewDiagnosticError.
-func (e *DiagnosticError) Diagnose(queries ...*DiagnosticQuery) *DiagnosticError {
-	if len(queries) == 0 {
-		panic("diagnose queries must not be empty: " + e.Code)
-	}
-	if len(e.Queries) > 0 {
-		panic("diagnose queries are already declared: " + e.Code)
-	}
+func (e *DiagnosticError) Recovery() DiagnosticRecovery {
+	return e.recovery
+}
 
-	e.Queries = queries
-	return e
+func (e *DiagnosticError) Problem() string {
+	return e.problem
+}
+
+func (e *DiagnosticError) Fix() string {
+	return e.fix
+}
+
+// Queries returns detached query values; editing them does not change the declaration.
+func (e *DiagnosticError) Queries() []DiagnosticQuery {
+	return slices.Clone(e.queries)
 }
 
 // FixPlaceholders lists each attribute name the fix substitutes, once, in
 // first-appearance order.
 func (e *DiagnosticError) FixPlaceholders() []string {
-	return placeholderNames(e.Fix)
+	return placeholderNames(e.fix)
 }
 
 // Fill substitutes text's {attribute} placeholders with the values this raise
@@ -109,7 +111,7 @@ func (e *DiagnosticError) Unwrap() error {
 // The fix's placeholders fill from the attached values.
 func (e *DiagnosticError) Error() string {
 	var builder strings.Builder
-	builder.WriteString(e.Problem)
+	builder.WriteString(e.problem)
 
 	for i, attribute := range e.values {
 		if i == 0 {
@@ -122,13 +124,13 @@ func (e *DiagnosticError) Error() string {
 		builder.WriteString(formatValue(attribute.Value))
 	}
 
-	if e.Fix != "" {
+	if e.fix != "" {
 		builder.WriteString(" -- ")
-		builder.WriteString(e.Fill(e.Fix))
+		builder.WriteString(e.Fill(e.fix))
 	}
 
 	builder.WriteString(" [")
-	builder.WriteString(e.Code)
+	builder.WriteString(e.code)
 	builder.WriteString("]")
 
 	if e.wrapped != nil {
@@ -146,20 +148,20 @@ func (e *DiagnosticError) Is(target error) bool {
 	if !ok {
 		return false
 	}
-	return targetError.Code == e.Code
+	return targetError.code == e.code
 }
 
 // LogValue renders the same parts as fields for JSON logs.
 func (e *DiagnosticError) LogValue() slog.Value {
 	attributes := []slog.Attr{
-		slog.String("code", e.Code),
-		slog.String("problem", e.Problem),
-		slog.String("recovery", string(e.Recovery)),
+		slog.String("code", e.code),
+		slog.String("problem", e.problem),
+		slog.String("recovery", string(e.recovery)),
 		slog.String("docs", e.Docs()),
 	}
 
-	if e.Fix != "" {
-		attributes = append(attributes, slog.String("fix", e.Fill(e.Fix)))
+	if e.fix != "" {
+		attributes = append(attributes, slog.String("fix", e.Fill(e.fix)))
 	}
 	attributes = append(attributes, e.values...)
 	if e.wrapped != nil {
@@ -171,13 +173,12 @@ func (e *DiagnosticError) LogValue() slog.Value {
 
 // Docs returns the error's documentation page, derived from the code.
 func (e *DiagnosticError) Docs() string {
-	return docsBaseURL + e.Code
+	return docsBaseURL + e.code
 }
 
-// GetCode and GetKind satisfy Declaration; Get-prefixed because Code is
-// already the field.
+// GetCode and GetKind identify the registered declaration.
 func (e *DiagnosticError) GetCode() string {
-	return e.Code
+	return e.code
 }
 
 func (e *DiagnosticError) GetKind() DiagnosticKind {

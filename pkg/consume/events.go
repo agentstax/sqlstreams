@@ -9,9 +9,9 @@ import (
 //
 // Diagnose queries: vulkan explain VK0026
 var EventLeaseReclaimed = diagnostic.NewDiagnosticEvent("VK0026",
-	"lease reclaimed from expired worker", "").
-	Diagnose(
-		diagnostic.NewDiagnosticQuery("the leases this group holds now", `
+	"lease reclaimed from expired worker", "",
+
+	diagnostic.NewDiagnosticQuery("the leases this group holds now", `
 SELECT
 	token,
 	low,
@@ -21,7 +21,7 @@ SELECT
 FROM {schema}.claim_lease_{topic_id}
 WHERE consumer_group_id = {group_id}
 ORDER BY low;`),
-		diagnostic.NewDiagnosticQuery("what the reclaimed range left behind", `
+	diagnostic.NewDiagnosticQuery("what the reclaimed range left behind", `
 SELECT
 	message_id,
 	status,
@@ -31,7 +31,7 @@ FROM {schema}.exception_queue_{topic_id}
 WHERE consumer_group_id = {group_id}
 	AND message_id BETWEEN {low} AND {high}
 ORDER BY message_id;`),
-	)
+)
 
 // EventRangeQuarantined means a range hit MaxRangeReclaims and is treated as
 // poison instead of being handed out again.
@@ -39,9 +39,9 @@ ORDER BY message_id;`),
 // Diagnose queries: vulkan explain VK0027
 var EventRangeQuarantined = diagnostic.NewDiagnosticEvent("VK0027",
 	"range quarantined after max reclaims",
-	"messages written as 'ready' exceptions").
-	Diagnose(
-		diagnostic.NewDiagnosticQuery("the exceptions the quarantine wrote", `
+	"messages written as 'ready' exceptions",
+
+	diagnostic.NewDiagnosticQuery("the exceptions the quarantine wrote", `
 SELECT
 	message_id,
 	status,
@@ -52,7 +52,7 @@ FROM {schema}.exception_queue_{topic_id}
 WHERE consumer_group_id = {group_id}
 	AND message_id BETWEEN {low} AND {high}
 ORDER BY message_id;`),
-		diagnostic.NewDiagnosticQuery("the messages in the range, to find what kills a consumer", `
+	diagnostic.NewDiagnosticQuery("the messages in the range, to find what kills a consumer", `
 SELECT
 	id,
 	routing_key,
@@ -60,7 +60,7 @@ SELECT
 FROM {schema}.message_log_{topic_id}
 WHERE id BETWEEN {low} AND {high}
 ORDER BY id;`),
-	)
+)
 
 // EventMessagesDeadLettered marks a commit that wrote terminal outcomes for
 // a batch of messages.
@@ -68,9 +68,9 @@ ORDER BY id;`),
 // Diagnose queries: vulkan explain VK0028
 var EventMessagesDeadLettered = diagnostic.NewDiagnosticEvent("VK0028",
 	"messages dead-lettered",
-	"unrecoverable, will not be retried").
-	Diagnose(
-		diagnostic.NewDiagnosticQuery("every dead row this group holds, newest first", `
+	"unrecoverable, will not be retried",
+
+	diagnostic.NewDiagnosticQuery("every dead row this group holds, newest first", `
 SELECT
 	message_id,
 	attempts,
@@ -80,23 +80,23 @@ FROM {schema}.exception_queue_{topic_id}
 WHERE consumer_group_id = {group_id}
 	AND status = 'dead'
 ORDER BY updated_at DESC;`),
-		diagnostic.NewDiagnosticQuery("which errors account for them", `
+	diagnostic.NewDiagnosticQuery("which errors account for them", `
 SELECT last_error, count(*) AS dead_count
 FROM {schema}.exception_queue_{topic_id}
 WHERE consumer_group_id = {group_id}
 	AND status = 'dead'
 GROUP BY last_error
 ORDER BY dead_count DESC;`),
-	)
+)
 
 // EventMessageDeadLettered marks one delivery written as terminal.
 //
 // Diagnose queries: vulkan explain VK0029
 var EventMessageDeadLettered = diagnostic.NewDiagnosticEvent("VK0029",
 	"message dead-lettered",
-	"unrecoverable, will not be retried").
-	Diagnose(
-		diagnostic.NewDiagnosticQuery("the delivery row the dead-lettering wrote", `
+	"unrecoverable, will not be retried",
+
+	diagnostic.NewDiagnosticQuery("the delivery row the dead-lettering wrote", `
 SELECT
 	status,
 	attempts,
@@ -105,7 +105,7 @@ SELECT
 FROM {schema}.exception_queue_{topic_id}
 WHERE consumer_group_id = {group_id}
 	AND message_id = {message_id};`),
-		diagnostic.NewDiagnosticQuery("every attempt it made, oldest first", `
+	diagnostic.NewDiagnosticQuery("every attempt it made, oldest first", `
 SELECT
 	attempt,
 	status,
@@ -115,7 +115,7 @@ FROM {schema}.delivery_log_{topic_id}
 WHERE consumer_group_id = {group_id}
 	AND message_id = {message_id}
 ORDER BY attempt;`),
-		diagnostic.NewDiagnosticQuery("the message itself", `
+	diagnostic.NewDiagnosticQuery("the message itself", `
 SELECT
 	id,
 	routing_key,
@@ -123,16 +123,16 @@ SELECT
 	created_at
 FROM {schema}.message_log_{topic_id}
 WHERE id = {message_id};`),
-	)
+)
 
 // EventExceptionDeadLettered marks one exception written as terminal.
 //
 // Diagnose queries: vulkan explain VK0030
 var EventExceptionDeadLettered = diagnostic.NewDiagnosticEvent("VK0030",
 	"exception dead-lettered",
-	"unrecoverable, will not be retried").
-	Diagnose(
-		diagnostic.NewDiagnosticQuery("the exception row now recorded dead", `
+	"unrecoverable, will not be retried",
+
+	diagnostic.NewDiagnosticQuery("the exception row now recorded dead", `
 SELECT
 	status,
 	attempts,
@@ -141,7 +141,7 @@ SELECT
 FROM {schema}.exception_queue_{topic_id}
 WHERE consumer_group_id = {group_id}
 	AND message_id = {message_id};`),
-		diagnostic.NewDiagnosticQuery("the attempts that exhausted its budget", `
+	diagnostic.NewDiagnosticQuery("the attempts that exhausted its budget", `
 SELECT
 	attempt,
 	status,
@@ -151,7 +151,7 @@ FROM {schema}.delivery_log_{topic_id}
 WHERE consumer_group_id = {group_id}
 	AND message_id = {message_id}
 ORDER BY attempt;`),
-	)
+)
 
 // EventKillBackstopFired means the crash-loop backstop marked a group's
 // exceptions dead after repeated consumer crashes on the same rows.
@@ -159,9 +159,9 @@ ORDER BY attempt;`),
 // Diagnose queries: vulkan explain VK0031
 var EventKillBackstopFired = diagnostic.NewDiagnosticEvent("VK0031",
 	"crash-loop kill backstop fired",
-	"exceptions marked dead").
-	Diagnose(
-		diagnostic.NewDiagnosticQuery("the rows the backstop marked dead", `
+	"exceptions marked dead",
+
+	diagnostic.NewDiagnosticQuery("the rows the backstop marked dead", `
 SELECT
 	message_id,
 	attempts,
@@ -171,7 +171,7 @@ FROM {schema}.exception_queue_{topic_id}
 WHERE consumer_group_id = {group_id}
 	AND status = 'dead'
 ORDER BY updated_at DESC;`),
-		diagnostic.NewDiagnosticQuery("the attempts that crashed without recording an outcome", `
+	diagnostic.NewDiagnosticQuery("the attempts that crashed without recording an outcome", `
 SELECT
 	message_id,
 	attempt,
@@ -182,7 +182,7 @@ WHERE consumer_group_id = {group_id}
 	AND status = 'expired'
 ORDER BY attempted_at DESC
 LIMIT 50;`),
-	)
+)
 
 // EventStoredOptionsClamped means a stored message's options fell outside
 // this consumer's MessageMin/MessageMax bounds.
@@ -200,15 +200,15 @@ var EventSlowDispatch = diagnostic.NewDiagnosticEvent("VK0039",
 // Diagnose queries: vulkan explain VK0060
 var EventGroupConfigNotRefreshed = diagnostic.NewDiagnosticEvent("VK0060",
 	"could not refresh group config",
-	"the last copy stays in use").
-	Diagnose(
-		diagnostic.NewDiagnosticQuery("the config document stored on this group's worker rows", `
+	"the last copy stays in use",
+
+	diagnostic.NewDiagnosticQuery("the config document stored on this group's worker rows", `
 SELECT worker_config.name, worker_config.metadata
 FROM {schema}.worker_config
 JOIN {schema}.consumer_group_config ON consumer_group_config.id = worker_config.consumer_group_id
 WHERE consumer_group_config.name = '{group}'
 ORDER BY worker_config.name;`),
-	)
+)
 
 // EventConsumerStopped is the session summary a consumer instance logs on
 // every exit.

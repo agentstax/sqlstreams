@@ -227,7 +227,7 @@ func (r *messageRunner[Message]) refresh(ctx context.Context) error {
 				return err
 			}
 
-			r.Logger.WarnContext(ctx, consume.EventGroupConfigNotRefreshed.Message, "code", consume.EventGroupConfigNotRefreshed.Code, "group", r.Owner.Name, "topic_id", r.Topic.Id, "worker", WorkerMessageConsumer, "error", err)
+			r.Logger.WarnContext(ctx, consume.EventGroupConfigNotRefreshed.Message(), "code", consume.EventGroupConfigNotRefreshed.GetCode(), "group", r.Owner.Name, "topic_id", r.Topic.Id, "worker", WorkerMessageConsumer, "error", err)
 		}
 	}
 }

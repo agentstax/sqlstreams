@@ -83,7 +83,7 @@ func (r *RetryDatastore) Wrap(ctx context.Context, retryableFunc RetryableFunc) 
 // declared on the error decides; a bare error is judged by IsTransientPgError.
 func IsTransientDatastoreError(err error) bool {
 	if classified, ok := errors.AsType[*diagnostic.DiagnosticError](err); ok {
-		return classified.Recovery == diagnostic.RecoveryTransient
+		return classified.Recovery() == diagnostic.RecoveryTransient
 	}
 	return IsTransientPgError(err)
 }

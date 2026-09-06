@@ -165,8 +165,8 @@ func (i *ConsumerInstance[Message]) Consume(ctx context.Context, consumerFunc Co
 // every session counter, zeros included.
 func (i *ConsumerInstance[Message]) logStopped(ctx context.Context, started time.Time) {
 	counters := i.metrics.Snapshot()
-	i.Logger.InfoContext(ctx, consume.EventConsumerStopped.Message,
-		"code", consume.EventConsumerStopped.Code,
+	i.Logger.InfoContext(ctx, consume.EventConsumerStopped.Message(),
+		"code", consume.EventConsumerStopped.GetCode(),
 		"group", i.Owner.Name,
 		"topic_id", i.Owner.TopicId,
 		"duration", time.Since(started),
@@ -180,7 +180,7 @@ func (i *ConsumerInstance[Message]) logStopped(ctx context.Context, started time
 		"quarantined_count", counters.Quarantined,
 		"abandoned_count", counters.Abandoned,
 		"lease_lost_count", counters.LeaseLost,
-		"help", "metrics explained: vulkan explain "+consume.EventConsumerStopped.Code)
+		"help", "metrics explained: vulkan explain "+consume.EventConsumerStopped.GetCode())
 }
 
 // declareBindings retries the declaration until it is installed or joined.

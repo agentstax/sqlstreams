@@ -135,8 +135,8 @@ func exitCode(err error) int {
 // surface the fix, not the raw SQLSTATE.
 func translateAdminError(err error) error {
 	if structuredError, ok := errors.AsType[*diagnostic.DiagnosticError](err); ok {
-		fix := structuredError.Fix
-		if cliFix, ok := cliFixes[structuredError.Code]; ok {
+		fix := structuredError.Fix()
+		if cliFix, ok := cliFixes[structuredError.GetCode()]; ok {
 			fix = cliFix
 		}
 		return failStructured(structuredError, structuredError.Fill(fix))
@@ -157,7 +157,7 @@ func translateAdminError(err error) error {
 // header line, then one aligned label per fact -- values, cause, the retry
 // line when an unchanged retry can succeed, fix, docs.
 func renderErrorBlock(w io.Writer, structuredError *diagnostic.DiagnosticError, fix string) {
-	fmt.Fprintf(w, "error[%s]: %s\n", structuredError.Code, structuredError.Problem)
+	fmt.Fprintf(w, "error[%s]: %s\n", structuredError.GetCode(), structuredError.Problem())
 
 	rows := make([][2]string, 0, 8)
 	for _, attribute := range structuredError.Values() {
@@ -166,7 +166,7 @@ func renderErrorBlock(w io.Writer, structuredError *diagnostic.DiagnosticError, 
 	if cause := structuredError.Unwrap(); cause != nil {
 		rows = append(rows, [2]string{"cause", cause.Error()})
 	}
-	if structuredError.Recovery == diagnostic.RecoveryTransient {
+	if structuredError.Recovery() == diagnostic.RecoveryTransient {
 		rows = append(rows, [2]string{"retry", "safe -- an unchanged retry can succeed"})
 	}
 	if fix != "" {
@@ -186,7 +186,7 @@ func renderErrorBlock(w io.Writer, structuredError *diagnostic.DiagnosticError, 
 // renderLogEventBlock is renderErrorBlock's sibling for a declared log
 // event: the header line, then the docs row.
 func renderLogEventBlock(w io.Writer, event *diagnostic.DiagnosticEvent) {
-	fmt.Fprintf(w, "event[%s]: %s\n", event.Code, event.Message)
+	fmt.Fprintf(w, "event[%s]: %s\n", event.GetCode(), event.Message())
 	fmt.Fprintf(w, "  docs: %s\n", event.Docs())
 }
 
@@ -241,9 +241,9 @@ func renderMetricBlock(w io.Writer, metric *diagnostic.DiagnosticMetric) {
 // document. fix is the resolved fix line ("" drops it).
 func toErrorDocument(structuredError *diagnostic.DiagnosticError, fix string) errorDocument {
 	object := errorObject{
-		Code:     structuredError.Code,
-		Problem:  structuredError.Problem,
-		Recovery: string(structuredError.Recovery),
+		Code:     structuredError.GetCode(),
+		Problem:  structuredError.Problem(),
+		Recovery: string(structuredError.Recovery()),
 		Fix:      fix,
 		Docs:     structuredError.Docs(),
 	}

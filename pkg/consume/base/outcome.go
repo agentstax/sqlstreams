@@ -24,7 +24,7 @@ func ClassifyHandlerError(err error) HandlerOutcome {
 	if _, ok := errors.AsType[*consume.DelayedDelivery](err); ok {
 		return HandlerOutcomeDelayed
 	}
-	if classified, ok := errors.AsType[*diagnostic.DiagnosticError](err); ok && classified.Recovery == diagnostic.RecoveryPermanent {
+	if classified, ok := errors.AsType[*diagnostic.DiagnosticError](err); ok && classified.Recovery() == diagnostic.RecoveryPermanent {
 		return HandlerOutcomeTerminal
 	}
 	return HandlerOutcomeException

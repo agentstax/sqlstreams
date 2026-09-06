@@ -47,10 +47,10 @@ func newExplainCmd(g *globalFlags) *cobra.Command {
 
 				rows := make([][2]string, 0, 64)
 				for _, declared := range diagnostic.Errors() {
-					rows = append(rows, [2]string{declared.Code, declared.Problem})
+					rows = append(rows, [2]string{declared.GetCode(), declared.Problem()})
 				}
 				for _, declared := range diagnostic.Events() {
-					rows = append(rows, [2]string{declared.Code, declared.Message})
+					rows = append(rows, [2]string{declared.GetCode(), declared.Message()})
 				}
 				for _, declared := range diagnostic.Metrics() {
 					rows = append(rows, [2]string{declared.Code, declared.Name})
@@ -69,7 +69,7 @@ func newExplainCmd(g *globalFlags) *cobra.Command {
 
 			code := strings.ToUpper(args[0])
 			for _, declared := range diagnostic.Errors() {
-				if declared.Code != code {
+				if declared.GetCode() != code {
 					continue
 				}
 				fix := resolvedCliFix(declared)
@@ -78,11 +78,11 @@ func newExplainCmd(g *globalFlags) *cobra.Command {
 					return nil
 				}
 				renderErrorBlock(w, declared, fix)
-				renderDiagnoseQueries(w, declared.Queries)
+				renderDiagnoseQueries(w, declared.Queries())
 				return nil
 			}
 			for _, declared := range diagnostic.Events() {
-				if declared.Code != code {
+				if declared.GetCode() != code {
 					continue
 				}
 				if g.jsonOutput() {
@@ -90,7 +90,7 @@ func newExplainCmd(g *globalFlags) *cobra.Command {
 					return nil
 				}
 				renderLogEventBlock(w, declared)
-				renderDiagnoseQueries(w, declared.Queries)
+				renderDiagnoseQueries(w, declared.Queries())
 				return nil
 			}
 			for _, declared := range diagnostic.Metrics() {
@@ -174,22 +174,22 @@ type explainQuery struct {
 func toErrorExplainDocument(declared *diagnostic.DiagnosticError, fix string) explainDocument {
 	return explainDocument{
 		Kind:     "error",
-		Code:     declared.Code,
-		Problem:  declared.Problem,
-		Recovery: string(declared.Recovery),
+		Code:     declared.GetCode(),
+		Problem:  declared.Problem(),
+		Recovery: string(declared.Recovery()),
 		Fix:      fix,
 		Docs:     declared.Docs(),
-		Queries:  toExplainQueries(declared.Queries),
+		Queries:  toExplainQueries(declared.Queries()),
 	}
 }
 
 func toEventExplainDocument(declared *diagnostic.DiagnosticEvent) explainDocument {
 	return explainDocument{
 		Kind:    "event",
-		Code:    declared.Code,
-		Message: declared.Message,
+		Code:    declared.GetCode(),
+		Message: declared.Message(),
 		Docs:    declared.Docs(),
-		Queries: toExplainQueries(declared.Queries),
+		Queries: toExplainQueries(declared.Queries()),
 	}
 }
 
@@ -219,7 +219,7 @@ func toAlertExplainDocument(declared *diagnostic.DiagnosticAlert) explainDocumen
 	}
 }
 
-func toExplainQueries(queries []*diagnostic.DiagnosticQuery) []explainQuery {
+func toExplainQueries(queries []diagnostic.DiagnosticQuery) []explainQuery {
 	documents := make([]explainQuery, 0, len(queries))
 	for _, query := range queries {
 		documents = append(documents, explainQuery{
@@ -235,7 +235,7 @@ func toExplainQueries(queries []*diagnostic.DiagnosticQuery) []explainQuery {
 // block. Only explain renders them -- the error surface stays the tight block
 // that points here. Each label is written as a SQL comment so the section
 // pastes into psql as it stands, once the placeholder values are filled in.
-func renderDiagnoseQueries(w io.Writer, queries []*diagnostic.DiagnosticQuery) {
+func renderDiagnoseQueries(w io.Writer, queries []diagnostic.DiagnosticQuery) {
 	if len(queries) == 0 {
 		return
 	}
@@ -251,7 +251,7 @@ func renderDiagnoseQueries(w io.Writer, queries []*diagnostic.DiagnosticQuery) {
 
 // diagnoseSubstitution names every value the reader fills in across the whole
 // set, so the instruction is read once rather than per query.
-func diagnoseSubstitution(queries []*diagnostic.DiagnosticQuery) string {
+func diagnoseSubstitution(queries []diagnostic.DiagnosticQuery) string {
 	names := make([]string, 0, 4)
 	for _, query := range queries {
 		for _, name := range query.Placeholders() {
@@ -269,10 +269,10 @@ func diagnoseSubstitution(queries []*diagnostic.DiagnosticQuery) string {
 // resolvedCliFix is a declared error's fix with the CLI rewrite applied when
 // cliFixes has one.
 func resolvedCliFix(declared *diagnostic.DiagnosticError) string {
-	if cliFix, ok := cliFixes[declared.Code]; ok {
+	if cliFix, ok := cliFixes[declared.GetCode()]; ok {
 		return cliFix
 	}
-	return declared.Fix
+	return declared.Fix()
 }
 
 // metricByNameOrAttributeKey resolves a metric by its full name, or by a

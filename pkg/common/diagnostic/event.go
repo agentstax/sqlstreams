@@ -1,16 +1,18 @@
 package diagnostic
 
+import "slices"
+
 // Event is a declared operator-actionable log event: the static message
 // a call site logs and the code that rides in its "code" attribute.
 type DiagnosticEvent struct {
-	Code    string
-	Message string
-	Queries []*DiagnosticQuery // none when the event has no state to look at
+	code    string
+	message string
+	queries []DiagnosticQuery // none when the event has no state to look at
 }
 
-// NewDiagnosticEvent declares a log event and registers its code. A non-empty
-// consequence is appended to the message after " -- ".
-func NewDiagnosticEvent(code string, message string, consequence string) *DiagnosticEvent {
+// NewDiagnosticEvent copies queries and registers the completed declaration.
+// A non-empty consequence is appended to the message after " -- ".
+func NewDiagnosticEvent(code string, message string, consequence string, queries ...*DiagnosticQuery) *DiagnosticEvent {
 	if message == "" {
 		panic("message must not be empty: " + code)
 	}
@@ -19,34 +21,28 @@ func NewDiagnosticEvent(code string, message string, consequence string) *Diagno
 		message = message + " -- " + consequence
 	}
 
-	declared := &DiagnosticEvent{Code: code, Message: message}
+	declared := &DiagnosticEvent{code: code, message: message, queries: copyDiagnosticQueries(queries)}
 	register(declared)
 	return declared
 }
 
-// Diagnose attaches the queries that show an operator the state behind this
-// event, and returns the same declaration so it chains onto NewDiagnosticEvent.
-func (e *DiagnosticEvent) Diagnose(queries ...*DiagnosticQuery) *DiagnosticEvent {
-	if len(queries) == 0 {
-		panic("diagnose queries must not be empty: " + e.Code)
-	}
-	if len(e.Queries) > 0 {
-		panic("diagnose queries are already declared: " + e.Code)
-	}
+func (e *DiagnosticEvent) Message() string {
+	return e.message
+}
 
-	e.Queries = queries
-	return e
+// Queries returns detached query values; editing them does not change the declaration.
+func (e *DiagnosticEvent) Queries() []DiagnosticQuery {
+	return slices.Clone(e.queries)
 }
 
 // Docs returns the event's documentation page, derived from the code.
 func (e *DiagnosticEvent) Docs() string {
-	return docsBaseURL + e.Code
+	return docsBaseURL + e.code
 }
 
-// GetCode and GetKind satisfy Declaration; Get-prefixed because Code is
-// already the field.
+// GetCode and GetKind identify the registered declaration.
 func (e *DiagnosticEvent) GetCode() string {
-	return e.Code
+	return e.code
 }
 
 func (e *DiagnosticEvent) GetKind() DiagnosticKind {

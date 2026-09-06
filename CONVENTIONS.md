@@ -564,6 +564,12 @@ The CLI block, slog output, and --output json render these same parts as
 fields; only the fix wording differs per surface (Go API in the library, a
 vulkan command in the CLI).
 
+Error and event declaration data is private and read through accessors.
+Declare queries as trailing NewDiagnosticError/NewDiagnosticEvent arguments;
+constructors copy query values before registering the completed declaration.
+Queries returns detached values. With and Wrap retain per-raise copy behavior;
+arbitrary attached application values are not deep-copied.
+
 ### When declaring a new error condition
 
 - A condition earns a declaration (and code) by any one of: a caller in
@@ -747,8 +753,8 @@ the code is the line's breadcrumb to its own explanation.
   diagnostic.NewDiagnosticEvent(code, message, consequence) -- the codes share the
   errors' VK serial space, next four-digit serial after the current max
   across both registries.
-- Call sites log the declaration's Message and attach `"code",
-  Event.Code` as the first attribute pair -- the message stays static, the
+- Call sites log the declaration's Message() and attach `"code",
+  Event.GetCode()` as the first attribute pair -- the message stays static, the
   code is the greppable pointer.
 - Land the hand-written docs page (same /errors/ path) in the same
   change; `vulkan explain` lists events beside errors.
@@ -763,7 +769,7 @@ the code is the line's breadcrumb to its own explanation.
       error         the error value itself (never `err`, never
                     stringified first -- .Error() defeats
                     diagnostic.DiagnosticError.LogValue)
-      code          a declared log event's code (Event.Code)
+      code          a declared log event's code (Event.GetCode())
       alert         a built-in alert's name (Alert.Name)
       alert_message the alert's own message clause -- never `message`, which
                     is the log record's own field

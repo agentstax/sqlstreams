@@ -9,20 +9,20 @@ import (
 )
 
 var errTestTopicMissing = diagnostic.NewDiagnosticError("VK9803", diagnostic.RecoveryPermanent,
-	"test topic not found", "register it first").
-	Diagnose(
-		diagnostic.NewDiagnosticQuery("the topic rows registered under that name", `
+	"test topic not found", "register it first",
+
+	diagnostic.NewDiagnosticQuery("the topic rows registered under that name", `
 SELECT id
 FROM topic
 WHERE name = '{topic}';`),
-		diagnostic.NewDiagnosticQuery("the migration steps this database recorded", `
+	diagnostic.NewDiagnosticQuery("the migration steps this database recorded", `
 SELECT migration_version
 FROM migration_log;`),
-	)
+)
 
 func TestRenderDiagnoseQueriesNamesEveryValueOnce(t *testing.T) {
 	var builder strings.Builder
-	renderDiagnoseQueries(&builder, errTestTopicMissing.Queries)
+	renderDiagnoseQueries(&builder, errTestTopicMissing.Queries())
 
 	want := "\ndiagnose: fill in topic with your own values\n" +
 		"\n  -- the topic rows registered under that name\n" +
@@ -39,8 +39,8 @@ func TestRenderDiagnoseQueriesNamesEveryValueOnce(t *testing.T) {
 
 func TestRenderDiagnoseQueriesDropsTheSubstitutionLineWithNothingToFillIn(t *testing.T) {
 	var builder strings.Builder
-	renderDiagnoseQueries(&builder, []*diagnostic.DiagnosticQuery{
-		diagnostic.NewDiagnosticQuery("every registered topic", "SELECT name FROM topic_config;"),
+	renderDiagnoseQueries(&builder, []diagnostic.DiagnosticQuery{
+		*diagnostic.NewDiagnosticQuery("every registered topic", "SELECT name FROM topic_config;"),
 	})
 
 	want := "\ndiagnose:\n" +
@@ -55,7 +55,7 @@ func TestRenderDiagnoseQueriesDropsTheSubstitutionLineWithNothingToFillIn(t *tes
 // than empty.
 func TestRenderDiagnoseQueriesWritesNothingWhenNoneAreDeclared(t *testing.T) {
 	var builder strings.Builder
-	renderDiagnoseQueries(&builder, errTestBroker.Queries)
+	renderDiagnoseQueries(&builder, errTestBroker.Queries())
 	if builder.String() != "" {
 		t.Fatalf("got:\n%s\nwant nothing", builder.String())
 	}

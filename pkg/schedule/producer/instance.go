@@ -152,7 +152,7 @@ func (i *ScheduleProducerInstance) produceDue(ctx context.Context, id int64) err
 		if produced.Duplicate {
 			// an earlier tick's ambiguous commit produced this message, then
 			// failed to advance the row
-			i.Logger.WarnContext(ctx, schedule.EventMessageAlreadyProduced.Message, "code", schedule.EventMessageAlreadyProduced.Code, "schedule_id", row.Id, "schedule", row.Name, "scheduled_at", scheduledTime)
+			i.Logger.WarnContext(ctx, schedule.EventMessageAlreadyProduced.Message(), "code", schedule.EventMessageAlreadyProduced.GetCode(), "schedule_id", row.Id, "schedule", row.Name, "scheduled_at", scheduledTime)
 		}
 
 		// next scheduled time from the DB clock ONLY -- Go/DB skew

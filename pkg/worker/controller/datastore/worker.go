@@ -107,7 +107,7 @@ func (d *WorkerDatastore) registerWorker(ctx context.Context, name string, owner
 		return err
 	}
 
-	d.Logger.WarnContext(ctx, worker.EventWorkerConfigReplaced.Message, "code", worker.EventWorkerConfigReplaced.Code,
+	d.Logger.WarnContext(ctx, worker.EventWorkerConfigReplaced.Message(), "code", worker.EventWorkerConfigReplaced.GetCode(),
 		"worker", name, "worker_id", workerId, "owner", owner.Name,
 		"metadata", replaced(string(storedMetadata), string(declaredMetadata)))
 	return nil

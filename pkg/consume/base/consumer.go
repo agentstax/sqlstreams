@@ -123,5 +123,5 @@ func (b *BaseConsumer[Message]) warnSlowDispatch(ctx context.Context, start time
 	if b.Config.SlowDispatchThreshold <= 0 || duration <= b.Config.SlowDispatchThreshold {
 		return
 	}
-	b.Logger.WarnContext(ctx, consume.EventSlowDispatch.Message, "code", consume.EventSlowDispatch.Code, "group", b.Owner.Name, "topic_id", b.Topic.Id, "message_id", messageId, "attempt", attempt, "duration", duration, "threshold", b.Config.SlowDispatchThreshold)
+	b.Logger.WarnContext(ctx, consume.EventSlowDispatch.Message(), "code", consume.EventSlowDispatch.GetCode(), "group", b.Owner.Name, "topic_id", b.Topic.Id, "message_id", messageId, "attempt", attempt, "duration", duration, "threshold", b.Config.SlowDispatchThreshold)
 }

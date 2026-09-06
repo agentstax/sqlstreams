@@ -100,7 +100,7 @@ func (r *Runner) claim(ctx context.Context) (worker.Execution, error) {
 	// a suspended row declines every claim, so the operator hears why instead
 	// of the attempt being made
 	if row.TargetInstances.Suspended() {
-		r.Logger.WarnContext(ctx, worker.EventManagerRowSuspended.Message, "code", worker.EventManagerRowSuspended.Code, "owner", r.Owner.Name)
+		r.Logger.WarnContext(ctx, worker.EventManagerRowSuspended.Message(), "code", worker.EventManagerRowSuspended.GetCode(), "owner", r.Owner.Name)
 		return nil, nil
 	}
 

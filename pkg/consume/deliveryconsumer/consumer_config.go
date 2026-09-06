@@ -103,7 +103,7 @@ func (c *DeliveryConsumerConfig) withMetadata(ctx context.Context, metadata *del
 	message := metadata.Message
 	applied.Message = message.Clamp(c.MessageMin, c.MessageMax)
 	if !applied.Message.Equal(&message) {
-		logger.WarnContext(ctx, consume.EventStoredOptionsClamped.Message, "code", consume.EventStoredOptionsClamped.Code, "stored", message, "clamped", applied.Message)
+		logger.WarnContext(ctx, consume.EventStoredOptionsClamped.Message(), "code", consume.EventStoredOptionsClamped.GetCode(), "stored", message, "clamped", applied.Message)
 	}
 	return &applied
 }

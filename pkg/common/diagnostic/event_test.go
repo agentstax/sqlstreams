@@ -9,8 +9,8 @@ var eventTestReclaim = NewDiagnosticEvent("VK9910",
 	"test lease reclaimed", "delivery returns to the queue")
 
 func TestNewEventAppendsConsequence(t *testing.T) {
-	if eventTestReclaim.Message != "test lease reclaimed -- delivery returns to the queue" {
-		t.Fatalf("message renders %q", eventTestReclaim.Message)
+	if eventTestReclaim.Message() != "test lease reclaimed -- delivery returns to the queue" {
+		t.Fatalf("message renders %q", eventTestReclaim.Message())
 	}
 }
 
@@ -39,8 +39,8 @@ func TestNewErrorRejectsRegisteredEventCode(t *testing.T) {
 func TestEventsListsOrderedByCode(t *testing.T) {
 	listed := Events()
 	for i := 1; i < len(listed); i++ {
-		if listed[i-1].Code >= listed[i].Code {
-			t.Fatalf("codes out of order: %s before %s", listed[i-1].Code, listed[i].Code)
+		if listed[i-1].GetCode() >= listed[i].GetCode() {
+			t.Fatalf("codes out of order: %s before %s", listed[i-1].GetCode(), listed[i].GetCode())
 		}
 	}
 }
