@@ -155,8 +155,9 @@ can still be reassigned.
 
 ## Worker metadata
 
-`ConsumerHandle.Workers(ctx)` exposes each worker's stored configuration through
-`Worker.Metadata`. The field contains a JSON-compatible inspection snapshot;
+`ConsumerHandle.Workers(ctx)` returns the group's own worker rows. Parent topic
+and system workers are excluded. Each worker's stored configuration is exposed
+through `Worker.Metadata`. The field contains a JSON-compatible inspection snapshot;
 its fields depend on the worker kind and can omit defaults. It does not report
 the effective configuration of every running instance. Editing the returned
 value does not update the worker.
@@ -247,7 +248,7 @@ one for redelivery.
 
 A first program imports `vulkan` and nothing else of ours. Every type a user
 spells lives in `vulkan`: `ConsumerConfig`, `ConsumeOptions`,
-`ProducerConfig`, `ProduceOptions`, `ScheduleConfig`,
+`ProducerConfig`, `ProduceOptions`, `SchedulerConfig`,
 `TopicConfig`, `DestroyOptions`, `MessageOptions`, `RetryPolicy`, `Tx`,
 `RawPayload`, `MetaFromContext`, `Terminal`, `Delay`. A consumer's first program used to import
 `topiccontroller` for `TopicConfig` and `schedulecontroller` for
@@ -980,7 +981,7 @@ empty slice for that same absence.
 
 `__system.alerts` is a topic like any other, and a consumer group on it is
 the push side: a Slack or PagerDuty hook hangs off `Consume`, the `Latest`
-reads above are the pull side. Only `RegisterTopic` guards the `__system.`
+reads above are the pull side. Only a topic's `Register` guards the `__system.`
 prefix; registering a group there is supported.
 
 ```go
@@ -1147,7 +1148,7 @@ The rest of the public grammar follows the value's role: `Config` for
 declarations, `Options` and `Item` for command inputs, `Result` for command
 outputs, `Snapshot` for point-in-time observability, `Status` for current
 state, `Summary` for an aggregate projection, `Health` for a verdict,
-`Declaration` for a declared relationship, `Row` for a table-exact scan, and
+`Row` for a table-exact scan, and
 `Instance` for running process state. A projection includes its subject when
 the bare role would be vague: `ScheduleConsumerGroupSummary`,
 `ScheduleMessageStatus`, `TopicVersionHealth`, and

@@ -44,9 +44,9 @@ return invoices.Consume(ctx, func(ctx context.Context, run *InvoiceRun) error {
 
 This is the same shape as the other two register verbs: declare a named
 resource on the client, run what comes back. For a producer -
-`RegisterProducer` resolves the topic and `Produce` writes. For a
-consumer - `RegisterConsumer` declares the group and `Consume` runs it.
-For a schedule - `RegisterSchedule` declares it and returns a
+`Producer().Register` resolves the topic and `Produce` writes. For a
+consumer - `Consumer(name).Register` declares the group and `Consume` runs it.
+For a schedule - `Scheduler(name).Register` declares it and returns a
 `SchedulerInstance`; its `Schedule` keeps the system producing it. The
 `Scheduler` handle administers the stored schedule.
 
@@ -107,7 +107,7 @@ transaction with the `schedule_cursor` advance:
 
 ## Worked case
 
-`invoices` is topic id `4`. `RegisterSchedule[InvoiceRun]` writes:
+`invoices` is topic id `4`. `Scheduler("invoices.nightly").Register[InvoiceRun]` writes:
 
 ```sql
 SELECT id, name, topic_id, expression, payload, schema_version
@@ -134,14 +134,14 @@ was named anywhere in the schedule.
 ## Admin verbs
 
 Everything an operator does to a schedule needs no type argument and
-no running process, so it stays on the `Schedule` handle and the CLI,
+no running process, so it stays on the `Scheduler` handle and the CLI,
 one noun on both:
 
 | client | CLI | what it does |
 | --- | --- | --- |
 | `Scheduler(name).Run` | `vulkan schedule run` | produces one message now, off-schedule, from the stored payload |
 | `Suspend` / `Unsuspend` | `vulkan schedule suspend` / `unsuspend` | stops and resumes the schedule; a time that came due while suspended is dropped |
-| `Status`, `ListMessages` | `vulkan schedule get` / `get --messages` | per-group outcomes, read from the target topic's `delivery_log` by message key; a `succeeded` count needs the target topic's `DeliveryLogMode: all` (the default keeps failures only) - `Register` warns [VK0058](/errors/VK0058) when it isn't |
+| `Status`, `Messages` | `vulkan schedule get` / `get --messages` | per-group outcomes, read from the target topic's `delivery_log` by message key; a `succeeded` count needs the target topic's `DeliveryLogMode: all` (the default keeps failures only) - `Register` warns [VK0058](/errors/VK0058) when it isn't |
 | `Destroy` | `vulkan schedule destroy` | deletes the row; gated by `AllowDestroy` |
 
 Temporal and EventBridge Scheduler use the same noun for the same

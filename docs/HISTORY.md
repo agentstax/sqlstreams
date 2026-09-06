@@ -5,6 +5,37 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-06 — Admin responsibilities and validation aligned [0676]
+
+Admin keeps orchestration, identity resolution, and operation policy.
+CONVENTIONS.md permits explicit duplication of simple preflight checks and
+calls to domain-owned config validation. Topic registration now validates
+before bootstrap; invalid names/configs create no system resources. Automatic
+bootstrap and custom system settings are preserved. Later database failures
+can still leave partial registration progress.
+
+Consumer worker reads now select the group's own rows through the dedicated
+worker controller/datastore verb; the manager's owner-chain read is unchanged.
+Selected unreadable owners retain warning/skip behavior; ancestor rows are no
+longer read or diagnosed by the group-only operation. TopicVersionHealth lives
+in pkg/topic, with the verdict computed inline in admin. The vulkan alias,
+fields, JSON tags, reason strings, and ordering remain; direct admin type
+imports must use the topic declaration.
+
+Removed redundant forwarding guards and moved same-name rename rejection
+into the topic controller. Empty topic-read/schedule names now use the
+controller's `name is required` wording. Reserved names renamed to themselves
+return ErrReservedTopicName first; identical malformed names fail the pattern
+check first. The architecture, quickstart, and worker-inspection docs match.
+
+Targeted builds, race tests, conventions/alias checks, and doc formatting/lint
+passed. Live labs passed: reserved-topic, schedule, register-idempotency,
+consumer-group (with -race), worker-claim, and schema-evolution (with -race).
+Coverage includes bootstrap rejection without even creating a namespace,
+custom-system preservation, worker ownership isolation, manager failover, and
+all three health verdict branches. No full fresh-DB suite or release checkpoint
+was run for this work.
+
 ## 2026-09-06 — Playground examples use one structure [0674]
 
 All twelve examples reuse topic handles, name handles for their domain and

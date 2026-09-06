@@ -1,6 +1,6 @@
 ---
 title: Consumer Group Config
-description: The split — the group's declared config at RegisterConsumer, stored on the group's worker rows; session options at Consume.
+description: The split — the group's declared config at Consumer(name).Register, stored on the group's worker rows; session options at Consume.
 ---
 
 A consumer group's config splits in two. Group config is what the group
@@ -80,12 +80,12 @@ return payments.Consume(ctx, func(ctx context.Context, payment *PaymentRequested
 }, &vulkan.ConsumeOptions{BatchLimit: 20})
 ```
 
-`RegisterConsumer` resolves the topic, writes the declaration it was
+`Consumer(name).Register` resolves the topic, writes the declaration it was
 handed, and returns the typed instance. Newest wins, and an overwrite
 warns [VK0059](/errors/VK0059/)
 ([what a declaration does](/guides/client/#what-a-declaration-does)).
 
-`RegisterConsumer` writes the config into the group's `worker_config` rows —
+`Register` writes the config into the group's `worker_config` rows —
 the fleet table where every group-owned worker (`message_consumer`,
 `exception_consumer`, `delivery_consumer`) already declares its
 config as a `metadata` document. Those documents already carry

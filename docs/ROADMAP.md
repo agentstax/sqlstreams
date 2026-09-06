@@ -64,7 +64,7 @@ the item is removed.
       in client.mdx and consumer-group-config.mdx. Six error pages' fix
       lines name dead verbs (VK0020, VK0021, VK0058, VK0063, VK0064,
       VK0065). Every sample compiles [0581].
-    - [ ] 4. Site, remaining stale tokens (~24 across architecture,
+    - [x] 4. Site, remaining stale tokens (~24 across architecture,
       table-design, schedules, consumer-group-config, schema-versions,
       client.mdx's `Declaration` role): the admin verb names for the
       handle verbs. roadmap.mdx already matches; every Proposed section
