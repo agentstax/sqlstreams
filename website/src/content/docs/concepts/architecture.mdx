@@ -38,6 +38,12 @@ worker fleet (`worker_config`, `worker_config_log`, `worker_instance`,
 `schedule_config`, `schedule_cursor`), and migration history
 (`migration_log`).
 
+Topic registration validates the name and resolved config before creating
+the system. An invalid name such as
+`Orders!`, or a config with `PartitionSize: 1`, returns an error without
+creating system resources. A later database failure can still leave partial
+registration progress.
+
 **One physical family per topic** — created by `RegisterTopic`, named
 by the topic's id. A per-topic table carries no `topic_id` column; the
 table name *is* the scope — every table, key, and relationship is

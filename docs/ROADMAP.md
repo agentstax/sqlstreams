@@ -20,57 +20,76 @@ the item is removed.
   [0672]); the doc comments a caller reaches through `vulkan` never got a
   pass, and the site drifted through the client redesign. Audit every
   reachable declaration against current behavior so each comment states
-  the contract the code actually keeps. [0664]
-  - The inventory is the alias closure tools/conventions computes
-    (~110 declarations across vulkan, common, diagnostic, datastore,
-    produce, producer, consume, consumer, topic, schedule, scheduler,
-    system, worker, admin, alert, metrics) -- never a hand-kept list. A
-    contract lives on the declaring package's declaration; the vulkan
-    wrapper repeats nothing [0665]. Named results are not the
-    documentation layer [0672].
-  - Each comment states: a `Default:` line on every field WithDefaults
-    fills; the Err* variable a verb returns; blocking and cancellation
-    (Consume, Manager().Run, SchedulerInstance.Schedule); destructive
-    effect and the ClientConfig.AllowDestroy gate; the caller's own path
-    (`client.Topic(name).Register`, never `MessageAdmin.RegisterTopic`).
-  - Measured 2026-09-06, ~90 findings, worst in common, admin, consumer:
-    16 stale names (RegisterProducer, RunManager, MessageAdminConfig,
-    GetSystem/ScheduleMessages as the caller's verb, godoc heads naming
-    the pre-prefix type); 7 wrong claims -- MessageOptions.Timeout/Retry
-    "Default: 0 / nil" against WithDefaults' 30s / MaxRetries 3,
-    TopicHandle.Health "stored metrics snapshots" against a live read,
-    TopicConfig.IdempotencyKeyTTL "zero is invalid" while Validate
-    accepts it, SchedulerConfig.Metadata "Default: {}" set only in SQL;
-    ~20 missing contracts (Consume names neither VK error it returns,
-    nine ConsumeOptions/ConsumerConfig fields have no Default line,
-    Beginning/Head/TransactionFunc/NewMeasurement undocumented); ~45
-    uncommented exported declarations.
-  - Boilerplate is ONE codebase-wide sweep so files stay identical:
-    "Validate runs after WithDefaults..." x36 (3 on empty Validate
-    bodies), "cfg may be nil or sparse" x32, "options may be nil" x7.
-    The Logger/Retry field boilerplate is already gone [0657].
-  - SQL comments inside literals ship to Postgres (fanOut,
-    pkg/consume/deliveryconsumer/controller/datastore/fanout.go): a
-    comment edit there needs a live lab re-run (routing-lab is cheapest).
-  - Site: 16 pages, ~30 stale tokens, mostly the admin verb names
-    (RegisterTopic, RegisterSystem, RegisterProducer, RegisterConsumer,
-    RegisterSchedule) for the handle verbs. Reader-breaking ones first:
-    concepts/routing and concepts/fan-out call a dead receiver with
-    positional bindings; the quickstart names a third constructor
-    NewClient builds itself and says system registration is required
-    after saying topic Register does it [0624]; why-vulkan's three-arg
-    ProducerFunc; `vulkan.ScheduleConfig` in client.mdx and
-    consumer-group-config.mdx. Six error pages' fix lines name dead verbs
-    (VK0020, VK0021, VK0058, VK0063, VK0064, VK0065). roadmap.mdx already
-    matches; every Proposed section still stands unshipped; every sample
-    compiles [0581].
-  - Conventions gap: ## Comments says when a comment earns its place, not
-    what a reachable declaration's must state. The contract bullet above
-    is the candidate rule; a tools/conventions walk checking the Default:
-    line on WithDefaults-filled fields is its machine-checkable half.
-    Refine nothing else.
-  - Settled, do not re-open: no DefaultProducer / DefaultConsumer path;
-    the normal constructors take nil configs [0664].
+  the contract the code actually keeps. [0664] Progress is tracked here,
+  not in TODO.md.
+  - Standing rules for every task:
+    - The inventory is the alias closure tools/conventions computes (~110
+      declarations across vulkan, common, diagnostic, datastore, produce,
+      producer, consume, consumer, topic, schedule, scheduler, system,
+      worker, admin, alert, metrics) -- never a hand-kept list. A contract
+      lives on the declaring package's declaration; the vulkan wrapper
+      repeats nothing [0665]. Named results are not the documentation
+      layer [0672].
+    - Each comment states: a `Default:` line on every field WithDefaults
+      fills; the Err* variable a verb returns; blocking and cancellation
+      (Consume, Manager().Run, SchedulerInstance.Schedule); destructive
+      effect and the ClientConfig.AllowDestroy gate; the caller's own path
+      (`client.Topic(name).Register`, never `MessageAdmin.RegisterTopic`).
+    - SQL comments inside literals ship to Postgres (fanOut,
+      pkg/consume/deliveryconsumer/controller/datastore/fanout.go): a
+      comment edit there needs a live lab re-run (routing-lab is cheapest).
+    - Settled, do not re-open: no DefaultProducer / DefaultConsumer path;
+      the normal constructors take nil configs [0664].
+  - Tasks, in order (measured 2026-09-06):
+    - [x] 1. Wrong claims in Go comments: MessageOptions.Timeout/Retry
+      "Default: 0 / nil" against WithDefaults' 30s / MaxRetries 3 (the
+      type plays two roles -- a produced message's request and the
+      consumer's defaults -- and the comment must say both);
+      TopicHandle.Health "stored metrics snapshots" against a live read;
+      TopicConfig.IdempotencyKeyTTL / EmptyCompactionHeadTTL "zero is
+      invalid" while zero resolves to the default; SchedulerConfig.Metadata
+      "Default: {}" set only in SQL; ProduceOptions.IdempotencyKey names
+      AppendMessage.
+    - [ ] 2. Stale names in Go comments (16): RegisterProducer, RunManager,
+      MessageAdminConfig.AllowDestroy (four destroy docs), GetSystem /
+      ScheduleMessages / RegisterMetrics as the caller's verb, lifecycle.go
+      and raw_payload.go naming Register, godoc heads naming the pre-prefix
+      type (Error, Event, Status), headless doc sentences (Topic,
+      NewProduceItem, Consumer, ConsumerFunc).
+    - [ ] 3. Site, reader-breaking first: concepts/routing and
+      concepts/fan-out call a dead receiver with positional bindings; the
+      quickstart names a third constructor NewClient builds itself and says
+      system registration is required after saying topic Register does it
+      [0624]; why-vulkan's three-arg ProducerFunc; `vulkan.ScheduleConfig`
+      in client.mdx and consumer-group-config.mdx. Six error pages' fix
+      lines name dead verbs (VK0020, VK0021, VK0058, VK0063, VK0064,
+      VK0065). Every sample compiles [0581].
+    - [ ] 4. Site, remaining stale tokens (~24 across architecture,
+      table-design, schedules, consumer-group-config, schema-versions,
+      client.mdx's `Declaration` role): the admin verb names for the
+      handle verbs. roadmap.mdx already matches; every Proposed section
+      still stands unshipped.
+    - [ ] 5. The comment contract rule: ## Comments says when a comment
+      earns its place, not what a reachable declaration's must state. Add
+      the rule from the standing bullet above and a tools/conventions
+      walk checking the Default: line on WithDefaults-filled fields.
+      Refine nothing else.
+    - [ ] 6. Missing contracts (~20): Consume names neither VK error it
+      returns; Produce/ProduceBatch name no Err*; nine ConsumeOptions /
+      ConsumerConfig fields have no Default line; ConsumerFunc omits
+      Terminal/Delay; Beginning/Head/TransactionFunc/NewMeasurement
+      undocumented; DestroyOptions.Force's system/consumer idle guards;
+      Binding omits BindingJoined; exported instance fields uncommented.
+    - [ ] 7. Uncommented exported declarations (~45): the no-comment list
+      across common (Owner, RawPayload, RetryPolicy, ConcurrencyPolicy),
+      consume (CursorPosition, outcome), producer/scheduler/batcher config
+      types, worker, schedule, alert, metrics, datastore.TransactionFunc.
+    - [ ] 8. Boilerplate, ONE codebase-wide sweep so files stay identical:
+      "Validate runs after WithDefaults..." x36 (3 on empty Validate
+      bodies), "cfg may be nil or sparse" x32, "options may be nil" x7.
+      The Logger/Retry field boilerplate is already gone [0657].
+    - [ ] 9. Close-out: routing-lab if fanout.go comments moved, decision
+      record for the rule in task 5, HISTORY entry, remove this item.
 
 ## Next
 

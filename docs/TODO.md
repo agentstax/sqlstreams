@@ -38,7 +38,7 @@ fail before persistence. Targeted build and race checks for admin, topic/control
 and vulkan, plus tools/conventions, reserved-topic-lab, schedule-lab, and
 schema-evolution-lab passed.
 
-- [ ] Validate topic registration before bootstrap writes. In
+- [x] Validate topic registration before bootstrap writes. In
   MessageAdmin.RegisterTopic, perform the existing explicit name-pattern check
   and nil/default/config validation before RegisterSystem can run. Retain the
   controller's explicit name check and config validation for direct callers.
@@ -47,6 +47,16 @@ schema-evolution-lab passed.
   register-if-absent bootstrap and existing custom system configuration.
   Invalid input must return its validation error without creating resources;
   this does not promise atomic rollback of later registration failures.
+
+Task 2: explicit name-pattern and config validation now precede the system
+lookup. Existing empty-name/reserved-name errors retain their precedence;
+controller validation is unchanged. The architecture page and quickstart
+describe the approved behavior. register-idempotency-lab now uses an isolated
+installation and verifies invalid names and every config constraint create
+no namespace, valid registration bootstraps, redeclaration semantics hold,
+nil config uses defaults, and a custom system alert schedule is preserved.
+Targeted build, race checks, conventions checks, and the live lab passed.
+
 - [ ] Add WorkerController.ListConsumerGroupWorkers(ctx, owner), validating
   the required consumer-group identity, and the datastore's corresponding
   public retry wrapper/private query pair taking consumerGroupId. Select

@@ -19,7 +19,7 @@ type SchedulerConfig struct {
 
 	// Metadata - marshaled to opaque JSON stored on the row and shown by
 	// `vulkan schedule get`; it is not part of the produced message.
-	// Default: {}.
+	// Default: nil, stored as {}.
 	Metadata any
 }
 

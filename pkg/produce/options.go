@@ -37,7 +37,7 @@ type ProduceOptions struct {
 	// another, and adding producer processes makes a hot key slower, not faster.
 	Compaction *CompactionOptions
 
-	// IdempotencyKey - protects a retried AppendMessage (after a blip) from double-publishing.
+	// IdempotencyKey - protects a retried Produce (after a blip) from double-publishing.
 	// Default: "" (a fresh key is generated per call, protecting only
 	// against retries within that one call).
 	//

@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/agentstax/vulkan/pkg/common"
@@ -35,12 +36,24 @@ func (a *MessageAdmin) ListTopics(ctx context.Context) ([]*topic.Topic, error) {
 //
 // PartitionSize is fixed at creation; passing a different one returns
 // ErrTopicConfigMismatch.
+// Name and config validation precede system bootstrap; later write failures
+// can leave partial registration progress.
 func (a *MessageAdmin) RegisterTopic(ctx context.Context, name string, cfg *topic.TopicConfig) (*topic.Topic, error) {
 	if name == "" {
 		return nil, errors.New("topic name is required")
 	}
 	if isReservedTopicName(name) {
 		return nil, topic.ErrReservedTopicName.With("topic", name)
+	}
+	if !topic.SlugPattern.MatchString(name) {
+		return nil, fmt.Errorf("name must match %s, got %q", topic.SlugPattern, name)
+	}
+	if cfg == nil {
+		cfg = &topic.TopicConfig{}
+	}
+	cfg.WithDefaults()
+	if err := cfg.Validate(); err != nil {
+		return nil, err
 	}
 
 	// no system row means an empty database -- the first topic stands up the

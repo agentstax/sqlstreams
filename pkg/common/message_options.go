@@ -18,12 +18,15 @@ type MessageOptions struct {
 	Concurrency ConcurrencyPolicy `json:"concurrency,omitempty"`
 
 	// Timeout - how long this message's consumerFunc may run.
-	// Default: 0 (the consumer's own Timeout applies).
+	// On a produced message, 0 means the consumer's own Timeout applies.
+	// As a consumer's Message default, 0 resolves to 30s.
 	Timeout time.Duration `json:"timeout,omitempty"`
 
 	// Retry - redelivery policy for this message. Unset fields fall
 	// to the consumer's policy per-field.
-	// Default: nil (the consumer's policy applies whole).
+	// On a produced message, nil means the consumer's policy applies whole.
+	// As a consumer's Message default, nil resolves to MaxRetries 3 over
+	// the default curve.
 	Retry *RetryPolicy `json:"retry,omitempty"`
 
 	// ScheduledAt - the scheduled time a schedule's message is for, set
@@ -105,6 +108,9 @@ func (o *MessageOptions) Equal(other *MessageOptions) bool {
 		o.ScheduledAt.Equal(other.ScheduledAt)
 }
 
+// WithDefaults resolves a consumer's Message defaults: Timeout 30s, Retry
+// MaxRetries 3 over the default curve. A produced message's options are
+// never defaulted -- Fill reads them against the resolved consumer values.
 func (o *MessageOptions) WithDefaults() *MessageOptions {
 	if o == nil {
 		o = &MessageOptions{}

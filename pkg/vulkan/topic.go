@@ -61,8 +61,9 @@ func (t *TopicHandle[Message]) Destroy(ctx context.Context, options *DestroyOpti
 	return t.client.admin.DestroyTopic(ctx, t.name, options)
 }
 
-// Health reports each payload version's retirement verdict from stored metrics
-// snapshots. An unregistered topic returns ErrTopicNotFound.
+// Health reports each payload version's retirement verdict, read live from
+// the topic's log, compaction heads, and consumer group cursors. An
+// unregistered topic returns ErrTopicNotFound.
 func (t *TopicHandle[Message]) Health(ctx context.Context) ([]*TopicVersionHealth, error) {
 	return t.client.admin.TopicHealth(ctx, t.name)
 }

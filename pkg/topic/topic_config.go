@@ -38,8 +38,8 @@ type TopicConfig struct {
 	// idempotency_key before the janitor sweeps it.
 	// Default: 24h.
 	//
-	// Zero is invalid, not "forever" -- WithDefaults resolves it before the
-	// topic is ever registered. TTL only needs to cover your retry horizon,
+	// Zero means the default, not "forever" -- WithDefaults resolves it
+	// before the topic is ever registered. TTL only needs to cover your retry horizon,
 	// not a retention window: 24h covers a webhook provider's retry day.
 	// Every produce writes a claim row, minted key or not, so the TTL is
 	// the claim table's size -- lower it for a topic whose producers never
@@ -51,8 +51,8 @@ type TopicConfig struct {
 	// head may stay idle before the topic janitor sweeps it.
 	// Default: 1h.
 	//
-	// Zero is invalid, not "forever" -- WithDefaults resolves it before the
-	// topic is ever registered. Locking an empty head refreshes its activity;
+	// Zero means the default, not "forever" -- WithDefaults resolves it
+	// before the topic is ever registered. Locking an empty head refreshes its activity;
 	// the TTL never applies to a row that points at a head.
 	EmptyCompactionHeadTTL time.Duration
 

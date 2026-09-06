@@ -3,6 +3,8 @@ package main
 // register idempotency lab: re-registering a topic resolves to the same row,
 // and the newest declaration's mutable config replaces what is stored -- guarding
 // registerTopic's found path (replaceConfig).
+// Each run uses an isolated installation to check validation before bootstrap
+// and preservation of a customized system declaration.
 //
 // Confirms:
 //  1. first Register creates the topic and appends its first topic_config_log row.
@@ -18,8 +20,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"reflect"
 	"time"
 
+	"github.com/agentstax/vulkan/pkg/alert/partitioncount"
 	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
 	"github.com/agentstax/vulkan/pkg/topic"
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
@@ -58,19 +62,69 @@ func run() (err error) {
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	schema := fmt.Sprintf("registeridempotency_%d", time.Now().UnixNano())
+	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{Schema: schema, AllowDestroy: true})
 	must(err)
-	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	defer func() {
+		must(client.System().Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		_, err := pool.Exec(ctx, fmt.Sprintf(`
+			-- vulkan: registeridempotencylab.run
+			DROP SCHEMA IF EXISTS %[1]s;
+		`, schema))
+		must(err)
+	}()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, &iDatastore.PostgresDatastoreConfig{Schema: schema})
 	must(err)
 
 	name := fmt.Sprintf("registeridempotency.lab.%d", time.Now().UnixNano())
+	topicHandle := client.Topic[vulkan.RawPayload](name)
+
+	step("invalid names leave an unregistered installation untouched")
+	for _, invalidName := range []string{"", "Orders!", "orders.*", "__system.evil"} {
+		_, err := client.Topic[vulkan.RawPayload](invalidName).Register(ctx, nil)
+		if err == nil {
+			die(fmt.Sprintf("name %q must be rejected", invalidName))
+		}
+		var exists bool
+		must(pool.QueryRow(ctx, `
+			-- vulkan: registeridempotencylab.run
+			SELECT to_regnamespace($1) IS NOT NULL;
+		`, schema).Scan(&exists))
+		if exists {
+			die(fmt.Sprintf("name %q created system resources", invalidName))
+		}
+	}
+
+	step("invalid configs leave an unregistered installation untouched")
+	for field, cfg := range map[string]*vulkan.TopicConfig{
+		"PartitionSize":          {PartitionSize: 1},
+		"RetentionTTL":           {RetentionTTL: -time.Second},
+		"IdempotencyKeyTTL":      {IdempotencyKeyTTL: -time.Second},
+		"EmptyCompactionHeadTTL": {EmptyCompactionHeadTTL: -time.Second},
+		"DeliveryLogMode":        {DeliveryLogMode: "unsupported"},
+	} {
+		_, err := topicHandle.Register(ctx, cfg)
+		if err == nil {
+			die(fmt.Sprintf("%s must be rejected", field))
+		}
+		var exists bool
+		must(pool.QueryRow(ctx, `
+			-- vulkan: registeridempotencylab.run
+			SELECT to_regnamespace($1) IS NOT NULL;
+		`, schema).Scan(&exists))
+		if exists {
+			die(fmt.Sprintf("%s created system resources", field))
+		}
+	}
 
 	step("first register creates the topic")
-	created, err := client.Topic[vulkan.RawPayload](name).Register(ctx, &vulkan.TopicConfig{RetentionTTL: 720 * time.Hour})
+	created, err := topicHandle.Register(ctx, &vulkan.TopicConfig{RetentionTTL: 720 * time.Hour})
 	must(err)
-	defer func() {
-		must(client.Topic[vulkan.RawPayload](name).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
-	}()
+	system, err := client.System().Get(ctx)
+	must(err)
+	if system == nil || system.Id != created.SystemId {
+		die("valid topic registration must bootstrap its system")
+	}
 	if count := topicLogCount(ctx, ds, created.Id); count != 1 {
 		die(fmt.Sprintf("topic_config_log rows after create = %d, want 1", count))
 	}
@@ -130,6 +184,27 @@ func run() (err error) {
 		die(fmt.Sprintf("re-register with a different PartitionSize must return ErrTopicConfigMismatch, got: %v", err))
 	}
 	fmt.Printf("  ✓ changed PartitionSize rejected with ErrTopicConfigMismatch\n")
+
+	step("nil topic config preserves a customized system declaration")
+	must(client.System().Register(ctx, &vulkan.SystemConfig{
+		PartitionCountAlert: &vulkan.PartitionCountAlertConfig{ScheduleExpression: "@daily"},
+	}))
+	before, err := client.Scheduler(partitioncount.JobName).Get(ctx)
+	must(err)
+	if before == nil || before.Expression != "@daily" {
+		die("custom system alert schedule must be installed")
+	}
+	defaultTopic := client.Topic[vulkan.RawPayload](name + ".defaults")
+	defaults, err := defaultTopic.Register(ctx, nil)
+	must(err)
+	if defaults.PartitionSize != 1_000_000 || defaults.EmptyCompactionHeadTTL != time.Hour {
+		die("nil topic config must use defaults")
+	}
+	after, err := client.Scheduler(partitioncount.JobName).Get(ctx)
+	must(err)
+	if !reflect.DeepEqual(after, before) {
+		die("topic registration must preserve the custom system declaration")
+	}
 
 	fmt.Printf("\n✅ register idempotency lab PASSED\n")
 	return nil

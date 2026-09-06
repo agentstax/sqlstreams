@@ -126,8 +126,9 @@ by Vulkan itself — there is no SQL migration file to apply by hand.
 
    `RegisterTopic` is idempotent, and it creates the topic's own physical
    tables — its message log, exception queue, and cursor tables — in the
-   same call. Registering the system first is required; a topic cannot
-   exist without the control plane it rides on.
+   same call. If the system is absent, registration creates it with defaults
+   after validating the topic name and config. Invalid input creates no system
+   resources; a later database failure can still leave partial progress.
 
 4. **Consume it**
 
