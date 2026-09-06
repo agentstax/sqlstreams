@@ -137,7 +137,11 @@ func attemptRollbackToSavepoint(ctx context.Context, q iDatastore.Querier, savep
 
 // protectedInsertSQL builds the claim+insert(+compaction_head upsert when
 // compacted) CTE -- shared with the savepoint-batched path so both run the
-// exact same statement. Claims against idempotency_key_<topicId>
+// exact same statement. Claims against idempotency_key_<topicId>.
+//
+// The claim CTE must stay the first write: it assigns the transaction's xid
+// before nextval issues the message id, which the consumer's snapshot fence
+// relies on. A statement that wrote message_log first could lose a message.
 func protectedInsertSQL[Message common.Versioned](topicId int64, payload *Message, data *Append[Message], schema string) (string, []any, error) {
 	// encoded in Go, not by pgx: pgx's encode failure prints the value it
 	// could not encode, which could log sensitive information.
