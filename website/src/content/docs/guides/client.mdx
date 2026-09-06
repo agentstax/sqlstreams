@@ -15,6 +15,22 @@ carrying its own `Logger` and `Retry`. The group-config half of this,
 what is stored and how instances read it back, has its own page:
 [consumer group config](/guides/consumer-group-config/).
 
+## The supported API
+
+`github.com/agentstax/vulkan/pkg/vulkan` is the supported public entry point.
+That includes the exported fields and methods on the types it exposes,
+including aliases whose declarations live in another package. Before v1,
+this supported surface still changes as the API settles.
+
+Other packages remain importable for advanced use, without a stability
+commitment. These guides use the public entry point; direct imports of the
+implementation packages are outside that contract. Third-party types such
+as `pgxpool.Pool` retain their upstream contracts.
+
+For example, `vulkan.RetryPolicy` aliases a type declared in `pkg/common`.
+Its exported methods are part of the supported surface. Calling
+`common.NewDefaultRetryPolicy` through a direct import is advanced usage.
+
 ## Two grammars
 
 The client selects the noun: `Topic[T](name)`, `Scheduler(name)`, and a

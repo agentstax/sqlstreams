@@ -247,6 +247,23 @@ The domain layers:
   `<x>_config.go`, `controller_config.go`, `datastore_config.go`. A package
   that grows a second config gets a second file rather than a shared one.
 
+## Supported public API
+
+- `pkg/vulkan` is the supported public entry point. Its exported names and
+  all exported fields and methods reachable through its types, aliases,
+  parameters, and results belong to that contract. Moving the entry package
+  later does not change this boundary.
+- Other packages remain importable for advanced use, without a stability
+  commitment or guides presenting them as alternative public entry points.
+  Do not move them to `internal/` solely to reduce the supported surface.
+- An aliased declaration's public-contract comments stay with its owning
+  declaration. An alias exposes its exported methods as well as its fields;
+  a declaration below `pkg/vulkan` is not exempt from review when reachable.
+- Review exposure at its source. The alias-closure tests verify that reachable
+  library types can be named through `vulkan`; deleting an alias while leaving
+  its type reachable is not a surface trim. Third-party types keep their
+  upstream contracts.
+
 ## Datastores
 
 - Every public datastore method is EXACTLY a `DatastoreRetry.Wrap` around a

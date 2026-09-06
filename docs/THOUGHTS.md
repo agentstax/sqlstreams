@@ -7,6 +7,12 @@
 Make small little comment about client api being design for old timers who still like to hand write code occassionally
 - ie can easily discover through dot tree notation what is available
 
+roadmap later item for review code for interesting design decisions to write articles on (big or small things)
+- diagnostic code system
+- suppression logger
+- doc site
+- client builder pattern choice
+
 # Review
 
 Probably should have one more table name and column review (this will be hard to change later)

@@ -5,6 +5,20 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-06 — The supported API boundary is explicit [0665]
+
+CONVENTIONS.md and the client guide now identify vulkan and its reachable
+exported fields and methods as the supported surface. Other packages remain
+importable advanced options without a stability commitment. This replaces
+[0507]'s package-demotion plan. ROADMAP and TODO track the current review;
+_public-surface.md inventories entry declarations, aliases and their methods,
+constants, errors, and events with keep/question/remove recommendations.
+The site marks candidate signature changes as Proposed. No signatures or
+runtime behavior changed; removal decisions and package relocation remain open.
+
+Conventions tests, edited site pages' Markdown checks, local inventory links,
+and diff whitespace checks pass.
+
 ## 2026-09-06 — Quickstart defaults use the normal client API [0664]
 
 Retired the DefaultProducer / DefaultConsumer proposal and consolidated the

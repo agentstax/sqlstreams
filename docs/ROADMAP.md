@@ -21,34 +21,23 @@ rewrite-to-the-real-API pass 2026-08-22 [0581], the board rebuild
 2026-08-23 [0582] [0583] [0584], the consumer-flow sandbox 2026-08-25
 [0585] [0586] [0587]. All three are in HISTORY.md.
 
-- **Public surface trim** (decisions settled 2026-08-01, recorded in
-  _public-surface.md; build pending — deliberately late so the decisions get
-  re-confirmed after living with the surface through the passes above):
-  - `concurrency` pkg hidden entirely — consumers build queue + pool
-    internally from ConsumerConfig, constructors drop the two params (also
-    removes the consumer.Buffered leak).
-  - All three sub-consumer constructors stay public; full maintain surface
-    stays public.
-  - `migrate` pkg + both migrations.Registry vars move to internal/ —
-    admin.MigrateTopic(s)/MigrateSystem are the only user migration entry;
-    CLI keeps access via the import-path prefix rule. MigrateTopic +
-    MigrateTopics both stay — distinct ops.
-  - Broader internal/ moves were deferred 2026-08-19 (LIFECYCLE demotion
-    shipped instead) — re-decide here, alongside the removed
-    datastore-interfaces question's "re-add if desired" revisit.
-  - Also demoted: common.NewDefaultRetryPolicy/RetryableFunc (IsRetryable
-    was deleted outright with the marker types, [0551]; retry merged into
-    pkg/common 2026-08-17, [0528] — demotion is now an unexport inside
-    common; config Retry fields stay nil, WithDefaults fills them). The ConsumerType + CURSOR/LIFECYCLE + ConsumerConfig.Type
-    demotion shipped 2026-08-19 (see the file-structure cleanup item).
-  - Trim redundant pairs generally: e.g. DestroyTopic + DestroyTopicVersion
-    can only confuse — consider one DestroyTopic with a version option.
-  - Decide whether the field-less system config stub (RegisterSystem cfg /
-    AlterSystem / `vulkan system alter`) stays in the v1 public surface or
-    gets deleted until a real system-wide knob exists ([0516]).
+- **Supported public API review** [0665] — review what callers can reach
+  through `pkg/vulkan`, including exported fields and methods on aliases.
+  Other packages remain importable advanced options without a stability
+  commitment; package hiding and low-level constructor demotions are no
+  longer this task. Current keep/question/remove inventory: `_public-surface.md`.
+  - Settle the empty `RegisterSystemConfig.System` / `SystemConfig` surface,
+    `Client.Datastore()` and mutable client fields, and utility methods exposed
+    through `Owner`, `RetryPolicy`, `MessageOptions`, and diagnostic aliases.
+  - Keep useful batching and transaction controls; preserve separate single-topic
+    and all-topic migration operations. Review each proposed removal's callers,
+    replacement, documentation, and compatibility impact before implementation.
+  - The eventual move of `pkg/vulkan` to its public import location is separate
+    follow-through: update imports and path-aware tooling once that path is
+    chosen. No module split or destination path is selected yet.
 - **Named-return-params house style** — decide and apply consistently across
   the reviewed surface.
-- **Public API documentation review** — after public surface trim, audit
+- **Public API documentation review** — after the supported public API review, audit
   exported handles, instances, and the declaring packages behind aliases
   against current behavior. Apply CONVENTIONS.md's existing comment and SQL
   rules; refine them only where a concrete gap remains. [0664]

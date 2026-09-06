@@ -259,7 +259,7 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0504 2026-07-28 accepted (phase 13) — The breaker trips per instance; global OPEN is a quorum of locally-open instances
 - 0505 2026-07-28 accepted (phase 13) — The breaker's trip threshold is a conservative debounce, not statistics
 - 0506 2026-07-28 accepted (phase 13) — Reconciliation refunds systemic failures on CLOSE, run by the probe winner; recovery is automatic
-- 0507 2026-08-01 accepted (phase 13) — The public surface is organized by three audiences; plumbing types are demoted
+- 0507 2026-08-01 superseded by 0665 (phase 13) — The public surface is organized by three audiences; plumbing types are demoted
 - 0508 2026-08-01 accepted (phase 13) — The concurrency package goes internal; consumers build queue and pool from ConsumerConfig
 - 0509 2026-08-01 accepted (phase 13) — The retry surface is trimmed to Policy and the two error types
 - 0510 2026-08-01 accepted (phase 13) — ConsumerType and its constants are demoted; NewConsumer defaults to cursor consumption
@@ -417,3 +417,4 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0662 2026-09-05 superseded in part by 0663 (pre-v1) — Janitor cleanup steps have separate deadlines
 - 0663 2026-09-05 accepted (pre-v1) — The janitor timeout names cleanup
 - 0664 2026-09-06 accepted (pre-v1) — Defaults use the normal client API
+- 0665 2026-09-06 accepted (pre-v1) — Vulkan defines the supported public API
