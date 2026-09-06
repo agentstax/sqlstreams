@@ -8,8 +8,8 @@ import (
 )
 
 // ProducerInstance is a registered producer: it appends messages to the
-// topic RegisterProducer resolved. Every verb is producer.ProducerInstance's,
-// which holds each one's contract.
+// topic its ProducerHandle.Register resolved. Every verb is
+// producer.ProducerInstance's, which holds each one's contract.
 type ProducerInstance[Message Versioned] struct {
 	instance *producer.ProducerInstance[Message]
 }

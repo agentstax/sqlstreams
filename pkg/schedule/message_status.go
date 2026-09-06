@@ -15,7 +15,7 @@ const (
 )
 
 // ScheduleMessageStatus is one of a schedule's messages' outcome for one consumer
-// group, newest message first in a ScheduleMessages listing.
+// group, newest message first in a SchedulerHandle.Messages listing.
 type ScheduleMessageStatus struct {
 	ConsumerGroup string                 `json:"consumer_group"`
 	MessageId     int64                  `json:"message_id"`

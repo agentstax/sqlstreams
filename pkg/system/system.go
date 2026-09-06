@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-// System is the singleton system row, read back by GetSystem.
+// System is the singleton system row, read back by System().Get.
 type System struct {
 	Id        int64     `json:"system_id"`
 	CreatedAt time.Time `json:"created_at"`

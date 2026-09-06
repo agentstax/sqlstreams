@@ -16,7 +16,7 @@ const (
 	RecoveryPermanent DiagnosticRecovery = "permanent" // attempt unchanged -> retry cannot succeed
 )
 
-// Error is the one error shape:
+// DiagnosticError is the one error shape:
 // - code
 // - recovery
 // - problem

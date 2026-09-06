@@ -2,7 +2,7 @@ package diagnostic
 
 import "slices"
 
-// Event is a declared operator-actionable log event: the static message
+// DiagnosticEvent is a declared operator-actionable log event: the static message
 // a call site logs and the code that rides in its "code" attribute.
 type DiagnosticEvent struct {
 	code    string

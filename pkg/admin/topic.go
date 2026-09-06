@@ -138,9 +138,12 @@ func (a *MessageAdmin) RenameTopic(ctx context.Context, name string, newName str
 	return renamed, nil
 }
 
-// DestroyOptions configures a single DestroyTopic call.
+// DestroyOptions configures one Destroy call on a topic, consumer, or the
+// system. Every destroy is refused unless ClientConfig.AllowDestroy is set.
 type DestroyOptions struct {
-	// Force - required to destroy a topic that still holds messages.
+	// Force - skips the in-use guard: a topic still holding messages, a
+	// consumer group with a live instance or delivery rows, a system with a
+	// live worker instance or a topic registered.
 	// Default: false.
 	Force bool
 }

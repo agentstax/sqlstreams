@@ -13,7 +13,8 @@ type ProduceItem[Message common.Versioned] struct {
 	Options produce.ProduceOptions
 }
 
-// A set Options.IdempotencyKey is rejected: one hot key would stall the
+// NewProduceItem pairs one message with its options for ProduceBatch.
+// A set options.IdempotencyKey is rejected: one hot key would stall the
 // batch's whole shared transaction, so keyed messages go through Produce.
 // options may be nil for the defaults.
 func NewProduceItem[Message common.Versioned](message *Message, options *produce.ProduceOptions) (*ProduceItem[Message], error) {

@@ -24,7 +24,7 @@ type ClientConfig struct {
 	AllowDestroy bool
 
 	// DisableManager - whether Consume skips running the system manager
-	// beside its session; explicit RunManager calls are unaffected.
+	// beside its session; explicit Manager().Run calls are unaffected.
 	// Default: false.
 	//
 	// Set it where upkeep must not run in this process: a deployment with

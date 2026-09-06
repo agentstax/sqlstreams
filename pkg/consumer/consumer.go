@@ -22,7 +22,8 @@ import (
 	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
 )
 
-// should be idempotent -- redelivery after a crash or timeout is normal
+// ConsumerFunc handles one delivered message. It should be idempotent --
+// redelivery after a crash or timeout is normal.
 type ConsumerFunc[Message common.Versioned] func(ctx context.Context, message *Message) error
 
 // Consumer runs a consumer group on one topic. Failed messages retry with

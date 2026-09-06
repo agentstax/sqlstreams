@@ -8,7 +8,7 @@ import (
 	"github.com/agentstax/vulkan/pkg/common"
 )
 
-// Status is an alert's lifecycle state -- an active alert and its later
+// AlertStatus is an alert's lifecycle state -- an active alert and its later
 // resolution are versions of one compacted message key.
 type AlertStatus string
 

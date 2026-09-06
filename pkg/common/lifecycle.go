@@ -10,8 +10,9 @@ import (
 	"github.com/agentstax/vulkan/pkg/common/logging"
 )
 
-// LifecycleContext returns the application-lifetime context to pass to
-// Register/Consume: cancelled on the first SIGINT/SIGTERM, which starts
+// LifecycleContext returns the application-lifetime context to pass to the
+// blocking verbs -- Consume, Manager().Run, SchedulerInstance.Schedule:
+// cancelled on the first SIGINT/SIGTERM, which starts
 // graceful wind-down (new work refused, queued work drains). A SECOND exit
 // signal during the drain force-exits immediately (status 128+signum).
 //

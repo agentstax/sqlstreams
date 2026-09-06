@@ -2,8 +2,9 @@ package common
 
 // RawPayload is a message payload kept as the JSON bytes the row stores,
 // for readers with no message type in scope: the CLI, an admin-only
-// script. Its version is 0, which no declared message type may use, so
-// the produce and consume Register verbs refuse it.
+// script. Its version is 0, which no declared message type may use:
+// Consumer(name).Register refuses it and every produce path refuses to
+// write it.
 type RawPayload []byte
 
 func (RawPayload) SchemaVersion() int {

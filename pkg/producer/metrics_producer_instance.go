@@ -23,7 +23,8 @@ func newMetricsProducerInstance(instance *ProducerInstance[metrics.Measurement])
 	return &MetricsProducerInstance{instance: instance}, nil
 }
 
-// RegisterMetrics resolves the system metrics topic. cfg may be nil or sparse.
+// RegisterMetrics resolves the system metrics topic -- the client spells it
+// System().Metrics().Producer().Register. cfg may be nil or sparse.
 // Register the system first; this does not create it.
 func (p *Producer) RegisterMetrics(ctx context.Context, cfg *ProducerConfig) (*MetricsProducerInstance, error) {
 	instance, err := p.Register[metrics.Measurement](ctx, metrics.MetricsTopicName, cfg)

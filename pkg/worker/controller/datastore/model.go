@@ -15,8 +15,7 @@ type WorkerConfigRow struct {
 	TargetInstances int    `db:"target_instances"`
 }
 
-// ListWorkersRow is one row of ListWorkers' query: the worker row plus the
-// owner columns joined from topic and consumer_group.
+// ListWorkersRow includes the owner identity joined from topic and consumer_group.
 type ListWorkersRow struct {
 	WorkerConfigRow
 	OwnerSystemId int64  `db:"owner_system_id"` // system_id resolved through the topic when the row's own is NULL
