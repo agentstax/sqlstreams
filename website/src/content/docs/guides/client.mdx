@@ -112,8 +112,9 @@ struct with the override or parallel policy.
 instant compare equal. Two nil options are equal; nil and an empty struct differ.
 
 `ScheduledAt` passes through from the message unchanged; defaults and bounds
-do not supply or constrain it. Separating that metadata from delivery settings
-is planned work; its current public field and stored representation remain.
+do not supply or constrain it. Moving it off `MessageOptions` is
+[proposed](/guides/schedules/#proposed-the-scheduled-time-off-the-options-document);
+its current public field and stored representation remain.
 
 ## Owner identity
 
@@ -359,6 +360,19 @@ shutdown budget. A bigger box runs a bigger batch and nothing durable
 changes. Which field goes where, and what happens when two replicas
 disagree, is the
 [group config page](/guides/consumer-group-config/).
+
+`Consume` returns a fatal consumption error after stopping that session's
+internal executions and its paired system manager. The caller owns reporting
+the error and deciding when to start another session. For example, if
+`charge-cards` encounters an incompatible database schema, that call stops;
+independent consumer sessions and compatible replicas are not directly canceled.
+The application can choose to stop them together through a shared context.
+
+Handler errors follow the delivery retry policy. Worker claim loss permits
+replacement. A fatal consumption error does not suspend the group's shared
+worker configuration or leave the session running with exception processing
+permanently disabled. If this session supplied the only active upkeep instances,
+upkeep waits for another manager to claim them.
 
 ## What a declaration does
 

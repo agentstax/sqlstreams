@@ -423,3 +423,4 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0668 2026-09-06 accepted (pre-v1) — A cursor table carries its own id and the owner's id as UNIQUE
 - 0669 2026-09-06 accepted (pre-v1) — An index is named for its table then its leading columns
 - 0670 2026-09-06 accepted (pre-v1) — Public surface review retains capabilities and removes shared mutation
+- 0671 2026-09-06 accepted (pre-v1) — Fatal consumption errors stop the session

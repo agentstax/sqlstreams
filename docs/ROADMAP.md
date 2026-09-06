@@ -16,11 +16,6 @@ the item is removed.
 
 ## Now
 
-Doc-site rounds already shipped, for context on what is left below: the
-rewrite-to-the-real-API pass 2026-08-22 [0581], the board rebuild
-2026-08-23 [0582] [0583] [0584], the consumer-flow sandbox 2026-08-25
-[0585] [0586] [0587]. All three are in HISTORY.md.
-
 - **Separate scheduled occurrence metadata from delivery options.**
   `MessageOptions.ScheduledAt` describes an occurrence, but also appears in
   consumer defaults and bounds where it has no effect. Keep
@@ -33,25 +28,10 @@ rewrite-to-the-real-API pass 2026-08-22 [0581], the board rebuild
   - Preserve occurrence time versus creation time and manual-run timestamps.
     Ordinary producers can currently supply this value; making it scheduler-only
     is a separate decision, not an implied consequence of moving the field.
-- **Manager stops on one instance's permanent error** -- a worker
-  instance's Run returns a non-lease error straight through the manager
-  runner, so one consumer's permanent failure (a schema mismatch, say)
-  ends the whole manager Run. Returned-not-logged is right; decide before
-  v1 whether the manager should instead suspend that one instance and
-  keep the rest running. Surfaced 2026-09-06 by the exclusive lab.
+
 - **Named-return-params house style** — decide and apply consistently across
   the reviewed surface.
-- **Public API documentation review** — the supported surface review is closed [0670]; audit
-  exported handles, instances, and the declaring packages behind aliases
-  against current behavior. Apply CONVENTIONS.md's existing comment and SQL
-  rules; refine them only where a concrete gap remains. [0664]
-  - Cover meaningful defaults, lifecycle/cancellation requirements, errors,
-    and destructive effects; link to the relevant guide where it helps.
-    Review what callers see through `vulkan`, not the old worker/schedule
-    constructor inventory.
-  - Reconcile quickstarts and the public roadmap with the one-client API.
-    The normal constructors already supply defaults; no separate
-    DefaultProducer / DefaultConsumer path is planned.
+
 - **Comment sweeps** — execution list for the documentation review above;
   verify current package paths and remaining duplication before editing:
   - fanOut (pkg/consumer/deliveryconsumer/controller/datastore/fanout.go) —
@@ -70,6 +50,18 @@ rewrite-to-the-real-API pass 2026-08-22 [0581], the board rebuild
     per-package rewording. The "(own Handler)" fragment looks like a copy
     artifact to fix in that same sweep.
 
+- **Public API documentation review** — the supported surface review is closed [0670]; audit
+  exported handles, instances, and the declaring packages behind aliases
+  against current behavior. Apply CONVENTIONS.md's existing comment and SQL
+  rules; refine them only where a concrete gap remains. [0664]
+  - Cover meaningful defaults, lifecycle/cancellation requirements, errors,
+    and destructive effects; link to the relevant guide where it helps.
+    Review what callers see through `vulkan`, not the old worker/schedule
+    constructor inventory.
+  - Reconcile quickstarts and the public roadmap with the one-client API.
+    The normal constructors already supply defaults; no separate
+    DefaultProducer / DefaultConsumer path is planned.
+
 ## Next
 
 - **Move the public entry package out of pkg/** — follow through on [0665]
@@ -78,6 +70,14 @@ rewrite-to-the-real-API pass 2026-08-22 [0581], the board rebuild
 
 The public-surface review is closed [0670]. Remaining cleanup and documentation
 work build on those decisions before v1 freezes the supported contract.
+
+- **Potential project rename away from "vulkan".** No candidate yet; decide
+  before v1 -- after v1 the name is public API. A rename ripples through the
+  module path, the CLI binary, the docs site (docsBaseURL const in
+  pkg/common/error.go), and the VK error-code prefix (isErrorCode validation
+  plus every declared code -- codes never renumber after v1, so the prefix
+  must be final first).
+  - need to make sure we build out new logo sheet as well
 
 - **Reliability lab -- the hour-long live run** (verdict, not a
   measurement: the sibling of `just compat-lab`, housed under bench/ so
@@ -134,14 +134,6 @@ work build on those decisions before v1 freezes the supported contract.
   Webmaster Tools, submit the sitemap in each service (or import the verified
   Google property into Bing), and record the exact operator steps and initial
   indexing result so a future domain move or deployment can repeat them.
-
-- **Potential project rename away from "vulkan".** No candidate yet; decide
-  before v1 -- after v1 the name is public API. A rename ripples through the
-  module path, the CLI binary, the docs site (docsBaseURL const in
-  pkg/common/error.go), and the VK error-code prefix (isErrorCode validation
-  plus every declared code -- codes never renumber after v1, so the prefix
-  must be final first).
-  - need to make sure we build out new logo sheet as well
 
 - **Idle-fleet worker-load benchmark** (14c; measure BEFORE building any
   fix). An idle deployment pays per worker row per poll: winner's claim

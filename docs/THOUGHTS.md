@@ -6,6 +6,8 @@ Need to review otel package again and re-align and make sure serves purposes wel
 
 # Docs
 
+Need contributor doc
+
 Make small little comment about client api being design for old timers who still like to hand write code occassionally
 - ie can easily discover through dot tree notation what is available
 
@@ -14,9 +16,19 @@ roadmap later item for review code for interesting design decisions to write art
 - suppression logger
 - doc site
 - client builder pattern choice
-- writing your own commit messages
+- writing your own commit messages (and small commit size)
 - Decision tracking and index
-- AI Native projects -- faster but lose context and learning etc. Is it right or fair? What of long term? Where is right balance?
+- Code quality is even MORE important now
+  - bad code and patterns snowball, just as good code and patterns do
+  - stray unused code of patterns dilutes context 
+- AI Native projects
+  - faster but lose context
+  - you can learn but its worse and must be disciplined? (does learning even matter)
+  - Is it right or fair?
+  - How could this be maintained long term
+  - amount of corrections for frontier models (50%)
+  - When to heavily review the code vs skim or not at all (what is the right balance)
+- The importance of keeping notes (previously the slower pace would allow for easier tracking, things change so quick now it is easier to forget)
 
 # Review
 

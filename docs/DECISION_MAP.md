@@ -15,7 +15,7 @@ are in `docs/DECISIONS.md`. A new record adds its number to its line.
 - synchronous_commit, crash lab, bench method: 0081-0086
 - errors (VK codes, fix, diagnose), logging (levels, buffer, suppression, stop line), metrics declarations, collector poll rate, payload never logged: 0302-0305 0326 0522-0524 0550-0554 0558-0569 0589-0590 0647-0648 0661 0666 0670
 - migrations, schema versioning, advisory lock, MinCompatibleVersion, Postgres schema/search_path: 0341-0347 0501 0526-0527 0579-0580 0588 0629-0632 0650
-- workers, worker_instance, system manager, liveness, instance target, Run loop: 0421-0431 0537 0545-0549 0627 0635-0642
+- workers, worker_instance, system manager, liveness, instance target, Run loop, fatal consumption errors: 0421-0431 0537 0545-0549 0627 0635-0642 0671
 - schedules, cron, missed runs, job status: 0461-0473 0621
 - alerts, checks, __system.alerts, repeat interval: 0481-0490 0516 0520 0627 0649 0658
 - circuit breaker, error_class, reconciliation: 0502-0506

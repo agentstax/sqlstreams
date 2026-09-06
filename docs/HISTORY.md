@@ -5,6 +5,14 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-06 — Consumer session failure contract retained [0671]
+
+Closed the manager permanent-error roadmap discussion: fatal consumption
+errors continue to stop the session and return through Consume. No automatic
+instance suspension or shared target change. The client guide now states the
+failure boundary, caller-owned recovery, and the effect on paired upkeep.
+Runtime behavior is unchanged.
+
 ## 2026-09-06 — Table name and column review [0667] [0668] [0669]
 
 The last naming and column-order pass before v1 makes the DDL expensive to

@@ -156,6 +156,57 @@ one of your keys would supersede it. Give a schedule its own topic, or
 key your own messages so the two can't collide - I'm not sure a config
 knob here is worth its weight until someone hits it.
 
+## Proposed: the scheduled time off the options document
+
+`ScheduledAt` moves from `MessageOptions` to `ProduceOptions`, and
+`message_log` gets a `scheduled_at` column of its own. This is not
+shipped: today the field sits on `MessageOptions` and is stored inside
+the row's `options` document as `scheduled_at`.
+
+`MessageOptions` is what a message requests and a consumer clamps:
+timeout, retry curve, concurrency. The time a message is for is
+neither, and it rides along anyway. So it shows up in
+`ConsumerConfig.Message`, `MessageMin` and `MessageMax` where it does
+nothing, `Fill` and `Clamp` carry a pass-through note for it, and
+`Equal` compares it. With the write field on `ProduceOptions`, the
+options document and `Equal` cover delivery settings only.
+
+What stays: `meta.ScheduledAt` in the handler, the difference between
+the time a message is for and `created_at` (the `02:00` run produced
+at `02:00:03` reads `02:00`), and `Scheduler(name).Run` stamping the
+moment it ran. Any producer can still set the field; making it
+scheduler-only would be its own decision.
+
+Storage is a column. Keeping the JSON key would mean the struct that
+marshals `options` still carries the field, so the split would exist on
+the Go surface only, and every claim that scans `options` into
+`MessageOptions` would need a second struct beside it. A
+`scheduled_at TIMESTAMPTZ` column is NULL on every ordinary message:
+one write site, three claim reads, and `ListMessages` stops casting JSON
+to a timestamp. The cost is a nullable column on every message row,
+8 bytes when set.
+
+```sql
+SELECT id, message_key, scheduled_at, created_at
+FROM vulkan.message_log_4
+WHERE message_key = 'invoices.nightly'
+ORDER BY id DESC LIMIT 2;
+--  id     | message_key      | scheduled_at           | created_at
+--  88012  | invoices.nightly | 2026-09-06 02:00:00+00 | 2026-09-06 02:00:03+00
+--  87990  | invoices.nightly | 2026-09-05 14:12:41+00 | 2026-09-05 14:12:41+00
+```
+
+`88012` is the `02:00` run; `87990` is a `vulkan schedule run` at
+`14:12`, so both columns hold the same moment.
+
+What it touches when built: the schedule producer's due produce and
+`Run` set the field; the produce insert writes the column; every claim
+(fresh, reclaim, exception redelivery) reads it into
+`meta.ScheduledAt`; `ListMessages` reads it. Pre-v1, so the baseline
+DDL changes in place and a dev database is dropped and recreated; no
+migration step. `vulkan topic key messages` does not show the time
+today and this leaves that alone.
+
 ## What this is not
 
 A one-off "run this in ten minutes" is not a schedule; it is a delayed
