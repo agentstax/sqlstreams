@@ -122,6 +122,8 @@ func (d *MigrateDatastore) topicSchemaState(ctx context.Context, q datastore.Que
 //
 // There is no implied baseline but every owner is recorded at creation.
 func Version(ctx context.Context, q datastore.Querier, owner *common.Owner, schema string) (int64, error) {
+	columns := datastore.NewOwnerColumns(*owner)
+
 	// IS NOT DISTINCT FROM: NULL-safe equality against the owner's columns
 	sql := fmt.Sprintf(`
 		-- vulkan: migrate.Version
@@ -135,7 +137,7 @@ func Version(ctx context.Context, q datastore.Querier, owner *common.Owner, sche
 	`, schema)
 
 	var version int64
-	if err := q.QueryRow(ctx, sql, owner.SystemIdColumn(), owner.TopicIdColumn(), owner.ConsumerGroupIdColumn()).Scan(&version); err != nil {
+	if err := q.QueryRow(ctx, sql, columns.SystemId, columns.TopicId, columns.ConsumerGroupId).Scan(&version); err != nil {
 		return 0, registrationError(err)
 	}
 	return version, nil

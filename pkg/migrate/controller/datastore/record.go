@@ -9,12 +9,14 @@ import (
 )
 
 func (d *MigrateDatastore) recordSuccess(ctx context.Context, q datastore.Querier, owner *common.Owner, version int64, minCompatibleVersion int64) error {
+	columns := datastore.NewOwnerColumns(*owner)
+
 	sql := fmt.Sprintf(`
 		-- vulkan: migrate.recordSuccess
 		INSERT INTO %[1]s.migration_log (system_id, topic_id, consumer_group_id, version, min_compatible_version, status) VALUES ($1, $2, $3, $4, $5, 'success');
 	`, d.Datastore.Schema)
 	_, err := q.Exec(ctx, sql,
-		owner.SystemIdColumn(), owner.TopicIdColumn(), owner.ConsumerGroupIdColumn(), version, minCompatibleVersion)
+		columns.SystemId, columns.TopicId, columns.ConsumerGroupId, version, minCompatibleVersion)
 	return err
 }
 
@@ -22,6 +24,8 @@ func (d *MigrateDatastore) recordSuccess(ctx context.Context, q datastore.Querie
 // best-effort, on a fresh context so the cancel that caused the failure doesn't
 // also drop the record.
 func (d *MigrateDatastore) TryRecordFailure(ctx context.Context, q datastore.Querier, owner *common.Owner, version int64, cause error) {
+	columns := datastore.NewOwnerColumns(*owner)
+
 	ctx = context.WithoutCancel(ctx)
 	err := d.DatastoreRetry.Wrap(ctx, func() error {
 		sql := fmt.Sprintf(`
@@ -29,7 +33,7 @@ func (d *MigrateDatastore) TryRecordFailure(ctx context.Context, q datastore.Que
 			INSERT INTO %[1]s.migration_log (system_id, topic_id, consumer_group_id, version, status, error) VALUES ($1, $2, $3, $4, 'failure', $5);
 		`, d.Datastore.Schema)
 		_, e := q.Exec(ctx, sql,
-			owner.SystemIdColumn(), owner.TopicIdColumn(), owner.ConsumerGroupIdColumn(), version, cause.Error())
+			columns.SystemId, columns.TopicId, columns.ConsumerGroupId, version, cause.Error())
 		return e
 	})
 	if err != nil {

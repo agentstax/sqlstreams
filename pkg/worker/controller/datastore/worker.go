@@ -23,6 +23,8 @@ func (d *WorkerDatastore) RegisterWorker(ctx context.Context, name string, owner
 }
 
 func (d *WorkerDatastore) registerWorker(ctx context.Context, name string, owner *common.Owner, metadata any, targetInstances int, declaredBy string) error {
+	columns := datastore.NewOwnerColumns(*owner)
+
 	tx, err := d.Datastore.Pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -39,7 +41,7 @@ func (d *WorkerDatastore) registerWorker(ctx context.Context, name string, owner
 		RETURNING id;
 	`, d.Datastore.Schema)
 	var createdId int64
-	err = tx.QueryRow(ctx, insertSql, owner.SystemIdColumn(), owner.TopicIdColumn(), owner.ConsumerGroupIdColumn(), name, metadata, targetInstances).Scan(&createdId)
+	err = tx.QueryRow(ctx, insertSql, columns.SystemId, columns.TopicId, columns.ConsumerGroupId, name, metadata, targetInstances).Scan(&createdId)
 	if err == nil {
 		if err := d.appendWorkerConfigLog(ctx, tx, createdId, declaredBy); err != nil {
 			return err
@@ -68,7 +70,7 @@ func (d *WorkerDatastore) registerWorker(ctx context.Context, name string, owner
 	var workerId int64
 	var storedMetadata json.RawMessage
 	var unchanged bool
-	err = tx.QueryRow(ctx, readSql, owner.SystemIdColumn(), owner.TopicIdColumn(), owner.ConsumerGroupIdColumn(), name, metadata).
+	err = tx.QueryRow(ctx, readSql, columns.SystemId, columns.TopicId, columns.ConsumerGroupId, name, metadata).
 		Scan(&workerId, &storedMetadata, &unchanged)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return worker.ErrWorkerDeclarationInterrupted.With("worker", name)
@@ -199,6 +201,8 @@ func (d *WorkerDatastore) GetWorker(ctx context.Context, name string, owner *com
 }
 
 func (d *WorkerDatastore) getWorker(ctx context.Context, name string, owner *common.Owner) (*WorkerConfigRow, error) {
+	columns := datastore.NewOwnerColumns(*owner)
+
 	sql := fmt.Sprintf(`
 		-- vulkan: worker.getWorker
 		SELECT 
@@ -216,7 +220,7 @@ func (d *WorkerDatastore) getWorker(ctx context.Context, name string, owner *com
 			AND consumer_group_id IS NOT DISTINCT FROM $4;
 	`, d.Datastore.Schema)
 	var data WorkerConfigRow
-	err := d.Datastore.Pool.QueryRow(ctx, sql, name, owner.SystemIdColumn(), owner.TopicIdColumn(), owner.ConsumerGroupIdColumn()).
+	err := d.Datastore.Pool.QueryRow(ctx, sql, name, columns.SystemId, columns.TopicId, columns.ConsumerGroupId).
 		Scan(&data.Id, &data.SystemId, &data.TopicId, &data.ConsumerGroupId, &data.Name, &data.Metadata, &data.TargetInstances)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, fmt.Errorf("worker %q has no worker row -- the owner's register declares it", name)

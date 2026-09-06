@@ -12,6 +12,8 @@ docs/decisions/.
   callers use owned pools and explicit datastores. Continue with the remaining
   question rows. Client.Config and Client.Logger are also removed; construction
   captures settings and copies the supplied retry policy.
+  Owner retains fields and Kind; SQL column conversion moved to pkg/datastore,
+  and the unused IdColumns method is removed.
   RetryPolicy helpers stay public; comments and contract tests are complete.
   Boundary verification found total-delay overflow for valid fields. Review
   arithmetic handling with the producer's added operation allowance before

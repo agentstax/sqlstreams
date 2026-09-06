@@ -107,6 +107,19 @@ instant compare equal. Two nil options are equal; nil and an empty struct differ
 do not supply or constrain it. Separating that metadata from delivery settings
 is planned work; its current public field and stored representation remain.
 
+## Owner identity
+
+`Owner` exposes the resource's IDs, name, and `Kind()`. A consumer-group owner
+can carry system ID 1, topic ID 12, and consumer-group ID 34 together;
+`Kind()` identifies the consumer group as the owning resource.
+
+The SQL helpers `IdColumns`, `SystemIdColumn`, `TopicIdColumn`, and
+`ConsumerGroupIdColumn` have been removed from `Owner`. Existing calls fail to
+compile. Advanced datastore callers can use `pkg/datastore.NewOwnerColumns`
+to select the owning ID and NULL for the other columns. For that consumer
+group, the result is `(NULL, NULL, 34)`. This conversion is outside the
+supported client API; ownership values and stored rows are unchanged.
+
 ## Two grammars
 
 The client selects the noun: `Topic[T](name)`, `Scheduler(name)`, and a
