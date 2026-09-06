@@ -240,7 +240,7 @@ the target and expression at `Register`.
 ```go
 nightly, err := client.Scheduler("nightly-report").Register(ctx,
 	"reports.requested", "0 3 * * *",
-	&ReportRequestedV1{Kind: "nightly"}, &vulkan.ScheduleConfig{
+	&ReportRequestedV1{Kind: "nightly"}, &vulkan.SchedulerConfig{
 		Timeout:     time.Minute,
 		Concurrency: vulkan.ConcurrencyExclusive,
 	})
@@ -251,11 +251,10 @@ if err != nil {
 return nightly.Schedule(ctx)
 ```
 
-`ScheduleConfig` keeps its name and is handed to `SchedulerHandle.Register`:
-`Timeout`, `Concurrency`, and `Metadata` are the schedule's declared
-semantics and land on the row with the expression and payload; the
-old `SchedulerConfig` was ambient only and dissolves into
-`ClientConfig`. `SchedulerInstance.Schedule` runs the system manager,
+`SchedulerConfig` is handed to `SchedulerHandle.Register`: `Timeout`,
+`Concurrency`, and `Metadata` are the schedule's declared semantics and
+land on the row with the expression and payload; nothing ambient sits
+beside them. `SchedulerInstance.Schedule` runs the system manager,
 which produces every registered schedule — and takes no options: a
 schedule session has no tuning of its own.
 

@@ -17,9 +17,10 @@ every other group:
 
 ```go
 // Three teams, three groups, one topic — zero coordination.
-receipts, err := emailConsumer.Register(ctx, "email-receipts", registered.Name, nil)
-screening, err := fraudConsumer.Register(ctx, "fraud-screening", registered.Name, nil)
-warehouse, err := syncConsumer.Register(ctx, "warehouse-sync", registered.Name, nil)
+orders := client.Topic[OrderCreated](registered.Name)
+receipts, err := orders.Consumer("email-receipts").Register(ctx, nil)
+screening, err := orders.Consumer("fraud-screening").Register(ctx, nil)
+warehouse, err := orders.Consumer("warehouse-sync").Register(ctx, nil)
 ```
 
 - A slow group falls behind **alone**; nobody else feels it.

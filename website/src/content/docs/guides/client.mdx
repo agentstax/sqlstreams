@@ -411,7 +411,7 @@ the `Scheduler` handle administers its stored row.
 ```go
 nightly, err := client.Scheduler("nightly-report").Register(ctx,
 	"reports.requested", "0 3 * * *",
-	&ReportRequestedV1{Kind: "nightly"}, &vulkan.ScheduleConfig{
+	&ReportRequestedV1{Kind: "nightly"}, &vulkan.SchedulerConfig{
 		Timeout:     time.Minute,
 		Concurrency: vulkan.ConcurrencyExclusive,
 	})

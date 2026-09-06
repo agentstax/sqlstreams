@@ -24,21 +24,22 @@ match.
 
 ## Declare the group's bindings
 
-A group's bindings are declared as a whole set, in `Register`'s last
-argument — there is no separate bind verb to call one pattern at a time:
+A group's bindings are declared as a whole set, in `ConsumerConfig.Bindings`
+at `Register` — there is no separate bind verb to call one pattern at a time:
 
 ```go
+orders := client.Topic[OrderCreated](registered.Name)
+
 // Receipts care about created orders.
-receipts, err := emailConsumer.Register(ctx, "email-receipts",
-	registered.Name, []string{"orders.*.created"})
+receipts, err := orders.Consumer("email-receipts").Register(ctx,
+	&vulkan.ConsumerConfig{Bindings: []string{"orders.*.created"}})
 
 // EU compliance wants everything EU.
-compliance, err := auditConsumer.Register(ctx, "eu-compliance",
-	registered.Name, []string{"orders.eu.*"})
+compliance, err := orders.Consumer("eu-compliance").Register(ctx,
+	&vulkan.ConsumerConfig{Bindings: []string{"orders.eu.*"}})
 
 // The analytics group passes nil: no bindings, the whole topic.
-analytics, err := statsConsumer.Register(ctx, "order-analytics",
-	registered.Name, nil)
+analytics, err := orders.Consumer("order-analytics").Register(ctx, nil)
 ```
 
 Produce `orders.eu.created` → `email-receipts`, `eu-compliance`, and

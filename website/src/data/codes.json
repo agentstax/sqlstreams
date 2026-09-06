@@ -249,7 +249,7 @@
       "kind": "error",
       "problem": "topic partitions remain after draining",
       "recovery": "permanent",
-      "fix": "stop the topic's producers and call DestroyTopic again",
+      "fix": "stop the topic's producers and call Client.Topic(name).Destroy again",
       "queries": [
         {
           "label": "the partitions still attached to the log",
@@ -274,7 +274,7 @@
       "kind": "error",
       "problem": "could not finish the topic declaration",
       "recovery": "transient",
-      "fix": "run RegisterTopic again if the topic should still exist"
+      "fix": "run Client.Topic(name).Register again if the topic should still exist"
     },
     "VK0022": {
       "code": "VK0022",
@@ -774,7 +774,7 @@
     "VK0058": {
       "code": "VK0058",
       "kind": "event",
-      "message": "schedule target topic keeps no success rows -- ScheduleStatus counts no successes for it; set DeliveryLogMode all on the topic to count them"
+      "message": "schedule target topic keeps no success rows -- Client.Scheduler(name).Status counts no successes for it; set DeliveryLogMode all on the topic to count them"
     },
     "VK0059": {
       "code": "VK0059",

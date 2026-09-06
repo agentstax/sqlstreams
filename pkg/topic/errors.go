@@ -56,7 +56,7 @@ var ErrTopicNameTaken = diagnostic.NewDiagnosticError("VK0007", diagnostic.Recov
 // Diagnose queries: vulkan explain VK0020
 var ErrTopicPartitionsRemain = diagnostic.NewDiagnosticError("VK0020", diagnostic.RecoveryPermanent,
 	"topic partitions remain after draining",
-	"stop the topic's producers and call DestroyTopic again",
+	"stop the topic's producers and call Client.Topic(name).Destroy again",
 
 	diagnostic.NewDiagnosticQuery("the partitions still attached to the log", `
 SELECT partition.relname AS partition
@@ -73,7 +73,7 @@ SELECT max(id) AS head, count(*) AS message_count FROM {schema}.message_log_{top
 // registers the topic fresh, so DatastoreRetry heals the race.
 var ErrTopicDeclarationInterrupted = diagnostic.NewDiagnosticError("VK0021", diagnostic.RecoveryTransient,
 	"could not finish the topic declaration",
-	"run RegisterTopic again if the topic should still exist")
+	"run Client.Topic(name).Register again if the topic should still exist")
 
 // ErrDestroyDisabled means a Destroy* call ran without AllowDestroy set
 // on the admin's config.

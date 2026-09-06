@@ -14,7 +14,7 @@ var EventMessageAlreadyProduced = diagnostic.NewDiagnosticEvent("VK0037",
 // failure rows only, so ScheduleStatus can never count a success.
 var EventTargetKeepsNoSuccessRows = diagnostic.NewDiagnosticEvent("VK0058",
 	"schedule target topic keeps no success rows",
-	"ScheduleStatus counts no successes for it; set DeliveryLogMode all on the topic to count them")
+	"Client.Scheduler(name).Status counts no successes for it; set DeliveryLogMode all on the topic to count them")
 
 // EventScheduleConfigReplaced means a declaration overwrote a schedule row's
 // differing config -- two declarers disagree about the schedule.
