@@ -91,8 +91,7 @@ func (d *ExceptionConsumerGroupDatastore) claim(ctx context.Context, topicId int
 				COALESCE(m.message_key, '') AS message_key,
 				COALESCE(m.compaction_rank, 0) AS compaction_rank,
 				(m.compaction_rank IS NOT NULL) AS compacted,
-				m.options,
-				m.scheduled_at
+				m.options
 			FROM claimed c
 			JOIN %[1]s.%[3]s m ON m.id = c.message_id
 			ORDER BY c.message_id;
@@ -177,8 +176,7 @@ func (d *ExceptionConsumerGroupDatastore) claim(ctx context.Context, topicId int
 				COALESCE(m.message_key, '') AS message_key,
 				COALESCE(m.compaction_rank, 0) AS compaction_rank,
 				(m.compaction_rank IS NOT NULL) AS compacted,
-				m.options,
-				m.scheduled_at
+				m.options
 			FROM claimed c
 			JOIN %[1]s.%[3]s m ON m.id = c.message_id
 			ORDER BY c.message_id;

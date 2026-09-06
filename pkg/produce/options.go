@@ -3,7 +3,6 @@ package produce
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/agentstax/vulkan/pkg/common"
 )
@@ -59,11 +58,6 @@ type ProduceOptions struct {
 	// whoever consumes it (work timeout, redelivery policy, concurrency).
 	// Default: nil (defaults to Producer Defaults > Consumer Defaults).
 	Message *common.MessageOptions
-
-	// ScheduledAt - the time this message is for, read by the handler as
-	// MessageMeta.ScheduledAt. The schedule producer sets it to the due time.
-	// Default: zero (the moment the message is produced).
-	ScheduledAt time.Time
 }
 
 // Validate rejects nonsensical option combinations.

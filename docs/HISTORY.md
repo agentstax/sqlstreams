@@ -31,22 +31,16 @@ instance suspension or shared target change. The client guide now states the
 failure boundary, caller-owned recovery, and the effect on paired upkeep.
 Runtime behavior is unchanged.
 
-## 2026-09-06 — The scheduled time leaves the delivery options [0673]
+## 2026-09-06 — Scheduled-time column tried and reverted [0673] [0675]
 
-`MessageOptions.ScheduledAt` is gone: the time a message is for is
-`ProduceOptions.ScheduledAt` on the way in and `MessageMeta.ScheduledAt`
-on the way out, stored in a new `message_log.scheduled_at TIMESTAMPTZ NOT
-NULL` column instead of the `options` JSON. Every message has one: a
-schedule's due time, a manual run's moment, else the moment of the
-produce, resolved once at the produce controller beside the idempotency
-key. The three claim reads and `ListMessages` read the column plainly;
-`Fill`, `Clamp`, and `Equal` cover delivery settings only. A nullable
-column with `NULLIF`/`COALESCE` shaping was built first and reversed on
-the user's call: the zero was a format trap nothing branched on. Doc site:
-schedules, client, and table-design pages; sandbox mirrors of the DDL and
-the three statements; three labs that hand-insert message rows now
-supply the column. 51/51 fresh-DB lab suite. The rename of `scheduled_at`
-is parked in ROADMAP Now.
+`MessageOptions.ScheduledAt` was moved to `ProduceOptions` and stored as
+a `message_log` column, first nullable, then NOT NULL on every message
+with a produce-time default, then renamed `sent_at`. Reverted the same
+day: the scheduled time is a fact only a schedule's message carries, and
+the sparse `options` document already holds exactly that. A column on
+every row needed a default that meant nothing and a name that fit
+nothing. Code, labs, sandbox mirrors, and doc pages are back to the
+pre-item state; both records are rejected.
 
 ## 2026-09-06 — Table name and column review [0667] [0668] [0669]
 

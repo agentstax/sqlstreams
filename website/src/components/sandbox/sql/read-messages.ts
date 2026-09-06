@@ -14,8 +14,7 @@ export const readMessagesSqlTemplate = `
 			COALESCE(m.message_key, '') AS message_key,
 			COALESCE(m.compaction_rank, 0) AS compaction_rank,
 			(m.compaction_rank IS NOT NULL) AS compacted,
-			m.options,
-			m.scheduled_at
+			m.options
 		FROM %[1]s.%[2]s m
 		WHERE m.id > $1
 			AND m.id <= $2

@@ -776,15 +776,17 @@ func messageCount(ctx context.Context, messageKey string) int64 {
 }
 
 func producedScheduledTimes(ctx context.Context, messageKey string) []time.Time {
-	rows, err := ds.Pool.Query(ctx, fmt.Sprintf(`SELECT scheduled_at FROM %s.%s WHERE message_key = $1 ORDER BY id;`, ds.Schema, topic.MessageLogTable(target.Id)), messageKey)
+	rows, err := ds.Pool.Query(ctx, fmt.Sprintf(`SELECT options->>'scheduled_at' FROM %s.%s WHERE message_key = $1 ORDER BY id;`, ds.Schema, topic.MessageLogTable(target.Id)), messageKey)
 	must(err)
 	defer rows.Close()
 
 	var times []time.Time
 	for rows.Next() {
-		var scheduledTime time.Time
-		must(rows.Scan(&scheduledTime))
-		times = append(times, scheduledTime)
+		var raw string
+		must(rows.Scan(&raw))
+		parsed, err := time.Parse(time.RFC3339Nano, raw)
+		must(err)
+		times = append(times, parsed)
 	}
 	must(rows.Err())
 	return times

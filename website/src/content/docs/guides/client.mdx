@@ -107,13 +107,12 @@ None changes its input during the call. `Fill(nil)` on nil returns nil;
 `Clamp` on nil returns nil; `ResolveConcurrency` on nil returns an options
 struct with the override or parallel policy.
 
-`Equal` compares stored values without filling defaults. Two nil options
-are equal; nil and an empty struct differ.
+`Equal` compares stored values without filling defaults. It compares
+`ScheduledAt` as an instant, so different time zones representing the same
+instant compare equal. Two nil options are equal; nil and an empty struct differ.
 
-The time a message is for is not a delivery setting. It is
-`ProduceOptions.ScheduledAt` on the way in and `MessageMeta.ScheduledAt` on
-the way out ([schedules](/guides/schedules/#what-register-stores)), so
-defaults and bounds never see it.
+`ScheduledAt` passes through from the message unchanged; defaults and bounds
+do not supply or constrain it.
 
 ## Owner identity
 
@@ -359,19 +358,6 @@ shutdown budget. A bigger box runs a bigger batch and nothing durable
 changes. Which field goes where, and what happens when two replicas
 disagree, is the
 [group config page](/guides/consumer-group-config/).
-
-`Consume` returns a fatal consumption error after stopping that session's
-internal executions and its paired system manager. The caller owns reporting
-the error and deciding when to start another session. For example, if
-`charge-cards` encounters an incompatible database schema, that call stops;
-independent consumer sessions and compatible replicas are not directly canceled.
-The application can choose to stop them together through a shared context.
-
-Handler errors follow the delivery retry policy. Worker claim loss permits
-replacement. A fatal consumption error does not suspend the group's shared
-worker configuration or leave the session running with exception processing
-permanently disabled. If this session supplied the only active upkeep instances,
-upkeep waits for another manager to claim them.
 
 ## What a declaration does
 

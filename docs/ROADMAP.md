@@ -16,11 +16,6 @@ the item is removed.
 
 ## Now
 
-- **Rename `scheduled_at` / `MessageMeta.ScheduledAt`.** Now that every
-  message carries the time it is for, "scheduled" overstates an ordinary
-  produce. Public rename, so its own item. The user does not like
-  `occurred_at`; no candidate yet.
-
 - **Comment sweeps** — execution list for the documentation review above;
   verify current package paths and remaining duplication before editing:
   - fanOut (pkg/consumer/deliveryconsumer/controller/datastore/fanout.go) —

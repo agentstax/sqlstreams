@@ -83,13 +83,13 @@ func (s *Scheduler) RunSchedule(ctx context.Context, name string, options *Sched
 	// no IdempotencyKey: Produce creates a fresh v7 per call, so every run is
 	// its own message
 	return instance.Produce(ctx, stored, &produce.ProduceOptions{
-		RoutingKey:  found.Name,
-		MessageKey:  found.Name,
-		Compaction:  compaction,
-		ScheduledAt: time.Now().UTC(),
+		RoutingKey: found.Name,
+		MessageKey: found.Name,
+		Compaction: compaction,
 		Message: &common.MessageOptions{
 			Concurrency: options.Concurrency,
 			Timeout:     found.Timeout,
+			ScheduledAt: time.Now().UTC(),
 		},
 	})
 }

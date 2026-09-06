@@ -24,7 +24,6 @@ func toClaimedException(data datastore.ExceptionQueueRow) ClaimedException {
 		CompactionRank:  data.CompactionRank,
 		Compacted:       data.Compacted,
 		Options:         data.Options,
-		ScheduledAt:     data.ScheduledAt,
 	}
 }
 

@@ -49,9 +49,8 @@ func (c *ProduceController) AppendMessage[Message common.Versioned](ctx context.
 	}
 
 	idempotencyKey := resolveIdempotencyKey(options.IdempotencyKey)
-	scheduledAt := resolveScheduledAt(options.ScheduledAt)
 
-	appended, err := c.datastore.AppendMessage(ctx, topicId, partitionSize, produceFunc, toAppend[Message](idempotencyKey, scheduledAt, nil, options))
+	appended, err := c.datastore.AppendMessage(ctx, topicId, partitionSize, produceFunc, toAppend[Message](idempotencyKey, nil, options))
 	if err != nil || appended == nil {
 		return nil, err
 	}
@@ -75,9 +74,8 @@ func (c *ProduceController) AppendMessageInTx[Message common.Versioned](ctx cont
 	}
 
 	idempotencyKey := resolveIdempotencyKey(options.IdempotencyKey)
-	scheduledAt := resolveScheduledAt(options.ScheduledAt)
 
-	appended, err := c.datastore.AppendMessageInTx(ctx, tx, topicId, partitionSize, produceFunc, toAppend[Message](idempotencyKey, scheduledAt, nil, options))
+	appended, err := c.datastore.AppendMessageInTx(ctx, tx, topicId, partitionSize, produceFunc, toAppend[Message](idempotencyKey, nil, options))
 	if err != nil || appended == nil {
 		return nil, err
 	}
@@ -104,9 +102,8 @@ func (c *ProduceController) AppendMessageBatch[Message common.Versioned](ctx con
 		if (*item.Payload).SchemaVersion() < 1 {
 			return nil, -1, fmt.Errorf("append Payload.SchemaVersion must be >= 1, got %d", (*item.Payload).SchemaVersion())
 		}
-		idempotencyKey := resolveIdempotencyKey(item.Options.IdempotencyKey)
-		scheduledAt := resolveScheduledAt(item.Options.ScheduledAt)
-		datastoreAppends = append(datastoreAppends, toAppend(idempotencyKey, scheduledAt, item.Payload, item.Options))
+		resolved := resolveIdempotencyKey(item.Options.IdempotencyKey)
+		datastoreAppends = append(datastoreAppends, toAppend(resolved, item.Payload, item.Options))
 	}
 
 	datastoreAppended, failedIdx, err := c.datastore.AppendMessageBatch(ctx, topicId, partitionSize, attemptTimeout, datastoreAppends)
@@ -136,13 +133,4 @@ func resolveIdempotencyKey(key string) uuid.UUID {
 		return parsed
 	}
 	return newSHA1UUID(idempotencyKeyNamespace, []byte(key))
-}
-
-// resolveScheduledAt resolves the time the message is for: the caller's
-// value, or the moment of the produce when the caller left it zero.
-func resolveScheduledAt(scheduledAt time.Time) time.Time {
-	if scheduledAt.IsZero() {
-		return time.Now().UTC()
-	}
-	return scheduledAt
 }

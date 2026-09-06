@@ -24,7 +24,7 @@ func toMessageMeta(claimed controller.Message, resolved *common.MessageOptions) 
 		MessageKey:     claimed.MessageKey,
 		CompactionRank: claimed.CompactionRank,
 		CreatedAt:      claimed.CreatedAt,
-		ScheduledAt:    claimed.ScheduledAt,
+		ScheduledAt:    resolved.ScheduledAt,
 		Options:        resolved,
 	}
 }

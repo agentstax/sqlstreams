@@ -25,10 +25,15 @@ type MessageOptions struct {
 	// to the consumer's policy per-field.
 	// Default: nil (the consumer's policy applies whole).
 	Retry *RetryPolicy `json:"retry,omitempty"`
+
+	// ScheduledAt - the scheduled time a schedule's message is for, set
+	// by the schedule producer; zero on every other message. A fact about
+	// the message, never a consumer knob -- Fill and Clamp pass it through.
+	ScheduledAt time.Time `json:"scheduled_at,omitzero"`
 }
 
 // Fill fills unset delivery fields from defaults, copying Retry without changing inputs.
-// Two nil inputs return nil.
+// Two nil inputs return nil; ScheduledAt comes only from the receiver.
 func (o *MessageOptions) Fill(defaults *MessageOptions) *MessageOptions {
 	if o == nil && defaults == nil {
 		return nil
@@ -52,7 +57,7 @@ func (o *MessageOptions) Fill(defaults *MessageOptions) *MessageOptions {
 }
 
 // Clamp applies positive numeric bounds to Timeout and Retry, copying Retry.
-// A nil receiver returns nil; Concurrency remains unchanged.
+// A nil receiver returns nil; Concurrency and ScheduledAt remain unchanged.
 func (o *MessageOptions) Clamp(minimum *MessageOptions, maximum *MessageOptions) *MessageOptions {
 	if o == nil {
 		return nil
@@ -88,7 +93,7 @@ func (o *MessageOptions) ResolveConcurrency(override ConcurrencyPolicy) *Message
 	return &resolved
 }
 
-// Equal compares stored fields without resolving defaults.
+// Equal compares stored fields without resolving defaults, using instant equality for ScheduledAt.
 // Two nil options are equal; nil and an empty options struct are not.
 func (o *MessageOptions) Equal(other *MessageOptions) bool {
 	if o == nil || other == nil {
@@ -96,7 +101,8 @@ func (o *MessageOptions) Equal(other *MessageOptions) bool {
 	}
 	return o.Concurrency == other.Concurrency &&
 		o.Timeout == other.Timeout &&
-		o.Retry.Equal(other.Retry)
+		o.Retry.Equal(other.Retry) &&
+		o.ScheduledAt.Equal(other.ScheduledAt)
 }
 
 func (o *MessageOptions) WithDefaults() *MessageOptions {

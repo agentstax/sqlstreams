@@ -76,13 +76,7 @@ consumers still on version 1 skip it, as on any topic
 
 The payload is the same document every time. A handler that needs to
 know which scheduled time a message is for reads `meta.ScheduledAt`;
-it is not in the payload because the payload never changes. It is the
-`scheduled_at` column of the message row, and every message has one:
-a schedule's message carries the due time, `Run` stamps the moment it
-ran, and an ordinary produce gets the moment it was produced unless the
-producer set `ProduceOptions.ScheduledAt` itself. So the `02:00` run
-produced at `02:00:03` reads `02:00`, and `created_at` keeps the
-`02:00:03`.
+it is not in the payload because the payload never changes.
 
 ## What SchedulerInstance.Schedule does
 
@@ -105,7 +99,6 @@ transaction with the `schedule_cursor` advance:
   piling up.
 - `Concurrency` and `Timeout` come from the schedule's config, so
   `exclusive` means a message waits for the previous one to finish.
-- `ScheduledAt` is the due time, not the moment the producer got to it.
 - The idempotency key is derived from the scheduled time and the
   schedule id: a replay after an ambiguous commit dedupes, every other
   produce lands.
@@ -127,11 +120,11 @@ At `02:00 UTC` the schedule producer claims the row, produces onto
 `message_log_4`, and advances `schedule_cursor` to the next `02:00`:
 
 ```sql
-SELECT id, message_key, schema_version, payload, scheduled_at, created_at
+SELECT id, routing_key, message_key, schema_version, payload
 FROM vulkan.message_log_4
 ORDER BY id DESC LIMIT 1;
---  id     | message_key      | schema_version | payload         | scheduled_at           | created_at
---  88012  | invoices.nightly | 1              | {"region":"eu"} | 2026-09-06 02:00:00+00 | 2026-09-06 02:00:03+00
+--  id     | routing_key | message_key      | schema_version | payload
+--  88012  |             | invoices.nightly | 1              | {"region":"eu"}
 ```
 
 `invoice-runner` claims id `88012` like any other message; a second

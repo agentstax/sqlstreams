@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: rejected
 date: 2026-09-06
 phase: "pre-v1"
 ---
@@ -40,6 +40,13 @@ branched on it, and the playground handler formatted it unguarded.
   only, and every claim scanning `options` would need a second struct.
 
 ## Consequences
+
+Rejected 2026-09-06, the same day: the scheduled time is a fact only a
+schedule's message carries, and the sparse `options` document already
+holds exactly that. A NOT NULL column on every row needed a default that
+meant nothing. `MessageOptions.ScheduledAt` and `options.scheduled_at`
+stay as they were.
+
 
 `MessageMeta.ScheduledAt` is never zero. "This came from a schedule" is
 the message key, not the time. With a value on every message, the name

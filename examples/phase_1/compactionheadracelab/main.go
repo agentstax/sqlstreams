@@ -182,7 +182,7 @@ func scaleCurveScenario(ctx context.Context, pool *pgxpool.Pool) {
 // seeding, this cares about query cost at scale, not seeding realism) so
 // its own compaction_head row is set directly alongside it.
 func insertStaleRow(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64) {
-	_, err := ds.Pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (payload, schema_version, message_key, compaction_rank, scheduled_at) VALUES ('{}'::jsonb, 1, 'stale', 0, NOW());`, ds.Schema, topic.MessageLogTable(topicId)))
+	_, err := ds.Pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (payload, schema_version, message_key, compaction_rank) VALUES ('{}'::jsonb, 1, 'stale', 0);`, ds.Schema, topic.MessageLogTable(topicId)))
 	must(err)
 	_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (compaction_key, message_id, schema_version, compaction_rank) VALUES ('stale', 1, 1, 0);`, ds.Schema, topic.CompactionHeadTable(topicId)))
 	must(err)
@@ -215,8 +215,8 @@ func bulkInsertFiller(ctx context.Context, ds *iDatastore.PostgresDatastore, top
 		return
 	}
 	sql := fmt.Sprintf(`
-		INSERT INTO %s.%s (payload, schema_version, message_key, scheduled_at)
-		SELECT '{}'::jsonb, 1, NULL, NOW() FROM generate_series(1, $1);
+		INSERT INTO %s.%s (payload, schema_version, message_key)
+		SELECT '{}'::jsonb, 1, NULL FROM generate_series(1, $1);
 	`, ds.Schema, topic.MessageLogTable(topicId))
 	_, err := ds.Pool.Exec(ctx, sql, count)
 	must(err)

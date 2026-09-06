@@ -35,9 +35,6 @@ roadmap later item for review code for interesting design decisions to write art
 Need to do review of admin code for what should or shouldn't be handled there
 - Need some consistent ruling and patterns applied
 
-playground code needs to be super consistent ie
-- 01 uses topic registered.Name, 02 just manually reenters it
-
 Probably should have one more table name and column review (this will be hard to change later)
 
 should probably look to see if we could speed up claim query its gotten unruly with ctes and conditionals

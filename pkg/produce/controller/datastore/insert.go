@@ -162,15 +162,8 @@ func protectedInsertSQL[Message common.Versioned](topicId int64, payload *Messag
 				ON CONFLICT (idempotency_key) DO NOTHING
 				RETURNING idempotency_key
 			), inserted AS (
-				INSERT INTO %[1]s.%[3]s (payload, routing_key, schema_version, message_key, compaction_rank, options, scheduled_at)
-				SELECT
-					$2,
-					NULLIF($3, ''), -- if routing_key is empty string '' insert as NULL
-					$4,
-					$5,
-					$6,
-					$7,
-					$8
+				INSERT INTO %[1]s.%[3]s (payload, routing_key, schema_version, message_key, compaction_rank, options)
+				SELECT $2, NULLIF($3, ''), $4, $5, $6, $7  -- if routing_key $3 is empty string '' insert as NULL
 				WHERE EXISTS (SELECT 1 FROM claim) -- if claim CTE didn't return anything skip this
 				RETURNING id
 			), latest AS (
@@ -189,7 +182,7 @@ func protectedInsertSQL[Message common.Versioned](topicId int64, payload *Messag
 			SELECT id FROM inserted;
 		`, schema, topic.IdempotencyKeyTable(topicId), topic.MessageLogTable(topicId), topic.CompactionHeadTable(topicId))
 
-		args = append(args, data.MessageKey, data.CompactionRank, data.Options, data.ScheduledAt) // $5, $6, $7, $8
+		args = append(args, data.MessageKey, data.CompactionRank, data.Options) // $5, $6, $7
 	} else {
 		// claim + insert in one round trip -- WHERE EXISTS only fires if the
 		// claim CTE landed a row, so a conflict makes both match zero rows.
@@ -202,19 +195,18 @@ func protectedInsertSQL[Message common.Versioned](topicId int64, payload *Messag
 				ON CONFLICT (idempotency_key) DO NOTHING
 				RETURNING idempotency_key
 			)
-			INSERT INTO %[1]s.%[3]s (payload, routing_key, schema_version, message_key, options, scheduled_at)
+			INSERT INTO %[1]s.%[3]s (payload, routing_key, schema_version, message_key, options)
 			SELECT
 				$2,
 				NULLIF($3, ''), -- if routing_key is empty string '' insert as NULL
 				$4,
 				NULLIF($5, ''), -- if message_key is empty string '' insert as NULL
-				$6,
-				$7
+				$6
 			WHERE EXISTS (SELECT 1 FROM claim) -- if claim CTE didn't return anything skip this
 			RETURNING id;
 		`, schema, topic.IdempotencyKeyTable(topicId), topic.MessageLogTable(topicId))
 
-		args = append(args, data.MessageKey, data.Options, data.ScheduledAt) // $5, $6, $7
+		args = append(args, data.MessageKey, data.Options) // $5, $6
 	}
 
 	return sql, args, nil

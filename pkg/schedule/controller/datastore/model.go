@@ -54,7 +54,7 @@ type matchingGroupRow struct {
 // keyMessageRow is one of a schedule's message-log rows.
 type keyMessageRow struct {
 	Id          int64     `db:"id"`
-	ScheduledAt time.Time `db:"scheduled_at"`
+	ScheduledAt time.Time `db:"scheduled_at"` // options->>'scheduled_at'
 	CreatedAt   time.Time `db:"created_at"`
 }
 

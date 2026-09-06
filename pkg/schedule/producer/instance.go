@@ -140,10 +140,10 @@ func (i *ScheduleProducerInstance) produceDue(ctx context.Context, id int64) err
 			MessageKey:     row.Name,
 			Compaction:     compaction,
 			IdempotencyKey: schedule.IdempotencyKey(scheduledTime, row.Id).String(),
-			ScheduledAt:    scheduledTime,
 			Message: &common.MessageOptions{
 				Concurrency: row.Concurrency,
 				Timeout:     row.Timeout,
+				ScheduledAt: scheduledTime,
 			},
 		})
 		if err != nil {

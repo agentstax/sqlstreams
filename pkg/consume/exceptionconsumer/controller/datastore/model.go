@@ -35,5 +35,4 @@ type ExceptionQueueRow struct {
 	CompactionRank  int64                  `db:"compaction_rank"` // 0 if not compacted, COALESCE'd at read
 	Compacted       bool                   `db:"compacted"`       // compaction_rank IS NOT NULL, aliased at read
 	Options         *common.MessageOptions `db:"options"`
-	ScheduledAt     time.Time              `db:"scheduled_at"`
 }
