@@ -1,27 +1,10 @@
+package main
+
 // Scenario 10 -- a handler that runs longer than its lease.
 //
 // FrameForge's transcoder from scenarios 03 and 04 usually finishes quickly,
 // but feature-length videos can take an hour. The handler cannot know its
 // actual runtime up front.
-//
-// Concepts held before domain code (12): the 7 from scenario 03, plus
-// MessageOptions.Timeout, MessageMax, the producer-side per-message
-// Timeout request, the lease = Timeout + grace + margins formula, and the
-// ctx.Done() contract inside the handler.
-//
-// Traps hit:
-//   - There is no way to extend a lease from inside the handler (SQS
-//     ChangeMessageVisibility, JetStream InProgress). The only knob is a
-//     ceiling chosen before the work starts: set it to the worst case and
-//     a crashed consumer instance's message waits an hour to be reclaimed;
-//     set it to the common case and long videos time out and retry forever.
-//   - The timeout is decided by three parties -- the message's request,
-//     the consumer's default, the consumer's MessageMax clamp -- and a
-//     message asking for more than MessageMax is clamped silently (a Warn
-//     log, not an error).
-//   - A handler that ignores ctx.Done() past the timeout is abandoned, not
-//     killed: it keeps running while the message is redelivered elsewhere.
-package main
 
 import (
 	"context"
@@ -65,25 +48,28 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	transcoder, err := client.Topic[VideoUploadedV1]("videos.uploaded").Consumer("transcoder").Register(ctx, &vulkan.ConsumerConfig{
+
+	uploads := client.Topic[VideoUploadedV1]("videos.uploaded")
+	transcoder := uploads.Consumer("transcoder")
+	consumer, err := transcoder.Register(ctx, &vulkan.ConsumerConfig{
 		Message:    &vulkan.MessageOptions{Timeout: 2 * time.Minute},
 		MessageMax: &vulkan.MessageOptions{Timeout: time.Hour},
 	})
-
 	if err != nil {
 		return err
 	}
 
-	return transcoder.Consume(ctx, func(ctx context.Context, video *VideoUploadedV1) error {
-		for minute := range video.DurationMinutes {
-			// TODO - wanted: "still working, extend my lease" -- nothing to call.
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(time.Minute):
-				fmt.Printf("%s: minute %d\n", video.VideoId, minute+1)
-			}
+	return consumer.Consume(ctx, transcodeVideo, nil)
+}
+
+func transcodeVideo(ctx context.Context, video *VideoUploadedV1) error {
+	for minute := range video.DurationMinutes {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(time.Minute):
+			fmt.Printf("%s: minute %d\n", video.VideoId, minute+1)
 		}
-		return nil
-	}, nil)
+	}
+	return nil
 }

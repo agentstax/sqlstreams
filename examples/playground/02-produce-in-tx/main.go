@@ -1,17 +1,9 @@
+package main
+
 // Scenario 02 -- produce inside the caller's own transaction.
 //
 // FrameForge records a completed upload and its VideoUploaded message
 // atomically; then the multi-topic form also records billable usage.
-//
-// Concepts held before domain code (8): the 5 from scenario 01, plus
-// ProducerFunc, vulkan.Tx, InTransaction / ProduceInTx.
-//
-// Traps hit:
-//   - The order of statements matters (produce last: it holds a lock on
-//     consumer progress until commit) and nothing in the types says so.
-//   - InTransaction does not retry; the caller must know that and own the
-//     loop (user-settled).
-package main
 
 import (
 	"context"
@@ -68,26 +60,31 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	_, err = client.Topic[VideoUploadedV1]("videos.uploaded").Register(ctx, nil)
-	if err != nil {
-		return err
-	}
-	_, err = client.Topic[UsageRecordedV1]("usage.recorded").Register(ctx, nil)
+
+	uploads := client.Topic[VideoUploadedV1]("videos.uploaded")
+	_, err = uploads.Register(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	uploads, err := client.Topic[VideoUploadedV1]("videos.uploaded").Producer().Register(ctx, nil)
+	usage := client.Topic[UsageRecordedV1]("usage.recorded")
+	_, err = usage.Register(ctx, nil)
 	if err != nil {
 		return err
 	}
-	usage, err := client.Topic[UsageRecordedV1]("usage.recorded").Producer().Register(ctx, nil)
+
+	uploadsProducer, err := uploads.Producer().Register(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	usageProducer, err := usage.Producer().Register(ctx, nil)
 	if err != nil {
 		return err
 	}
 
 	// one topic: the message's own transaction carries the business write
-	produced, err := uploads.ProduceFunc(ctx,
+	produced, err := uploadsProducer.ProduceFunc(ctx,
 		func(ctx context.Context, tx vulkan.Tx) (*VideoUploadedV1, error) {
 			if _, err := tx.Exec(ctx, `INSERT INTO playground_videos (id, owner_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, "video-42", "creator-7"); err != nil {
 				return nil, err
@@ -117,10 +114,10 @@ func run() error {
 			DurationMinutes: 48,
 			SourceStatus:    "ready",
 		}
-		if _, err := uploads.ProduceInTx(ctx, tx, video, nil); err != nil {
+		if _, err := uploadsProducer.ProduceInTx(ctx, tx, video, nil); err != nil {
 			return err
 		}
-		_, err := usage.ProduceInTx(ctx, tx, &UsageRecordedV1{VideoId: "video-43", OwnerId: "creator-7", StorageBytes: 8_400_000_000}, nil)
+		_, err := usageProducer.ProduceInTx(ctx, tx, &UsageRecordedV1{VideoId: "video-43", OwnerId: "creator-7", StorageBytes: 8_400_000_000}, nil)
 		return err
 	}); err != nil {
 		return err

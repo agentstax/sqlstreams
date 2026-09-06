@@ -1,21 +1,12 @@
+package main
+
 // Scenario 12 -- FrameForge consumes __system.alerts as its pager feed.
 //
 // The built-in checks (partition_count, compaction_read_cost,
-// worker_liveness) run as schedules under the manager and publish Alert
+// worker_liveness) run as schedules under the manager and produce Alert
 // messages; a consumer group on the alert topic is the push integration the
 // platform's PagerDuty hook would use. The checks are re-declared here at
 // every-minute so a run has any chance of seeing one.
-//
-// Concepts held before domain code (12): the 7 from scenario 03, plus
-// RegisterSystem, the three alert configs and their ScheduleExpression
-// fields, AlertTopicName and Alert. The checks run because Consume runs the
-// manager.
-//
-// Traps hit:
-//   - The default check schedules are @hourly; tightening them means
-//     knowing all three alert config fields by name -- there is no single
-//     "check interval" knob.
-package main
 
 import (
 	"context"
@@ -63,14 +54,18 @@ func run() error {
 	}
 	fmt.Printf("%d current alerts at startup\n", len(current))
 
-	pager, err := client.Topic[vulkan.Alert](vulkan.AlertTopicName).Consumer("frameforge-pager").Register(ctx, nil)
+	alerts := client.Topic[vulkan.Alert](vulkan.AlertTopicName)
+	pager := alerts.Consumer("frameforge-pager")
+	consumer, err := pager.Register(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	return pager.Consume(ctx, func(ctx context.Context, foundAlert *vulkan.Alert) error {
-		fmt.Printf("[%s] %s %s: %s -- %s\n",
-			foundAlert.Severity, foundAlert.Status, foundAlert.Name, foundAlert.Message, foundAlert.Hint)
-		return nil
-	}, nil)
+	return consumer.Consume(ctx, handleAlert, nil)
+}
+
+func handleAlert(ctx context.Context, foundAlert *vulkan.Alert) error {
+	fmt.Printf("[%s] %s %s: %s -- %s\n",
+		foundAlert.Severity, foundAlert.Status, foundAlert.Name, foundAlert.Message, foundAlert.Hint)
+	return nil
 }

@@ -1,22 +1,10 @@
+package main
+
 // Scenario 09 -- keyed ordering: what a same-key consumer actually sees.
 //
 // FrameForge's uploaded -> scanned -> transcoded -> ready transitions for one
 // video must apply in order and never overlap. The producer keys by video;
 // the consumer runs concurrently across different videos.
-//
-// Concepts held before domain code (8): the produce set from scenario 01,
-// plus MessageKey, ConsumerConfig.ConcurrencyOverride (ConcurrencyOrdered),
-// the session's ConsumeOptions.MessageConcurrency, and the "ordered =
-// every same-key message in id order, one at a time, through failures"
-// semantics.
-//
-// Traps hit:
-//   - A message key alone orders nothing: MessageConcurrency > 1 delivers
-//     two same-key messages at once unless the group declares
-//     ConcurrencyOverride. The per-message MessageOptions.Concurrency form
-//     also exists, and a second producer that sets the key without it
-//     runs in parallel with the first -- so the group form leads here.
-package main
 
 import (
 	"context"
@@ -56,28 +44,33 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	registered, err := client.Topic[VideoStateChangedV1]("videos.state-changed").Register(ctx, nil)
+
+	states := client.Topic[VideoStateChangedV1]("videos.state-changed")
+	_, err = states.Register(ctx, nil)
 	if err != nil {
 		return err
 	}
-	states, err := client.Topic[VideoStateChangedV1](registered.Name).Producer().Register(ctx, nil)
+
+	producer, err := states.Producer().Register(ctx, nil)
 	if err != nil {
 		return err
 	}
-	catalog, err := client.Topic[VideoStateChangedV1](registered.Name).Consumer("video-catalog").Register(ctx, &vulkan.ConsumerConfig{ConcurrencyOverride: vulkan.ConcurrencyOrdered})
+
+	catalog := states.Consumer("video-catalog")
+	consumer, err := catalog.Register(ctx, &vulkan.ConsumerConfig{ConcurrencyOverride: vulkan.ConcurrencyOrdered})
 	if err != nil {
 		return err
 	}
 
 	for _, videoId := range []string{"video-42", "video-43"} {
 		for _, state := range []string{"uploaded", "scanned", "transcoded", "ready"} {
-			if _, err := states.Produce(ctx, &VideoStateChangedV1{VideoId: videoId, State: state}, &vulkan.ProduceOptions{MessageKey: videoId}); err != nil {
+			if _, err := producer.Produce(ctx, &VideoStateChangedV1{VideoId: videoId, State: state}, &vulkan.ProduceOptions{MessageKey: videoId}); err != nil {
 				return err
 			}
 		}
 	}
 
-	return catalog.Consume(ctx, applyStateChange, &vulkan.ConsumeOptions{MessageConcurrency: 8})
+	return consumer.Consume(ctx, applyStateChange, &vulkan.ConsumeOptions{MessageConcurrency: 8})
 }
 
 // applyStateChange fails video-42's scan once; its later states wait for the retry.

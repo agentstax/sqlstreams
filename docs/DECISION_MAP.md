@@ -25,3 +25,4 @@ are in `docs/DECISIONS.md`. A new record adds its number to its line.
 - CLI: nested module, flags, --output json: 0354-0355 0576
 - doc site: board, sandbox, versioning, voice, cookie, errors, links: 0581-0610 0651
 - rejected/reverted (do not re-suggest): 0270 latest_key backfill, 0379 PartitionsAhead, 0591 pglite prefetch, 0594 byte ceilings, 0672 mandatory named client results
+- playground, examples, handler placement, handle and instance names: 0674

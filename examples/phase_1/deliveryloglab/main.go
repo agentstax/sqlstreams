@@ -347,7 +347,7 @@ func scenarioRedeferralSharesAttempt(ctx context.Context, pool *pgxpool.Pool) {
 
 	// a keyed message with its first-delivery 'deferred' row, as the cursor path writes it
 	var messageId int64
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`INSERT INTO %s.%s (message_key, schema_version, payload) VALUES ('k', 1, '{}') RETURNING id`, ds.Schema, topic.MessageLogTable(tp.Id))).Scan(&messageId))
+	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`INSERT INTO %s.%s (message_key, schema_version, payload, scheduled_at) VALUES ('k', 1, '{}', NOW()) RETURNING id`, ds.Schema, topic.MessageLogTable(tp.Id))).Scan(&messageId))
 	_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (consumer_group_id, message_id, status, concurrency, attempts) VALUES ($1, $2, 'deferred', 'exclusive', 0)`, ds.Schema, topic.ExceptionQueueTable(tp.Id)), groupId, messageId)
 	must(err)
 	_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (consumer_group_id, message_id, attempt, status, error) VALUES ($1, $2, 0, 'deferred', '')`, ds.Schema, topic.DeliveryLogTable(tp.Id)), groupId, messageId)

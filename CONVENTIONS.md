@@ -908,6 +908,18 @@ trailing `help` attribute, so the line itself points at its explanation.
   stale when the real query changes -- grep labs for mirrors whenever a
   production query moves. Prefer driving the real datastore method.
 
+## Playground examples
+
+- Create each topic handle once and reuse it for registration and operations.
+- Handles use domain names (`uploads`, `transcoder`); registered instances use
+  activity names (`producer`, `consumer`, `scheduler`). Qualify instance names
+  when several of the same kind exist (`uploadsProducer`, `usageProducer`).
+- Always name the consumer handle separately before registering its instance.
+- Consumer handlers are named functions below `run`, not inline closures.
+- Every example starts with `LifecycleContext(nil)` and `defer stop()`.
+  Simulated handler waits observe cancellation.
+- Use `routines` and `routinesCtx` for errgroup orchestration.
+
 ## Documentation
 
 Rules for the doc site (website/) and all user-facing prose.

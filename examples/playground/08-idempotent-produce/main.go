@@ -1,23 +1,12 @@
+package main
+
 // Scenario 08 -- idempotent produce with a caller-supplied key.
 //
 // FrameForge receives upload-complete webhooks from its storage provider. The
 // provider retries on any non-2xx, so the same upload arrives more than once
 // and must be stored once on videos.uploaded.
-//
-// Concepts held before domain code (7): the produce set from scenario 01,
-// plus IdempotencyKey as an opaque string and ProduceResult.Duplicate.
-//
-// Traps hit:
-//   - Duplicate is a field on a success result, not an error; a caller
-//     that only checks err treats the duplicate as a fresh produce.
-//   - A caller-supplied key opts the call out of batching (documented in
-//     the field comment only).
-//   - The idempotency window is IdempotencyKeyTTL on the TOPIC (24h) --
-//     an upstream retrying after a day double-stores, silently.
-package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -44,7 +33,8 @@ func main() {
 }
 
 func run() error {
-	ctx := context.Background()
+	ctx, stop := vulkan.LifecycleContext(nil)
+	defer stop()
 
 	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	if err != nil {
@@ -56,12 +46,14 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	registered, err := client.Topic[VideoUploadedV1]("videos.uploaded").Register(ctx, nil)
+
+	uploads := client.Topic[VideoUploadedV1]("videos.uploaded")
+	_, err = uploads.Register(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	uploads, err := client.Topic[VideoUploadedV1](registered.Name).Producer().Register(ctx, nil)
+	producer, err := uploads.Producer().Register(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -75,7 +67,7 @@ func run() error {
 			DurationMinutes: 12,
 			SourceStatus:    "ready",
 		}
-		produced, err := uploads.Produce(ctx, video, &vulkan.ProduceOptions{
+		produced, err := producer.Produce(ctx, video, &vulkan.ProduceOptions{
 			IdempotencyKey: video.UploadId,
 		})
 		if err != nil {

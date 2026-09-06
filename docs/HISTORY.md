@@ -5,6 +5,17 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-06 — Playground examples use one structure [0674]
+
+All twelve examples reuse topic handles, name handles for their domain and
+instances for their activity, declare consumer handles explicitly, and put
+consumer handlers below run. Every example uses LifecycleContext; the metrics
+handler's simulated wait now observes cancellation. Standardized errgroup
+names and setup spacing, and removed stale API-review inventories from headers.
+Recorded the selected patterns in CONVENTIONS.md. Targeted playground build
+and go test -race passed (the packages contain no test files); no database
+scenarios were run.
+
 ## 2026-09-06 — Named-result style review closed [0672]
 
 Reverted the nine-signature client and handle trial after playground review:
@@ -33,9 +44,9 @@ key. The three claim reads and `ListMessages` read the column plainly;
 column with `NULLIF`/`COALESCE` shaping was built first and reversed on
 the user's call: the zero was a format trap nothing branched on. Doc site:
 schedules, client, and table-design pages; sandbox mirrors of the DDL and
-the three statements. Verified by the schedule, reclaim, and exception
-labs on a fresh database. The rename of `scheduled_at` is parked in
-ROADMAP Now.
+the three statements; three labs that hand-insert message rows now
+supply the column. 51/51 fresh-DB lab suite. The rename of `scheduled_at`
+is parked in ROADMAP Now.
 
 ## 2026-09-06 — Table name and column review [0667] [0668] [0669]
 

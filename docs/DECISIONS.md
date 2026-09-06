@@ -426,3 +426,4 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0671 2026-09-06 accepted (pre-v1) — Fatal consumption errors stop the session
 - 0672 2026-09-06 accepted (pre-v1) — Client results remain unnamed
 - 0673 2026-09-06 accepted (pre-v1) — The scheduled time is a message_log column on every message
+- 0674 2026-09-06 accepted (pre-v1) — Playground examples share handle, instance, and lifecycle patterns

@@ -1,21 +1,9 @@
+package main
+
 // Scenario 01 -- produce-only service.
 //
 // FrameForge's upload API produces a message when a video finishes uploading.
 // It never consumes anything.
-//
-// Concepts held before domain code (5): connection pool, Client, topic
-// name, the Message type's SchemaVersion, RegisterProducer[T].
-//
-// Traps hit:
-//   - Nothing here runs topic upkeep (partition create-ahead, retention).
-//     A deployment of only this binary accumulates until someone runs
-//     `vulkan manager run`. RegisterProducer now warns VK0063 naming the
-//     unclaimed topic_janitor, so it is no longer silent -- but the warn
-//     is the only thing that says so, and it is not an error.
-//   - The pool is the one constructor before anything vulkan owns
-//     [0633] [0636]. It buys the DATABASE_URL path and one pool per
-//     application, and it costs a concept on every scenario's count.
-package main
 
 import (
 	"fmt"
@@ -58,17 +46,18 @@ func run() error {
 		return err
 	}
 
-	registered, err := client.Topic[VideoUploadedV1]("videos.uploaded").Register(ctx, nil)
+	uploads := client.Topic[VideoUploadedV1]("videos.uploaded")
+	_, err = uploads.Register(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	uploads, err := client.Topic[VideoUploadedV1](registered.Name).Producer().Register(ctx, nil)
+	producer, err := uploads.Producer().Register(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	produced, err := uploads.Produce(ctx, &VideoUploadedV1{
+	produced, err := producer.Produce(ctx, &VideoUploadedV1{
 		VideoId:         "video-42",
 		OwnerId:         "creator-7",
 		UploadId:        "upl-123",

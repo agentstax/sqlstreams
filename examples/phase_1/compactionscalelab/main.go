@@ -150,7 +150,7 @@ func run() (err error) {
 // ---- helpers ----
 
 func insertStaleRow(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64) {
-	sql := fmt.Sprintf(`INSERT INTO %s.%s (payload, schema_version, message_key, compaction_rank) VALUES ('{}'::jsonb, 1, 'stale', 0);`, ds.Schema, topic.MessageLogTable(topicId))
+	sql := fmt.Sprintf(`INSERT INTO %s.%s (payload, schema_version, message_key, compaction_rank, scheduled_at) VALUES ('{}'::jsonb, 1, 'stale', 0, NOW());`, ds.Schema, topic.MessageLogTable(topicId))
 	_, err := ds.Pool.Exec(ctx, sql)
 	must(err)
 }
@@ -182,8 +182,8 @@ func bulkInsertFiller(ctx context.Context, ds *iDatastore.PostgresDatastore, top
 		return
 	}
 	sql := fmt.Sprintf(`
-		INSERT INTO %s.%s (payload, schema_version, message_key)
-		SELECT '{}'::jsonb, 1, NULL FROM generate_series(1, $1);
+		INSERT INTO %s.%s (payload, schema_version, message_key, scheduled_at)
+		SELECT '{}'::jsonb, 1, NULL, NOW() FROM generate_series(1, $1);
 	`, ds.Schema, topic.MessageLogTable(topicId))
 	_, err := ds.Pool.Exec(ctx, sql, count)
 	must(err)
