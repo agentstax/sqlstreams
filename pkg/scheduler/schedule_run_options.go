@@ -23,8 +23,6 @@ func (o *ScheduleRunOptions) WithDefaults() *ScheduleRunOptions {
 	return o
 }
 
-// Validate runs after WithDefaults -- anything still out of range here was
-// set by the caller, not left unset.
 func (o *ScheduleRunOptions) Validate() error {
 	if err := o.Concurrency.Validate(); err != nil {
 		return fmt.Errorf("Concurrency: %w", err)

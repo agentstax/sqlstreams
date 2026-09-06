@@ -64,8 +64,6 @@ func (c *ConsumerConfig) WithDefaults() *ConsumerConfig {
 	return c
 }
 
-// Validate runs after WithDefaults -- anything still out of range here was
-// set by the caller, not left unset.
 func (c *ConsumerConfig) Validate() error {
 	// Message.Timeout <= 0 degenerates the lease window math
 	if c.Message.Timeout <= 0 {

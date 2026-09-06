@@ -36,8 +36,7 @@ type SystemManager struct {
 	migrateController *migratecontroller.Controller
 }
 
-// cfg may be nil or a sparse struct -- WithDefaults fills every field left
-// unset, Validate rejects what's out of range.
+// cfg may be nil or sparse.
 func NewSystemManager(ds *datastore.PostgresDatastore, cfg *SystemManagerConfig) (*SystemManager, error) {
 	if ds == nil {
 		return nil, errors.New("datastore must not be nil")

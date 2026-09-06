@@ -26,8 +26,6 @@ func (c *WorkerConfig) WithDefaults() *WorkerConfig {
 	return c
 }
 
-// Validate runs after WithDefaults -- anything still out of range here was
-// set by the caller, not left unset.
 func (c *WorkerConfig) Validate() error {
 	if err := c.TargetInstances.Validate(); err != nil {
 		return fmt.Errorf("TargetInstances: %w", err)

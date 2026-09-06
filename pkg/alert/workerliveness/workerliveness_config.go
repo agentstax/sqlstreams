@@ -27,8 +27,6 @@ func (c *WorkerLivenessConfig) WithDefaults() *WorkerLivenessConfig {
 	return c
 }
 
-// Validate runs after WithDefaults -- anything still out of range here was
-// set by the caller, not left unset.
 func (c *WorkerLivenessConfig) Validate() error {
 	if c.InstanceTTL <= 0 {
 		return fmt.Errorf("InstanceTTL must be > 0, got %v", c.InstanceTTL)

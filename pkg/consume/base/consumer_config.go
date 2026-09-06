@@ -23,8 +23,6 @@ func (c *BaseConsumerConfig) WithDefaults() *BaseConsumerConfig {
 	return c
 }
 
-// Validate runs after WithDefaults -- anything still out of range here was
-// set by the caller, not left unset.
 func (c *BaseConsumerConfig) Validate() error {
 	if c.TimeoutGrace <= 0 {
 		return fmt.Errorf("TimeoutGrace must be > 0, got %v", c.TimeoutGrace)

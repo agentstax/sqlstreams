@@ -15,7 +15,7 @@ func (t *TopicHandle[Message]) Producer() *ProducerHandle[Message] {
 }
 
 // Register resolves the topic and returns an instance that produces its
-// Message. cfg may be nil or a sparse struct.
+// Message. cfg may be nil or sparse.
 func (p *ProducerHandle[Message]) Register(ctx context.Context, cfg *ProducerConfig) (*ProducerInstance[Message], error) {
 	instance, err := p.client.producer.Register[Message](ctx, p.topicName, cfg)
 	if err != nil {

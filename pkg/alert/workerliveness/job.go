@@ -8,8 +8,7 @@ import (
 var JobName = "alert." + alert.AlertWorkerLiveness.Name
 
 // NewJob builds the schedule the worker_liveness alert is evaluated on.
-// cfg may be nil or a sparse struct -- WithDefaults fills every field left
-// unset, Validate rejects what's out of range.
+// cfg may be nil or sparse.
 func NewJob(cfg *alert.WorkerLivenessAlertConfig) (*alertcontroller.Job, error) {
 	if cfg == nil {
 		cfg = &alert.WorkerLivenessAlertConfig{}

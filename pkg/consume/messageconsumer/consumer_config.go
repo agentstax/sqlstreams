@@ -81,8 +81,6 @@ func (c *MessageConsumerConfig) WithDefaults() *MessageConsumerConfig {
 	return c
 }
 
-// Validate runs after WithDefaults -- anything still out of range here was
-// set by the caller, not left unset.
 func (c *MessageConsumerConfig) Validate() error {
 	if c.BatchLimit < 1 {
 		return fmt.Errorf("BatchLimit must be >= 1, got %d", c.BatchLimit)

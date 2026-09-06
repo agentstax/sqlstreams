@@ -30,8 +30,7 @@ type Client struct {
 
 // NewClient builds every registration object over pool and pings it once, so a wrong
 // address or credential fails here instead of at the first query. The pool
-// stays the caller's -- vulkan never closes it. cfg may be nil or a sparse
-// struct. Settings are captured at construction, including a copy of Retry;
+// stays the caller's -- vulkan never closes it. cfg may be nil or sparse. Settings are captured at construction, including a copy of Retry;
 // later edits to cfg do not reconfigure the client. The supplied logger is shared.
 func NewClient(ctx context.Context, pool *pgxpool.Pool, cfg *ClientConfig) (*Client, error) {
 	if pool == nil {

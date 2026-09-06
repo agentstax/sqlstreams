@@ -35,8 +35,7 @@ type DeliveryConsumerProvisioner[Message common.Versioned] struct {
 	consumers *controller.DeliveryConsumerGroupController
 }
 
-// cfg may be nil or a sparse struct -- WithDefaults fills every field left
-// unset, Validate rejects what's out of range.
+// cfg may be nil or sparse.
 func NewDeliveryConsumerProvisioner[Message common.Versioned](ds *datastore.PostgresDatastore, consumerFunc func(ctx context.Context, message *Message) error, schemaVersion int, metrics *metricsproducer.MetricsProducer, cfg *DeliveryConsumerConfig, logger logging.Logger) (*DeliveryConsumerProvisioner[Message], error) {
 	if cfg == nil {
 		cfg = &DeliveryConsumerConfig{}

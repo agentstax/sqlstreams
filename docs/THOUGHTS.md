@@ -41,4 +41,6 @@ should probably look to see if we could speed up claim query its gotten unruly w
 
 need to make sure we do some manual testing for cli, metrics and alerts
 
+manual review of public user facing comments :(. I don't want to but its got to be done
+
 # Other

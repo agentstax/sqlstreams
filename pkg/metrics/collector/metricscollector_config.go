@@ -50,8 +50,6 @@ func (c *MetricsCollectorConfig) WithDefaults() *MetricsCollectorConfig {
 	return c
 }
 
-// Validate runs after WithDefaults -- anything still out of range here was
-// set by the caller, not left unset.
 func (c *MetricsCollectorConfig) Validate() error {
 	if c.PollRate <= 0 {
 		return fmt.Errorf("PollRate must be > 0, got %v", c.PollRate)

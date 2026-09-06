@@ -8,8 +8,7 @@ import (
 var JobName = "alert." + alert.AlertCompactionReadCost.Name
 
 // NewJob builds the schedule the compaction_read_cost alert is evaluated on.
-// cfg may be nil or a sparse struct -- WithDefaults fills every field left
-// unset, Validate rejects what's out of range.
+// cfg may be nil or sparse.
 func NewJob(cfg *alert.CompactionReadCostAlertConfig) (*alertcontroller.Job, error) {
 	if cfg == nil {
 		cfg = &alert.CompactionReadCostAlertConfig{}

@@ -41,7 +41,7 @@ type PipelineLogger struct {
 // NewPipelineLogger composes the stages cfg declares around sink. A sink
 // that is already a *PipelineLogger merges instead of nesting: Args
 // concatenate onto its bound args, Buffer and Suppress stay on once on.
-// cfg may be nil or a sparse struct; the zero config is a plain passthrough.
+// cfg may be nil or sparse; the zero config is a plain passthrough.
 func NewPipelineLogger(sink Logger, cfg *PipelineLoggerConfig) *PipelineLogger {
 	if cfg == nil {
 		cfg = &PipelineLoggerConfig{}

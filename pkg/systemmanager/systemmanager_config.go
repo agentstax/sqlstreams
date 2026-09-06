@@ -23,8 +23,6 @@ func (c *SystemManagerConfig) WithDefaults() *SystemManagerConfig {
 	return c
 }
 
-// Validate runs after WithDefaults -- anything still out of range here was
-// set by the caller, not left unset.
 func (c *SystemManagerConfig) Validate() error {
 	if c.JitterFraction < 0 || c.JitterFraction >= 1 {
 		return fmt.Errorf("JitterFraction must be in [0, 1), got %v", c.JitterFraction)

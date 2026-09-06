@@ -30,7 +30,7 @@ func newConsumerInstance[Message Versioned](instance *consumer.ConsumerInstance[
 }
 
 // Consume blocks for the group's session; cancel ctx to start graceful shutdown.
-// options may be nil for defaults. LifecycleContext supplies a shutdown context.
+// options may be nil for the defaults. LifecycleContext supplies a shutdown context.
 //
 // A context without cancellation returns ErrLifecycleContextNotCancellable
 // unless options.DisableGracefulShutdown is set; that case runs no manager.

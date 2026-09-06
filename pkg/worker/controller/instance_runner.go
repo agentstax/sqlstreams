@@ -23,8 +23,7 @@ type InstanceRunner struct {
 	claimed *worker.WorkerInstance
 }
 
-// cfg may be nil or a sparse struct -- WithDefaults fills every field left
-// unset, Validate rejects what's out of range.
+// cfg may be nil or sparse.
 func NewInstanceRunner(workers *WorkerController, claimed *worker.WorkerInstance, cfg *InstanceRunnerConfig, logger logging.Logger) (*InstanceRunner, error) {
 	if workers == nil {
 		return nil, errors.New("workers controller must not be nil")

@@ -21,8 +21,6 @@ func (c *PostgresConnectionConfig) WithDefaults() *PostgresConnectionConfig {
 	return c
 }
 
-// Validate runs after WithDefaults -- anything still out of range here was
-// set by the caller, not left unset.
 func (c *PostgresConnectionConfig) Validate() error {
 	if c.Port <= 0 {
 		return fmt.Errorf("Port must be > 0, got %d", c.Port)

@@ -23,8 +23,7 @@ type CursorAdvancerProvisioner struct {
 	definition *worker.Definition
 }
 
-// cfg may be nil or a sparse struct -- WithDefaults fills every field left
-// unset, Validate rejects what's out of range.
+// cfg may be nil or sparse.
 func NewCursorAdvancerProvisioner(ds *iDatastore.PostgresDatastore, cfg *CursorAdvancerConfig, logger logging.Logger) (*CursorAdvancerProvisioner, error) {
 	if ds == nil {
 		return nil, errors.New("datastore must not be nil")

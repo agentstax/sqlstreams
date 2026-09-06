@@ -25,8 +25,7 @@ type PostgresDatastore struct {
 
 // NewPostgresDatastore wraps a pool you built and pings it once, so a wrong
 // address or credential fails here instead of at the first query.
-// cfg may be nil or a sparse struct -- WithDefaults fills every field left
-// unset (schema "vulkan"), Validate rejects what's out of range.
+// cfg may be nil or sparse; the schema defaults to "vulkan".
 func NewPostgresDatastore(ctx context.Context, pool *pgxpool.Pool, cfg *PostgresDatastoreConfig) (*PostgresDatastore, error) {
 	if pool == nil {
 		return nil, errors.New("pool must not be nil")

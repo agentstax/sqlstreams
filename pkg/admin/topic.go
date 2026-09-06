@@ -32,7 +32,7 @@ func (a *MessageAdmin) ListTopics(ctx context.Context) ([]*topic.Topic, error) {
 //   - name: must match ^[a-z0-9._-]+$; dot-namespaced by domain and entity
 //     ("orders.created", "billing.invoice.paid"); safe to rename later --
 //     topics are addressed by id internally, not name
-//   - cfg: may be nil or sparse -- WithDefaults fills every field left unset
+//   - cfg: may be nil or sparse
 //
 // PartitionSize is fixed at creation; passing a different one returns
 // ErrTopicConfigMismatch.

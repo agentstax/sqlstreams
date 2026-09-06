@@ -44,8 +44,6 @@ func (c *PostgresDatastoreConfig) WithDefaults() *PostgresDatastoreConfig {
 	return c
 }
 
-// Validate runs after WithDefaults -- anything still out of range here was
-// set by the caller, not left unset.
 func (c *PostgresDatastoreConfig) Validate() error {
 	if !schemaNamePattern.MatchString(c.Schema) {
 		return fmt.Errorf("Schema must be a lowercase unquoted identifier, got %q", c.Schema)

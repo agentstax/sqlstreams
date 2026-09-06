@@ -40,8 +40,6 @@ func (c *JanitorConfig) WithDefaults() *JanitorConfig {
 	return c
 }
 
-// Validate runs after WithDefaults -- anything still out of range here was
-// set by the caller, not left unset.
 func (c *JanitorConfig) Validate() error {
 	if c.CleanupTimeout <= 0 {
 		return fmt.Errorf("CleanupTimeout must be > 0, got %v", c.CleanupTimeout)

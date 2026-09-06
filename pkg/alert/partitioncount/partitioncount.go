@@ -34,8 +34,7 @@ type PartitionCountProvisioner struct {
 	definition *worker.Definition
 }
 
-// cfg may be nil or a sparse struct -- WithDefaults fills every field left
-// unset, Validate rejects what's out of range.
+// cfg may be nil or sparse.
 func NewPartitionCountProvisioner(ds *iDatastore.PostgresDatastore, cfg *PartitionCountConfig, logger logging.Logger) (*PartitionCountProvisioner, error) {
 	if ds == nil {
 		return nil, errors.New("datastore must not be nil")

@@ -26,8 +26,7 @@ type Batcher[Message common.Versioned] struct {
 	queue workQueue[batchOperation[Message]]
 }
 
-// cfg may be nil or a sparse struct -- WithDefaults fills every field left
-// unset, Validate rejects what's out of range. logger is the owning
+// cfg may be nil or sparse. logger is the owning
 // producer instance's.
 func NewBatcher[Message common.Versioned](produceController *controller.ProduceController, topicId int64, partitionSize int64, cfg *BatcherConfig, logger logging.Logger) (*Batcher[Message], error) {
 	if produceController == nil {

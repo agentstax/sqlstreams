@@ -52,8 +52,7 @@ type MetricsProducer struct {
 	lastFlushedCounters metrics.SessionCounters
 }
 
-// cfg may be nil or a sparse struct -- WithDefaults fills every field left
-// unset, Validate rejects what's out of range. logger is the owning
+// cfg may be nil or sparse. logger is the owning
 // instance's, so the side-channel's warns share its suppression window.
 func NewMetricsProducer(ds *datastore.PostgresDatastore, cfg *MetricsProducerConfig, logger logging.Logger) (*MetricsProducer, error) {
 	if ds == nil {

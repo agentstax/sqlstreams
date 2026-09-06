@@ -35,8 +35,6 @@ func (c *ProducerConfig) WithDefaults() *ProducerConfig {
 	return c
 }
 
-// Validate runs after WithDefaults -- anything still out of range here was
-// set by the caller, not left unset.
 func (c *ProducerConfig) Validate() error {
 	if c.SlowProduceThreshold < 0 {
 		return fmt.Errorf("SlowProduceThreshold must be >= 0, got %v", c.SlowProduceThreshold)

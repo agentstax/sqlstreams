@@ -29,8 +29,7 @@ type JanitorProvisioner struct {
 	definition *worker.Definition
 }
 
-// cfg may be nil or a sparse struct -- WithDefaults fills every field left
-// unset, Validate rejects what's out of range.
+// cfg may be nil or sparse.
 func NewJanitorProvisioner(ds *iDatastore.PostgresDatastore, cfg *JanitorConfig, logger logging.Logger) (*JanitorProvisioner, error) {
 	if ds == nil {
 		return nil, errors.New("datastore must not be nil")

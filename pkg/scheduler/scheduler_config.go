@@ -35,8 +35,6 @@ func (c *SchedulerConfig) WithDefaults() *SchedulerConfig {
 	return c
 }
 
-// Validate runs after WithDefaults -- anything still out of range here was
-// set by the caller, not left unset.
 func (c *SchedulerConfig) Validate() error {
 	if c.Timeout <= 0 {
 		return fmt.Errorf("Timeout must be > 0, got %v", c.Timeout)

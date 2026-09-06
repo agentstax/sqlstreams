@@ -19,8 +19,6 @@ func (c *MetricsProducerConfig) WithDefaults() *MetricsProducerConfig {
 	return c
 }
 
-// Validate runs after WithDefaults -- anything still out of range here was
-// set by the caller, not left unset.
 func (c *MetricsProducerConfig) Validate() error {
 	if c.SessionFlushRate <= 0 {
 		return fmt.Errorf("SessionFlushRate must be > 0, got %v", c.SessionFlushRate)

@@ -23,8 +23,7 @@ func (c *PartitionCountAlertConfig) WithDefaults() *PartitionCountAlertConfig {
 	return c
 }
 
-// Validate runs after WithDefaults; the expression is parsed where the
-// schedule is declared.
+// The schedule expression is parsed where the schedule is declared, not here.
 func (c *PartitionCountAlertConfig) Validate() error {
 	if c.Threshold < 0 {
 		return fmt.Errorf("Threshold must be >= 0, got %d", c.Threshold)
@@ -51,8 +50,7 @@ func (c *CompactionReadCostAlertConfig) WithDefaults() *CompactionReadCostAlertC
 	return c
 }
 
-// Validate runs after WithDefaults; the expression is parsed where the
-// schedule is declared.
+// The schedule expression is parsed where the schedule is declared, not here.
 func (c *CompactionReadCostAlertConfig) Validate() error {
 	if c.Threshold < 0 {
 		return fmt.Errorf("Threshold must be >= 0, got %d", c.Threshold)
@@ -75,8 +73,7 @@ func (c *WorkerLivenessAlertConfig) WithDefaults() *WorkerLivenessAlertConfig {
 	return c
 }
 
-// Validate runs after WithDefaults; the expression is parsed where the
-// schedule is declared.
+// The schedule expression is parsed where the schedule is declared, not here.
 func (c *WorkerLivenessAlertConfig) Validate() error {
 	return nil
 }

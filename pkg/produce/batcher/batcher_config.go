@@ -44,8 +44,6 @@ func (c *BatcherConfig) WithDefaults() *BatcherConfig {
 	return c
 }
 
-// Validate runs after WithDefaults -- anything still out of range here was
-// set by the caller, not left unset.
 func (c *BatcherConfig) Validate() error {
 	if c.MaxSize < 1 {
 		return fmt.Errorf("MaxSize must be >= 1, got %d", c.MaxSize)

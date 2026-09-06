@@ -28,8 +28,6 @@ func (c *RunnerConfig) WithDefaults() *RunnerConfig {
 	return c
 }
 
-// Validate runs after WithDefaults -- anything still out of range here was
-// set by the caller, not left unset.
 func (c *RunnerConfig) Validate() error {
 	if c.RetryDelay <= 0 {
 		return fmt.Errorf("RetryDelay must be > 0, got %v", c.RetryDelay)

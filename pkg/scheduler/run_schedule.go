@@ -17,7 +17,7 @@ import (
 // RunSchedule produces the named schedule's stored message immediately,
 // outside its expression -- the expression and next scheduled time are
 // untouched, and a suspended schedule still runs.
-// options may be nil or sparse.
+// options may be nil for the defaults.
 // Returns schedule.ErrScheduleNotFound if name isn't registered.
 //
 // Two deliberate consequences:

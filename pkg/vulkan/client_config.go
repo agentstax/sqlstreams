@@ -53,8 +53,6 @@ func (c *ClientConfig) WithDefaults() *ClientConfig {
 	return c
 }
 
-// Validate runs after WithDefaults -- anything still out of range here was
-// set by the caller, not left unset.
 func (c *ClientConfig) Validate() error {
 	return nil
 }

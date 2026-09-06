@@ -83,8 +83,6 @@ func (c *TopicConfig) WithDefaults() *TopicConfig {
 	return c
 }
 
-// Validate runs after WithDefaults -- anything still out of range here was
-// set by the caller, not left unset.
 func (c *TopicConfig) Validate() error {
 	// 1 makes every id a partition boundary; <= 0 breaks the DDL range
 	if c.PartitionSize < 2 {

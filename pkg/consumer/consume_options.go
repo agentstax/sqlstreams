@@ -88,8 +88,6 @@ func (o *ConsumeOptions) WithDefaults() *ConsumeOptions {
 	return o
 }
 
-// Validate runs after WithDefaults -- anything still out of range here was
-// set by the caller, not left unset.
 func (o *ConsumeOptions) Validate() error {
 	if o.BatchLimit < 1 {
 		return fmt.Errorf("BatchLimit must be >= 1, got %d", o.BatchLimit)

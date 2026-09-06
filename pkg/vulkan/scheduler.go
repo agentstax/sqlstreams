@@ -51,7 +51,7 @@ func (s *SchedulerHandle) Unsuspend(ctx context.Context) error {
 }
 
 // Run produces the schedule's stored message immediately, outside its
-// expression. options may be nil or sparse.
+// expression. options may be nil for the defaults.
 func (s *SchedulerHandle) Run(ctx context.Context, options *ScheduleRunOptions) (*ProduceResult[ScheduleStoredMessage], error) {
 	return s.client.scheduler.RunSchedule(ctx, s.name, options)
 }

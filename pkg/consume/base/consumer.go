@@ -31,9 +31,8 @@ type BaseConsumer[Message common.Versioned] struct {
 	consumerFunc func(ctx context.Context, message *Message) error
 }
 
-// resolvedTopic comes from BaseProvisioner.GetTopic. cfg may be nil or a
-// sparse struct -- WithDefaults fills every field left unset, Validate
-// rejects what's out of range.
+// resolvedTopic comes from BaseProvisioner.GetTopic. cfg may be nil or
+// sparse.
 func NewBaseConsumer[Message common.Versioned](baseProvisioner *BaseProvisioner[Message], owner *common.Owner, resolvedTopic *topic.Topic, cfg *BaseConsumerConfig) (*BaseConsumer[Message], error) {
 	if baseProvisioner == nil {
 		return nil, errors.New("provisioner base must not be nil")

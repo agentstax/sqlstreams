@@ -22,8 +22,7 @@ type RetryDatastore struct {
 	Logger logging.Logger
 }
 
-// policy may be nil or a sparse struct -- WithDefaults fills every field left
-// unset, Validate rejects what's out of range.
+// policy may be nil or sparse.
 func NewRetryDatastore(policy *RetryPolicy, log logging.Logger) (*RetryDatastore, error) {
 	if log == nil {
 		return nil, errors.New("logger must not be nil")

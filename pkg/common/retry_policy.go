@@ -100,8 +100,6 @@ func (p *RetryPolicy) WithDefaults() *RetryPolicy {
 	return p
 }
 
-// Validate runs after WithDefaults -- anything still out of range here was
-// set by the caller, not left unset.
 func (p *RetryPolicy) Validate() error {
 	if p == nil {
 		return nil // nil is valid -- it resolves to the default policy at use

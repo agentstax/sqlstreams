@@ -27,7 +27,7 @@ import (
 // so calling it directly matters when cfg does. Safe to call on every startup:
 // cfg is applied on every call, so changing a value and redeploying changes
 // the system's topics, its built-in alerts' schedules, and its collector rate.
-//   - cfg: may be nil or sparse -- WithDefaults fills every field left unset
+//   - cfg: may be nil or sparse
 func (a *MessageAdmin) RegisterSystem(ctx context.Context, cfg *system.SystemConfig) error {
 	if cfg == nil {
 		cfg = &system.SystemConfig{}

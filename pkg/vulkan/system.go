@@ -20,7 +20,7 @@ func (c *Client) System() *SystemHandle {
 }
 
 // Register declares the system's own knobs and built-in alert schedules.
-// Safe to run on every startup; cfg may be nil.
+// Safe to run on every startup; cfg may be nil or sparse.
 func (s *SystemHandle) Register(ctx context.Context, cfg *SystemConfig) error {
 	return s.client.admin.RegisterSystem(ctx, cfg)
 }

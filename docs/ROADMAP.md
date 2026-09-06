@@ -84,7 +84,7 @@ the item is removed.
       across common (Owner, RawPayload, RetryPolicy, ConcurrencyPolicy),
       consume (CursorPosition, outcome), producer/scheduler/batcher config
       types, worker, schedule, alert, metrics, datastore.TransactionFunc.
-    - [ ] 8. Boilerplate, ONE codebase-wide sweep so files stay identical:
+    - [x] 8. Boilerplate, ONE codebase-wide sweep so files stay identical:
       "Validate runs after WithDefaults..." x36 (3 on empty Validate
       bodies), "cfg may be nil or sparse" x32, "options may be nil" x7.
       The Logger/Retry field boilerplate is already gone [0657].

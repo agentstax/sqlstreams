@@ -47,8 +47,6 @@ func (c *SystemConfig) WithDefaults() *SystemConfig {
 	return c
 }
 
-// Validate runs after WithDefaults -- anything still out of range here was
-// set by the caller, not left unset.
 func (c *SystemConfig) Validate() error {
 	if err := c.PartitionCountAlert.Validate(); err != nil {
 		return fmt.Errorf("PartitionCountAlert: %w", err)

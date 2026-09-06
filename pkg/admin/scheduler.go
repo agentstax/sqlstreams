@@ -31,7 +31,7 @@ func (a *MessageAdmin) UnsuspendSchedule(ctx context.Context, name string) error
 }
 
 // RunSchedule produces the named schedule's stored message immediately.
-// options may be nil or sparse.
+// options may be nil for the defaults.
 func (a *MessageAdmin) RunSchedule(ctx context.Context, name string, options *scheduler.ScheduleRunOptions) (*producer.ProduceResult[schedule.ScheduleStoredMessage], error) {
 	return a.scheduler.RunSchedule(ctx, name, options)
 }

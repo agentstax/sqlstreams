@@ -72,8 +72,7 @@ func (c *TopicController) List(ctx context.Context) ([]*topic.Topic, error) {
 
 // Register resolves name to its db identity, creating the
 // topic if it doesn't exist, and returns the registered topic. cfg may be nil
-// or a sparse struct -- WithDefaults fills every field left unset, Validate
-// rejects what's out of range.
+// or sparse.
 func (c *TopicController) Register(ctx context.Context, systemId int64, name string, cfg *topic.TopicConfig) (*topic.Topic, error) {
 	if systemId <= 0 {
 		return nil, fmt.Errorf("systemId must be > 0, got %d", systemId)

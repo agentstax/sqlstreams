@@ -30,8 +30,7 @@ type ManagerProvisioner struct {
 	definition *worker.Definition
 }
 
-// cfg may be nil or a sparse struct -- WithDefaults fills every field left
-// unset, Validate rejects what's out of range.
+// cfg may be nil or sparse.
 func NewManagerProvisioner(ds *iDatastore.PostgresDatastore, targetInstances worker.InstanceTarget, cfg *ManagerConfig, logger logging.Logger, provisioners ...worker.Provisioner) (*ManagerProvisioner, error) {
 	if ds == nil {
 		return nil, errors.New("datastore must not be nil")
