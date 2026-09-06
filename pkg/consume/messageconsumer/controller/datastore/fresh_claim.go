@@ -125,13 +125,16 @@ func (d *MessageConsumerGroupDatastore) freshClaimMessagesWithCursor(ctx context
 			--                       passed its xmax. claiming through it claims up
 			--                       to where the log stood a poll ago, so fresh
 			--                       messages wait one more poll if this is used
-			SELECT GREATEST(
-				o.settled_head,
-				CASE WHEN pg_snapshot_xmin(pg_current_snapshot()) >= $4::xid8 -- $4 is snapshotXmax
-					THEN $3 ELSE 0 END,                                         -- $3 is snapshotHead
-				CASE WHEN o.pending_xmax IS NOT NULL
-						AND pg_snapshot_xmin(pg_current_snapshot()) >= o.pending_xmax
-					THEN o.pending_head ELSE 0 END
+			SELECT (
+				SELECT MAX(pair.head)
+				FROM (VALUES
+					(o.settled_head, NULL::xid8),    -- already proven, no fence to pass
+					($3::bigint, $4::xid8),          -- the fresh pair: snapshotHead, snapshotXmax
+					(o.pending_head, o.pending_xmax) -- the stored pair
+				) AS pair(head, xmax)
+				-- a pair is proven once xmin has passed its xmax
+				WHERE pair.xmax IS NULL
+					OR pg_snapshot_xmin(pg_current_snapshot()) >= pair.xmax
 			) AS head
 			FROM old_values o
 		),
