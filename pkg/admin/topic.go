@@ -14,15 +14,7 @@ import (
 // GetTopic resolves a topic by name. Returns (nil, nil), not an error,
 // if name isn't registered.
 func (a *MessageAdmin) GetTopic(ctx context.Context, name string) (*topic.Topic, error) {
-	if name == "" {
-		return nil, errors.New("topic name is required")
-	}
-
-	foundTopic, err := a.topicController.Get(ctx, name)
-	if err != nil {
-		return nil, err
-	}
-	return foundTopic, nil
+	return a.topicController.Get(ctx, name)
 }
 
 // ListTopics returns every registered topic, ordered by name.
@@ -118,9 +110,6 @@ func (a *MessageAdmin) RenameTopic(ctx context.Context, name string, newName str
 	}
 	if newName == "" {
 		return nil, errors.New("newName is required")
-	}
-	if newName == name {
-		return nil, errors.New("new name matches the current name -- nothing to rename")
 	}
 	if isReservedTopicName(name) || isReservedTopicName(newName) {
 		return nil, topic.ErrReservedTopicName.With("topic", name, "new_name", newName)

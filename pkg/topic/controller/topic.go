@@ -116,6 +116,9 @@ func (c *TopicController) Rename(ctx context.Context, oldName string, newName st
 	if !topic.SlugPattern.MatchString(newName) {
 		return nil, fmt.Errorf("new name must match %s, got %q", topic.SlugPattern, newName)
 	}
+	if newName == oldName {
+		return nil, errors.New("new name matches the current name -- nothing to rename")
+	}
 
 	renamed, err := c.datastore.Rename(ctx, oldName, newName, common.ProcessIdentity)
 	if err != nil || renamed == nil {

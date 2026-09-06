@@ -198,6 +198,12 @@ Every package is exactly one of three kinds:
   every other exported name is an alias or var into the declaring package,
   and the client holds assemblers only.
 
+Admin owns assembly, cross-domain identity resolution, operation policy,
+and delegation. System bootstrap, migration dispatch, reserved-topic
+protection, AllowDestroy/Force, and composed destruction guards belong
+there. A forwarding method needs no additional logic to justify its place.
+Controllers own domain verbs and persistence invariants; datastores own SQL.
+
 The seam law: anything another stack imports is a seam -- a vocabulary
 root or a domain controller. What only your own tree imports nests freely
 (producer keeps its controller/datastore/batcher: nothing else imports
@@ -247,9 +253,9 @@ The domain layers:
   `db:` rule. Keys spell the log attribute registry's name where one exists
   (topic, version, group, message_id); otherwise the field's own name
   snake_cased. Write shapes, configs, and instances carry no tags.
-- `pkg/<x>/controller` -- the only path to persistence: all public verbs, ALL
-  input validation, `to*` adapters, schema asserts. Files: `<x>_config.go`,
-  `controller_config.go`.
+- `pkg/<x>/controller` -- the only path to persistence: domain verbs,
+  input validation before persistence, `to*` adapters, schema asserts.
+  Files: `<x>_config.go`, `controller_config.go`.
 - `pkg/<x>/controller/datastore` -- all SQL; trusts inputs, no re-validation.
   Table-exact `*Row` structs live in `model.go`, never beside the query that
   returns them. An enum type travels with its const block.
@@ -266,6 +272,15 @@ The domain layers:
 - A config file is named for the struct it declares, never bare `config.go` --
   `<x>_config.go`, `controller_config.go`, `datastore_config.go`. A package
   that grows a second config gets a second file rather than a shared one.
+
+Config constraints live in the owning config's Validate method. An assembler
+may call it, and perform simple input checks, before coordinating domain
+operations; controllers still validate inputs for direct callers. Prefer
+explicit duplication of simple guards to a new validation helper, type, or
+preflight API solely for deduplication. Remove guards from forwarding methods
+when the immediate controller call already checks them; retain preflight
+checks that reject input before other work or preserve deliberate error order.
+More complex validation may justify sharing; duplication alone does not.
 
 ## Supported public API
 

@@ -6,7 +6,7 @@ docs/decisions/.
 
 ## Admin responsibilities and consistent patterns [0676]
 
-Agreed design; implementation pending. Review the concrete diffs against
+Agreed design; implementation in progress. Review the concrete diffs against
 the code shapes agreed in discussion before closing this work.
 
 Admin owns assembly, cross-domain resolution, operation policy, and
@@ -15,12 +15,29 @@ reserved-topic protection, AllowDestroy/Force, and composed destruction
 guards there. Controllers own domain verbs and persistence invariants;
 datastores own SQL. Simple input checks may repeat explicitly at boundaries.
 
-- [ ] Align the binding rules in CONVENTIONS.md with this division, including
+- [x] Align the binding rules in CONVENTIONS.md with this division, including
   domain-owned config validation and explicit duplication of simple guards.
   Audit admin's methods against the rule; avoid moving orchestration merely
   because it touches several domains. Move RenameTopic's same-name rejection
   into TopicController.Rename. Remove redundant forwarding-only guards where
   the controller already handles them; preserve intentional preflight checks.
+
+Task 1 audit: GetTopic, TopicHealth, and schedule reads/actions delegate name
+validation to their immediate controller call. Consumer-name checks in
+GetConsumer, GetBinding, and ConsumerGroupOwner stay before topic lookup;
+registration, rename, and destruction retain admin preflight/policy guards.
+System, owner, migration, metrics, alert, binding, compaction, and destruction
+composition stay in admin. Worker filtering and health placement remain the
+separate tasks below.
+
+Task 1 diagnostic changes: empty topic-read and schedule names now return the
+controller's `name is required`; a reserved topic renamed to itself returns
+ErrReservedTopicName before the controller's same-name guard. Invalid identical
+names reach the controller's name-pattern rejection first. These calls still
+fail before persistence. Targeted build and race checks for admin, topic/controller,
+and vulkan, plus tools/conventions, reserved-topic-lab, schedule-lab, and
+schema-evolution-lab passed.
+
 - [ ] Validate topic registration before bootstrap writes. In
   MessageAdmin.RegisterTopic, perform the existing explicit name-pattern check
   and nil/default/config validation before RegisterSystem can run. Retain the

@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"errors"
 
 	"github.com/agentstax/vulkan/pkg/producer"
 	"github.com/agentstax/vulkan/pkg/schedule"
@@ -12,9 +11,6 @@ import (
 
 // GetSchedule returns (nil, nil), not an error, if name isn't registered.
 func (a *MessageAdmin) GetSchedule(ctx context.Context, name string) (*schedule.Schedule, error) {
-	if name == "" {
-		return nil, errors.New("schedule name is required")
-	}
 	return a.scheduleController.Get(ctx, name)
 }
 
@@ -25,18 +21,12 @@ func (a *MessageAdmin) ListSchedules(ctx context.Context) ([]*schedule.Schedule,
 
 // SuspendSchedule stops the scheduler producing the schedule until unsuspended.
 func (a *MessageAdmin) SuspendSchedule(ctx context.Context, name string) error {
-	if name == "" {
-		return errors.New("schedule name is required")
-	}
 	return a.scheduleController.Suspend(ctx, name)
 }
 
 // UnsuspendSchedule resumes at the schedule's next scheduled time -- one that
 // came due while suspended is dropped, not produced late.
 func (a *MessageAdmin) UnsuspendSchedule(ctx context.Context, name string) error {
-	if name == "" {
-		return errors.New("schedule name is required")
-	}
 	return a.scheduleController.Unsuspend(ctx, name)
 }
 
@@ -50,10 +40,6 @@ func (a *MessageAdmin) RunSchedule(ctx context.Context, name string, options *sc
 // schedule's messages. Counts cover the target topic's retention window.
 // Returns ErrScheduleNotFound if name isn't registered.
 func (a *MessageAdmin) ScheduleStatus(ctx context.Context, name string) ([]*schedule.ScheduleConsumerGroupSummary, error) {
-	if name == "" {
-		return nil, errors.New("schedule name is required")
-	}
-
 	found, err := a.scheduleController.Get(ctx, name)
 	if err != nil {
 		return nil, err
@@ -70,10 +56,6 @@ func (a *MessageAdmin) ScheduleStatus(ctx context.Context, name string) ([]*sche
 // Messages older than the target topic's retention window are gone.
 // Returns ErrScheduleNotFound if name isn't registered.
 func (a *MessageAdmin) ScheduleMessages(ctx context.Context, name string, limit int) ([]*schedule.ScheduleMessageStatus, error) {
-	if name == "" {
-		return nil, errors.New("schedule name is required")
-	}
-
 	found, err := a.scheduleController.Get(ctx, name)
 	if err != nil {
 		return nil, err
@@ -90,9 +72,6 @@ func (a *MessageAdmin) ScheduleMessages(ctx context.Context, name string, limit 
 func (a *MessageAdmin) DestroySchedule(ctx context.Context, name string) error {
 	if !a.allowDestroy {
 		return topic.ErrDestroyDisabled
-	}
-	if name == "" {
-		return errors.New("schedule name is required")
 	}
 
 	return a.scheduleController.Delete(ctx, name)

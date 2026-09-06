@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -26,10 +25,6 @@ type TopicVersionHealth struct {
 // each with its own retire verdict. Returns ErrTopicNotFound if name isn't
 // registered; an empty topic has no versions.
 func (a *MessageAdmin) TopicHealth(ctx context.Context, name string) ([]*TopicVersionHealth, error) {
-	if name == "" {
-		return nil, errors.New("topic name is required")
-	}
-
 	found, err := a.topicController.Get(ctx, name)
 	if err != nil {
 		return nil, err
