@@ -57,7 +57,7 @@ no namespace, valid registration bootstraps, redeclaration semantics hold,
 nil config uses defaults, and a custom system alert schedule is preserved.
 Targeted build, race checks, conventions checks, and the live lab passed.
 
-- [ ] Add WorkerController.ListConsumerGroupWorkers(ctx, owner), validating
+- [x] Add WorkerController.ListConsumerGroupWorkers(ctx, owner), validating
   the required consumer-group identity, and the datastore's corresponding
   public retry wrapper/private query pair taking consumerGroupId. Select
   worker_config rows with consumer_group_id = $1 using explicit columns,
@@ -67,6 +67,17 @@ Targeted build, race checks, conventions checks, and the live lab passed.
   filtering. Leave the manager's ListWorkers call and owner-chain query
   unchanged. No scope enum or generic selection API; straightforward query
   duplication is acceptable.
+
+Task 3: admin delegates directly to the new consumer-group read. Its SQL
+selects consumer_group_id, reuses the existing row/adaptation shape, and
+keeps warning/skip handling for unreadable selected owners. Ancestor rows
+are no longer read or diagnosed by this group-only operation; the manager's
+ListWorkers query and call are unchanged. The expanded consumer-group lab
+checks sibling and cross-topic exclusion, full worker declaration equality,
+empty results, owner validation, and the manager's ancestor selection.
+Targeted build/race and conventions checks passed; the consumer-group lab
+passed with -race and worker-claim-lab passed through failover and release.
+
 - [ ] Move TopicVersionHealth to pkg/topic with identical fields and JSON
   tags; update the vulkan alias. Keep TopicHealth composition in admin and
   inline evaluate's logic inside its snapshot loop: compaction heads take

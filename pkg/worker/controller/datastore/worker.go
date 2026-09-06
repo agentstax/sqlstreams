@@ -188,6 +188,54 @@ func (d *WorkerDatastore) listWorkers(ctx context.Context, owner *common.Owner) 
 	return workers, rows.Err()
 }
 
+func (d *WorkerDatastore) ListConsumerGroupWorkers(ctx context.Context, consumerGroupId int64) ([]ListWorkersRow, error) {
+	var workers []ListWorkersRow
+	err := d.DatastoreRetry.Wrap(ctx, func() error {
+		var err error
+		workers, err = d.listConsumerGroupWorkers(ctx, consumerGroupId)
+		return err
+	})
+	return workers, err
+}
+
+func (d *WorkerDatastore) listConsumerGroupWorkers(ctx context.Context, consumerGroupId int64) ([]ListWorkersRow, error) {
+	sql := fmt.Sprintf(`
+		-- vulkan: worker.listConsumerGroupWorkers
+		SELECT
+			w.id,
+			w.system_id,
+			w.topic_id,
+			w.consumer_group_id,
+			w.name,
+			w.metadata,
+			w.target_instances,
+			COALESCE(w.system_id, t.system_id, 0) AS owner_system_id,
+			COALESCE(t.id, 0) AS owner_topic_id,
+			COALESCE(t.name, '') AS topic_name,
+			COALESCE(g.name, '') AS consumer_group
+		FROM %[1]s.worker_config w
+		LEFT JOIN %[1]s.consumer_group_config g ON g.id = w.consumer_group_id
+		LEFT JOIN %[1]s.topic_config t ON t.id = COALESCE(w.topic_id, g.topic_id)
+		WHERE w.consumer_group_id = $1;
+	`, d.Datastore.Schema)
+	rows, err := d.Datastore.Pool.Query(ctx, sql, consumerGroupId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var workers []ListWorkersRow
+	for rows.Next() {
+		var data ListWorkersRow
+		if err := rows.Scan(&data.Id, &data.SystemId, &data.TopicId, &data.ConsumerGroupId, &data.Name, &data.Metadata, &data.TargetInstances,
+			&data.OwnerSystemId, &data.OwnerTopicId, &data.TopicName, &data.ConsumerGroup); err != nil {
+			return nil, err
+		}
+		workers = append(workers, data)
+	}
+	return workers, rows.Err()
+}
+
 // GetWorker reads the (name, owner) worker row. Errors if the row was never
 // declared.
 func (d *WorkerDatastore) GetWorker(ctx context.Context, name string, owner *common.Owner) (*WorkerConfigRow, error) {

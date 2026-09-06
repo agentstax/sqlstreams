@@ -28,6 +28,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"reflect"
 	"sync"
 	"time"
 
@@ -113,6 +114,64 @@ func run() (err error) {
 		die(fmt.Sprintf("second topic reused the first topic's group: %+v", other))
 	}
 	fmt.Printf("  ✓ own registry row (id %d vs %d)\n", other.Id, registered.Id)
+
+	step("consumer worker reads exclude ancestors and other groups")
+	workerController, err := workercontroller.NewWorkerController(ds, ds.Logger)
+	must(err)
+	owner, err := common.NewConsumerGroupOwner(topicA.SystemId, topicA.Id, registered.Id, group)
+	must(err)
+	otherOwner, err := common.NewConsumerGroupOwner(topicB.SystemId, topicB.Id, other.Id, group)
+	must(err)
+	sibling, err := cd.RegisterGroup(ctx, topicA.Id, group+".sibling", consume.Beginning())
+	must(err)
+	siblingOwner, err := common.NewConsumerGroupOwner(topicA.SystemId, topicA.Id, sibling.Id, sibling.Name)
+	must(err)
+	for _, groupOwner := range []*common.Owner{owner, otherOwner, siblingOwner} {
+		must(workerController.RegisterWorker(ctx, "lab_reader", groupOwner, nil))
+		must(workerController.RegisterWorker(ctx, "lab_retry", groupOwner, nil))
+	}
+	listed, err := client.Topic[vulkan.RawPayload](topicA.Name).Consumer(group).Workers(ctx)
+	must(err)
+	if len(listed) != 2 {
+		die(fmt.Sprintf("consumer workers = %d, want 2", len(listed)))
+	}
+	for _, found := range listed {
+		if !reflect.DeepEqual(found.Owner, owner) {
+			die(fmt.Sprintf("worker %d has owner %+v, want %+v", found.Id, found.Owner, owner))
+		}
+		expected, err := workerController.GetWorker(ctx, found.Name, owner)
+		must(err)
+		if !reflect.DeepEqual(found, expected) {
+			die(fmt.Sprintf("worker %d differs from its stored declaration", found.Id))
+		}
+	}
+	chain, err := workerController.ListWorkers(ctx, owner)
+	must(err)
+	counts := map[common.OwnerKind]int{}
+	for _, found := range chain {
+		counts[found.Owner.Kind()]++
+		if found.Owner.ConsumerGroupId > 0 && found.Owner.ConsumerGroupId != owner.ConsumerGroupId {
+			die("manager's owner-chain read includes another group")
+		}
+	}
+	if counts[common.OwnerConsumerGroup] != 2 || counts[common.OwnerTopic] == 0 || counts[common.OwnerSystem] == 0 {
+		die(fmt.Sprintf("manager's owner-chain selection changed: %v", counts))
+	}
+	emptyGroup, err := cd.RegisterGroup(ctx, topicA.Id, group+".empty", consume.Beginning())
+	must(err)
+	empty, err := client.Topic[vulkan.RawPayload](topicA.Name).Consumer(emptyGroup.Name).Workers(ctx)
+	must(err)
+	if len(empty) != 0 {
+		die("consumer with no worker declarations must return an empty list")
+	}
+	systemOwner, err := common.NewSystemOwner(topicA.SystemId)
+	must(err)
+	for _, invalidOwner := range []*common.Owner{nil, systemOwner} {
+		if _, err := workerController.ListConsumerGroupWorkers(ctx, invalidOwner); err == nil {
+			die("consumer worker read must reject an owner without a group")
+		}
+	}
+	fmt.Println("  ✓ group-only rows preserve declarations; manager still sees group, topic, and system workers")
 
 	step("concurrent first-registrations leave exactly one registry row")
 	race := fmt.Sprintf("consumergrouplab.race.%d", suffix)

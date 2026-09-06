@@ -50,7 +50,7 @@ the item is removed.
       invalid" while zero resolves to the default; SchedulerConfig.Metadata
       "Default: {}" set only in SQL; ProduceOptions.IdempotencyKey names
       AppendMessage.
-    - [ ] 2. Stale names in Go comments (16): RegisterProducer, RunManager,
+    - [x] 2. Stale names in Go comments (16): RegisterProducer, RunManager,
       MessageAdminConfig.AllowDestroy (four destroy docs), GetSystem /
       ScheduleMessages / RegisterMetrics as the caller's verb, lifecycle.go
       and raw_payload.go naming Register, godoc heads naming the pre-prefix

@@ -43,19 +43,7 @@ func (a *MessageAdmin) ListConsumerWorkers(ctx context.Context, topicName string
 	if err != nil {
 		return nil, err
 	}
-	listed, err := a.workerController.ListWorkers(ctx, consumerGroupOwner)
-	if err != nil {
-		return nil, err
-	}
-
-	// ListWorkers walks the whole owner chain -- keep only the group's own rows
-	var workers []*worker.Worker
-	for _, row := range listed {
-		if row.Owner.ConsumerGroupId == consumerGroupOwner.ConsumerGroupId {
-			workers = append(workers, row)
-		}
-	}
-	return workers, nil
+	return a.workerController.ListConsumerGroupWorkers(ctx, consumerGroupOwner)
 }
 
 // DestroyConsumer permanently deletes the consumer group registered under

@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/agentstax/vulkan/pkg/common"
 	"github.com/agentstax/vulkan/pkg/worker"
@@ -65,6 +66,31 @@ func (c *WorkerController) ListWorkers(ctx context.Context, owner *common.Owner)
 	var workers []*worker.Worker
 	for _, data := range listed {
 		// a bad row skips rather than erroring the whole list
+		listedWorker, err := toWorker(data)
+		if err != nil {
+			c.Logger.WarnContext(ctx, "could not read worker row owner -- skipping", "worker", data.Name, "error", err)
+			continue
+		}
+		workers = append(workers, listedWorker)
+	}
+	return workers, nil
+}
+
+func (c *WorkerController) ListConsumerGroupWorkers(ctx context.Context, owner *common.Owner) ([]*worker.Worker, error) {
+	if owner == nil {
+		return nil, errors.New("owner must not be nil")
+	}
+	if owner.ConsumerGroupId <= 0 {
+		return nil, fmt.Errorf("owner.ConsumerGroupId must be > 0, got %d", owner.ConsumerGroupId)
+	}
+
+	listed, err := c.datastore.ListConsumerGroupWorkers(ctx, owner.ConsumerGroupId)
+	if err != nil {
+		return nil, err
+	}
+
+	var workers []*worker.Worker
+	for _, data := range listed {
 		listedWorker, err := toWorker(data)
 		if err != nil {
 			c.Logger.WarnContext(ctx, "could not read worker row owner -- skipping", "worker", data.Name, "error", err)
