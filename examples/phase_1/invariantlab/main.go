@@ -196,21 +196,21 @@ func hasColumn(ctx context.Context, pool *pgxpool.Pool, schema string, table str
 
 func currentVersion(ctx context.Context, pool *pgxpool.Pool, schema string, sysId int64) int64 {
 	var v int64
-	must(pool.QueryRow(ctx, fmt.Sprintf(`SELECT migration_version FROM %s.migration_log WHERE system_id = $1 AND status = 'success' ORDER BY id DESC LIMIT 1;`, schema), sysId).Scan(&v))
+	must(pool.QueryRow(ctx, fmt.Sprintf(`SELECT version FROM %s.migration_log WHERE system_id = $1 AND status = 'success' ORDER BY id DESC LIMIT 1;`, schema), sysId).Scan(&v))
 	return v
 }
 
 // forgetVersion drops the success records at/above v, so the engine reads the
 // current version as v-1 while the DDL is already at v -- an interrupted migrate.
 func forgetVersion(ctx context.Context, pool *pgxpool.Pool, schema string, sysId int64, v int64) {
-	_, err := pool.Exec(ctx, fmt.Sprintf(`DELETE FROM %s.migration_log WHERE system_id = $1 AND migration_version >= $2;`, schema), sysId, v)
+	_, err := pool.Exec(ctx, fmt.Sprintf(`DELETE FROM %s.migration_log WHERE system_id = $1 AND version >= $2;`, schema), sysId, v)
 	must(err)
 }
 
 // claimVersion records a success at v without doing v's DDL -- the mirror of
 // forgetVersion, so the engine believes it's ahead of where the schema is.
 func claimVersion(ctx context.Context, pool *pgxpool.Pool, schema string, sysId int64, v int64) {
-	_, err := pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.migration_log (system_id, migration_version, status) VALUES ($1, $2, 'success');`, schema), sysId, v)
+	_, err := pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.migration_log (system_id, version, status) VALUES ($1, $2, 'success');`, schema), sysId, v)
 	must(err)
 }
 
@@ -222,7 +222,7 @@ func reset(ctx context.Context, pool *pgxpool.Pool, schema string, sysId int64) 
 	must(err)
 	_, err = pool.Exec(ctx, fmt.Sprintf(`DELETE FROM %s.migration_log WHERE system_id = $1;`, schema), sysId)
 	must(err)
-	_, err = pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.migration_log (system_id, migration_version, status) VALUES ($1, 1, 'success');`, schema), sysId)
+	_, err = pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.migration_log (system_id, version, status) VALUES ($1, 1, 'success');`, schema), sysId)
 	must(err)
 }
 

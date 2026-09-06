@@ -212,7 +212,7 @@ func (d *TopicDatastore) register(ctx context.Context, declared *TopicConfigRow,
 	// add the migration baseline in the SAME txn
 	migrationSql := fmt.Sprintf(`
 		-- vulkan: topic.register
-		INSERT INTO %[1]s.migration_log (topic_id, migration_version, status)
+		INSERT INTO %[1]s.migration_log (topic_id, version, status)
 		VALUES ($1, 1, 'success');
 	`, d.Datastore.Schema)
 	if _, err := tx.Exec(ctx, migrationSql, created.Id); err != nil {

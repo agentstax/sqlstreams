@@ -290,7 +290,7 @@
       "queries": [
         {
           "label": "the steps this database recorded, newest first",
-          "sql": "SELECT\n\tid,\n\tmigration_version,\n\tmin_compatible_version,\n\tstatus,\n\tcreated_at\nFROM {schema}.migration_log\nORDER BY id DESC\nLIMIT 20;",
+          "sql": "SELECT\n\tid,\n\tversion,\n\tmin_compatible_version,\n\tstatus,\n\tcreated_at\nFROM {schema}.migration_log\nORDER BY id DESC\nLIMIT 20;",
           "placeholders": [
             "schema"
           ]
@@ -309,14 +309,14 @@
       "queries": [
         {
           "label": "the steps this database recorded, newest first",
-          "sql": "SELECT\n\tid,\n\tmigration_version,\n\tmin_compatible_version,\n\tstatus,\n\tcreated_at\nFROM {schema}.migration_log\nORDER BY id DESC\nLIMIT 20;",
+          "sql": "SELECT\n\tid,\n\tversion,\n\tmin_compatible_version,\n\tstatus,\n\tcreated_at\nFROM {schema}.migration_log\nORDER BY id DESC\nLIMIT 20;",
           "placeholders": [
             "schema"
           ]
         },
         {
           "label": "which step raised the floor past this build",
-          "sql": "SELECT\n\tmigration_version,\n\tmin_compatible_version,\n\tcreated_at\nFROM {schema}.migration_log\nWHERE min_compatible_version \u003e {build_version}\nORDER BY migration_version;",
+          "sql": "SELECT\n\tversion,\n\tmin_compatible_version,\n\tcreated_at\nFROM {schema}.migration_log\nWHERE min_compatible_version \u003e {build_version}\nORDER BY version;",
           "placeholders": [
             "schema",
             "build_version"

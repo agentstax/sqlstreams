@@ -251,7 +251,7 @@ func (d *SystemDatastore) createSystemTables(ctx context.Context, tx pgx.Tx) err
 			system_id BIGINT REFERENCES %[1]s.system_config (id) ON DELETE CASCADE,
 			topic_id BIGINT REFERENCES %[1]s.topic_config (id) ON DELETE CASCADE,
 			consumer_group_id BIGINT REFERENCES %[1]s.consumer_group_config (id) ON DELETE CASCADE,
-			migration_version BIGINT NOT NULL,
+			version BIGINT NOT NULL,
 			min_compatible_version BIGINT NOT NULL DEFAULT 0, -- the step's MinCompatibleVersion; 0 on baseline and down rows
 			status TEXT NOT NULL,                             -- 'success' | 'failure' (extensible)
 			error TEXT,                                       -- populated when status = 'failure'

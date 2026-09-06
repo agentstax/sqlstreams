@@ -21,7 +21,7 @@ var ErrSchemaOlderThanBuild = diagnostic.NewDiagnosticError("VK0022", diagnostic
 		diagnostic.NewDiagnosticQuery("the steps this database recorded, newest first", `
 SELECT
 	id,
-	migration_version,
+	version,
 	min_compatible_version,
 	status,
 	created_at
@@ -41,7 +41,7 @@ var ErrSchemaNewerThanBuild = diagnostic.NewDiagnosticError("VK0023", diagnostic
 		diagnostic.NewDiagnosticQuery("the steps this database recorded, newest first", `
 SELECT
 	id,
-	migration_version,
+	version,
 	min_compatible_version,
 	status,
 	created_at
@@ -50,12 +50,12 @@ ORDER BY id DESC
 LIMIT 20;`),
 		diagnostic.NewDiagnosticQuery("which step raised the floor past this build", `
 SELECT
-	migration_version,
+	version,
 	min_compatible_version,
 	created_at
 FROM {schema}.migration_log
 WHERE min_compatible_version > {build_version}
-ORDER BY migration_version;`),
+ORDER BY version;`),
 	)
 
 // ErrStepLockTimeout reclassifies a lock_timeout expiry (55P03) on the txn

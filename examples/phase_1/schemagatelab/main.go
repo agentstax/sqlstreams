@@ -129,12 +129,12 @@ func run() (err error) {
 // without any matching schema change -- a database a newer binary migrated.
 // minCompatibleVersion 0 forges an additive step, ver forges a breaking one.
 func bump(ctx context.Context, pool *pgxpool.Pool, schema string, owner *common.Owner, ver int64, minCompatibleVersion int64) {
-	_, err := pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.migration_log (system_id, topic_id, consumer_group_id, migration_version, min_compatible_version, status) VALUES ($1, $2, $3, $4, $5, 'success');`, schema), owner.SystemIdColumn(), owner.TopicIdColumn(), owner.ConsumerGroupIdColumn(), ver, minCompatibleVersion)
+	_, err := pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.migration_log (system_id, topic_id, consumer_group_id, version, min_compatible_version, status) VALUES ($1, $2, $3, $4, $5, 'success');`, schema), owner.SystemIdColumn(), owner.TopicIdColumn(), owner.ConsumerGroupIdColumn(), ver, minCompatibleVersion)
 	must(err)
 }
 
 func unbump(ctx context.Context, pool *pgxpool.Pool, schema string, owner *common.Owner, ver int64) {
-	_, err := pool.Exec(ctx, fmt.Sprintf(`DELETE FROM %s.migration_log WHERE system_id IS NOT DISTINCT FROM $1 AND topic_id IS NOT DISTINCT FROM $2 AND consumer_group_id IS NOT DISTINCT FROM $3 AND migration_version = $4;`, schema), owner.SystemIdColumn(), owner.TopicIdColumn(), owner.ConsumerGroupIdColumn(), ver)
+	_, err := pool.Exec(ctx, fmt.Sprintf(`DELETE FROM %s.migration_log WHERE system_id IS NOT DISTINCT FROM $1 AND topic_id IS NOT DISTINCT FROM $2 AND consumer_group_id IS NOT DISTINCT FROM $3 AND version = $4;`, schema), owner.SystemIdColumn(), owner.TopicIdColumn(), owner.ConsumerGroupIdColumn(), ver)
 	must(err)
 }
 

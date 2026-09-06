@@ -14,13 +14,14 @@ docs/decisions/.
   (kinds, `_at`/`_after`, `_ns`) passes, so everything below is what it does
   not check. Manual review still to come -- these are candidates, not verdicts.
   1. Settle the naming findings (same concept, different name):
-     - `message_key_lease.lease_token` -> `token` (bare rule; `claim_lease.token`,
-       `worker_instance.token`; the `lease_` prefix stays only on exception_queue).
+     - `message_key_lease.lease_token` -> `token` -- SHIPPED 2026-09-06
+       (commit 87d5f27d).
      - `worker_instance.attempts` vs `exception_queue.attempts` -- USER-SETTLED
        2026-09-06: keep `attempts`; a rename adds a term and locks in one
        meaning of the streak.
-     - `migration_log.migration_version` -> `version` (bare rule; Row already
-       maps it to `Version`).
+     - `migration_log.migration_version` -> `version` -- SHIPPED 2026-09-06
+       (DDL, sandbox mirror, migrate/system/topic literals, VK0022/VK0023
+       queries + codes.json, two labs, storybook sample).
      - `compaction_head.head_id` -> `message_id` (FK columns keep the resource's
        noun).
      - `declared_at` means row-write time in topic_config_log/worker_config_log

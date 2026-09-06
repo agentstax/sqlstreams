@@ -116,7 +116,7 @@ func (d *SystemDatastore) seedSystem(ctx context.Context, tx pgx.Tx) (*SystemCon
 func (d *SystemDatastore) recordBaseline(ctx context.Context, tx pgx.Tx, systemId int64) error {
 	recordBaselineSql := fmt.Sprintf(`
 		-- vulkan: system.recordBaseline
-		INSERT INTO %[1]s.migration_log (system_id, migration_version, status)
+		INSERT INTO %[1]s.migration_log (system_id, version, status)
 		SELECT $1, 1, 'success'
 		WHERE NOT EXISTS (
 			SELECT 1 FROM %[1]s.migration_log

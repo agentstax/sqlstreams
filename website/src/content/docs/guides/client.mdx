@@ -31,6 +31,19 @@ For example, `vulkan.RetryPolicy` aliases a type declared in `pkg/common`.
 Its exported methods are part of the supported surface. Calling
 `common.NewDefaultRetryPolicy` through a direct import is advanced usage.
 
+### Proposed: datastore access contract
+
+Keep `Client.Datastore()` and the `PostgresDatastore` alias as the integration
+access point. It returns the client's existing datastore, which an exporter
+or an advanced controller can share. It creates no pool or second datastore.
+
+Treat its `Pool`, `Schema`, `Logger`, and `Retry` fields as construction-time
+state: reading them and passing the datastore to integrations is supported;
+replacing those fields or mutating the shared retry policy after construction
+is outside the supported contract. Some components retain earlier values,
+so field assignment cannot consistently reconfigure a running client.
+The caller still owns the pool and closes it after its users stop.
+
 ## Two grammars
 
 The client selects the noun: `Topic[T](name)`, `Scheduler(name)`, and a

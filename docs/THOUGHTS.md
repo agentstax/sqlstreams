@@ -2,6 +2,8 @@
 
 09 and 11 - need to review again and make sure code makes sense and clearly outlines what it intends to describe.
 
+Need to review otel package again and re-align
+
 # Docs
 
 Make small little comment about client api being design for old timers who still like to hand write code occassionally

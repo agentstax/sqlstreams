@@ -33,7 +33,7 @@ func (d *MigrateDatastore) systemSchemaState(ctx context.Context, q datastore.Qu
 	sql := fmt.Sprintf(`
 		-- vulkan: migrate.systemSchemaState
 		WITH successes AS (
-			SELECT id, migration_version, min_compatible_version
+			SELECT id, version, min_compatible_version
 			FROM %[1]s.migration_log
 			WHERE system_id = $1
 				AND topic_id IS NULL
@@ -42,7 +42,7 @@ func (d *MigrateDatastore) systemSchemaState(ctx context.Context, q datastore.Qu
 		),
 		current AS (
 			-- latest-by-id, not MAX -- a downgrade records a lower version
-			SELECT migration_version FROM successes ORDER BY id DESC LIMIT 1
+			SELECT version FROM successes ORDER BY id DESC LIMIT 1
 		),
 		compatibility AS (
 			-- strictest declaration among steps at or below current -- a step
@@ -50,9 +50,9 @@ func (d *MigrateDatastore) systemSchemaState(ctx context.Context, q datastore.Qu
 			-- qualifies, so MAX never aggregates an empty set
 			SELECT MAX(successes.min_compatible_version) AS min_compatible_version
 			FROM successes, current
-			WHERE successes.migration_version <= current.migration_version
+			WHERE successes.version <= current.version
 		)
-		SELECT current.migration_version, compatibility.min_compatible_version
+		SELECT current.version, compatibility.min_compatible_version
 		FROM current, compatibility;
 	`, d.Datastore.Schema)
 
@@ -85,7 +85,7 @@ func (d *MigrateDatastore) topicSchemaState(ctx context.Context, q datastore.Que
 	sql := fmt.Sprintf(`
 		-- vulkan: migrate.topicSchemaState
 		WITH successes AS (
-			SELECT id, migration_version, min_compatible_version
+			SELECT id, version, min_compatible_version
 			FROM %[1]s.migration_log
 			WHERE system_id IS NULL
 				AND topic_id = $1
@@ -94,7 +94,7 @@ func (d *MigrateDatastore) topicSchemaState(ctx context.Context, q datastore.Que
 		),
 		current AS (
 			-- latest-by-id, not MAX -- a downgrade records a lower version
-			SELECT migration_version FROM successes ORDER BY id DESC LIMIT 1
+			SELECT version FROM successes ORDER BY id DESC LIMIT 1
 		),
 		compatibility AS (
 			-- strictest declaration among steps at or below current -- a step
@@ -102,9 +102,9 @@ func (d *MigrateDatastore) topicSchemaState(ctx context.Context, q datastore.Que
 			-- qualifies, so MAX never aggregates an empty set
 			SELECT MAX(successes.min_compatible_version) AS min_compatible_version
 			FROM successes, current
-			WHERE successes.migration_version <= current.migration_version
+			WHERE successes.version <= current.version
 		)
-		SELECT current.migration_version, compatibility.min_compatible_version
+		SELECT current.version, compatibility.min_compatible_version
 		FROM current, compatibility;
 	`, d.Datastore.Schema)
 
@@ -125,7 +125,7 @@ func Version(ctx context.Context, q datastore.Querier, owner *common.Owner, sche
 	// IS NOT DISTINCT FROM: NULL-safe equality against the owner's columns
 	sql := fmt.Sprintf(`
 		-- vulkan: migrate.Version
-		SELECT migration_version FROM %[1]s.migration_log
+		SELECT version FROM %[1]s.migration_log
 		WHERE system_id IS NOT DISTINCT FROM $1
 			AND topic_id IS NOT DISTINCT FROM $2
 			AND consumer_group_id IS NOT DISTINCT FROM $3

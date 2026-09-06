@@ -25,6 +25,6 @@ type Step struct {
 // at, and the minimum compatible version in force -- the strictest
 // declaration among the steps at or below it.
 type SchemaStateRow struct {
-	Version              int64 `db:"migration_version"`
+	Version              int64 `db:"version"`
 	MinCompatibleVersion int64 `db:"min_compatible_version"`
 }

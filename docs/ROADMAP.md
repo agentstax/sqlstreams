@@ -358,7 +358,7 @@ documentation; the latter want a surface that has stopped moving.
   VK0022/VK0023's problem lines, `ErrSchemaOlderThanBuild` /
   `ErrSchemaNewerThanBuild`, and roughly 8 files of prose still say
   "schema version" about a migration version. The rule if it is taken
-  up: `migration_log.migration_version` reads "migration version" and
+  up: `migration_log.version` reads "migration version" and
   `message_log.schema_version` keeps "schema version", so
   guides/schema-versions.mdx, which is about payloads, never moves.
 

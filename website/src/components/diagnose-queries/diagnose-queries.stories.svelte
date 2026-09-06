@@ -49,7 +49,7 @@
 		queries: [
 			{
 				label: 'the migration steps this database recorded, newest first',
-				sql: 'SELECT\n\tmigration_version,\n\tmin_compatible_version,\n\tstatus,\n\tcreated_at\nFROM migration_log\nWHERE system_id IS NOT NULL\nORDER BY id DESC;',
+				sql: 'SELECT\n\tversion,\n\tmin_compatible_version,\n\tstatus,\n\tcreated_at\nFROM migration_log\nWHERE system_id IS NOT NULL\nORDER BY id DESC;',
 				placeholders: [],
 			},
 		],
