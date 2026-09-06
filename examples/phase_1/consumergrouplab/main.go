@@ -267,7 +267,7 @@ func destroySection(ctx context.Context, pool *pgxpool.Pool, client *vulkan.Clie
 	must(err)
 	_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (consumer_group_id, message_id, attempt, status, error) VALUES ($1, 1, 1, 'failure', 'lab');`, ds.Schema, topic.DeliveryLogTable(topicA.Id)), doomed.Id)
 	must(err)
-	_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (consumer_group_id, message_key, lease_token, expires_at) VALUES ($1, 'labkey', gen_random_uuid(), now());`, ds.Schema, topic.MessageKeyLeaseTable(topicA.Id)), doomed.Id)
+	_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (consumer_group_id, message_key, token, expires_at) VALUES ($1, 'labkey', gen_random_uuid(), now());`, ds.Schema, topic.MessageKeyLeaseTable(topicA.Id)), doomed.Id)
 	must(err)
 	if err := client.Topic[labMessage](topicA.Name).Consumer(doomedName).Destroy(ctx, nil); !errors.Is(err, consume.ErrGroupDeliveriesPending) {
 		die(fmt.Sprintf("destroy with delivery rows: want ErrGroupDeliveriesPending, got %v", err))

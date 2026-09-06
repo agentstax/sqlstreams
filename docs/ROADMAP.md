@@ -35,6 +35,8 @@ rewrite-to-the-real-API pass 2026-08-22 [0581], the board rebuild
   - The eventual move of `pkg/vulkan` to its public import location is separate
     follow-through: update imports and path-aware tooling once that path is
     chosen. No module split or destination path is selected yet.
+- **Table name + column review** -- last naming/column-order pass before
+  v1 makes the DDL expensive to change. Expanded in TODO.md.
 - **Named-return-params house style** — decide and apply consistently across
   the reviewed surface.
 - **Public API documentation review** — after the supported public API review, audit

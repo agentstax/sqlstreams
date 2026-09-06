@@ -378,7 +378,7 @@ func (d *ExceptionConsumerGroupDatastore) recordAndReleaseKey(ctx context.Contex
 		DELETE FROM %[1]s.%[2]s
 		WHERE consumer_group_id = $1
 			AND message_key = $2
-			AND lease_token = $3;
+			AND token = $3;
 	`, d.Datastore.Schema, topic.MessageKeyLeaseTable(keyClaim.TopicId))
 	releaseTag, err := tx.Exec(ctx, releaseSql, keyClaim.ConsumerGroupId, keyClaim.MessageKey, keyClaim.Token)
 	if err != nil {

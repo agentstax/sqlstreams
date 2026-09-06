@@ -157,7 +157,7 @@ func run() (err error) {
 		DELETE FROM %s.%s
 		WHERE consumer_group_id = $1
 			AND message_key = $2
-			AND lease_token = $3;
+			AND token = $3;
 	`, ds.Schema, topic.MessageKeyLeaseTable(topicId)), groupId, "user:1", held.Token)
 	must(err)
 	if tag.RowsAffected() != 1 {

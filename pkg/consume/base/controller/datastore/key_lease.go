@@ -51,21 +51,21 @@ func (d *KeyLeaseDatastore) claimCompacted(ctx context.Context, topicId int64, g
 			WHERE compaction_key = $1
 				AND head_id IS NOT NULL
 		), attempt AS (
-			INSERT INTO %[1]s.%[3]s AS kl (consumer_group_id, message_key, lease_token, expires_at)
+			INSERT INTO %[1]s.%[3]s AS kl (consumer_group_id, message_key, token, expires_at)
 			SELECT $2, $1, $5, now() + make_interval(secs => $4)
 			WHERE EXISTS (SELECT 1 FROM head WHERE head_id = $3)
 			ON CONFLICT (consumer_group_id, message_key) DO UPDATE
 			SET
-				lease_token = $5,
+				token = $5,
 				expires_at = now() + make_interval(secs => $4)
 			-- the token match lets a retry after an ambiguous commit re-take its
 			-- own lease instead of reading it as busy
-			WHERE kl.expires_at < now() OR kl.lease_token = $5
-			RETURNING lease_token
+			WHERE kl.expires_at < now() OR kl.token = $5
+			RETURNING token
 		)
 		SELECT
 			EXISTS (SELECT 1 FROM head WHERE head_id = $3),
-			(SELECT lease_token FROM attempt);
+			(SELECT token FROM attempt);
 	`, d.Datastore.Schema, topic.CompactionHeadTable(topicId), topic.MessageKeyLeaseTable(topicId))
 
 	// the claimSql head CTE snapshot could be stale on the INSERT that
@@ -77,7 +77,7 @@ func (d *KeyLeaseDatastore) claimCompacted(ctx context.Context, topicId int64, g
 		DELETE FROM %[1]s.%[2]s
 		WHERE consumer_group_id = $2
 			AND message_key = $1
-			AND lease_token = $4
+			AND token = $4
 			AND NOT EXISTS (
 				SELECT 1
 				FROM %[1]s.%[3]s
@@ -131,16 +131,16 @@ func (d *KeyLeaseDatastore) claimCompacted(ctx context.Context, topicId int64, g
 func (d *KeyLeaseDatastore) claimUncompacted(ctx context.Context, topicId int64, groupId int64, key string, duration time.Duration, token pgtype.UUID) (*KeyLease, error) {
 	sql := fmt.Sprintf(`
 		-- vulkan: consumebase.claimUncompacted
-		INSERT INTO %[1]s.%[2]s AS kl (consumer_group_id, message_key, lease_token, expires_at)
+		INSERT INTO %[1]s.%[2]s AS kl (consumer_group_id, message_key, token, expires_at)
 		VALUES ($1, $2, $3, now() + make_interval(secs => $4))
 		ON CONFLICT (consumer_group_id, message_key) DO UPDATE
 		SET
-			lease_token = $3,
+			token = $3,
 			expires_at = now() + make_interval(secs => $4)
 		-- the token match lets a retry after an ambiguous commit re-take its
 		-- own lease instead of reading it as busy
-		WHERE kl.expires_at < now() OR kl.lease_token = $3
-		RETURNING lease_token;
+		WHERE kl.expires_at < now() OR kl.token = $3
+		RETURNING token;
 	`, d.Datastore.Schema, topic.MessageKeyLeaseTable(topicId))
 
 	claim := KeyLease{TopicId: topicId, ConsumerGroupId: groupId, MessageKey: key}
@@ -165,7 +165,7 @@ func (d *KeyLeaseDatastore) claimUncompacted(ctx context.Context, topicId int64,
 func (d *KeyLeaseDatastore) claimOrdered(ctx context.Context, topicId int64, groupId int64, key string, messageId int64, ownLow int64, ownHigh int64, duration time.Duration, token pgtype.UUID) (*KeyLease, error) {
 	sql := fmt.Sprintf(`
 		-- vulkan: consumebase.claimOrdered
-		INSERT INTO %[1]s.%[2]s AS kl (consumer_group_id, message_key, lease_token, expires_at)
+		INSERT INTO %[1]s.%[2]s AS kl (consumer_group_id, message_key, token, expires_at)
 		SELECT $1, $2, $3, now() + make_interval(secs => $4)
 		-- no exception row still ready/inflight/deferred
 		WHERE NOT EXISTS (
@@ -188,12 +188,12 @@ func (d *KeyLeaseDatastore) claimOrdered(ctx context.Context, topicId int64, gro
 		)
 		ON CONFLICT (consumer_group_id, message_key) DO UPDATE
 		SET
-			lease_token = $3,
+			token = $3,
 			expires_at = now() + make_interval(secs => $4)
 		-- the token match lets a retry after an ambiguous commit re-take its
 		-- own lease instead of reading it as busy
-		WHERE kl.expires_at < now() OR kl.lease_token = $3
-		RETURNING lease_token;
+		WHERE kl.expires_at < now() OR kl.token = $3
+		RETURNING token;
 	`, d.Datastore.Schema, topic.MessageKeyLeaseTable(topicId), topic.ExceptionQueueTable(topicId), topic.MessageLogTable(topicId), topic.ConsumerGroupCursorTable(topicId))
 
 	claim := KeyLease{TopicId: topicId, ConsumerGroupId: groupId, MessageKey: key}
@@ -229,7 +229,7 @@ func (d *KeyLeaseDatastore) release(ctx context.Context, q datastore.Querier, cl
 		DELETE FROM %[1]s.%[2]s
 		WHERE consumer_group_id = $1
 			AND message_key = $2
-			AND lease_token = $3;
+			AND token = $3;
 	`, d.Datastore.Schema, topic.MessageKeyLeaseTable(claim.TopicId))
 	tag, err := q.Exec(ctx, sql, claim.ConsumerGroupId, claim.MessageKey, claim.Token)
 	if err != nil {

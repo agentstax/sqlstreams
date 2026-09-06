@@ -206,7 +206,7 @@ func (d *TopicDatastore) createTopicTables(ctx context.Context, tx pgx.Tx, id in
 		CREATE TABLE IF NOT EXISTS %[1]s.%[2]s (
 			consumer_group_id BIGINT NOT NULL, -- PK
 			message_key TEXT NOT NULL,         -- PK
-			lease_token UUID NOT NULL,
+			token UUID NOT NULL,
 			expires_at TIMESTAMPTZ NOT NULL,
 			PRIMARY KEY (consumer_group_id, message_key)
 		);

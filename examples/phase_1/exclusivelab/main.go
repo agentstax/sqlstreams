@@ -452,7 +452,7 @@ func run() (err error) {
 	step("a crashed holder's expired key lease: redemption takes the key over")
 	g10 := groupId(ctx, cd, "exclusivelab.g10")
 	// a crashed holder's message_key_lease row: unexpired, never released
-	execSql(ctx, fmt.Sprintf(`INSERT INTO %s.%s (consumer_group_id, message_key, lease_token, expires_at) VALUES ($1, 'u:10', gen_random_uuid(), now() + interval '1500 milliseconds')`, ds.Schema, topic.MessageKeyLeaseTable(topicId)), g10)
+	execSql(ctx, fmt.Sprintf(`INSERT INTO %s.%s (consumer_group_id, message_key, token, expires_at) VALUES ($1, 'u:10', gen_random_uuid(), now() + interval '1500 milliseconds')`, ds.Schema, topic.MessageKeyLeaseTable(topicId)), g10)
 	publish(ctx, wpInstance, "u:10", 1, common.ConcurrencyExclusive)
 	v10 := messageId(ctx, "u:10", 1)
 	stopCursor10 := startConsumer(ctx, tp.Name, "exclusivelab.g10", nil, 3, func(ctx context.Context, message *Rec) error {
