@@ -2,6 +2,7 @@ package datastore
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -23,16 +24,69 @@ func (d *MessageConsumerGroupDatastore) ClaimMessagesWithCursor(ctx context.Cont
 }
 
 func (d *MessageConsumerGroupDatastore) claimMessagesWithCursor(ctx context.Context, topicId int64, groupId int64, schemaVersion int64, limit int, maxRangeReclaims int, leaseDuration time.Duration, deliveryLogMode topic.DeliveryLogMode) (*ClaimedRange, error) {
-	reclaimed, err := d.reclaimWithCursor(ctx, topicId, groupId, schemaVersion, maxRangeReclaims, leaseDuration, deliveryLogMode)
+	snapshot, err := d.readClaimSnapshot(ctx, topicId, groupId)
 	if err != nil {
 		return nil, err
 	}
-	if reclaimed != nil {
-		return reclaimed, nil
+
+	// the reclaim transaction only opens when the snapshot saw an expired lease
+	if snapshot.Reclaimable {
+		reclaimed, err := d.reclaimWithCursor(ctx, topicId, groupId, schemaVersion, maxRangeReclaims, leaseDuration, deliveryLogMode)
+		if err != nil {
+			return nil, err
+		}
+		if reclaimed != nil {
+			return reclaimed, nil
+		}
+		// a peer reclaimed it first -> fall through to a fresh claim
 	}
 
-	// nothing to reclaim -> try standard fresh claim (nil when caught up)
-	return d.freshClaimMessagesWithCursor(ctx, topicId, groupId, schemaVersion, limit, leaseDuration)
+	// nothing new and nothing provable: this snapshot saw the head we've
+	// already proven and fully claimed.
+	if snapshot.Head == snapshot.PendingHead && snapshot.PendingHead == snapshot.SettledHead && snapshot.Claimed == snapshot.SettledHead {
+		return nil, nil
+	}
+
+	return d.freshClaimMessagesWithCursor(ctx, topicId, groupId, schemaVersion, limit, leaseDuration, snapshot)
+}
+
+// readClaimSnapshot reads the (head, xmax) pair the cursor gate proves
+// against, in its own read-only statement before any write of this poll.
+// A write first would put this poll's own txid below xmax, and that txid
+// cannot finish until the claim transaction does -- the fresh pair would
+// never prove inside its own poll.
+func (d *MessageConsumerGroupDatastore) readClaimSnapshot(ctx context.Context, topicId int64, groupId int64) (ClaimSnapshotRow, error) {
+	sql := fmt.Sprintf(`
+		-- vulkan: messageconsumer.readClaimSnapshot
+		SELECT
+			(SELECT COALESCE(MAX(id), 0) FROM %[1]s.%[2]s) AS head,
+			pg_snapshot_xmax(pg_current_snapshot())::text AS xmax,
+			c.claimed,
+			c.settled_head,
+			c.pending_head,
+			EXISTS (
+				SELECT 1 FROM %[1]s.%[4]s l
+				WHERE l.consumer_group_id = $1
+					AND l.expires_at < now()
+			) AS reclaimable
+		FROM %[1]s.%[3]s c
+		WHERE c.consumer_group_id = $1;
+	`, d.Datastore.Schema, topic.MessageLogTable(topicId), topic.ConsumerGroupCursorTable(topicId), topic.ClaimLeaseTable(topicId))
+	rows, err := d.Datastore.Pool.Query(ctx, sql, groupId)
+	if err != nil {
+		return ClaimSnapshotRow{}, err
+	}
+
+	snapshot, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[ClaimSnapshotRow])
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			// a consumer with no cursor row would otherwise poll forever
+			// looking caught up while messages accumulate
+			return ClaimSnapshotRow{}, fmt.Errorf("no cursor for group %d on topic %d -- was Register called?", groupId, topicId)
+		}
+		return ClaimSnapshotRow{}, err
+	}
+	return snapshot, nil
 }
 
 // readMessages reads topicId's message_log rows in (low, high], ordered by id.

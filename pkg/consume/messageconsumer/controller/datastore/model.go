@@ -63,6 +63,17 @@ type Outcome struct {
 	Delay       time.Duration // OutcomeDelayed only: how far out can_run_after moves
 }
 
+// ClaimSnapshotRow is one poll's read of the cursor row beside the log's
+// visible head and the snapshot's xmax, read together so the pair is sound.
+type ClaimSnapshotRow struct {
+	Head        int64  `db:"head"`
+	Xmax        string `db:"xmax"`
+	Claimed     int64  `db:"claimed"`
+	SettledHead int64  `db:"settled_head"`
+	PendingHead int64  `db:"pending_head"`
+	Reclaimable bool   `db:"reclaimable"` // an expired lease exists for the group
+}
+
 // Low == High means cursor exists but is already at the proven head (nothing to claim)
 type ConsumerGroupCursorRow struct {
 	Low  int64 `db:"low"`

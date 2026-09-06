@@ -10,49 +10,15 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (d *MessageConsumerGroupDatastore) freshClaimMessagesWithCursor(ctx context.Context, topicId int64, groupId int64, schemaVersion int64, limit int, leaseDuration time.Duration) (*ClaimedRange, error) {
+// snapshot is the (head, xmax) pair the cursorSql gate CTE proves against,
+// read by readClaimSnapshot in an earlier statement than this transaction.
+func (d *MessageConsumerGroupDatastore) freshClaimMessagesWithCursor(ctx context.Context, topicId int64, groupId int64, schemaVersion int64, limit int, leaseDuration time.Duration, snapshot ClaimSnapshotRow) (*ClaimedRange, error) {
 	tx, err := d.Datastore.Pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
 
-	// take the (head, xmax) pair the cursorSql gate CTE below proves against.
-	//
-	// this snapshot must run BEFORE the entire tx's first write
-	// If we do any kind of INSERT/UPDATE it will put a txid into pg_current_snapshot
-	// that will make it such that the xmax of this snapshot could never be reached
-	// by cursorSql xmin because the txid cause by that write can never finish until
-	// this entire transaction completes. Basically fresh-pair would never be selected
-	// and claims would always have to wait at least a poll tick, slowing things down.
-	snapshotSql := fmt.Sprintf(`
-		-- vulkan: messageconsumer.freshClaimMessagesWithCursor
-		SELECT
-			(SELECT COALESCE(MAX(id), 0) FROM %[1]s.%[2]s) AS head,
-			pg_snapshot_xmax(pg_current_snapshot())::text AS xmax,
-			c.claimed,
-			c.settled_head,
-			c.pending_head
-		FROM %[1]s.%[3]s c
-		WHERE c.consumer_group_id = $1;
-	`, d.Datastore.Schema, topic.MessageLogTable(topicId), topic.ConsumerGroupCursorTable(topicId))
-
-	var snapshotHead, claimed, settledHead, pendingHead int64
-	var snapshotXmax string
-	if err := tx.QueryRow(ctx, snapshotSql, groupId).Scan(&snapshotHead, &snapshotXmax, &claimed, &settledHead, &pendingHead); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, fmt.Errorf("no cursor for group %d on topic %d -- was Register called?", groupId, topicId)
-		}
-		return nil, err
-	}
-
-	// nothing new and nothing provable: this snapshot saw the head we've
-	// already proven and fully claimed.
-	if snapshotHead == pendingHead && pendingHead == settledHead && claimed == settledHead {
-		return nil, nil
-	}
-
-	// TODO - projector could likely tracked head in a RWMutex such that it doesn't need to be calculated here
 	cursorSql := fmt.Sprintf(`
 		-- vulkan: messageconsumer.freshClaimMessagesWithCursor
 		WITH old_values AS ( -- PG18+ has old / new syntax in returning but we want older version compatibility so use CTE
@@ -94,10 +60,10 @@ func (d *MessageConsumerGroupDatastore) freshClaimMessagesWithCursor(ctx context
 			-- the fix: claimed only advances to a head PROVEN to have nothing
 			-- invisible at or below it. the proof works on a (head, xmax)
 			-- pair -- MAX(id) (head) and the next-unissued txid (max), read together
-			-- in one EARLIER snapshot (snapshotSql above, or a prior poll that
+			-- in one EARLIER snapshot (readClaimSnapshot, or a prior poll that
 			-- stored its pair in pending_head/pending_xmax).
 			--
-			-- EX: proving the pair (head=9, xmax=103) from snapshotSql:
+			-- EX: proving the pair (head=9, xmax=103) from readClaimSnapshot:
 			--
 			--   1. the pair says:  every txn that can own an id <= 9 has txid < 103
 			--                      (all ids <= 9 were INSERTed before txid 103 was issued)
@@ -115,7 +81,7 @@ func (d *MessageConsumerGroupDatastore) freshClaimMessagesWithCursor(ctx context
 			--                       committed) -- claims hold at the last proven
 			--                       head until it closes
 			--   the fresh pair   -- $3/$4, wins when everything running at
-			--                       snapshotSql finished before this query ran --
+			--                       readClaimSnapshot finished before this query ran --
 			--                       the quiet path, claims land in the same poll
 			--                       as the produce
 			--   the stored pair  -- wins under nonstop traffic: the fresh pair is
@@ -129,7 +95,7 @@ func (d *MessageConsumerGroupDatastore) freshClaimMessagesWithCursor(ctx context
 				SELECT MAX(pair.head)
 				FROM (VALUES
 					(o.settled_head, NULL::xid8),    -- already proven, no fence to pass
-					($3::bigint, $4::xid8),          -- the fresh pair: snapshotHead, snapshotXmax
+					($3::bigint, $4::xid8),          -- the fresh pair: snapshot.Head, snapshot.Xmax
 					(o.pending_head, o.pending_xmax) -- the stored pair
 				) AS pair(head, xmax)
 				-- a pair is proven once xmin has passed its xmax
@@ -168,7 +134,7 @@ func (d *MessageConsumerGroupDatastore) freshClaimMessagesWithCursor(ctx context
 		--
 		SELECT u.low, u.high FROM updated u;
 	`, d.Datastore.Schema, topic.ConsumerGroupCursorTable(topicId), topic.ConsumerGroupCursorTable(topicId))
-	cursorRows, err := tx.Query(ctx, cursorSql, groupId, limit, snapshotHead, snapshotXmax)
+	cursorRows, err := tx.Query(ctx, cursorSql, groupId, limit, snapshot.Head, snapshot.Xmax)
 	if err != nil {
 		return nil, err
 	}
