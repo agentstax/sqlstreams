@@ -70,7 +70,7 @@ func (a *AlertHandle) messageKey(ctx context.Context) (string, error) {
 func (a *AlertHandle) owner(ctx context.Context) (*common.Owner, error) {
 	switch {
 	case a.groupName != "":
-		return a.client.admin.GroupOwner(ctx, a.topicName, a.groupName)
+		return a.client.admin.ConsumerGroupOwner(ctx, a.topicName, a.groupName)
 	case a.topicName != "":
 		return a.client.admin.TopicOwner(ctx, a.topicName)
 	default:

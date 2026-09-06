@@ -31,7 +31,7 @@ func (h *ConsumerAlertsHandle) Definitions() []AlertDefinition {
 // active or resolved, ordered by message key. Returns ErrTopicNotFound or
 // ErrGroupNotFound when either side is missing.
 func (h *ConsumerAlertsHandle) Latest(ctx context.Context) ([]*Alert, error) {
-	owner, err := h.client.admin.GroupOwner(ctx, h.topicName, h.groupName)
+	owner, err := h.client.admin.ConsumerGroupOwner(ctx, h.topicName, h.groupName)
 	if err != nil {
 		return nil, err
 	}

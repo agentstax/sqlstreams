@@ -10,22 +10,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newGroupConfigCmd(g *globalFlags) *cobra.Command {
+func newConsumerConfigCmd(g *globalFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
-		Short: "Read a consumer group's config",
-		Long: `A group's config comes from the cfg your code passes to consumer Register,
+		Short: "Read a consumer's config",
+		Long: `A consumer's config comes from the cfg your code passes to consumer Register,
 and is applied every time that runs. Changing a value means changing that
 code and redeploying; this command only reads.
 
 Each consumer kind declares its own keys, so the WORKER column names the row
 a value came from and there is no single default to show.
 
-A running consumer reads its config when it claims work, so a change takes
+A running consumer instance reads its config when it claims work, so a change takes
 effect at its next claim, not live.`,
 	}
 
-	cmd.AddCommand(newGroupConfigGetCmd(g))
+	cmd.AddCommand(newConsumerConfigGetCmd(g))
 
 	return cmd
 }
@@ -93,11 +93,11 @@ func decodeMessageOptions(value any) (*common.MessageOptions, error) {
 	return &options, nil
 }
 
-// groupError maps a group config command failure to CLI output.
-func groupError(topicName string, groupName string, err error) error {
+// consumerError maps a consumer config command failure to CLI output.
+func consumerError(topicName string, consumerName string, err error) error {
 	switch {
 	case errors.Is(err, consume.ErrGroupNotFound):
-		return failOp("consumer group %q not found on topic %q", groupName, topicName)
+		return failOp("consumer %q not found on topic %q", consumerName, topicName)
 	case errors.Is(err, topic.ErrTopicNotFound):
 		return errTopicNotFound(topicName)
 	default:

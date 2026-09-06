@@ -16,7 +16,7 @@ type ConsumerHandle[Message Versioned] struct {
 // Consumers returns every consumer group registered on the topic, ordered by
 // name.
 func (t *TopicHandle[Message]) Consumers(ctx context.Context) ([]*Consumer, error) {
-	return t.client.admin.ListGroups(ctx, t.name)
+	return t.client.admin.ListConsumers(ctx, t.name)
 }
 
 // Consumer names a consumer group on this topic. No I/O and no failure --
@@ -40,17 +40,17 @@ func (h *ConsumerHandle[Message]) Register(ctx context.Context, cfg *ConsumerCon
 // Get reads the group's row. Returns (nil, nil) when the topic or the
 // group is not registered.
 func (h *ConsumerHandle[Message]) Get(ctx context.Context) (*Consumer, error) {
-	return h.client.admin.GetGroup(ctx, h.topicName, h.name)
+	return h.client.admin.GetConsumer(ctx, h.topicName, h.name)
 }
 
 // Workers returns the group's worker rows -- its stored config.
 func (h *ConsumerHandle[Message]) Workers(ctx context.Context) ([]*Worker, error) {
-	return h.client.admin.ListGroupWorkers(ctx, h.topicName, h.name)
+	return h.client.admin.ListConsumerWorkers(ctx, h.topicName, h.name)
 }
 
 // Destroy permanently deletes the group: its cursor, bindings, leases,
 // delivery rows, group-owned workers and schedules. The topic and its
 // messages are untouched. Refused unless ClientConfig.AllowDestroy is set.
 func (h *ConsumerHandle[Message]) Destroy(ctx context.Context, options *DestroyOptions) error {
-	return h.client.admin.DestroyGroup(ctx, h.topicName, h.name, options)
+	return h.client.admin.DestroyConsumer(ctx, h.topicName, h.name, options)
 }

@@ -90,7 +90,7 @@ func newRootCmd() (*cobra.Command, *globalFlags) {
 		"output format: text or json (one document on stdout, errors as json on stderr)")
 
 	root.AddCommand(newTopicCmd(g))
-	root.AddCommand(newGroupCmd(g))
+	root.AddCommand(newConsumerCmd(g))
 	root.AddCommand(newScheduleCmd(g))
 	root.AddCommand(newAlertCmd(g))
 	root.AddCommand(newMetricsCmd(g))

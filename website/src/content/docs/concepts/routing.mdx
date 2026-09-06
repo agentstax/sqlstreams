@@ -79,7 +79,7 @@ declaration has explicit outcomes rather than last-writer-wins:
 Inspect where every group stands:
 
 ```sh
-vulkan group binding list
+vulkan consumer binding list
 ```
 
 One group's effective set is a read on its handle. nil means the group
@@ -95,7 +95,7 @@ if binding != nil {
 }
 ```
 
-The same read from the shell is `vulkan group binding get orders email-receipts`.
+The same read from the shell is `vulkan consumer binding get orders email-receipts`.
 
 <ThreadAside label="NOTE" title="Binding changes are forward-only">
 The pattern is evaluated when a message

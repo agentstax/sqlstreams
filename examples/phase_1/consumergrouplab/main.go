@@ -14,12 +14,12 @@ package main
 //     the advisory-lock shape under real contention.
 //  4. destroying a topic destroys ITS groups (registry row, cursor)
 //     and leaves the same-named group on the other topic untouched.
-//  5. deleting a group row directly cascades its cursor away -- DestroyGroup
+//  5. deleting a group row directly cascades its cursor away -- DestroyConsumer
 //     is this delete plus the rows no FK reaches.
 //  6. Start: consume.Head() creates the cursor at MAX(id) of the log,
 //     only a post-register produce is delivered, and a later Register with
 //     another position leaves the row alone.
-//  7. DestroyGroup: AllowDestroy-gated, not-found error, refused while the
+//  7. DestroyConsumer: AllowDestroy-gated, not-found error, refused while the
 //     group has a live worker instance or delivery rows, and force sweeps
 //     every row the group owns.
 
@@ -219,7 +219,7 @@ func run() (err error) {
 }
 
 func destroySection(ctx context.Context, pool *pgxpool.Pool, client *vulkan.Client, cd *consumecontroller.ConsumeController, topicA *topic.Topic, suffix int64) {
-	step("DestroyGroup: gate + not-found, live/backlogged guards, force sweeps everything")
+	step("DestroyConsumer: gate + not-found, live/backlogged guards, force sweeps everything")
 
 	doomedName := fmt.Sprintf("consumergrouplab.doomed.%d", suffix)
 	doomed, err := cd.RegisterGroup(ctx, topicA.Id, doomedName, consume.Beginning())

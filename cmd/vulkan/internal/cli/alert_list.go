@@ -13,9 +13,9 @@ import (
 
 func newAlertListCmd(g *globalFlags) *cobra.Command {
 	var (
-		quiet     bool
-		topicName string
-		groupName string
+		quiet        bool
+		topicName    string
+		consumerName string
 	)
 
 	cmd := &cobra.Command{
@@ -23,10 +23,10 @@ func newAlertListCmd(g *globalFlags) *cobra.Command {
 		Short: "List the current alert per (alert, owner)",
 		Long: `List the current retained alert per (alert, owner), active or resolved:
 every owner by default, one topic's with --topic, one consumer group's with
---topic and --group.`,
+--topic and --consumer.`,
 		Example: `  vulkan alert list
   vulkan alert list --topic orders.created
-  vulkan alert list --topic orders.created --group billing`,
+  vulkan alert list --topic orders.created --consumer billing`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
@@ -35,8 +35,8 @@ every owner by default, one topic's with --topic, one consumer group's with
 			if quiet && g.jsonOutput() {
 				return failUsage("--quiet and --output json cannot be combined")
 			}
-			if groupName != "" && topicName == "" {
-				return failUsage("--group requires --topic")
+			if consumerName != "" && topicName == "" {
+				return failUsage("--consumer requires --topic")
 			}
 
 			client, closeClient, err := openClient(ctx, g.databaseURL, g.schema, slog.LevelError)
@@ -47,8 +47,8 @@ every owner by default, one topic's with --topic, one consumer group's with
 
 			var alerts []*vulkan.Alert
 			switch {
-			case groupName != "":
-				alerts, err = client.Topic[vulkan.RawPayload](topicName).Consumer(groupName).Alerts().Latest(ctx)
+			case consumerName != "":
+				alerts, err = client.Topic[vulkan.RawPayload](topicName).Consumer(consumerName).Alerts().Latest(ctx)
 			case topicName != "":
 				alerts, err = client.Topic[vulkan.RawPayload](topicName).Alerts().Latest(ctx)
 			default:
@@ -75,7 +75,7 @@ every owner by default, one topic's with --topic, one consumer group's with
 	f := cmd.Flags()
 	f.BoolVarP(&quiet, "quiet", "q", false, "alert and owner only, one per line (for scripts)")
 	f.StringVar(&topicName, "topic", "", "only alerts owned by this topic")
-	f.StringVar(&groupName, "group", "", "only alerts owned by this consumer group; needs --topic")
+	f.StringVar(&consumerName, "consumer", "", "only alerts owned by this consumer group; needs --topic")
 	return cmd
 }
 

@@ -411,6 +411,15 @@ means there are none.
 
 ## Admin, resource by resource
 
+The CLI names this resource `consumer`: `vulkan consumer config get orders billing`,
+`vulkan consumer binding get orders billing`, and `vulkan consumer destroy orders billing`.
+Destroy deletes the shared registration for every instance of `billing` on `orders`;
+it refuses while any instance is live unless `--force` is passed.
+Alert commands select it with `--topic orders --consumer billing`.
+
+These commands replace `vulkan group` and `--group`. Scripts reading consumer
+config or destroy JSON output should use the `consumer` key, which replaces `group`.
+
 Every block reads the same way: list the collection, name one, read
 it, act on it.
 

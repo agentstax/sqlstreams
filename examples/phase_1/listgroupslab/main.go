@@ -1,8 +1,8 @@
 package main
 
-// ListGroups lab: proves the consumer-group list read and the Topic / Group
+// ListConsumers lab: proves the consumer-group list read and the Topic / Consumer
 // handles against a live database -- a topic's groups list in name order,
-// Group.Get returns the row, absence is (nil, nil) on Get and
+// Consumer.Get returns the row, absence is (nil, nil) on Get and
 // ErrTopicNotFound on every other verb, and Topic.Destroy drops the family.
 
 import (
@@ -69,7 +69,7 @@ func run() (err error) {
 		must(err)
 	}
 
-	step("TopicHandle.Groups returns both, ordered by name")
+	step("TopicHandle.Consumers returns both, ordered by name")
 	orders := client.Topic[vulkan.RawPayload](name)
 	groups, err := orders.Consumers(ctx)
 	must(err)
@@ -80,7 +80,7 @@ func run() (err error) {
 	assertString("second group", groups[1].Name, "beta")
 	assertInt64("group topic id", groups[0].TopicId, registered.Id)
 
-	step("Group.Get returns the row")
+	step("Consumer.Get returns the row")
 	alpha, err := orders.Consumer("alpha").Get(ctx)
 	must(err)
 	if alpha == nil {
@@ -102,9 +102,9 @@ func run() (err error) {
 	}
 	_, err = ghostTopic.Consumers(ctx)
 	if !errors.Is(err, topic.ErrTopicNotFound) {
-		die(fmt.Sprintf("Groups on an unregistered topic: expected ErrTopicNotFound, got %v", err))
+		die(fmt.Sprintf("Consumers on an unregistered topic: expected ErrTopicNotFound, got %v", err))
 	}
-	fmt.Printf("  ✓ Groups on an unregistered topic -> %v\n", err)
+	fmt.Printf("  ✓ Consumers on an unregistered topic -> %v\n", err)
 
 	step("cleanup: Topic.Destroy drops the family")
 	must(orders.Destroy(ctx, &vulkan.DestroyOptions{Force: true}))

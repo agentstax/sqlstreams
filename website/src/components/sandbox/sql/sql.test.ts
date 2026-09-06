@@ -72,21 +72,9 @@ describe('embedded SQL matches the Go source byte-exact', () => {
 			'pkg/produce/controller/datastore/insert.go',
 			protectedInsertTemplates,
 		],
-		[
-			'consume.getGroup',
-			'pkg/consume/controller/datastore/group.go',
-			[getGroupSqlTemplate],
-		],
-		[
-			'consume.registerGroup',
-			'pkg/consume/controller/datastore/group.go',
-			registerGroupTemplates,
-		],
-		[
-			'consume.insertCursor',
-			'pkg/consume/controller/datastore/group.go',
-			insertCursorTemplates,
-		],
+		['consume.getGroup', 'pkg/consume/controller/datastore/group.go', [getGroupSqlTemplate]],
+		['consume.registerGroup', 'pkg/consume/controller/datastore/group.go', registerGroupTemplates],
+		['consume.insertCursor', 'pkg/consume/controller/datastore/group.go', insertCursorTemplates],
 		[
 			'messageconsumer.freshClaimMessagesWithCursor',
 			'pkg/consume/messageconsumer/controller/datastore/fresh_claim.go',

@@ -32,12 +32,12 @@ func (a *MessageAdmin) TopicOwner(ctx context.Context, name string) (*common.Own
 	return common.NewTopicOwner(found.SystemId, found.Id, found.Name)
 }
 
-// GroupOwner resolves the group registered under groupName on topicName to
+// ConsumerGroupOwner resolves the group registered under consumerName on topicName to
 // its owner. Returns ErrTopicNotFound / ErrGroupNotFound when either side
 // is missing.
-func (a *MessageAdmin) GroupOwner(ctx context.Context, topicName string, groupName string) (*common.Owner, error) {
-	if groupName == "" {
-		return nil, errors.New("group name is required")
+func (a *MessageAdmin) ConsumerGroupOwner(ctx context.Context, topicName string, consumerName string) (*common.Owner, error) {
+	if consumerName == "" {
+		return nil, errors.New("consumer name is required")
 	}
 
 	found, err := a.GetTopic(ctx, topicName)
@@ -48,12 +48,12 @@ func (a *MessageAdmin) GroupOwner(ctx context.Context, topicName string, groupNa
 		return nil, topic.ErrTopicNotFound.With("topic", topicName)
 	}
 
-	group, err := a.consumerController.GetGroup(ctx, found.Id, groupName)
+	consumerGroup, err := a.consumerController.GetGroup(ctx, found.Id, consumerName)
 	if err != nil {
 		return nil, err
 	}
-	if group == nil {
-		return nil, consume.ErrGroupNotFound.With("group", groupName, "topic", topicName)
+	if consumerGroup == nil {
+		return nil, consume.ErrGroupNotFound.With("group", consumerName, "topic", topicName)
 	}
-	return common.NewConsumerGroupOwner(found.SystemId, found.Id, group.Id, group.Name)
+	return common.NewConsumerGroupOwner(found.SystemId, found.Id, consumerGroup.Id, consumerGroup.Name)
 }

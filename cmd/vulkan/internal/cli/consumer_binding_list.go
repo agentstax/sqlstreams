@@ -11,10 +11,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newGroupBindingListCmd(g *globalFlags) *cobra.Command {
+func newConsumerBindingListCmd(g *globalFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List every consumer group's declared binding set",
+		Short: "List every consumer's declared binding set",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
@@ -48,12 +48,12 @@ func newGroupBindingListCmd(g *globalFlags) *cobra.Command {
 
 func printBindingsTable(w io.Writer, bindings []*consume.Binding) {
 	if len(bindings) == 0 {
-		fmt.Fprintln(w, "no binding declarations -- every group receives every message on its topic")
+		fmt.Fprintln(w, "no binding declarations -- every consumer receives every message on its topic")
 		return
 	}
 
 	tw := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(tw, "GROUP\tTOPIC\tSTATUS\tPATTERNS\tDECLARED BY\tDECLARED AT\tLAST ATTEMPT")
+	fmt.Fprintln(tw, "CONSUMER\tTOPIC\tSTATUS\tPATTERNS\tDECLARED BY\tDECLARED AT\tLAST ATTEMPT")
 	for _, binding := range bindings {
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 			binding.GroupName,

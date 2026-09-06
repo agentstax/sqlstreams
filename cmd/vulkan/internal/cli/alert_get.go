@@ -13,22 +13,22 @@ import (
 
 func newAlertGetCmd(g *globalFlags) *cobra.Command {
 	var (
-		topicName string
-		groupName string
-		limit     int
+		topicName    string
+		consumerName string
+		limit        int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "get <name>",
 		Short: "Show one alert's current state, or its history with --limit",
 		Long: `Show the current retained alert under a name for one owner: the system by
-default, a topic with --topic, a consumer group with --topic and --group.
+default, a topic with --topic, a consumer group with --topic and --consumer.
 With --limit the newest retained alerts are listed instead, newest first.
 An owner that is not registered exits non-zero with its not-found code; an
 owner nothing was published for prints "no alert published".`,
 		Example: `  vulkan alert get partition_count --topic orders.created
   vulkan alert get worker_liveness --topic orders.created --limit 5
-  vulkan alert get disk_pressure --topic orders.created --group billing`,
+  vulkan alert get disk_pressure --topic orders.created --consumer billing`,
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				return failUsage("get requires an alert name\nusage: vulkan alert get <name> [flags]")
@@ -43,8 +43,8 @@ owner nothing was published for prints "no alert published".`,
 			name := args[0]
 			out := cmd.OutOrStdout()
 
-			if groupName != "" && topicName == "" {
-				return failUsage("--group requires --topic")
+			if consumerName != "" && topicName == "" {
+				return failUsage("--consumer requires --topic")
 			}
 			if cmd.Flags().Changed("limit") && limit <= 0 {
 				return failUsage("--limit must be > 0, got %d", limit)
@@ -56,7 +56,7 @@ owner nothing was published for prints "no alert published".`,
 			}
 			defer closeClient()
 
-			handle := alertHandle(client, name, topicName, groupName)
+			handle := alertHandle(client, name, topicName, consumerName)
 			var alerts []*vulkan.Alert
 			if cmd.Flags().Changed("limit") {
 				alerts, err = handle.History(ctx, limit)
@@ -83,7 +83,7 @@ owner nothing was published for prints "no alert published".`,
 			}
 
 			if len(alerts) == 0 {
-				fmt.Fprintf(out, "%s no alert published under %q on %s\n", glyphNo(), name, ownerFlagsCell(topicName, groupName))
+				fmt.Fprintf(out, "%s no alert published under %q on %s\n", glyphNo(), name, ownerFlagsCell(topicName, consumerName))
 				return failPrinted()
 			}
 
@@ -98,7 +98,7 @@ owner nothing was published for prints "no alert published".`,
 
 	f := cmd.Flags()
 	f.StringVar(&topicName, "topic", "", "the topic that owns the alert")
-	f.StringVar(&groupName, "group", "", "the consumer group that owns the alert; needs --topic")
+	f.StringVar(&consumerName, "consumer", "", "the consumer group that owns the alert; needs --topic")
 	f.IntVar(&limit, "limit", 10, "list the newest retained alerts instead of the current one")
 	return cmd
 }
@@ -114,10 +114,10 @@ type alertGetDocument struct {
 
 // alertHandle picks the scope the flags address: none is the system, a
 // topic name is that topic, both names is that consumer group.
-func alertHandle(client *vulkan.Client, name string, topicName string, groupName string) *vulkan.AlertHandle {
+func alertHandle(client *vulkan.Client, name string, topicName string, consumerName string) *vulkan.AlertHandle {
 	switch {
-	case groupName != "":
-		return client.Topic[vulkan.RawPayload](topicName).Consumer(groupName).Alerts().Alert(name)
+	case consumerName != "":
+		return client.Topic[vulkan.RawPayload](topicName).Consumer(consumerName).Alerts().Alert(name)
 	case topicName != "":
 		return client.Topic[vulkan.RawPayload](topicName).Alerts().Alert(name)
 	default:
@@ -127,10 +127,10 @@ func alertHandle(client *vulkan.Client, name string, topicName string, groupName
 
 // ownerFlagsCell renders the owner the flags addressed, for the line that
 // has no alert row to read an owner from.
-func ownerFlagsCell(topicName string, groupName string) string {
+func ownerFlagsCell(topicName string, consumerName string) string {
 	switch {
-	case groupName != "":
-		return fmt.Sprintf("consumer_group/%s", groupName)
+	case consumerName != "":
+		return fmt.Sprintf("consumer_group/%s", consumerName)
 	case topicName != "":
 		return fmt.Sprintf("topic/%s", topicName)
 	default:

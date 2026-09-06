@@ -74,6 +74,10 @@ var (
 
 	runsMu sync.Mutex
 	runs   = map[string]int{} // "key:version" -> completed consumerFunc calls
+
+	// a background start* helper's unexpected Run error lands here, so waitFor
+	// reports the error instead of timing out on a consumer that already died
+	backgroundRunErrors = make(chan error, 8)
 )
 
 func main() {
@@ -686,7 +690,13 @@ func startConsumer(ctx context.Context, topicName, group string, cfg *messagecon
 	runCtx, cancel := context.WithCancel(ctx)
 	execution := claimOne(runCtx, definition, owner)
 	errCh := make(chan error, 1)
-	go func() { errCh <- execution.Run(runCtx) }()
+	go func() {
+		err := execution.Run(runCtx)
+		if err != nil && !errors.Is(err, context.Canceled) {
+			backgroundRunErrors <- err
+		}
+		errCh <- err
+	}()
 	return func() {
 		cancel()
 		if err := <-errCh; err != nil && !errors.Is(err, context.Canceled) {
@@ -712,7 +722,13 @@ func startExceptionConsumer(ctx context.Context, topicName, group string, cfg *e
 	runCtx, cancel := context.WithCancel(ctx)
 	execution := claimOne(runCtx, definition, owner)
 	errCh := make(chan error, 1)
-	go func() { errCh <- execution.Run(runCtx) }()
+	go func() {
+		err := execution.Run(runCtx)
+		if err != nil && !errors.Is(err, context.Canceled) {
+			backgroundRunErrors <- err
+		}
+		errCh <- err
+	}()
 	return func() {
 		cancel()
 		if err := <-errCh; err != nil && !errors.Is(err, context.Canceled) {
@@ -901,6 +917,11 @@ func logRow(ctx context.Context, groupId int64, messageId int64) (string, string
 func waitFor(cond func() bool, what string) {
 	start := time.Now()
 	for !cond() {
+		select {
+		case err := <-backgroundRunErrors:
+			die(fmt.Sprintf("a background Run returned an unexpected error while waiting for %s: %v", what, err))
+		default:
+		}
 		if time.Since(start) > 10*time.Second {
 			die("timed out waiting for " + what)
 		}

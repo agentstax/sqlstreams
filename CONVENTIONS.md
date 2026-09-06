@@ -69,6 +69,13 @@ each func param has explicit type, never combined
 
 ## Vocabulary
 
+Consumer operations name the registered resource `Consumer` (GetConsumer,
+DestroyConsumer; CLI `consumer` and `--consumer`). One running instance is
+`ConsumerInstance`. Shared identity, ownership, and state across instances
+use `ConsumerGroup` (ConsumerGroupId, ConsumerGroupOwner,
+ConsumerGroupSnapshot), even when only one instance currently runs. Do not
+shorten new API or CLI names to bare `Group`.
+
 One registry of banned terms for the whole repo -- code identifiers,
 comments, log messages, and all user-facing prose including the doc site.
 A term is banned when it hides the mechanism behind borrowed or coined

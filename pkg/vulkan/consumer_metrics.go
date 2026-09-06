@@ -28,7 +28,7 @@ func (h *ConsumerMetricsHandle) Definitions() []MetricDefinition {
 
 // Snapshot computes the consumer group's live metrics from its source tables.
 func (h *ConsumerMetricsHandle) Snapshot(ctx context.Context) (*ConsumerGroupSnapshot, error) {
-	return h.client.admin.GroupMetrics(ctx, h.topicName, h.groupName)
+	return h.client.admin.ConsumerGroupMetrics(ctx, h.topicName, h.groupName)
 }
 
 // CursorHead selects the group's topic-head series.

@@ -16,20 +16,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newGroupConfigGetCmd(g *globalFlags) *cobra.Command {
+func newConsumerConfigGetCmd(g *globalFlags) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "get <topic> <group> [key]",
-		Short: "Show the group's config",
-		Long: `Show each config key the group's consumer kinds declare, and the value it
-runs with. Pass a key to show just that key; message shows one line per
+		Use:   "get <topic> <consumer> [key]",
+		Short: "Show the consumer's config",
+		Long: `Show each config key the consumer's workers declare, and its stored
+value. Pass a key to show just that key; message shows one line per
 field.`,
-		Example: `  vulkan group config get orders billing
-  vulkan group config get orders billing claim_poll_rate
-  vulkan group config get orders billing message`,
+		Example: `  vulkan consumer config get orders billing
+  vulkan consumer config get orders billing claim_poll_rate
+  vulkan consumer config get orders billing message`,
 		Args: cobra.RangeArgs(2, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			topicName, groupName := args[0], args[1]
+			topicName, consumerName := args[0], args[1]
 			key := ""
 			if len(args) == 3 {
 				key = args[2]
@@ -42,32 +42,32 @@ field.`,
 			}
 			defer closeClient()
 
-			workers, err := client.Topic[vulkan.RawPayload](topicName).Consumer(groupName).Workers(ctx)
+			workers, err := client.Topic[vulkan.RawPayload](topicName).Consumer(consumerName).Workers(ctx)
 			if err != nil {
-				return groupError(topicName, groupName, err)
+				return consumerError(topicName, consumerName, err)
 			}
 
-			lines := groupConfigLines(workers)
+			lines := consumerConfigLines(workers)
 			if key != "" && len(lines) > 0 {
-				lines = filterGroupConfigLines(lines, key)
+				lines = filterConsumerConfigLines(lines, key)
 				if len(lines) == 0 {
-					return failOp("no consumer kind of group %q declares config key %q", groupName, key)
+					return failOp("no worker of consumer %q declares config key %q", consumerName, key)
 				}
 			}
 
 			if g.jsonOutput() {
-				writeJSON(out, toGroupConfigDocument(topicName, groupName, lines))
+				writeJSON(out, toConsumerConfigDocument(topicName, consumerName, lines))
 				return nil
 			}
 
 			if len(lines) == 0 {
-				fmt.Fprintf(out, "%s consumer group %q on topic %q\n", glyphOK(), groupName, topicName)
-				fmt.Fprintln(out, "  (no config -- the group has no consumer worker rows yet; they appear at the group's first Consume)")
+				fmt.Fprintf(out, "%s consumer %q on topic %q\n", glyphOK(), consumerName, topicName)
+				fmt.Fprintln(out, "  (no config -- worker rows appear at the consumer's first Consume)")
 				return nil
 			}
 
-			fmt.Fprintf(out, "%s consumer group %q on topic %q\n", glyphOK(), groupName, topicName)
-			printGroupConfigLines(out, lines)
+			fmt.Fprintf(out, "%s consumer %q on topic %q\n", glyphOK(), consumerName, topicName)
+			printConsumerConfigLines(out, lines)
 			return nil
 		},
 	}
@@ -75,39 +75,39 @@ field.`,
 	return cmd
 }
 
-// groupConfigLine is one config key on one worker row, ready to print.
-type groupConfigLine struct {
+// consumerConfigLine is one config key on one worker row, ready to print.
+type consumerConfigLine struct {
 	key    string
 	worker string
 	value  string
 }
 
-// groupConfigDocument is group config get's json result: each declared key
+// consumerConfigDocument is consumer config get's json result: each declared key
 // with the worker row it came from, as the table renders them.
-type groupConfigDocument struct {
-	Topic string                    `json:"topic"`
-	Group string                    `json:"group"`
-	Keys  []groupConfigLineDocument `json:"keys"`
+type consumerConfigDocument struct {
+	Topic    string                       `json:"topic"`
+	Consumer string                       `json:"consumer"`
+	Keys     []consumerConfigLineDocument `json:"keys"`
 }
 
-type groupConfigLineDocument struct {
+type consumerConfigLineDocument struct {
 	Key    string `json:"key"`
 	Worker string `json:"worker"`
 	Value  string `json:"value"`
 }
 
-func toGroupConfigDocument(topicName string, groupName string, lines []groupConfigLine) groupConfigDocument {
-	keys := make([]groupConfigLineDocument, 0, len(lines))
+func toConsumerConfigDocument(topicName string, consumerName string, lines []consumerConfigLine) consumerConfigDocument {
+	keys := make([]consumerConfigLineDocument, 0, len(lines))
 	for _, line := range lines {
-		keys = append(keys, groupConfigLineDocument{Key: line.key, Worker: line.worker, Value: line.value})
+		keys = append(keys, consumerConfigLineDocument{Key: line.key, Worker: line.worker, Value: line.value})
 	}
-	return groupConfigDocument{Topic: topicName, Group: groupName, Keys: keys}
+	return consumerConfigDocument{Topic: topicName, Consumer: consumerName, Keys: keys}
 }
 
-// groupConfigLines flattens the rows' metadata into print lines: one per key,
+// consumerConfigLines flattens the rows' metadata into print lines: one per key,
 // and one per message field so the KEY column names the field itself.
-func groupConfigLines(workers []*worker.Worker) []groupConfigLine {
-	var lines []groupConfigLine
+func consumerConfigLines(workers []*worker.Worker) []consumerConfigLine {
+	var lines []consumerConfigLine
 	for _, row := range workers {
 		metadata, ok := row.Metadata.(map[string]any)
 		if !ok {
@@ -118,14 +118,14 @@ func groupConfigLines(workers []*worker.Worker) []groupConfigLine {
 				lines = append(lines, messageConfigLines(row.Name, value)...)
 				continue
 			}
-			lines = append(lines, groupConfigLine{
+			lines = append(lines, consumerConfigLine{
 				key:    key,
 				worker: row.Name,
 				value:  formatMetadataValue(key, value),
 			})
 		}
 	}
-	slices.SortFunc(lines, func(a, b groupConfigLine) int {
+	slices.SortFunc(lines, func(a, b consumerConfigLine) int {
 		if c := strings.Compare(a.key, b.key); c != 0 {
 			return c
 		}
@@ -137,19 +137,19 @@ func groupConfigLines(workers []*worker.Worker) []groupConfigLine {
 // messageConfigLines is one row's message document expanded to a line per
 // field. A document that doesn't decode prints as raw JSON rather than
 // dropping out of the table.
-func messageConfigLines(workerName string, document any) []groupConfigLine {
+func messageConfigLines(workerName string, document any) []consumerConfigLine {
 	options, err := decodeMessageOptions(document)
 	if err != nil {
-		return []groupConfigLine{{
+		return []consumerConfigLine{{
 			key:    "message",
 			worker: workerName,
 			value:  formatMetadataValue("message", document),
 		}}
 	}
 
-	var lines []groupConfigLine
+	var lines []consumerConfigLine
 	for _, field := range messageFieldKeys {
-		lines = append(lines, groupConfigLine{
+		lines = append(lines, consumerConfigLine{
 			key:    field.path,
 			worker: workerName,
 			value:  field.read(options),
@@ -158,10 +158,10 @@ func messageConfigLines(workerName string, document any) []groupConfigLine {
 	return lines
 }
 
-// filterGroupConfigLines keeps one key's lines -- message matches all its
+// filterConsumerConfigLines keeps one key's lines -- message matches all its
 // fields.
-func filterGroupConfigLines(lines []groupConfigLine, key string) []groupConfigLine {
-	var kept []groupConfigLine
+func filterConsumerConfigLines(lines []consumerConfigLine, key string) []consumerConfigLine {
+	var kept []consumerConfigLine
 	for _, line := range lines {
 		if line.key == key || strings.HasPrefix(line.key, key+".") {
 			kept = append(kept, line)
@@ -170,7 +170,7 @@ func filterGroupConfigLines(lines []groupConfigLine, key string) []groupConfigLi
 	return kept
 }
 
-func printGroupConfigLines(w io.Writer, lines []groupConfigLine) {
+func printConsumerConfigLines(w io.Writer, lines []consumerConfigLine) {
 	tw := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
 	fmt.Fprintln(tw, "  KEY\tWORKER\tVALUE")
 	for _, line := range lines {

@@ -43,6 +43,16 @@ and preserve operator visibility for changes to configuration or diagnostics.
 
 ## Entry-package inventory
 
+Implemented during review: admin consumer operations use GetConsumer,
+ListConsumers, ListConsumerWorkers, and DestroyConsumer; shared ownership
+and metrics use ConsumerGroupOwner and ConsumerGroupMetrics. CLI commands
+use `consumer` and alert selectors use `--consumer`. Consumer config and
+destroy JSON documents name the selected resource `consumer`. Destroy still
+deletes the shared registration for all its instances. These names replace
+the old admin methods, `group` command, `--group` flag, and those documents'
+`group` key; no compatibility aliases were added. Final rationale belongs
+in the single review decision record.
+
 All non-test Go files in pkg/vulkan were scanned for exported declarations.
 Rows group related names for review; a Question row overrides the Keep default
 only for the candidate named above. This is a source inventory, not a claim
