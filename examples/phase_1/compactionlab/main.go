@@ -96,7 +96,8 @@ func run() (err error) {
 
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 
 	topicName := fmt.Sprintf("phase8c.compactionlab.%d", time.Now().UnixNano())
 	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{})
@@ -292,7 +293,7 @@ func explainNoCompactionSubplan(ctx context.Context, ds *iDatastore.PostgresData
 			)
 			AND (
 				m.compaction_rank IS NULL
-				OR m.id = (SELECT head_id FROM %s.%s
+				OR m.id = (SELECT message_id FROM %s.%s
 					WHERE compaction_key = m.message_key)
 			)
 		ORDER BY m.id;

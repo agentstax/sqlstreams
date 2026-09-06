@@ -26,11 +26,12 @@ exits non-zero with VK0066.`,
 			topicName, messageKey := args[0], args[1]
 			out := cmd.OutOrStdout()
 
-			client, closeClient, err := openClient(ctx, g.databaseURL, g.schema, slog.LevelError)
+			connection, err := newConnection(ctx, g.databaseURL, g.schema, slog.LevelError)
 			if err != nil {
 				return err
 			}
-			defer closeClient()
+			defer connection.Close()
+			client := connection.client
 
 			head, err := client.Topic[vulkan.RawPayload](topicName).Key(messageKey).CompactionHead(ctx)
 			if err != nil {

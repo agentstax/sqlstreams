@@ -65,7 +65,8 @@ func run() (err error) {
 
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 
 	topicName := fmt.Sprintf("managerautorunlab.%d", time.Now().UnixNano())
 	_, err = client.Topic[common.Work](topicName).Register(ctx, nil)

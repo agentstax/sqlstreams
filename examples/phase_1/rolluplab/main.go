@@ -125,7 +125,8 @@ func runLazyStaleness(ctx context.Context, pool *pgxpool.Pool) ([]rangeEvent, []
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
 
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 
 	topicName := fmt.Sprintf("phase10.rolluplab.staleness.lazy.%d", time.Now().UnixNano())
 	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{})
@@ -204,7 +205,8 @@ func runSyncStaleness(ctx context.Context, pool *pgxpool.Pool) []float64 {
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
 
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 
 	topicName := fmt.Sprintf("phase10.rolluplab.staleness.sync.%d", time.Now().UnixNano())
 	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{})
@@ -291,7 +293,8 @@ func timeSequentialCommits(ctx context.Context, pool *pgxpool.Pool, label string
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
 
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 
 	topicName := fmt.Sprintf("phase10.rolluplab.fixedcost.%s.%d", label, time.Now().UnixNano())
 	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{})
@@ -349,7 +352,8 @@ func timeConcurrentCommits(ctx context.Context, pool *pgxpool.Pool, label string
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
 
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 
 	topicName := fmt.Sprintf("phase10.rolluplab.contention.%s.%d", label, time.Now().UnixNano())
 	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{})

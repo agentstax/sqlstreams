@@ -86,12 +86,14 @@ func run() (err error) {
 
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 
-	atomicPublishScenario(ctx, client)
-	rollbackOnFailureScenario(ctx, client)
-	partitionSelfHealIsolationScenario(ctx, client)
-	ambiguousCommitScenario(ctx, client)
-	callerKeyRetryScenario(ctx, client)
+	atomicPublishScenario(ctx, client, ds)
+	rollbackOnFailureScenario(ctx, client, ds)
+	partitionSelfHealIsolationScenario(ctx, client, ds)
+	ambiguousCommitScenario(ctx, client, ds)
+	callerKeyRetryScenario(ctx, client, ds)
 
 	fmt.Println("\n✅ MULTI-TARGET LAB PASSED")
 	fmt.Println("   two targets in one InTransaction closure commit together, a failure on")
@@ -102,10 +104,8 @@ func run() (err error) {
 	return nil
 }
 
-func atomicPublishScenario(ctx context.Context, client *vulkan.Client) {
+func atomicPublishScenario(ctx context.Context, client *vulkan.Client, ds *iDatastore.PostgresDatastore) {
 	step("atomic publish: two targets in one InTransaction closure both land together")
-
-	ds := client.Datastore()
 
 	topicA, wpA, cleanupA := newTarget(ctx, client, "a", 1000)
 	defer cleanupA()
@@ -126,10 +126,8 @@ func atomicPublishScenario(ctx context.Context, client *vulkan.Client) {
 	fmt.Println("  ✓ both targets committed together")
 }
 
-func rollbackOnFailureScenario(ctx context.Context, client *vulkan.Client) {
+func rollbackOnFailureScenario(ctx context.Context, client *vulkan.Client, ds *iDatastore.PostgresDatastore) {
 	step("rollback on failure: second target's producerFunc erroring rolls back BOTH, not just itself")
-
-	ds := client.Datastore()
 
 	topicA, wpA, cleanupA := newTarget(ctx, client, "a", 1000)
 	defer cleanupA()
@@ -155,10 +153,8 @@ func rollbackOnFailureScenario(ctx context.Context, client *vulkan.Client) {
 	fmt.Println("  ✓ target A's insert never lands either -- one shared tx, not two independent publishes")
 }
 
-func partitionSelfHealIsolationScenario(ctx context.Context, client *vulkan.Client) {
+func partitionSelfHealIsolationScenario(ctx context.Context, client *vulkan.Client, ds *iDatastore.PostgresDatastore) {
 	step("partition self-heal isolation: B's internal retry must not touch A's work or rerun a side effect between them")
-
-	ds := client.Datastore()
 
 	topicA, wpA, cleanupA := newTarget(ctx, client, "a", 1000)
 	defer cleanupA()
@@ -190,10 +186,8 @@ func partitionSelfHealIsolationScenario(ctx context.Context, client *vulkan.Clie
 	fmt.Println("  ✓ A's insert survives untouched, the side effect between calls fired exactly once, B self-healed and landed")
 }
 
-func ambiguousCommitScenario(ctx context.Context, client *vulkan.Client) {
+func ambiguousCommitScenario(ctx context.Context, client *vulkan.Client, ds *iDatastore.PostgresDatastore) {
 	step("ambiguous commit: a Commit-time failure surfaces unclassified -- retrying is the caller's decision")
-
-	ds := client.Datastore()
 
 	setupDeferredFKFixture(ctx, ds)
 	defer teardownDeferredFKFixture(ctx, ds)
@@ -233,10 +227,8 @@ func ambiguousCommitScenario(ctx context.Context, client *vulkan.Client) {
 // keys -- what a caller does after losing the commit confirmation. Auto-minted keys
 // resolve fresh per call, so THIS dedup guarantee belongs to caller keys
 // alone: without them a closure rerun double-publishes every target.
-func callerKeyRetryScenario(ctx context.Context, client *vulkan.Client) {
+func callerKeyRetryScenario(ctx context.Context, client *vulkan.Client, ds *iDatastore.PostgresDatastore) {
 	step("caller-key retry: rerunning the closure under the same keys dedups every target")
-
-	ds := client.Datastore()
 
 	topicA, wpA, cleanupA := newTarget(ctx, client, "a", 1000)
 	defer cleanupA()

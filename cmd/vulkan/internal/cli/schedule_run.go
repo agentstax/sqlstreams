@@ -43,11 +43,12 @@ func newScheduleRunCmd(g *globalFlags) *cobra.Command {
 				return failUsage("invalid options: %s", err)
 			}
 
-			client, closeClient, err := openClient(ctx, g.databaseURL, g.schema, slog.LevelError)
+			connection, err := newConnection(ctx, g.databaseURL, g.schema, slog.LevelError)
 			if err != nil {
 				return err
 			}
-			defer closeClient()
+			defer connection.Close()
+			client := connection.client
 
 			produced, err := client.Scheduler(name).Run(ctx, options)
 			if err != nil {

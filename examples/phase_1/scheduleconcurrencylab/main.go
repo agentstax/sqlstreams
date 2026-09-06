@@ -9,6 +9,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/agentstax/vulkan/pkg/datastore"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"os"
 	"time"
 
@@ -96,7 +98,7 @@ func run() (err error) {
 		die(fmt.Sprintf("second manager run was refused: %v", err))
 	default:
 	}
-	live := scalar(ctx, client, `
+	live := scalar(ctx, pool, `
 		SELECT count(*)
 		FROM %[1]s.worker_instance i
 		JOIN %[1]s.worker_config w ON w.id = i.worker_id
@@ -129,9 +131,9 @@ func run() (err error) {
 
 // scalar runs a one-value query whose every table name is the client's own
 // schema at verb [1].
-func scalar(ctx context.Context, client *vulkan.Client, sql string) int64 {
+func scalar(ctx context.Context, pool *pgxpool.Pool, sql string) int64 {
 	var value int64
-	must(client.Datastore().Pool.QueryRow(ctx, fmt.Sprintf(sql, client.Datastore().Schema)).Scan(&value))
+	must(pool.QueryRow(ctx, fmt.Sprintf(sql, datastore.DefaultSchema)).Scan(&value))
 	return value
 }
 

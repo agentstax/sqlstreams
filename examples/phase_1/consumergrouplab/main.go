@@ -82,7 +82,8 @@ func run() (err error) {
 
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 
 	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
 	must(err)
@@ -230,7 +231,8 @@ func destroySection(ctx context.Context, pool *pgxpool.Pool, client *vulkan.Clie
 	locked, err := vulkan.NewClient(ctx, pool, nil)
 	must(err)
 
-	ds := locked.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 	if err := locked.Topic[labMessage](topicA.Name).Consumer(doomedName).Destroy(ctx, nil); !errors.Is(err, topic.ErrDestroyDisabled) {
 		die(fmt.Sprintf("destroy without AllowDestroy: want ErrDestroyDisabled, got %v", err))
 	}

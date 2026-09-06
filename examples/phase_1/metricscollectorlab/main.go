@@ -13,6 +13,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/agentstax/vulkan/pkg/datastore"
 	"io"
 	"net/http"
 	"os"
@@ -95,7 +96,8 @@ func run() (err error) {
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
 
-	ds := client.Datastore()
+	ds, err := datastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 
 	step("declare the collector rate through the public system config")
 	must(client.System().Register(ctx, nil))

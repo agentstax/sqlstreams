@@ -111,7 +111,8 @@ func scenarioFreshFailureAndSuccess(ctx context.Context, pool *pgxpool.Pool) {
 	tp, cd, wp, groupId := newTopic(ctx, pool, "scenario1", vulkan.TopicConfig{})
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 
 	defer func() {
 		must(client.Topic[common.Work](tp.Name).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
@@ -141,7 +142,8 @@ func scenarioRetryDistinctAttempts(ctx context.Context, pool *pgxpool.Pool) {
 	tp, cd, wp, groupId := newTopic(ctx, pool, "scenario2", vulkan.TopicConfig{})
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 	exceptionConsumers, err := exceptionconsumercontroller.NewExceptionConsumerGroupController(ds, ds.Logger)
 	must(err)
 
@@ -186,7 +188,8 @@ func scenarioDeliveryLogOff(ctx context.Context, pool *pgxpool.Pool) {
 	tp, cd, wp, groupId := newTopic(ctx, pool, "scenario3", vulkan.TopicConfig{DeliveryLogMode: topic.DeliveryLogModeOff})
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 
 	defer func() {
 		must(client.Topic[common.Work](tp.Name).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
@@ -219,7 +222,8 @@ func scenarioDeliveryLogAll(ctx context.Context, pool *pgxpool.Pool) {
 	tp, cd, wp, groupId := newTopic(ctx, pool, "scenario4all", vulkan.TopicConfig{DeliveryLogMode: topic.DeliveryLogModeAll})
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 	exceptionConsumers, err := exceptionconsumercontroller.NewExceptionConsumerGroupController(ds, ds.Logger)
 	must(err)
 
@@ -271,7 +275,8 @@ func scenarioRetentionDropPartition(ctx context.Context, pool *pgxpool.Pool) {
 	tp, cd, wp, groupId := newTopic(ctx, pool, "scenario4drop", vulkan.TopicConfig{PartitionSize: partitionSize})
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 	janitorDatastore, err := janitordatastore.NewJanitorDatastore(ds, ds.Logger)
 	must(err)
 
@@ -300,7 +305,8 @@ func scenarioRetentionSweepBatch(ctx context.Context, pool *pgxpool.Pool) {
 	tp, cd, wp, groupId := newTopic(ctx, pool, "scenario4sweep", vulkan.TopicConfig{PartitionSize: partitionSize})
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 	janitorDatastore, err := janitordatastore.NewJanitorDatastore(ds, ds.Logger)
 	must(err)
 
@@ -330,7 +336,8 @@ func scenarioRedeferralSharesAttempt(ctx context.Context, pool *pgxpool.Pool) {
 	tp, _, _, groupId := newTopic(ctx, pool, "scenario6", vulkan.TopicConfig{})
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 	exceptionConsumers, err := exceptionconsumercontroller.NewExceptionConsumerGroupController(ds, ds.Logger)
 	must(err)
 
@@ -372,7 +379,8 @@ func newTopic(ctx context.Context, pool *pgxpool.Pool, suffix string, cfg vulkan
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
 
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 	tp, err := client.Topic[vulkan.RawPayload](name).Register(ctx, &cfg)
 	must(err)
 

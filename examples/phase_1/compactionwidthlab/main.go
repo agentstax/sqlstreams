@@ -80,7 +80,8 @@ func run() (err error) {
 
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 
 	narrowName := fmt.Sprintf("phase8c.compactionwidthlab.narrow.%d", time.Now().UnixNano())
 	narrow, err := client.Topic[vulkan.RawPayload](narrowName).Register(ctx, &vulkan.TopicConfig{PartitionSize: narrowPartitionSize})

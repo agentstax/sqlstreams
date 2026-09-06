@@ -78,7 +78,8 @@ func run() (err error) {
 
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
-	ds = client.Datastore()
+	ds, err = iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 	must(client.System().Register(ctx, nil))
 
 	step("seed a user topic with messages")

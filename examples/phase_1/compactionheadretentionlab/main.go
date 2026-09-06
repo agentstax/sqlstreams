@@ -88,7 +88,8 @@ func dropPartitionScenario(ctx context.Context, pool *pgxpool.Pool) {
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
 
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 
 	topicName := fmt.Sprintf("phase8c.compactionheadretentionlab.drop.%d", time.Now().UnixNano())
 	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{PartitionSize: partitionSize})
@@ -131,7 +132,8 @@ func sweepBatchScenario(ctx context.Context, pool *pgxpool.Pool) {
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
 
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 
 	topicName := fmt.Sprintf("phase8c.compactionheadretentionlab.sweep.%d", time.Now().UnixNano())
 	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{PartitionSize: partitionSize})

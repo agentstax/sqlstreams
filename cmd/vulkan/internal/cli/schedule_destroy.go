@@ -30,11 +30,12 @@ func newScheduleDestroyCmd(g *globalFlags) *cobra.Command {
 				return failUsage("refusing to destroy %q without confirmation -- pass --yes with --output json", name)
 			}
 
-			client, closeClient, err := openClient(ctx, g.databaseURL, g.schema, slog.LevelError)
+			connection, err := newConnection(ctx, g.databaseURL, g.schema, slog.LevelError)
 			if err != nil {
 				return err
 			}
-			defer closeClient()
+			defer connection.Close()
+			client := connection.client
 
 			// Check order matters: a doomed call must never waste a prompt.
 			found, err := client.Scheduler(name).Get(ctx)

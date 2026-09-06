@@ -91,7 +91,8 @@ func run() (err error) {
 
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
-	ds = client.Datastore()
+	ds, err = iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 
 	topicName := fmt.Sprintf("keyleaselab.%d", time.Now().UnixNano())
 	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{})
@@ -114,7 +115,7 @@ func run() (err error) {
 	publish(ctx, wpInstance, "user:1", 1)
 	publish(ctx, wpInstance, "user:1", 2)
 	staleID := scalarInt64(ctx, fmt.Sprintf(`SELECT MIN(id) FROM %s.%s WHERE message_key = 'user:1'`, ds.Schema, topic.MessageLogTable(topicId)))
-	headID := scalarInt64(ctx, fmt.Sprintf(`SELECT head_id FROM %s.%s WHERE compaction_key = 'user:1'`, ds.Schema, topic.CompactionHeadTable(topicId)))
+	headID := scalarInt64(ctx, fmt.Sprintf(`SELECT message_id FROM %s.%s WHERE compaction_key = 'user:1'`, ds.Schema, topic.CompactionHeadTable(topicId)))
 	if staleID == headID {
 		die("seed broken: stale and head ids match")
 	}
@@ -245,13 +246,13 @@ func run() (err error) {
 
 	step("old-then-new order: a newer head produced mid-hold waits for the release")
 	publish(ctx, wpInstance, "user:3", 1)
-	old3 := scalarInt64(ctx, fmt.Sprintf(`SELECT head_id FROM %s.%s WHERE compaction_key = 'user:3'`, ds.Schema, topic.CompactionHeadTable(topicId)))
+	old3 := scalarInt64(ctx, fmt.Sprintf(`SELECT message_id FROM %s.%s WHERE compaction_key = 'user:3'`, ds.Schema, topic.CompactionHeadTable(topicId)))
 	holding := claim(ctx, keyLeases, "user:3", old3, 30*time.Second)
 	if holding.Verdict != keyleasecontroller.KeyLeaseAcquired {
 		die(fmt.Sprintf("want acquired on user:3, got %s", holding.Verdict))
 	}
 	publish(ctx, wpInstance, "user:3", 2)
-	new3 := scalarInt64(ctx, fmt.Sprintf(`SELECT head_id FROM %s.%s WHERE compaction_key = 'user:3'`, ds.Schema, topic.CompactionHeadTable(topicId)))
+	new3 := scalarInt64(ctx, fmt.Sprintf(`SELECT message_id FROM %s.%s WHERE compaction_key = 'user:3'`, ds.Schema, topic.CompactionHeadTable(topicId)))
 	if c := claim(ctx, keyLeases, "user:3", new3, 30*time.Second); c.Verdict != keyleasecontroller.KeyLeaseBusy {
 		die(fmt.Sprintf("want busy for the new head while the old holds the key, got %s", c.Verdict))
 	}
@@ -276,7 +277,7 @@ func run() (err error) {
 
 	step("janitor sweep removes expired rows, leaves live ones")
 	publish(ctx, wpInstance, "user:2", 1)
-	head2 := scalarInt64(ctx, fmt.Sprintf(`SELECT head_id FROM %s.%s WHERE compaction_key = 'user:2'`, ds.Schema, topic.CompactionHeadTable(topicId)))
+	head2 := scalarInt64(ctx, fmt.Sprintf(`SELECT message_id FROM %s.%s WHERE compaction_key = 'user:2'`, ds.Schema, topic.CompactionHeadTable(topicId)))
 	expired := claim(ctx, keyLeases, "user:1", headID, 50*time.Millisecond)
 	if expired.Verdict != keyleasecontroller.KeyLeaseAcquired {
 		die(fmt.Sprintf("sweep setup: want acquired, got %s", expired.Verdict))

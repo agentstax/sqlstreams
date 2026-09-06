@@ -79,9 +79,10 @@ func run() (err error) {
 // trigger path (shouldTriggerWithId inside AppendMessage).
 func perCallScenario(ctx context.Context, pool *pgxpool.Pool) {
 	step("per-call ProduceFunc: partition 1 exists before the boundary")
-	client, tp, wpInstance, warns, cleanup := register(ctx, pool, "percall")
+	_, tp, wpInstance, warns, cleanup := register(ctx, pool, "percall")
 	defer cleanup()
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, &iDatastore.PostgresDatastoreConfig{Logger: warns})
+	must(err)
 
 	for range triggerPublishes {
 		publish(ctx, wpInstance)
@@ -98,9 +99,10 @@ func perCallScenario(ctx context.Context, pool *pgxpool.Pool) {
 // trigger path (shouldTriggerWithRange inside AppendMessageBatch).
 func batchedScenario(ctx context.Context, pool *pgxpool.Pool) {
 	step("batched Produce: a batch's id range fires the trigger before the boundary")
-	client, tp, wpInstance, warns, cleanup := register(ctx, pool, "batched")
+	_, tp, wpInstance, warns, cleanup := register(ctx, pool, "batched")
 	defer cleanup()
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, &iDatastore.PostgresDatastoreConfig{Logger: warns})
+	must(err)
 
 	// 85 concurrent publishes cover id 80 inside some batch's range but stay
 	// well under the boundary at 100
@@ -117,7 +119,8 @@ func inTxScenario(ctx context.Context, pool *pgxpool.Pool) {
 	step("ProduceInTx: pre-commit trigger, create lands after the caller commits")
 	client, tp, wpInstance, warns, cleanup := register(ctx, pool, "intx")
 	defer cleanup()
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, &iDatastore.PostgresDatastoreConfig{Logger: warns})
+	must(err)
 
 	for range triggerPublishes - 1 {
 		publish(ctx, wpInstance)

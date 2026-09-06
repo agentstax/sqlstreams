@@ -64,7 +64,8 @@ func run() (err error) {
 
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 
 	topicName := fmt.Sprintf("dutybackofflab.%d", time.Now().UnixNano())
 	// retention on: the sweep's drop pass reads message_log's head every tick,

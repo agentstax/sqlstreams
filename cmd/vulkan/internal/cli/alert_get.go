@@ -50,11 +50,12 @@ owner nothing was published for prints "no alert published".`,
 				return failUsage("--limit must be > 0, got %d", limit)
 			}
 
-			client, closeClient, err := openClient(ctx, g.databaseURL, g.schema, slog.LevelError)
+			connection, err := newConnection(ctx, g.databaseURL, g.schema, slog.LevelError)
 			if err != nil {
 				return err
 			}
-			defer closeClient()
+			defer connection.Close()
+			client := connection.client
 
 			handle := alertHandle(client, name, topicName, consumerName)
 			var alerts []*vulkan.Alert

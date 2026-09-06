@@ -33,11 +33,12 @@ func newTopicConfigGetCmd(g *globalFlags) *cobra.Command {
 				entries = []topicConfigKey{entry}
 			}
 
-			client, closeClient, err := openClient(ctx, g.databaseURL, g.schema, slog.LevelError)
+			connection, err := newConnection(ctx, g.databaseURL, g.schema, slog.LevelError)
 			if err != nil {
 				return err
 			}
-			defer closeClient()
+			defer connection.Close()
+			client := connection.client
 
 			found, err := client.Topic[vulkan.RawPayload](name).Get(ctx)
 			if err != nil {

@@ -87,7 +87,8 @@ func sameKeyConcurrentScenario(ctx context.Context, pool *pgxpool.Pool) {
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
 
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 
 	topicName := fmt.Sprintf("phase9.idempotencykeysracelab.same.%d", time.Now().UnixNano())
 	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{PartitionSize: 1000})
@@ -141,7 +142,8 @@ func distinctKeysConcurrentScenario(ctx context.Context, pool *pgxpool.Pool) {
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
 
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 
 	topicName := fmt.Sprintf("phase9.idempotencykeysracelab.distinct.%d", time.Now().UnixNano())
 	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{PartitionSize: 1000})

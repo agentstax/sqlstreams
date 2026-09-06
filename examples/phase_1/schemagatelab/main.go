@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/agentstax/vulkan/pkg/datastore"
 	"os"
 	"strings"
 	"time"
@@ -69,7 +70,8 @@ func run() (err error) {
 
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
-	ds := client.Datastore()
+	ds, err := datastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 
 	name := fmt.Sprintf("schemagate.lab.%d", time.Now().UnixNano())
 	siblingName := name + ".sibling"

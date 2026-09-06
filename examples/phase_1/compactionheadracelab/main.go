@@ -4,8 +4,8 @@ package main
 // counterpart to compactionscalelab's linear growth curve.
 //
 // Part 1 -- concurrent same-key race. Every other lab in this phase only
-// ever publishes sequentially, so the write path's `WHERE head_id <
-// EXCLUDED.head_id` guard has never actually been exercised concurrently.
+// ever publishes sequentially, so the write path's `WHERE message_id <
+// EXCLUDED.message_id` guard has never actually been exercised concurrently.
 // It's load-bearing because BIGSERIAL allocates an id at INSERT time, not
 // commit time, so concurrent publishes to the SAME key can commit out of id
 // order under READ COMMITTED. N goroutines publish to the same key at once;
@@ -93,7 +93,8 @@ func concurrentRaceScenario(ctx context.Context, pool *pgxpool.Pool) {
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
 
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 
 	topicName := fmt.Sprintf("phase8c.compactionheadracelab.race.%d", time.Now().UnixNano())
 	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{PartitionSize: 1000})
@@ -121,7 +122,7 @@ func concurrentRaceScenario(ctx context.Context, pool *pgxpool.Pool) {
 
 	var trueMax, compactionHeadValue int64
 	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT MAX(id) FROM %s.%s WHERE message_key='hot-key';`, ds.Schema, topic.MessageLogTable(tp.Id))).Scan(&trueMax))
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT head_id FROM %s.%s WHERE compaction_key='hot-key';`, ds.Schema, topic.CompactionHeadTable(tp.Id))).Scan(&compactionHeadValue))
+	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT message_id FROM %s.%s WHERE compaction_key='hot-key';`, ds.Schema, topic.CompactionHeadTable(tp.Id))).Scan(&compactionHeadValue))
 
 	assertInt64(fmt.Sprintf("compaction_head converged to the true max id across %d concurrent publishes", n), compactionHeadValue, trueMax)
 }
@@ -134,7 +135,8 @@ func scaleCurveScenario(ctx context.Context, pool *pgxpool.Pool) {
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
 
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 
 	topicName := fmt.Sprintf("phase8c.compactionheadracelab.scale.%d", time.Now().UnixNano())
 	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{PartitionSize: scalePartitionSize})
@@ -182,7 +184,7 @@ func scaleCurveScenario(ctx context.Context, pool *pgxpool.Pool) {
 func insertStaleRow(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64) {
 	_, err := ds.Pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (payload, schema_version, message_key, compaction_rank) VALUES ('{}'::jsonb, 1, 'stale', 0);`, ds.Schema, topic.MessageLogTable(topicId)))
 	must(err)
-	_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (compaction_key, head_id, schema_version, compaction_rank) VALUES ('stale', 1, 1, 0);`, ds.Schema, topic.CompactionHeadTable(topicId)))
+	_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (compaction_key, message_id, schema_version, compaction_rank) VALUES ('stale', 1, 1, 0);`, ds.Schema, topic.CompactionHeadTable(topicId)))
 	must(err)
 }
 
@@ -231,7 +233,7 @@ func explainCompactionHeadLookup(ctx context.Context, ds *iDatastore.PostgresDat
 		WHERE m.id = 1
 			AND (
 				m.compaction_rank IS NULL
-				OR m.id = (SELECT head_id FROM %s.%s
+				OR m.id = (SELECT message_id FROM %s.%s
 					WHERE compaction_key = m.message_key)
 			);
 	`, logTable, ds.Schema, topic.CompactionHeadTable(topicId))

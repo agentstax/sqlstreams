@@ -13,7 +13,7 @@ package main
 // claim/lease/cursor machinery, not just the SQL-level guarantee
 // compactionranklab proves in isolation:
 //   - a v2 row always beats the key's v1 head: the compaction winner compares
-//     (schema_version, compaction_rank, head_id), so the bridge's rank -1 copy
+//     (schema_version, compaction_rank, message_id), so the bridge's rank -1 copy
 //     supersedes the v1 row it was made from.
 //   - zero-pause: a key with a live rank-0 v2 write never loses to the
 //     bridge's rank -1 copy of the same key, in EITHER arrival order (user:1
@@ -107,7 +107,8 @@ func run() (err error) {
 
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 
 	name := fmt.Sprintf("phase14a.schemaevolutionlab.%d", time.Now().UnixNano())
 	registered, err := client.Topic[V1Order](name).Register(ctx, &vulkan.TopicConfig{})
@@ -319,7 +320,7 @@ func rowCountAtVersion(ctx context.Context, ds *iDatastore.PostgresDatastore, to
 
 func winner(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, key string) *V2Order {
 	var payload []byte
-	err := ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT m.payload FROM %s.%s ch JOIN %s.%s m ON m.id = ch.head_id WHERE ch.compaction_key=$1;`, ds.Schema, topic.CompactionHeadTable(topicId), ds.Schema, topic.MessageLogTable(topicId)),
+	err := ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT m.payload FROM %s.%s ch JOIN %s.%s m ON m.id = ch.message_id WHERE ch.compaction_key=$1;`, ds.Schema, topic.CompactionHeadTable(topicId), ds.Schema, topic.MessageLogTable(topicId)),
 		key).Scan(&payload)
 	must(err)
 	var v V2Order

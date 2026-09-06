@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"github.com/agentstax/vulkan/pkg/datastore"
 	"log/slog"
 	"os"
 	"strings"
@@ -35,12 +36,16 @@ func newTopicDestroyCmd(g *globalFlags) *cobra.Command {
 				return failUsage("refusing to destroy %q without confirmation -- pass --yes with --output json", name)
 			}
 
-			client, closeClient, err := openClient(ctx, g.databaseURL, g.schema, slog.LevelError)
+			connection, err := newConnection(ctx, g.databaseURL, g.schema, slog.LevelError)
 			if err != nil {
 				return err
 			}
-			defer closeClient()
-			ds := client.Datastore()
+			defer connection.Close()
+			client := connection.client
+			ds, err := datastore.NewPostgresDatastore(ctx, connection.pool, connection.config)
+			if err != nil {
+				return failOp("could not connect to database: %v", err)
+			}
 
 			// Check order matters: a doomed call must never waste a prompt.
 			// 1. exists?

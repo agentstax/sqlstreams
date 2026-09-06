@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"github.com/agentstax/vulkan/pkg/datastore"
 	"io"
 	"log/slog"
 
@@ -76,11 +77,12 @@ func newDirectionCmd(g *globalFlags, s scope, dir direction) *cobra.Command {
 				name = cmdArgs[0]
 			}
 
-			client, closeClient, err := openClient(ctx, g.databaseURL, g.schema, slog.LevelError)
+			connection, err := newConnection(ctx, g.databaseURL, g.schema, slog.LevelError)
 			if err != nil {
 				return err
 			}
-			defer closeClient()
+			defer connection.Close()
+			client := connection.client
 
 			targets, err := gatherTargets(ctx, client, s, name)
 			if err != nil {
@@ -111,7 +113,11 @@ func newDirectionCmd(g *globalFlags, s scope, dir direction) *cobra.Command {
 			// Fast pre-flight, not a guarantee -- see Controller.IsLocked. Catches the
 			// common case (another migrate already running) before committing to a
 			// call that would otherwise block silently until that one finishes.
-			controller, err := migratecontroller.NewController(client.Datastore(), nil)
+			ds, err := datastore.NewPostgresDatastore(ctx, connection.pool, connection.config)
+			if err != nil {
+				return failOp("could not connect to database: %v", err)
+			}
+			controller, err := migratecontroller.NewController(ds, ds.Logger)
 			if err != nil {
 				return err
 			}

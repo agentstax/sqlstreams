@@ -19,11 +19,12 @@ func newSystemGetCmd(g *globalFlags) *cobra.Command {
 			ctx := cmd.Context()
 			out := cmd.OutOrStdout()
 
-			client, closeClient, err := openClient(ctx, g.databaseURL, g.schema, slog.LevelError)
+			connection, err := newConnection(ctx, g.databaseURL, g.schema, slog.LevelError)
 			if err != nil {
 				return err
 			}
-			defer closeClient()
+			defer connection.Close()
+			client := connection.client
 
 			sys, err := client.System().Get(ctx)
 			if err != nil {

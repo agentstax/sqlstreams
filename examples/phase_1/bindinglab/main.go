@@ -81,7 +81,8 @@ func run() (err error) {
 
 	client, err = vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
-	ds = client.Datastore()
+	ds, err = iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 
 	topicName = fmt.Sprintf("bindinglab.%d", time.Now().UnixNano())
 	registered, err := client.Topic[labMessage](topicName).Register(ctx, nil)

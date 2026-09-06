@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/agentstax/vulkan/otelvulkan"
-	"github.com/agentstax/vulkan/pkg/common/logging"
 	"github.com/agentstax/vulkan/pkg/migrate"
 	"github.com/spf13/cobra"
 )
@@ -45,12 +44,12 @@ func newManagerRunCmd(g *globalFlags) *cobra.Command {
 
 			// unlike the one-shot commands, the daemon's log stream IS its
 			// output -- full info level, still on stderr by convention
-			client, closeClient, err := openClient(ctx, g.databaseURL, g.schema, slog.LevelInfo)
+			connection, err := newConnection(ctx, g.databaseURL, g.schema, slog.LevelInfo)
 			if err != nil {
 				return err
 			}
-			defer closeClient()
-			ds := client.Datastore()
+			defer connection.Close()
+			client := connection.client
 			runLogger := client.Logger
 
 			// a server failure cancels runCtx so the manager drains too
@@ -58,10 +57,10 @@ func newManagerRunCmd(g *globalFlags) *cobra.Command {
 			defer cancelRun()
 			serverFailed := make(chan error, 1)
 			if metricsAddress != "" {
-				exporter, err := otelvulkan.NewExporter(ctx, ds.Pool, &otelvulkan.ExporterConfig{
-					Schema: ds.Schema,
-					Logger: logging.NewDefaultLogger(os.Stderr, slog.LevelInfo),
-					Retry:  client.Config.Retry,
+				exporter, err := otelvulkan.NewExporter(ctx, connection.pool, &otelvulkan.ExporterConfig{
+					Schema: connection.config.Schema,
+					Logger: connection.config.Logger,
+					Retry:  connection.config.Retry,
 				})
 				if err != nil {
 					return failOp("%s", err.Error())

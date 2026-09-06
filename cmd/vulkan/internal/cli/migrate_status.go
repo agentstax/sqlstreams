@@ -20,11 +20,12 @@ func newMigrateStatusCmd(g *globalFlags) *cobra.Command {
 			ctx := cmd.Context()
 			out := cmd.OutOrStdout()
 
-			client, closeClient, err := openClient(ctx, g.databaseURL, g.schema, slog.LevelError)
+			connection, err := newConnection(ctx, g.databaseURL, g.schema, slog.LevelError)
 			if err != nil {
 				return err
 			}
-			defer closeClient()
+			defer connection.Close()
+			client := connection.client
 
 			sysCurrent, err := client.System().MigrationVersion(ctx)
 			if err != nil {

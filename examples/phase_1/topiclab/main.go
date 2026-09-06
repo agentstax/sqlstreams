@@ -85,7 +85,8 @@ func run() (err error) {
 
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 
 	register := func(name string) *topic.Topic {
 		t, err := client.Topic[vulkan.RawPayload](name).Register(ctx, &vulkan.TopicConfig{PartitionSize: partitionSize})

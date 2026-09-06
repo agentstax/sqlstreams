@@ -21,11 +21,12 @@ func newScheduleSuspendCmd(g *globalFlags) *cobra.Command {
 			ctx := cmd.Context()
 			name := args[0]
 
-			client, closeClient, err := openClient(ctx, g.databaseURL, g.schema, slog.LevelError)
+			connection, err := newConnection(ctx, g.databaseURL, g.schema, slog.LevelError)
 			if err != nil {
 				return err
 			}
-			defer closeClient()
+			defer connection.Close()
+			client := connection.client
 
 			if err := client.Scheduler(name).Suspend(ctx); err != nil {
 				if errors.Is(err, schedule.ErrScheduleNotFound) {
@@ -55,11 +56,12 @@ func newScheduleUnsuspendCmd(g *globalFlags) *cobra.Command {
 			ctx := cmd.Context()
 			name := args[0]
 
-			client, closeClient, err := openClient(ctx, g.databaseURL, g.schema, slog.LevelError)
+			connection, err := newConnection(ctx, g.databaseURL, g.schema, slog.LevelError)
 			if err != nil {
 				return err
 			}
-			defer closeClient()
+			defer connection.Close()
+			client := connection.client
 
 			if err := client.Scheduler(name).Unsuspend(ctx); err != nil {
 				if errors.Is(err, schedule.ErrScheduleNotFound) {

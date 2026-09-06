@@ -32,7 +32,7 @@ type Counter struct {
 func (Counter) SchemaVersion() int { return 1 }
 
 type headRow struct {
-	HeadId    *int64
+	MessageId *int64
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -73,7 +73,8 @@ func run() (err error) {
 
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 
 	topicName := fmt.Sprintf("compactionheadlocklab.%d", time.Now().UnixNano())
 	counters := client.Topic[Counter](topicName)
@@ -162,7 +163,7 @@ func ordinaryProduceFillsEmptyRow(ctx context.Context, client *vulkan.Client, ds
 	step("ordinary compacted produce fills an existing null-head row")
 	must(lockOnly(ctx, client, key))
 	before, exists := readHeadRow(ctx, ds, topicId, key.name)
-	assertTrue("null-head row exists before produce", exists && before.HeadId == nil)
+	assertTrue("null-head row exists before produce", exists && before.MessageId == nil)
 
 	produced, err := producer.Produce(ctx, &Counter{Value: 7}, &vulkan.ProduceOptions{
 		MessageKey: key.name,
@@ -170,8 +171,8 @@ func ordinaryProduceFillsEmptyRow(ctx context.Context, client *vulkan.Client, ds
 	})
 	must(err)
 	after, exists := readHeadRow(ctx, ds, topicId, key.name)
-	assertTrue("row is materialized after ordinary produce", exists && after.HeadId != nil)
-	assertInt64("materialized head id", *after.HeadId, produced.Id)
+	assertTrue("row is materialized after ordinary produce", exists && after.MessageId != nil)
+	assertInt64("materialized head id", *after.MessageId, produced.Id)
 	assertTrue("produce filled the same row", after.CreatedAt.Equal(before.CreatedAt))
 }
 
@@ -229,7 +230,7 @@ func lockerFirstSkipsWithoutWaiting(ctx context.Context, client *vulkan.Client, 
 	must(<-lockerDone)
 
 	row, exists := readHeadRow(ctx, ds, topicId, key.name)
-	assertTrue("locker-first row survived and remains empty", exists && row.HeadId == nil)
+	assertTrue("locker-first row survived and remains empty", exists && row.MessageId == nil)
 }
 
 func janitorFirstDeletesThenLockerRecreates(ctx context.Context, client *vulkan.Client, ds *iDatastore.PostgresDatastore, janitor *janitorcontroller.JanitorController, key labKey, topicId int64) {
@@ -252,7 +253,7 @@ func janitorFirstDeletesThenLockerRecreates(ctx context.Context, client *vulkan.
 	must(<-lockerDone)
 
 	row, exists := readHeadRow(ctx, ds, topicId, key.name)
-	assertTrue("locker recreated the janitor-deleted row", exists && row.HeadId == nil)
+	assertTrue("locker recreated the janitor-deleted row", exists && row.MessageId == nil)
 }
 
 func lockOnly(ctx context.Context, client *vulkan.Client, key labKey) error {
@@ -271,10 +272,10 @@ func lockOnly(ctx context.Context, client *vulkan.Client, key labKey) error {
 func readHeadRow(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, messageKey string) (headRow, bool) {
 	var row headRow
 	err := ds.Pool.QueryRow(ctx, fmt.Sprintf(`
-		SELECT head_id, created_at, updated_at
+		SELECT message_id, created_at, updated_at
 		FROM %s.%s
 		WHERE compaction_key = $1;
-	`, ds.Schema, topic.CompactionHeadTable(topicId)), messageKey).Scan(&row.HeadId, &row.CreatedAt, &row.UpdatedAt)
+	`, ds.Schema, topic.CompactionHeadTable(topicId)), messageKey).Scan(&row.MessageId, &row.CreatedAt, &row.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return headRow{}, false
 	}
@@ -286,7 +287,7 @@ func backdateHead(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId
 	_, err := ds.Pool.Exec(ctx, fmt.Sprintf(`
 		UPDATE %s.%s
 		SET updated_at = NOW() - INTERVAL '1 hour'
-		WHERE compaction_key = $1 AND head_id IS NULL;
+		WHERE compaction_key = $1 AND message_id IS NULL;
 	`, ds.Schema, topic.CompactionHeadTable(topicId)), messageKey)
 	must(err)
 }

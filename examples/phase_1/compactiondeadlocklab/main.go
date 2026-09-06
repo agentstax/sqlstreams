@@ -92,7 +92,8 @@ func run() (err error) {
 
 	client, err = vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
-	ds = client.Datastore()
+	ds, err = iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 
 	topicName = fmt.Sprintf("compactiondeadlocklab.%d", time.Now().UnixNano())
 	registered, err := client.Topic[labMessage](topicName).Register(ctx, nil)
@@ -330,7 +331,7 @@ func assertHeadIsMaxId(ctx context.Context, key string) {
 	var maxId int64
 	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`
 		SELECT
-			h.head_id,
+			h.message_id,
 			(SELECT MAX(id) FROM %s.%s WHERE message_key = $1)
 		FROM %s.%s h
 		WHERE h.compaction_key = $1;`, ds.Schema, topic.MessageLogTable(topicId), ds.Schema, topic.CompactionHeadTable(topicId)), key).Scan(&headId, &maxId))

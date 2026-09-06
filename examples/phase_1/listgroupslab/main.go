@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/agentstax/vulkan/pkg/datastore"
 	"os"
 	"time"
 
@@ -54,7 +55,8 @@ func run() (err error) {
 
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
-	ds := client.Datastore()
+	ds, err := datastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 
 	name := fmt.Sprintf("listgroupslab.orders.%d", run)
 	registered, err := client.Topic[vulkan.RawPayload](name).Register(ctx, nil)

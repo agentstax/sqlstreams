@@ -93,7 +93,8 @@ func accumulationScenario(ctx context.Context, pool *pgxpool.Pool) {
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
 
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 
 	topicName := fmt.Sprintf("phase9.idempotencykeysgrowthlab.accum.%d", time.Now().UnixNano())
 	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{PartitionSize: largePartitionSize, IdempotencyKeyTTL: time.Hour})
@@ -141,7 +142,8 @@ func sweepKeepUpScenario(ctx context.Context, pool *pgxpool.Pool) {
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
 
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 
 	topicName := fmt.Sprintf("phase9.idempotencykeysgrowthlab.keepup.%d", time.Now().UnixNano())
 	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{PartitionSize: largePartitionSize, IdempotencyKeyTTL: ttl})

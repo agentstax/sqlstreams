@@ -29,11 +29,12 @@ of 0 is a message that never opted into compaction.`,
 				return failUsage("--limit must be > 0, got %d", limit)
 			}
 
-			client, closeClient, err := openClient(ctx, g.databaseURL, g.schema, slog.LevelError)
+			connection, err := newConnection(ctx, g.databaseURL, g.schema, slog.LevelError)
 			if err != nil {
 				return err
 			}
-			defer closeClient()
+			defer connection.Close()
+			client := connection.client
 
 			messages, err := client.Topic[vulkan.RawPayload](topicName).Key(messageKey).Messages(ctx, limit)
 			if err != nil {

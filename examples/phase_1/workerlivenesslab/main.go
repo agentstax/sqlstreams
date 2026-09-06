@@ -97,7 +97,8 @@ func run() (err error) {
 
 	client, err = vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
-	ds = client.Datastore()
+	ds, err = iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 	must(client.System().Register(ctx, nil))
 
 	capture = newCaptureLogger()
@@ -340,7 +341,7 @@ func headStatus(ctx context.Context, messageKey string) string {
 	sql := fmt.Sprintf(`
 		SELECT m.payload->>'status'
 		FROM %s.%s h
-		JOIN %s.%s m ON m.id = h.head_id
+		JOIN %s.%s m ON m.id = h.message_id
 		WHERE h.compaction_key = $1;
 	`, ds.Schema, topic.CompactionHeadTable(alertsTopic.Id), ds.Schema, topic.MessageLogTable(alertsTopic.Id))
 	var status *string

@@ -27,11 +27,12 @@ func newTopicGetCmd(g *globalFlags) *cobra.Command {
 				return failUsage("--quiet and --output json cannot be combined")
 			}
 
-			client, closeClient, err := openClient(ctx, g.databaseURL, g.schema, slog.LevelError)
+			connection, err := newConnection(ctx, g.databaseURL, g.schema, slog.LevelError)
 			if err != nil {
 				return err
 			}
-			defer closeClient()
+			defer connection.Close()
+			client := connection.client
 
 			found, err := client.Topic[vulkan.RawPayload](name).Get(ctx)
 			if err != nil {

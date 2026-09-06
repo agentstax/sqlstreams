@@ -119,7 +119,8 @@ func hotKeyContentionScenario(ctx context.Context, pool *pgxpool.Pool) {
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
 
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 
 	manyKeysMs, manyKeysTopic := timeConcurrent(ctx, pool, "manykeys", goroutines, perGoroutine, func(g, i int) string {
 		return fmt.Sprintf("key-%d", g) // each goroutine owns a distinct key -- no cross-goroutine contention

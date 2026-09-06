@@ -75,7 +75,8 @@ func run() (err error) {
 
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 
 	topicName := fmt.Sprintf("workerclaimlab.%d", time.Now().UnixNano())
 	tp, err := client.Topic[common.Work](topicName).Register(ctx, &vulkan.TopicConfig{})

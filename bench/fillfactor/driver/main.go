@@ -117,7 +117,8 @@ func main() {
 
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 	must(client.System().Register(ctx, nil))
 
 	// fresh topic per cell -- clean tables, no cross-cell contamination

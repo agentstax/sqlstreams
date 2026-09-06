@@ -46,11 +46,12 @@ func newMetricsGetCmd(g *globalFlags) *cobra.Command {
 				return err
 			}
 
-			client, closeClient, err := openClient(ctx, g.databaseURL, g.schema, slog.LevelError)
+			connection, err := newConnection(ctx, g.databaseURL, g.schema, slog.LevelError)
 			if err != nil {
 				return err
 			}
-			defer closeClient()
+			defer connection.Close()
+			client := connection.client
 
 			measurements, err := client.System().Metrics().Latest(ctx)
 			if err != nil {

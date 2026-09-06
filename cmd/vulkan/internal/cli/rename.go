@@ -31,11 +31,12 @@ func newTopicRenameCmd(g *globalFlags) *cobra.Command {
 				return failUsage("new name matches the current name -- nothing to rename")
 			}
 
-			client, closeClient, err := openClient(ctx, g.databaseURL, g.schema, slog.LevelError)
+			connection, err := newConnection(ctx, g.databaseURL, g.schema, slog.LevelError)
 			if err != nil {
 				return err
 			}
-			defer closeClient()
+			defer connection.Close()
+			client := connection.client
 
 			renamed, err := client.Topic[vulkan.RawPayload](oldName).Rename(ctx, newName)
 			if err != nil {

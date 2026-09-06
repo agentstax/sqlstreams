@@ -81,13 +81,15 @@ func run() (err error) {
 
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 
-	batchedExactlyOnceScenario(ctx, client)
-	produceBatchScenario(ctx, client)
-	faultIsolationScenario(ctx, client)
-	hotCompactedKeysScenario(ctx, client)
-	partitionHealScenario(ctx, client)
-	throughputScenario(ctx, client)
+	batchedExactlyOnceScenario(ctx, client, ds)
+	produceBatchScenario(ctx, client, ds)
+	faultIsolationScenario(ctx, client, ds)
+	hotCompactedKeysScenario(ctx, client, ds)
+	partitionHealScenario(ctx, client, ds)
+	throughputScenario(ctx, client, ds)
 
 	fmt.Println("\n✅ PRODUCER BATCH LAB PASSED")
 	fmt.Println("   Concurrent payload-only Produce calls share transactions and land exactly")
@@ -100,10 +102,8 @@ func run() (err error) {
 // batchedExactlyOnceScenario: 50 goroutines x 20 payload-only Produce calls
 // -- every one must land exactly once (message + claim row), and xmin
 // grouping must show multi-row transactions, or "batching" never happened.
-func batchedExactlyOnceScenario(ctx context.Context, client *vulkan.Client) {
+func batchedExactlyOnceScenario(ctx context.Context, client *vulkan.Client, ds *iDatastore.PostgresDatastore) {
 	step("batched exactly-once: concurrent Produce calls share txns, land once each")
-
-	ds := client.Datastore()
 
 	const producers, msgs = 50, 20
 	tp, client, cleanup := registerTopic(ctx, client, "exactlyonce", largePartitionSize)
@@ -151,10 +151,8 @@ func batchedExactlyOnceScenario(ctx context.Context, client *vulkan.Client) {
 // produceBatchScenario: the explicit batch verb -- unlike the batcher's
 // collapsed singles, the caller hands over the whole batch and gets
 // all-or-nothing back.
-func produceBatchScenario(ctx context.Context, client *vulkan.Client) {
+func produceBatchScenario(ctx context.Context, client *vulkan.Client, ds *iDatastore.PostgresDatastore) {
 	step("ProduceBatch: one transaction, argument order, all-or-nothing")
-
-	ds := client.Datastore()
 
 	const total = 30
 	tp, client, cleanup := registerTopic(ctx, client, "producebatch", largePartitionSize)
@@ -226,10 +224,8 @@ func produceBatchScenario(ctx context.Context, client *vulkan.Client) {
 // server-side (jsonb refuses \u0000 -- poisons every rerun, evicted by
 // statement index) and payload 13 fails client-side before anything is sent
 // (batch splits to singles) -- each error reaches ONLY its own caller.
-func faultIsolationScenario(ctx context.Context, client *vulkan.Client) {
+func faultIsolationScenario(ctx context.Context, client *vulkan.Client, ds *iDatastore.PostgresDatastore) {
 	step("fault isolation: a bad payload fails its caller, never its batchmates")
-
-	ds := client.Datastore()
 
 	const total = 20
 	const poisonSeq, brokenSeq = 7, 13
@@ -276,10 +272,8 @@ func faultIsolationScenario(ctx context.Context, client *vulkan.Client) {
 // real cross-batch compaction_head contention. A deadlock would surface as an
 // evicted operation's error; zero errors + every compaction_head row at its key's
 // max id is the pass.
-func hotCompactedKeysScenario(ctx context.Context, client *vulkan.Client) {
+func hotCompactedKeysScenario(ctx context.Context, client *vulkan.Client, ds *iDatastore.PostgresDatastore) {
 	step("hot compacted keys: concurrent batches contend on compaction_head without deadlock")
-
-	ds := client.Datastore()
 
 	const producers, msgs, keys = 20, 20, 3
 	tp, client, cleanup := registerTopic(ctx, client, "hotkeys", largePartitionSize)
@@ -311,7 +305,7 @@ func hotCompactedKeysScenario(ctx context.Context, client *vulkan.Client) {
 		JOIN (
 			SELECT message_key, max(id) AS max_id FROM %s.%s GROUP BY message_key
 		) m ON m.message_key = lk.compaction_key
-		WHERE lk.head_id <> m.max_id;
+		WHERE lk.message_id <> m.max_id;
 	`, ds.Schema, topic.CompactionHeadTable(tp.Id), ds.Schema, topic.MessageLogTable(tp.Id))).Scan(&stale))
 	if stale != 0 {
 		die(fmt.Sprintf("%d compaction_head rows not pointing at their key's max id", stale))
@@ -322,10 +316,8 @@ func hotCompactedKeysScenario(ctx context.Context, client *vulkan.Client) {
 // partitionHealScenario: PartitionSize 10 and no janitor, so produces past
 // partition 0 MUST self-heal -- first sequentially (head advances one heal at
 // a time), then as a concurrent burst.
-func partitionHealScenario(ctx context.Context, client *vulkan.Client) {
+func partitionHealScenario(ctx context.Context, client *vulkan.Client, ds *iDatastore.PostgresDatastore) {
 	step("partition heal: a burst past the create-ahead self-heals, no janitor running")
-
-	ds := client.Datastore()
 
 	tp, client, cleanup := registerTopic(ctx, client, "heal", 10)
 	defer cleanup()
@@ -355,17 +347,17 @@ func partitionHealScenario(ctx context.Context, client *vulkan.Client) {
 // throughputScenario: the same workload down both paths -- how much the
 // shared-transaction fsync amortization buys over per-call commits, at equal
 // concurrency and then saturated.
-func throughputScenario(ctx context.Context, client *vulkan.Client) {
+func throughputScenario(ctx context.Context, client *vulkan.Client, ds *iDatastore.PostgresDatastore) {
 	step("throughput: batched Produce vs per-call ProduceFunc, then saturated")
 
 	const producers, msgs = 50, 400 // ~2s per arm -- sub-second runs are all warmup noise
 	total := producers * msgs
 
-	batched := timeArm(ctx, client, "batched", producers, msgs, func(wpInstance *vulkan.ProducerInstance[common.Work], work *common.Work) error {
+	batched := timeArm(ctx, client, ds, "batched", producers, msgs, func(wpInstance *vulkan.ProducerInstance[common.Work], work *common.Work) error {
 		_, err := wpInstance.Produce(ctx, work, nil)
 		return err
 	})
-	perCall := timeArm(ctx, client, "percall", producers, msgs, func(wpInstance *vulkan.ProducerInstance[common.Work], work *common.Work) error {
+	perCall := timeArm(ctx, client, ds, "percall", producers, msgs, func(wpInstance *vulkan.ProducerInstance[common.Work], work *common.Work) error {
 		_, err := wpInstance.ProduceFunc(ctx, func(context.Context, vulkan.Tx) (*common.Work, error) { return work, nil }, nil)
 		return err
 	})
@@ -376,7 +368,7 @@ func throughputScenario(ctx context.Context, client *vulkan.Client) {
 	// batches ride at Batch.MaxSize, which only the batched path can absorb
 	// (a per-call arm would need a pool connection per caller).
 	const satProducers, satMsgs = 800, 50
-	saturated := timeArm(ctx, client, "saturated", satProducers, satMsgs, func(wpInstance *vulkan.ProducerInstance[common.Work], work *common.Work) error {
+	saturated := timeArm(ctx, client, ds, "saturated", satProducers, satMsgs, func(wpInstance *vulkan.ProducerInstance[common.Work], work *common.Work) error {
 		_, err := wpInstance.Produce(ctx, work, nil)
 		return err
 	})
@@ -394,8 +386,7 @@ func throughputScenario(ctx context.Context, client *vulkan.Client) {
 // timeArm registers its own topic, warms the pool untimed, then times the
 // full concurrent run -- asserting afterward that every publish landed
 // exactly once (throughput that loses messages doesn't count).
-func timeArm(ctx context.Context, client *vulkan.Client, label string, producers, msgs int, produce func(wpInstance *vulkan.ProducerInstance[common.Work], work *common.Work) error) time.Duration {
-	ds := client.Datastore()
+func timeArm(ctx context.Context, client *vulkan.Client, ds *iDatastore.PostgresDatastore, label string, producers, msgs int, produce func(wpInstance *vulkan.ProducerInstance[common.Work], work *common.Work) error) time.Duration {
 	tp, client, cleanup := registerTopic(ctx, client, "throughput."+label, largePartitionSize)
 	defer cleanup()
 

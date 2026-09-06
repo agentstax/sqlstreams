@@ -77,7 +77,8 @@ func run() (err error) {
 
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
-	ds := client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 
 	topicName := fmt.Sprintf("phase14a.compactionranklab.%d", time.Now().UnixNano())
 	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{})
@@ -158,7 +159,7 @@ func publish(ctx context.Context, wpInstance *vulkan.ProducerInstance[RankedReco
 }
 
 func headID(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, key string) int64 {
-	return scalar(ctx, ds, fmt.Sprintf(`SELECT head_id FROM %s.%s WHERE compaction_key=$1;`, ds.Schema, topic.CompactionHeadTable(topicId)), key)
+	return scalar(ctx, ds, fmt.Sprintf(`SELECT message_id FROM %s.%s WHERE compaction_key=$1;`, ds.Schema, topic.CompactionHeadTable(topicId)), key)
 }
 
 func rowCount(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64) int64 {

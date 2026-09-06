@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/agentstax/vulkan/pkg/datastore"
 	"os"
 	"time"
 
@@ -49,7 +50,8 @@ func run() (err error) {
 
 	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
-	ds := client.Datastore()
+	ds, err := datastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 	must(client.System().Register(ctx, nil))
 
 	metricsController, err := metricscontroller.NewMetricsController(ds, ds.Logger)

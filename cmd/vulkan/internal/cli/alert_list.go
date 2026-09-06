@@ -39,11 +39,12 @@ every owner by default, one topic's with --topic, one consumer group's with
 				return failUsage("--consumer requires --topic")
 			}
 
-			client, closeClient, err := openClient(ctx, g.databaseURL, g.schema, slog.LevelError)
+			connection, err := newConnection(ctx, g.databaseURL, g.schema, slog.LevelError)
 			if err != nil {
 				return err
 			}
-			defer closeClient()
+			defer connection.Close()
+			client := connection.client
 
 			var alerts []*vulkan.Alert
 			switch {

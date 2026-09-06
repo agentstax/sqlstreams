@@ -23,11 +23,12 @@ on its topic.`,
 			topicName, consumerName := args[0], args[1]
 			out := cmd.OutOrStdout()
 
-			client, closeClient, err := openClient(ctx, g.databaseURL, g.schema, slog.LevelError)
+			connection, err := newConnection(ctx, g.databaseURL, g.schema, slog.LevelError)
 			if err != nil {
 				return err
 			}
-			defer closeClient()
+			defer connection.Close()
+			client := connection.client
 
 			// Binding().Get collapses an absent consumer into nil; the command
 			// reports absence as not-found like consumer config get does

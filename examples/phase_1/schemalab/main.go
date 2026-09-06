@@ -280,7 +280,11 @@ func openClient(ctx context.Context, schema string, cfg *vulkan.ClientConfig) (*
 
 	client, err := vulkan.NewClient(ctx, pool, &clientConfig)
 	must(err)
-	return client, client.Datastore()
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, &iDatastore.PostgresDatastoreConfig{
+		Schema: clientConfig.Schema, Logger: clientConfig.Logger, Retry: clientConfig.Retry,
+	})
+	must(err)
+	return client, ds
 }
 
 // boundSchemas lists the schema values a client's logger binds onto every

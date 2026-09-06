@@ -101,7 +101,8 @@ func run() (err error) {
 
 	client, err = vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
 	must(err)
-	ds = client.Datastore()
+	ds, err = iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
 	labScheduler, err = scheduler.NewScheduler(ds)
 	must(err)
 
@@ -495,7 +496,7 @@ func supersedeSection(ctx context.Context) {
 	head, err := client.Scheduler(prefix+".supersede").Run(ctx, nil)
 	must(err)
 
-	if got := scalarInt64(ctx, fmt.Sprintf(`SELECT head_id FROM %s.%s WHERE compaction_key = $1;`, ds.Schema, topic.CompactionHeadTable(target.Id)),
+	if got := scalarInt64(ctx, fmt.Sprintf(`SELECT message_id FROM %s.%s WHERE compaction_key = $1;`, ds.Schema, topic.CompactionHeadTable(target.Id)),
 		job.Name); got != head.Id {
 		die(fmt.Sprintf("the second run-now must take the compaction head, got %d want %d", got, head.Id))
 	}

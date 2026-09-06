@@ -14,6 +14,8 @@ roadmap later item for review code for interesting design decisions to write art
 - suppression logger
 - doc site
 - client builder pattern choice
+- writing your own commit messages
+- Decision tracking and index
 
 # Review
 
