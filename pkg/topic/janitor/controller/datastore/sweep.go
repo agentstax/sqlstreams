@@ -126,7 +126,7 @@ func (d *JanitorDatastore) sweepBatch(ctx context.Context, topicId int64, n int6
 		orphanKeySql := fmt.Sprintf(`
 			-- vulkan: topicjanitor.sweepBatch
 			DELETE FROM %[1]s.%[2]s
-			WHERE head_id = ANY($1);
+			WHERE message_id = ANY($1);
 		`, d.Datastore.Schema, topic.CompactionHeadTable(topicId))
 		if _, err := tx.Exec(ctx, orphanKeySql, ids); err != nil {
 			return 0, err

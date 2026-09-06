@@ -869,7 +869,7 @@
       "queries": [
         {
           "label": "the key's compaction_head row, if one exists",
-          "sql": "SELECT\n\tcompaction_key,\n\thead_id,\n\tschema_version,\n\tcompaction_rank\nFROM {schema}.compaction_head_{topic_id}\nWHERE compaction_key = '{message_key}';",
+          "sql": "SELECT\n\tcompaction_key,\n\tmessage_id,\n\tschema_version,\n\tcompaction_rank\nFROM {schema}.compaction_head_{topic_id}\nWHERE compaction_key = '{message_key}';",
           "placeholders": [
             "schema",
             "topic_id",

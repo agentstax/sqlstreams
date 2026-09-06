@@ -23,10 +23,10 @@ func (d *MetricsDatastore) topicSnapshot(ctx context.Context, topicId int64) (*T
 	sql := fmt.Sprintf(`
 		-- vulkan: metrics.topicSnapshot
 		SELECT
-			COUNT(head_id) > 0 AS compacted,
-			COUNT(*) FILTER (WHERE head_id IS NULL) AS compaction_rows_without_head,
+			COUNT(message_id) > 0 AS compacted,
+			COUNT(*) FILTER (WHERE message_id IS NULL) AS compaction_rows_without_head,
 			COALESCE(
-				EXTRACT(EPOCH FROM (NOW() - MIN(updated_at) FILTER (WHERE head_id IS NULL))),
+				EXTRACT(EPOCH FROM (NOW() - MIN(updated_at) FILTER (WHERE message_id IS NULL))),
 				0
 			) AS oldest_compaction_row_without_head_secs
 		FROM %[1]s.%[2]s;
@@ -58,9 +58,9 @@ func (d *MetricsDatastore) schemaVersionCounts(ctx context.Context, topicId int6
 		SELECT
 			m.schema_version,
 			count(*) AS messages,
-			count(h.head_id) AS compaction_heads
+			count(h.message_id) AS compaction_heads
 		FROM %[1]s.%[2]s m
-		LEFT JOIN %[1]s.%[3]s h ON h.head_id = m.id
+		LEFT JOIN %[1]s.%[3]s h ON h.message_id = m.id
 		GROUP BY m.schema_version
 		ORDER BY m.schema_version;
 	`, d.Datastore.Schema, topic.MessageLogTable(topicId), topic.CompactionHeadTable(topicId))

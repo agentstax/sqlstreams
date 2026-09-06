@@ -222,12 +222,12 @@ func (d *TopicDatastore) createTopicTables(ctx context.Context, tx pgx.Tx, id in
 		-- vulkan: topic.createTopicTables
 		CREATE TABLE IF NOT EXISTS %[1]s.%[2]s (
 			compaction_key  TEXT   NOT NULL PRIMARY KEY,
-			head_id         BIGINT,                    -- NULL while the key has a lockable row but no winning message
+			message_id      BIGINT,                    -- NULL while the key has a lockable row but no winning message
 			schema_version  BIGINT,                    -- the winner's payload version; compared before rank
 			compaction_rank BIGINT,                    -- the winner's rank
 			created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-			CHECK (num_nonnulls(head_id, schema_version, compaction_rank) IN (0, 3)) -- only all NULL rows or filled rows, no in-between
+			CHECK (num_nonnulls(message_id, schema_version, compaction_rank) IN (0, 3)) -- only all NULL rows or filled rows, no in-between
 		);
 	`, d.Datastore.Schema, topic.CompactionHeadTable(id))
 	if _, err := tx.Exec(ctx, createCompactionHeadSql); err != nil {
@@ -239,7 +239,7 @@ func (d *TopicDatastore) createTopicTables(ctx context.Context, tx pgx.Tx, id in
 	createCompactionHeadEmptyUpdatedAtIndexSql := fmt.Sprintf(`
 		-- vulkan: topic.createTopicTables
 		CREATE INDEX IF NOT EXISTS %[2]s_empty_updated_at ON %[1]s.%[2]s (updated_at, compaction_key)
-			WHERE head_id IS NULL;
+			WHERE message_id IS NULL;
 	`, d.Datastore.Schema, topic.CompactionHeadTable(id))
 	if _, err := tx.Exec(ctx, createCompactionHeadEmptyUpdatedAtIndexSql); err != nil {
 		return err

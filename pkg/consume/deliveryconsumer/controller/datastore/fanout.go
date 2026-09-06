@@ -105,9 +105,9 @@ func (d *DeliveryConsumerGroupDatastore) fanOut(ctx context.Context, topicId int
 				-- compaction_head's current pointer for their key -- O(1) lookup,
 				-- no per-row scan
 				OR b.id = (
-					SELECT head_id FROM %[1]s.%[6]s                      -- [6] = compaction_head table
+					SELECT message_id FROM %[1]s.%[6]s                      -- [6] = compaction_head table
 					WHERE compaction_key = b.message_key
-						AND head_id IS NOT NULL
+						AND message_id IS NOT NULL
 				)
 			)
 			ON CONFLICT DO NOTHING

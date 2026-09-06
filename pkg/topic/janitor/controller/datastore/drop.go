@@ -132,8 +132,8 @@ func (d *JanitorDatastore) dropPartition(ctx context.Context, topicId int64, n i
 	orphanKeySql := fmt.Sprintf(`
 		-- vulkan: topicjanitor.dropPartition
 		DELETE FROM %[1]s.%[2]s
-		WHERE head_id >= $1
-			AND head_id < $2;
+		WHERE message_id >= $1
+			AND message_id < $2;
 	`, d.Datastore.Schema, topic.CompactionHeadTable(topicId))
 	if _, err := tx.Exec(ctx, orphanKeySql, low, high); err != nil {
 		return false, err

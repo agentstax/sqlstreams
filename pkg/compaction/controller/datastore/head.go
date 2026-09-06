@@ -19,10 +19,10 @@ func (d *CompactionDatastore) LockHead(ctx context.Context, tx iDatastore.Tx, to
 	if err != nil {
 		return nil, err
 	}
-	if head.HeadId == nil {
+	if head.MessageId == nil {
 		return nil, nil
 	}
-	return d.getHeadMessage(ctx, tx, topicId, *head.HeadId)
+	return d.getHeadMessage(ctx, tx, topicId, *head.MessageId)
 }
 
 // ensureAndLockHead creates the lockable identity when absent. On conflict,
@@ -36,12 +36,12 @@ func (d *CompactionDatastore) ensureAndLockHead(ctx context.Context, q iDatastor
 		VALUES ($1)
 		ON CONFLICT (compaction_key) DO UPDATE
 		SET updated_at = CASE
-			WHEN h.head_id IS NULL THEN NOW()
+			WHEN h.message_id IS NULL THEN NOW()
 			ELSE h.updated_at
 		END
 		RETURNING
 			compaction_key,
-			head_id,
+			message_id,
 			schema_version,
 			compaction_rank,
 			created_at,
@@ -51,7 +51,7 @@ func (d *CompactionDatastore) ensureAndLockHead(ctx context.Context, q iDatastor
 	var head CompactionHeadRow
 	err := q.QueryRow(ctx, sql, messageKey).Scan(
 		&head.CompactionKey,
-		&head.HeadId,
+		&head.MessageId,
 		&head.SchemaVersion,
 		&head.CompactionRank,
 		&head.CreatedAt,
@@ -118,7 +118,7 @@ func (d *CompactionDatastore) getHead(ctx context.Context, topicId int64, messag
 			m.message_key,
 			m.compaction_rank
 		FROM %[1]s.%[2]s h
-		JOIN %[1]s.%[3]s m ON m.id = h.head_id
+		JOIN %[1]s.%[3]s m ON m.id = h.message_id
 		WHERE h.compaction_key = $1;
 	`, d.Datastore.Schema, topic.CompactionHeadTable(topicId), topic.MessageLogTable(topicId))
 
@@ -163,7 +163,7 @@ func (d *CompactionDatastore) listHeads(ctx context.Context, topicId int64) ([]M
 			m.message_key,
 			m.compaction_rank
 		FROM %[1]s.%[2]s h
-		JOIN %[1]s.%[3]s m ON m.id = h.head_id
+		JOIN %[1]s.%[3]s m ON m.id = h.message_id
 		ORDER BY h.compaction_key;
 	`, d.Datastore.Schema, topic.CompactionHeadTable(topicId), topic.MessageLogTable(topicId))
 

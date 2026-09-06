@@ -43,7 +43,7 @@ func (d *JanitorDatastore) sweepEmptyCompactionHeadsBatch(ctx context.Context, t
 		WITH expired AS (
 			SELECT compaction_key
 			FROM %[1]s.%[2]s
-			WHERE head_id IS NULL
+			WHERE message_id IS NULL
 				AND updated_at < $1
 			ORDER BY updated_at ASC, compaction_key ASC
 			FOR UPDATE SKIP LOCKED

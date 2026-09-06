@@ -15,7 +15,7 @@ var ErrCompactionHeadNotFound = diagnostic.NewDiagnosticError("VK0066", diagnost
 		diagnostic.NewDiagnosticQuery("the key's compaction_head row, if one exists", `
 SELECT
 	compaction_key,
-	head_id,
+	message_id,
 	schema_version,
 	compaction_rank
 FROM {schema}.compaction_head_{topic_id}

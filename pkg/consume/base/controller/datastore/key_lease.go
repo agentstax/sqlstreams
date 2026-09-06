@@ -46,14 +46,14 @@ func (d *KeyLeaseDatastore) claimCompacted(ctx context.Context, topicId int64, g
 	claimSql := fmt.Sprintf(`
 		-- vulkan: consumebase.claimCompacted
 		WITH head AS (
-			SELECT head_id
+			SELECT message_id
 			FROM %[1]s.%[2]s
 			WHERE compaction_key = $1
-				AND head_id IS NOT NULL
+				AND message_id IS NOT NULL
 		), attempt AS (
 			INSERT INTO %[1]s.%[3]s AS kl (consumer_group_id, message_key, token, expires_at)
 			SELECT $2, $1, $5, now() + make_interval(secs => $4)
-			WHERE EXISTS (SELECT 1 FROM head WHERE head_id = $3)
+			WHERE EXISTS (SELECT 1 FROM head WHERE message_id = $3)
 			ON CONFLICT (consumer_group_id, message_key) DO UPDATE
 			SET
 				token = $5,
@@ -64,7 +64,7 @@ func (d *KeyLeaseDatastore) claimCompacted(ctx context.Context, topicId int64, g
 			RETURNING token
 		)
 		SELECT
-			EXISTS (SELECT 1 FROM head WHERE head_id = $3),
+			EXISTS (SELECT 1 FROM head WHERE message_id = $3),
 			(SELECT token FROM attempt);
 	`, d.Datastore.Schema, topic.CompactionHeadTable(topicId), topic.MessageKeyLeaseTable(topicId))
 
@@ -82,7 +82,7 @@ func (d *KeyLeaseDatastore) claimCompacted(ctx context.Context, topicId int64, g
 				SELECT 1
 				FROM %[1]s.%[3]s
 				WHERE compaction_key = $1
-					AND head_id = $3
+					AND message_id = $3
 			);
 	`, d.Datastore.Schema, topic.MessageKeyLeaseTable(topicId), topic.CompactionHeadTable(topicId))
 

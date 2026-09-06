@@ -116,10 +116,10 @@ func (d *ScheduleDatastore) keyMessageIds(ctx context.Context, topicId int64, na
 func (d *ScheduleDatastore) headId(ctx context.Context, topicId int64, name string) (int64, error) {
 	sql := fmt.Sprintf(`
 		-- vulkan: schedule.headId
-		SELECT head_id
+		SELECT message_id
 		FROM %[1]s.%[2]s
 		WHERE compaction_key = $1
-			AND head_id IS NOT NULL;
+			AND message_id IS NOT NULL;
 	`, d.Datastore.Schema, topic.CompactionHeadTable(topicId))
 
 	var headId int64

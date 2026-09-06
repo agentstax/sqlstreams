@@ -16,17 +16,17 @@ export const protectedInsertCompactedSqlTemplate = `
 				WHERE EXISTS (SELECT 1 FROM claim) -- if claim CTE didn't return anything skip this
 				RETURNING id
 			), latest AS (
-				INSERT INTO %[1]s.%[4]s AS h (compaction_key, head_id, schema_version, compaction_rank)
+				INSERT INTO %[1]s.%[4]s AS h (compaction_key, message_id, schema_version, compaction_rank)
 				SELECT $5, id, $4, $6 FROM inserted
 				ON CONFLICT (compaction_key) DO UPDATE
 				SET
-					head_id = EXCLUDED.head_id,
+					message_id = EXCLUDED.message_id,
 					schema_version = EXCLUDED.schema_version,
 					compaction_rank = EXCLUDED.compaction_rank,
 					updated_at = NOW()
-				-- a newer payload version always wins; within a version rank first, then head_id
-				WHERE h.head_id IS NULL
-					OR (h.schema_version, h.compaction_rank, h.head_id) < (EXCLUDED.schema_version, EXCLUDED.compaction_rank, EXCLUDED.head_id)
+				-- a newer payload version always wins; within a version rank first, then message_id
+				WHERE h.message_id IS NULL
+					OR (h.schema_version, h.compaction_rank, h.message_id) < (EXCLUDED.schema_version, EXCLUDED.compaction_rank, EXCLUDED.message_id)
 			)
 			SELECT id FROM inserted;
 		`;

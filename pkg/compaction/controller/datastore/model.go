@@ -10,7 +10,7 @@ import (
 // no current head.
 type CompactionHeadRow struct {
 	CompactionKey  string    `db:"compaction_key"`
-	HeadId         *int64    `db:"head_id"`
+	MessageId      *int64    `db:"message_id"`
 	SchemaVersion  *int64    `db:"schema_version"`
 	CompactionRank *int64    `db:"compaction_rank"`
 	CreatedAt      time.Time `db:"created_at"`

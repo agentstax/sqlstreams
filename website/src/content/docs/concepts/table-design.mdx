@@ -83,7 +83,7 @@ Suffix `1` throughout — the topic's id from the catalog.
   `created_at` records the identity's creation; `updated_at` moves when the
   head changes or an empty row is locked again. Compacted produce upserts the
   winner in its transaction, and the janitor uses the partial
-  `(updated_at, compaction_key) WHERE head_id IS NULL` index to find expired
+  `(updated_at, compaction_key) WHERE message_id IS NULL` index to find expired
   empty rows without scanning materialized heads.
 - **`exception_queue_1`** — deliveries off the mainline path,
   `PRIMARY KEY (consumer_group_id, message_id)`: status, the message's

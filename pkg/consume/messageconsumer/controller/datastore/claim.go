@@ -74,9 +74,9 @@ func (d *MessageConsumerGroupDatastore) readMessages(ctx context.Context, tx pgx
 				-- compacted rows are eligible only if they're compaction_head's
 				-- current pointer for their key -- O(1) lookup, no per-row scan
 				OR m.id = (
-					SELECT head_id FROM %[1]s.%[5]s
+					SELECT message_id FROM %[1]s.%[5]s
 					WHERE compaction_key = m.message_key
-						AND head_id IS NOT NULL
+						AND message_id IS NOT NULL
 				)
 			)
 		-- rows MUST come back in id order or a batch LIMIT could
