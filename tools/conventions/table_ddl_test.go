@@ -5,7 +5,7 @@ package conventions
 // CONVENTIONS.md ## Tables naming rules [0611][0613]: table names end in a
 // known kind, TIMESTAMPTZ columns end _at/_after, duration columns are
 // BIGINT nanoseconds ending _ns, every _config table carries created_at and
-// updated_at. Judgment rules (root wording, prefix choice) stay review-time.
+// updated_at, every _cursor table opens with its own id. Judgment rules (root wording, prefix choice) stay review-time.
 
 import (
 	"go/ast"
@@ -100,6 +100,20 @@ func TestConfigTablesCarryCreatedAtAndUpdatedAt(t *testing.T) {
 			if !declared[name] {
 				t.Errorf("%s _config table %q lacks %s [0667]", statement.Position, statement.Name, name)
 			}
+		}
+	}
+}
+
+// TestCursorTablesCarryTheirOwnId is [0668]'s rule: a _cursor table's first
+// column is its own sequence id, never the owner's id.
+func TestCursorTablesCarryTheirOwnId(t *testing.T) {
+	for _, statement := range baselineTableStatements(t) {
+		if !strings.HasSuffix(statement.Name, "_cursor") || len(statement.Columns) == 0 {
+			continue
+		}
+		first := statement.Columns[0]
+		if first.Name != "id" || first.Type != "BIGSERIAL" {
+			t.Errorf("%s _cursor table %q opens with %s %s, not id BIGSERIAL [0668]", first.Position, statement.Name, first.Name, first.Type)
 		}
 	}
 }

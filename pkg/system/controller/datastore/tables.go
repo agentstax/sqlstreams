@@ -224,11 +224,13 @@ func (d *SystemDatastore) createSystemTables(ctx context.Context, tx pgx.Tx) err
 	}
 
 	// schedule_cursor: the schedule producer's position in each schedule --
-	// the runtime sibling of the near-static config row, 1:1 by schedule_id.
+	// the runtime sibling of the near-static config row. UNIQUE keeps
+	// schedule <-> cursor 1:1, the consumer_group_cursor shape.
 	createScheduleCursorSql := fmt.Sprintf(`
 		-- vulkan: system.createSystemTables
 		CREATE TABLE IF NOT EXISTS %[1]s.schedule_cursor (
-			schedule_id BIGINT NOT NULL PRIMARY KEY REFERENCES %[1]s.schedule_config (id) ON DELETE CASCADE,
+			id BIGSERIAL PRIMARY KEY,
+			schedule_id BIGINT NOT NULL UNIQUE REFERENCES %[1]s.schedule_config (id) ON DELETE CASCADE,
 			next_scheduled_at TIMESTAMPTZ NOT NULL,
 			last_scheduled_at TIMESTAMPTZ               -- the scheduled time most recently produced
 		);

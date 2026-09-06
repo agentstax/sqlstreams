@@ -48,8 +48,9 @@ docs/decisions/.
      - `_config` timestamps -- SHIPPED 2026-09-06 [0667]: every `_config`
        table carries both, every config UPDATE sets updated_at (USER-SETTLED:
        consistency over trail redundancy). Conventions test enforces it.
-     - 1:1 cursor tables differ: consumer_group_cursor has surrogate `id` +
-       UNIQUE group id; schedule_cursor uses schedule_id as PK -> pick one.
+     - 1:1 cursor tables -- SHIPPED 2026-09-06 [0668], REVERSED direction:
+       USER-SETTLED surrogate `id` stays (flexibility), schedule_cursor gained
+       one; natural/composite-keyed hot tables untouched. Conventions test.
      - claim_lease leads with `token` (columns + PK); every other per-group
        table leads with consumer_group_id.
      - binding_config lists derived `pattern_regex` before declared `pattern`.

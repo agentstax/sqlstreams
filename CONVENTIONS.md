@@ -440,7 +440,9 @@ topic's family -- never both.
   rows), `_lease` (expiring locks, prefixed by what is leased),
   `_instance` (live copies), `_cursor`/`_head` (singleton runtime state).
   A table 1:1 with another resource's rows carries that owner's name
-  (consumer_group_cursor, schedule_cursor). FK columns keep the
+  (consumer_group_cursor, schedule_cursor); a `_cursor` table keeps its
+  own `id BIGSERIAL PRIMARY KEY` first and the owner's id as
+  `NOT NULL UNIQUE` [0668]. FK columns keep the
   resource's noun (topic_id), never the table's name. idempotency_key is
   the standing exception outside the kind set.
 - Column names [0613]: instants end `_at` -- past events as past
@@ -459,7 +461,8 @@ topic's family -- never both.
   redundancy with the `_config_log` trail.
 - tools/conventions walks the baseline DDL for the machine-checkable
   half of these rules: table kinds, `_at`/`_after` on TIMESTAMPTZ
-  columns, `_ns` on durations, both timestamps on `_config` tables.
+  columns, `_ns` on durations, both timestamps on `_config` tables,
+  the surrogate id on `_cursor` tables.
 - A new table splits per-topic when every row has exactly one owning topic
   (directly or through its consumer group) and no reader needs the table
   before knowing the topic. It stays shared when rows can exist at system

@@ -9,7 +9,7 @@ are in `docs/DECISIONS.md`. A new record adds its number to its line.
 - retry, backoff, dead-letter, exception path, work timeout, panic, abandoned goroutine: 0042-0043 0181-0192 0281-0294 0399-0400 0614-0615
 - routing key, bindings, fan-out, wildcard, binding_log TTL: 0201-0208 0242 0389-0393 0511 0573
 - partitions, retention, janitor, create-ahead, heal, drop floor: 0221-0227 0378-0384 0428 0512-0513 0620 0659-0660 0662-0663
-- topic catalog, schema version, rename, alter, per-topic tables, table names: 0241-0248 0348-0353 0401-0411 0570-0572 0611 0613 0618 0624 0628 0667
+- topic catalog, schema version, rename, alter, per-topic tables, table names: 0241-0248 0348-0353 0401-0411 0570-0572 0611 0613 0618 0624 0628 0667 0668
 - compaction, message key, rank, ordered/exclusive/parallel, key lease, deadlock: 0261-0273 0403 0463 0574 0612 0617 0659-0660
 - produce, ProduceInTx, batch, idempotency key, uuid: 0021-0023 0283-0284 0321-0323 0376 0525 0622-0623 0634
 - synchronous_commit, crash lab, bench method: 0081-0086
