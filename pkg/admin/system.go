@@ -28,9 +28,9 @@ import (
 // cfg is applied on every call, so changing a value and redeploying changes
 // the system's topics, its built-in alerts' schedules, and its collector rate.
 //   - cfg: may be nil or sparse -- WithDefaults fills every field left unset
-func (a *MessageAdmin) RegisterSystem(ctx context.Context, cfg *RegisterSystemConfig) error {
+func (a *MessageAdmin) RegisterSystem(ctx context.Context, cfg *system.SystemConfig) error {
 	if cfg == nil {
-		cfg = &RegisterSystemConfig{}
+		cfg = &system.SystemConfig{}
 	}
 	cfg.WithDefaults()
 	if err := cfg.Validate(); err != nil {

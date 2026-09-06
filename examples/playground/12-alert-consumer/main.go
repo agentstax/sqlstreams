@@ -48,7 +48,7 @@ func run() error {
 	}
 
 	// newest declaration wins: every minute instead of the @hourly default
-	if err := client.System().Register(ctx, &vulkan.RegisterSystemConfig{
+	if err := client.System().Register(ctx, &vulkan.SystemConfig{
 		PartitionCountAlert:     &vulkan.PartitionCountAlertConfig{ScheduleExpression: "* * * * *"},
 		CompactionReadCostAlert: &vulkan.CompactionReadCostAlertConfig{ScheduleExpression: "* * * * *"},
 		WorkerLivenessAlert:     &vulkan.WorkerLivenessAlertConfig{ScheduleExpression: "* * * * *"},

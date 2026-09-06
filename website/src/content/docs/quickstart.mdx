@@ -51,7 +51,7 @@ by Vulkan itself — there is no SQL migration file to apply by hand.
    what its cron expression schedules:
 
    ```go
-   if err := client.System().Register(ctx, &vulkan.RegisterSystemConfig{
+   if err := client.System().Register(ctx, &vulkan.SystemConfig{
     PartitionCountAlert: &vulkan.PartitionCountAlertConfig{
      ScheduleExpression: "0 * * * *",
     },

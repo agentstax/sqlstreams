@@ -13,7 +13,6 @@ import (
 	"github.com/agentstax/vulkan/pkg/metrics/collector"
 	metricscontroller "github.com/agentstax/vulkan/pkg/metrics/controller"
 	migratecontroller "github.com/agentstax/vulkan/pkg/migrate/controller"
-	"github.com/agentstax/vulkan/pkg/producer"
 	schedulecontroller "github.com/agentstax/vulkan/pkg/schedule/controller"
 	scheduleproducer "github.com/agentstax/vulkan/pkg/schedule/producer"
 	"github.com/agentstax/vulkan/pkg/scheduler"
@@ -34,7 +33,6 @@ type MessageAdmin struct {
 	topicController    *topiccontroller.TopicController
 	scheduleController *schedulecontroller.ScheduleController
 	consumerController *consumecontroller.ConsumeController
-	scheduleProducer   *producer.Producer
 	scheduler          *scheduler.Scheduler
 	heads              *compactioncontroller.CompactionController
 	metricsController  *metricscontroller.MetricsController
@@ -94,11 +92,6 @@ func NewMessageAdmin(ds *datastore.PostgresDatastore, cfg *MessageAdminConfig) (
 		return nil, err
 	}
 
-	scheduleProducer, err := producer.NewProducer(ds)
-	if err != nil {
-		return nil, err
-	}
-
 	heads, err := compactioncontroller.NewCompactionController(ds, ds.Logger)
 	if err != nil {
 		return nil, err
@@ -154,7 +147,6 @@ func NewMessageAdmin(ds *datastore.PostgresDatastore, cfg *MessageAdminConfig) (
 		scheduleController: scheduleController,
 		scheduler:          alertScheduler,
 		consumerController: consumerController,
-		scheduleProducer:   scheduleProducer,
 		heads:              heads,
 		metricsController:  metricsController,
 		workerController:   workerController,

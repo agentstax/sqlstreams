@@ -26,7 +26,11 @@ rewrite-to-the-real-API pass 2026-08-22 [0581], the board rebuild
   Other packages remain importable advanced options without a stability
   commitment; package hiding and low-level constructor demotions are no
   longer this task. Current keep/question/remove inventory: `_public-surface.md`.
-  - `RegisterSystemConfig.System` / `SystemConfig` removed during this review. Settle
+  - The empty nested `SystemConfig` was removed and the remaining declaration
+    config became `system.SystemConfig`. Vocabulary roots may compose other
+    roots' data through acyclic imports; admin retains system registration.
+    Schedule run-now now takes
+    `ScheduleRunOptions` from its scheduler owner. Settle
     `Client.Datastore()` and mutable client fields, and utility methods exposed
     through `Owner`, `RetryPolicy`, `MessageOptions`, and diagnostic aliases.
   - Keep useful batching and transaction controls; preserve separate single-topic

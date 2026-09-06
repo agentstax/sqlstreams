@@ -12,7 +12,7 @@
 //
 // Traps hit:
 //   - A retained measurement exists only after the manager's metrics collector
-//     ticks (30s default poll, RegisterSystemConfig.MetricsCollector.PollRate
+//     ticks (30s default poll, SystemConfig.MetricsCollector.PollRate
 //     sets it): Latest initially returns nil until then.
 //   - Latest is the newest collected value, not live state. Measurement.At is
 //     the observation time; Snapshot asks the source tables what is true now.

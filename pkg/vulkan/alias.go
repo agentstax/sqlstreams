@@ -67,6 +67,7 @@ type (
 	DeliveryLogMode = topic.DeliveryLogMode
 
 	SchedulerConfig        = scheduler.SchedulerConfig
+	ScheduleRunOptions     = scheduler.ScheduleRunOptions
 	Schedule               = schedule.Schedule
 	ScheduleGroupSummary   = schedule.ScheduleGroupSummary
 	ScheduleMessageStatus  = schedule.ScheduleMessageStatus
@@ -77,10 +78,9 @@ type (
 	Worker         = worker.Worker
 	InstanceTarget = worker.InstanceTarget
 
-	DestroyOptions       = admin.DestroyOptions
-	RegisterSystemConfig = admin.RegisterSystemConfig
-	RunScheduleConfig    = admin.RunScheduleConfig
-	TopicVersionHealth   = admin.TopicVersionHealth
+	DestroyOptions     = admin.DestroyOptions
+	SystemConfig       = system.SystemConfig
+	TopicVersionHealth = admin.TopicVersionHealth
 
 	PartitionCountAlertConfig     = alert.PartitionCountAlertConfig
 	CompactionReadCostAlertConfig = alert.CompactionReadCostAlertConfig

@@ -535,7 +535,7 @@ poll rate by default, with jitter. `Latest` is nil until a measurement is
 collected. The rate is part of the system declaration:
 
 ```go
-err := client.System().Register(ctx, &vulkan.RegisterSystemConfig{
+err := client.System().Register(ctx, &vulkan.SystemConfig{
 	MetricsCollector: &vulkan.MetricsCollectorWorkerConfig{PollRate: 10 * time.Second},
 })
 ```

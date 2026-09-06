@@ -3,12 +3,10 @@ package admin
 import (
 	"context"
 	"errors"
-	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/produce"
 	"github.com/agentstax/vulkan/pkg/producer"
 	"github.com/agentstax/vulkan/pkg/schedule"
+	"github.com/agentstax/vulkan/pkg/scheduler"
 	"github.com/agentstax/vulkan/pkg/topic"
 )
 
@@ -42,71 +40,10 @@ func (a *MessageAdmin) UnsuspendSchedule(ctx context.Context, name string) error
 	return a.scheduleController.Unsuspend(ctx, name)
 }
 
-// RunSchedule produces the named schedule's stored message immediately,
-// outside its expression -- the expression and next scheduled time are
-// untouched, and a suspended schedule still runs.
-// cfg may be nil or a sparse struct.
-// Returns ErrScheduleNotFound if name isn't registered.
-//
-// Two deliberate consequences:
-//   - The message's concurrency is cfg.Concurrency, NOT the schedule's own
-//     policy -- by default 'parallel', so it runs even while a previous
-//     message is still running.
-//   - It supersedes a pending message no consumer has claimed yet.
-func (a *MessageAdmin) RunSchedule(ctx context.Context, name string, cfg *RunScheduleConfig) (*producer.ProduceResult[schedule.ScheduleStoredMessage], error) {
-	if name == "" {
-		return nil, errors.New("schedule name is required")
-	}
-	if cfg == nil {
-		cfg = &RunScheduleConfig{}
-	}
-	cfg.WithDefaults()
-	if err := cfg.Validate(); err != nil {
-		return nil, err
-	}
-
-	found, err := a.scheduleController.Get(ctx, name)
-	if err != nil {
-		return nil, err
-	}
-	if found == nil {
-		return nil, schedule.ErrScheduleNotFound.With("schedule", name)
-	}
-
-	target, err := a.topicController.GetById(ctx, found.TopicId)
-	if err != nil {
-		return nil, err
-	}
-	if target == nil {
-		return nil, topic.ErrTopicNotFound.With("topic_id", found.TopicId)
-	}
-	instance, err := a.scheduleProducer.Register[schedule.ScheduleStoredMessage](ctx, target.Name, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	stored, err := schedule.NewScheduleStoredMessage(found.Payload, found.SchemaVersion)
-	if err != nil {
-		return nil, err
-	}
-
-	compaction, err := produce.NewCompactionOptions(0)
-	if err != nil {
-		return nil, err
-	}
-
-	// no IdempotencyKey: Produce creates a fresh v7 per call, so every run is
-	// its own message
-	return instance.Produce(ctx, stored, &produce.ProduceOptions{
-		RoutingKey: found.Name,
-		MessageKey: found.Name,
-		Compaction: compaction,
-		Message: &common.MessageOptions{
-			Concurrency: cfg.Concurrency,
-			Timeout:     found.Timeout,
-			ScheduledAt: time.Now().UTC(),
-		},
-	})
+// RunSchedule produces the named schedule's stored message immediately.
+// options may be nil or sparse.
+func (a *MessageAdmin) RunSchedule(ctx context.Context, name string, options *scheduler.ScheduleRunOptions) (*producer.ProduceResult[schedule.ScheduleStoredMessage], error) {
+	return a.scheduler.RunSchedule(ctx, name, options)
 }
 
 // ScheduleStatus is one ScheduleGroupSummary per consumer group that receives the

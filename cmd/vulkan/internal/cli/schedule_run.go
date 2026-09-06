@@ -29,18 +29,18 @@ func newScheduleRunCmd(g *globalFlags) *cobra.Command {
 			name := args[0]
 			f := cmd.Flags()
 
-			// Build a sparse config from only the flags that were passed.
-			cfg := &vulkan.RunScheduleConfig{}
+			// Build sparse options from only the flags that were passed.
+			options := &vulkan.ScheduleRunOptions{}
 			if f.Changed("concurrency") {
-				cfg.Concurrency = common.ConcurrencyPolicy(concurrency)
+				options.Concurrency = common.ConcurrencyPolicy(concurrency)
 			}
 
 			// Validate up front for a clean usage error (a bad flag value,
 			// exit 2) instead of the raw wrapped error the run returns.
-			probe := *cfg
+			probe := *options
 			probe.WithDefaults()
 			if err := probe.Validate(); err != nil {
-				return failUsage("invalid config: %s", err)
+				return failUsage("invalid options: %s", err)
 			}
 
 			client, closeClient, err := openClient(ctx, g.databaseURL, g.schema, slog.LevelError)
@@ -49,7 +49,7 @@ func newScheduleRunCmd(g *globalFlags) *cobra.Command {
 			}
 			defer closeClient()
 
-			produced, err := client.Scheduler(name).Run(ctx, cfg)
+			produced, err := client.Scheduler(name).Run(ctx, options)
 			if err != nil {
 				if errors.Is(err, schedule.ErrScheduleNotFound) {
 					return errScheduleNotFound(name)

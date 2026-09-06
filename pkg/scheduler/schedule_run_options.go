@@ -1,4 +1,4 @@
-package admin
+package scheduler
 
 import (
 	"fmt"
@@ -6,8 +6,9 @@ import (
 	"github.com/agentstax/vulkan/pkg/common"
 )
 
-// RunScheduleConfig is RunSchedule's spec -- every field is optional.
-type RunScheduleConfig struct {
+// ScheduleRunOptions controls one immediate run of a registered schedule.
+// Every field is optional.
+type ScheduleRunOptions struct {
 	// Concurrency - the produced request's concurrent-run policy.
 	// Default: parallel (the request runs even while a previous one is still running).
 	//
@@ -15,17 +16,17 @@ type RunScheduleConfig struct {
 	Concurrency common.ConcurrencyPolicy
 }
 
-func (c *RunScheduleConfig) WithDefaults() *RunScheduleConfig {
-	if c.Concurrency == "" {
-		c.Concurrency = common.ConcurrencyParallel
+func (o *ScheduleRunOptions) WithDefaults() *ScheduleRunOptions {
+	if o.Concurrency == "" {
+		o.Concurrency = common.ConcurrencyParallel
 	}
-	return c
+	return o
 }
 
 // Validate runs after WithDefaults -- anything still out of range here was
 // set by the caller, not left unset.
-func (c *RunScheduleConfig) Validate() error {
-	if err := c.Concurrency.Validate(); err != nil {
+func (o *ScheduleRunOptions) Validate() error {
+	if err := o.Concurrency.Validate(); err != nil {
 		return fmt.Errorf("Concurrency: %w", err)
 	}
 	return nil

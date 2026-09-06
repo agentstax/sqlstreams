@@ -464,7 +464,7 @@ func runNowOverrideSection(ctx context.Context) {
 
 	// cfg.Concurrency exclusive opts back into the job's no-overlap safety: this
 	// request waits for the running one instead of running beside it
-	deferred, err := client.Scheduler(prefix+".runnow").Run(ctx, &vulkan.RunScheduleConfig{Concurrency: common.ConcurrencyExclusive})
+	deferred, err := client.Scheduler(prefix+".runnow").Run(ctx, &vulkan.ScheduleRunOptions{Concurrency: common.ConcurrencyExclusive})
 	must(err)
 	waitForCount(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND message_id = %d AND status = 'deferred';`, ds.Schema, topic.DeliveryLogTable(target.Id), group, deferred.Id), 1)
 	if got := scalarInt64(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND message_id = %d AND status = 'success';`, ds.Schema, topic.DeliveryLogTable(target.Id), group, deferred.Id)); got != 0 {

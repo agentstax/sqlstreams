@@ -220,7 +220,7 @@ func seedingSection(ctx context.Context) {
 // declareThreshold re-declares the partition_count alert at threshold, through
 // the same call a user changing it would make.
 func declareThreshold(ctx context.Context, threshold int64) {
-	must(client.System().Register(ctx, &vulkan.RegisterSystemConfig{
+	must(client.System().Register(ctx, &vulkan.SystemConfig{
 		PartitionCountAlert: &alert.PartitionCountAlertConfig{Threshold: threshold},
 	}))
 }

@@ -110,7 +110,7 @@ func run() (err error) {
 	must(err)
 	collectorId := row.Id
 	for _, rate := range []time.Duration{0, 10 * time.Second, collectorRate} {
-		must(client.System().Register(ctx, &vulkan.RegisterSystemConfig{
+		must(client.System().Register(ctx, &vulkan.SystemConfig{
 			MetricsCollector: &vulkan.MetricsCollectorWorkerConfig{PollRate: rate},
 		}))
 		row, err = workers.GetWorker(ctx, collector.WorkerMetricsCollector, systemOwner)
@@ -125,7 +125,7 @@ func run() (err error) {
 			die("collector declaration changed its identity or stored the wrong rate")
 		}
 	}
-	err = client.System().Register(ctx, &vulkan.RegisterSystemConfig{
+	err = client.System().Register(ctx, &vulkan.SystemConfig{
 		MetricsCollector: &vulkan.MetricsCollectorWorkerConfig{PollRate: -time.Second},
 	})
 	if err == nil || !strings.Contains(err.Error(), "MetricsCollector: PollRate") {

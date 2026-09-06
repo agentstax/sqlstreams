@@ -22,7 +22,7 @@ contract before v1. Removed records a decision implemented in this review.
 
 | Verdict | Surface | Recommendation and consequence |
 | --- | --- | --- |
-| Removed (review in progress) | `RegisterSystemConfig.System`, `SystemConfig` alias | Empty configuration offered no choice. RegisterSystemConfig retains alert and collector settings; registration creates the singleton directly. No settings or stored rows changed. |
+| Removed (review in progress) | Nested `SystemConfig` stub | Empty configuration offered no choice. The real alert and collector declaration is now `SystemConfig`; registration creates the singleton directly. No settings or stored rows changed. |
 | Question | `Client.Datastore()`, `PostgresDatastore` alias | This returns shared state with writable Pool, Schema, Logger, and Retry. Decide whether this is an intentional supported escape hatch. Keep until direct users and integrations are checked; deleting only the alias cannot hide a reachable return type. A replacement must preserve custom SQL/integration needs without creating a second datastore. |
 | Question | `Client.Config`, `Client.Logger` | Exported mutable state can imply live reconfiguration, but different components retain different resolved values. Decide whether these are supported read access, live controls, or construction details. Trace mutations before promising behavior; do not silently make existing assignments ineffective. |
 | Keep | `ProducerConfig.Batch`, `BatcherConfig` | MaxSize, ConcurrencyLimit, AttemptTimeout, and ShutdownGrace express caller-visible batching and cancellation tradeoffs. Their implementation-package location is not a reason to remove them. |
@@ -131,8 +131,8 @@ free constructor for that type is exported by vulkan.
 | `Worker` | [worker.Worker](pkg/worker/worker.go) | None declared | Question |
 | `InstanceTarget` | [worker.InstanceTarget](pkg/worker/worker.go) | `Suspended`, `Validate` | Keep |
 | `DestroyOptions` | [admin.DestroyOptions](pkg/admin/topic.go) | None declared | Keep |
-| `RegisterSystemConfig` | [admin.RegisterSystemConfig](pkg/admin/registersystem_config.go) | `WithDefaults`, `Validate` | Keep |
-| `RunScheduleConfig` | [admin.RunScheduleConfig](pkg/admin/runschedule_config.go) | `WithDefaults`, `Validate` | Keep |
+| `SystemConfig` | [system.SystemConfig](pkg/system/system_config.go) | `WithDefaults`, `Validate` | Keep; domain-owned declaration, composed from alert and metrics configs; admin retains registration orchestration |
+| `ScheduleRunOptions` | [scheduler.ScheduleRunOptions](pkg/scheduler/schedule_run_options.go) | `WithDefaults`, `Validate` | Keep; moved to the owning scheduler assembler; subject precedes operation in qualified command input names |
 | `TopicVersionHealth` | [admin.TopicVersionHealth](pkg/admin/health.go) | None declared | Keep |
 | `PartitionCountAlertConfig` | [alert.PartitionCountAlertConfig](pkg/alert/alert_config.go) | `WithDefaults`, `Validate` | Keep |
 | `CompactionReadCostAlertConfig` | [alert.CompactionReadCostAlertConfig](pkg/alert/alert_config.go) | `WithDefaults`, `Validate` | Keep |
@@ -185,7 +185,7 @@ noted above, not their availability to users.
 | Broad internal moves / datastore interfaces | No blanket relocation or interface introduction. Revisit only a concrete use case. |
 | Unexport common retry helpers | Not reachable through vulkan as free functions; no supported-surface benefit. |
 | DestroyTopicVersion / AlterSystem examples | Obsolete names; inspect current handles instead. |
-| Delete field-less RegisterSystem config | Implemented during this review: removed only the empty System member; RegisterSystemConfig retains its real settings. |
+| Delete field-less RegisterSystem config | Implemented during this review: removed the empty nested System member; the remaining real settings are `SystemConfig`. |
 
 ## Implementation order after review
 

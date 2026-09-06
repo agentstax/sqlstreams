@@ -1,4 +1,4 @@
-package admin
+package system
 
 import (
 	"fmt"
@@ -7,10 +7,9 @@ import (
 	"github.com/agentstax/vulkan/pkg/metrics"
 )
 
-// RegisterSystemConfig is RegisterSystem's spec -- the schedule each built-in
-// alert is evaluated on and the metrics collector's poll rate. Every field is
-// optional.
-type RegisterSystemConfig struct {
+// SystemConfig declares the built-in alert settings and metrics collector's
+// poll rate. Every field is optional.
+type SystemConfig struct {
 	// PartitionCountAlert - the partition_count alert declaration.
 	// Default: its own defaults.
 	PartitionCountAlert *alert.PartitionCountAlertConfig
@@ -28,7 +27,7 @@ type RegisterSystemConfig struct {
 	MetricsCollector *metrics.MetricsCollectorWorkerConfig
 }
 
-func (c *RegisterSystemConfig) WithDefaults() *RegisterSystemConfig {
+func (c *SystemConfig) WithDefaults() *SystemConfig {
 	if c.PartitionCountAlert == nil {
 		c.PartitionCountAlert = &alert.PartitionCountAlertConfig{}
 	}
@@ -50,7 +49,7 @@ func (c *RegisterSystemConfig) WithDefaults() *RegisterSystemConfig {
 
 // Validate runs after WithDefaults -- anything still out of range here was
 // set by the caller, not left unset.
-func (c *RegisterSystemConfig) Validate() error {
+func (c *SystemConfig) Validate() error {
 	if err := c.PartitionCountAlert.Validate(); err != nil {
 		return fmt.Errorf("PartitionCountAlert: %w", err)
 	}

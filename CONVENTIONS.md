@@ -56,6 +56,13 @@ each func param has explicit type, never combined
   `<Noun>Summary`; a readiness or retirement verdict is `<Noun>Health`; a
   table-exact datastore scan is `<Noun>Row`; and running process state is
   `<Noun>Instance`.
+- When a command type needs a subject qualifier, put the subject before the
+  operation: `<Subject><Verb>Options`, `<Subject><Verb>Item`, or
+  `<Subject><Verb>Result` (ScheduleRunOptions). Keep unqualified names when
+  the operation identifies the activity (ProduceOptions, ConsumeOptions,
+  ProduceItem, ProduceResult) or the type serves several subjects
+  (DestroyOptions). Methods remain verb-first (RunSchedule). Settings for a
+  concept use `<Noun>Options` (MessageOptions, CompactionOptions, AlertOptions).
 - `Data` and `Info` are not exported type suffixes. They describe
   representation without identifying the value's role. Qualify a projection
   by its subject instead (`ScheduleGroupSummary`, `TopicVersionHealth`).
@@ -195,9 +202,12 @@ declared event is declared once, in the lowest package that reads it,
 with a floor -- machinery (a controller, datastore, batcher, or worker
 package) declares nothing a user spells except its own Config and `*Row`
 structs and its controller / datastore / instance / provisioner types.
-So a user-spelled name lives in exactly one of `common` (two domains
-read it), a root (that domain's machinery reads it), or an assembler
-(only its own verbs read it). The only `type X = pkg.X` lines in the
+So a user-spelled name lives in exactly one of `common` (shared vocabulary
+without a single domain owner), a root (vocabulary or resource declarations
+owned by that domain), or an assembler (inputs specific to its operations).
+A resource declaration stays with its domain even when an assembler applies
+it across several domains; the orchestration's location does not determine
+the declaration's owner. The only `type X = pkg.X` lines in the
 repo are pkg/vulkan/alias.go, an alias keeps its declaration's name,
 and the alias set is computed by the closure test in tools/conventions,
 never hand-kept: whatever pkg/vulkan's exported surface reaches must be
@@ -218,9 +228,12 @@ tools/.
 The domain layers:
 
 - `pkg/<x>` -- vocabulary: pure read-models, consts, named error
-  variables, declared events and metrics, and the declaration inputs
-  its controller consumes (TopicConfig, ScheduleConfig, ScheduleSpec).
-  Imports infrastructure only. No constructors for read-models, no
+  variables, declared events and metrics, and resource declaration inputs
+  (TopicConfig, SystemConfig), including declarations applied by an assembler.
+  Imports infrastructure and, for domain-owned data composition, other
+  vocabulary roots. Root-to-root dependencies must remain acyclic; roots
+  never import controllers, datastores, workers, or assemblers, except the
+  infrastructure `pkg/datastore`. No constructors for read-models, no
   fields without production readers.
 - Every public read-model field carries a `json:"snake_case"` tag -- the
   wire name is the field's contract, the json sibling of the datastore
