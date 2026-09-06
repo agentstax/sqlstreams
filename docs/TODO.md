@@ -4,18 +4,6 @@ Sliding window of in-flight work only. Future work lives in ROADMAP.md;
 shipped work in HISTORY.md; decision rationale in DECISIONS.md ->
 docs/decisions/.
 
-- **Named-return-params house style — design discussion.**
-  - Proposed: name every result for signature documentation, using domain
-    names and explicit return expressions. Review a small trial before
-    settling the repository-wide rule and scope.
-  - Trial: NewClient, InTransaction, Client.Topics/Topic,
-    TopicHandle.Register/Get/Producer, ProducerHandle.Register, and
-    ProducerInstance.Produce. Playground 01 exercises the produce chain;
-    playground 02 also exercises InTransaction. Inspect their signatures
-    from the playground call sites; caller bindings remain unchanged.
-  - Once settled, record the decision and update CONVENTIONS.md, then apply
-    the rule with targeted verification.
-
 - **Separate scheduled occurrence metadata from delivery options** (from
   ROADMAP Now). Proposal drafted 2026-09-06 as the `## Proposed` section of
   website/src/content/docs/guides/schedules.mdx; review it before any code.

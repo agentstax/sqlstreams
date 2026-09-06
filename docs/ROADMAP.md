@@ -29,9 +29,6 @@ the item is removed.
     Ordinary producers can currently supply this value; making it scheduler-only
     is a separate decision, not an implied consequence of moving the field.
 
-- **Named-return-params house style** — decide and apply consistently across
-  the reviewed surface.
-
 - **Comment sweeps** — execution list for the documentation review above;
   verify current package paths and remaining duplication before editing:
   - fanOut (pkg/consumer/deliveryconsumer/controller/datastore/fanout.go) —

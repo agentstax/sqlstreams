@@ -5,6 +5,13 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-06 — Named-result style review closed [0672]
+
+Reverted the nine-signature client and handle trial after playground review:
+verbs and concrete return types already identify the results, so naming each
+result adds repetition. Recorded the unnamed-result default in CONVENTIONS.md
+and closed the TODO and ROADMAP item. Runtime behavior is unchanged.
+
 ## 2026-09-06 — Consumer session failure contract retained [0671]
 
 Closed the manager permanent-error roadmap discussion: fatal consumption

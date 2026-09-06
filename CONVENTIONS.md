@@ -269,6 +269,9 @@ The domain layers:
 
 ## Supported public API
 
+- Client, handle, and instance methods use unnamed results by default.
+  Do not add result names solely to repeat what the verb and return type
+  already communicate. Keep return expressions explicit [0672].
 - `pkg/vulkan` is the supported public entry point. Its exported names and
   all exported fields and methods reachable through its types, aliases,
   parameters, and results belong to that contract. Moving the entry package
