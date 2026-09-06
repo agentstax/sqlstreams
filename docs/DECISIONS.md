@@ -207,7 +207,7 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0408 2026-08-06 superseded (phase 14a) — The topic catalog column is named schema_version, accepting the overlap with schema_log.schema_version
 - 0409 2026-08-06 superseded (phase 14a) — There is no unversioned GetTopic(name); every topic read is version-addressed
 - 0410 2026-08-06 accepted (phase 14a) — Topic display identity stays two structured fields, not a concatenated name@vN string
-- 0411 2026-08-06 accepted (phase 14a) — FamilyHealth and VersionHealth live in pkg/admin, not as a pkg/metrics composition
+- 0411 2026-08-06 superseded (phase 14a) — FamilyHealth and VersionHealth live in pkg/admin, not as a pkg/metrics composition
 - 0421 2026-08-08 accepted (phase 14a) — One generic worker/worker_instance pair replaces per-feature maintenance/duty plumbing
 - 0422 2026-08-08 accepted (phase 14a) — Exclusivity is claim-per-instance, not claim-per-tick
 - 0423 2026-08-08 accepted (phase 14a) — The manager respawns only on ErrInstanceLost and propagates every other error
@@ -428,3 +428,4 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0673 2026-09-06 rejected (pre-v1) — The scheduled time is a message_log column on every message
 - 0674 2026-09-06 accepted (pre-v1) — Playground examples share handle, instance, and lifecycle patterns
 - 0675 2026-09-06 rejected (pre-v1) — The message's own time is sent_at
+- 0676 2026-09-06 accepted (pre-v1) — Admin owns orchestration and domains own validation rules and resource reads

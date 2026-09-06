@@ -1,10 +1,13 @@
 ---
-status: accepted
+status: superseded
 date: 2026-08-06
 phase: "14a"
 ---
 
 # 0411 — FamilyHealth and VersionHealth live in pkg/admin, not as a pkg/metrics composition
+
+Superseded by [0676](0676-admin-orchestration-and-domain-validation.md): the
+health declaration moves to the topic root; composition remains in admin.
 
 **Context.** The retire verdict for a topic version reads consumer-group lag and topic compaction state — data pkg/metrics-style code already exposes — so a metrics-side home looked plausible, and a working `pkg/metrics.HealthMetrics` was actually built.
 

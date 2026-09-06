@@ -16,35 +16,61 @@ the item is removed.
 
 ## Now
 
-- **Comment sweeps** — execution list for the documentation review above;
-  verify current package paths and remaining duplication before editing:
-  - fanOut (pkg/consumer/deliveryconsumer/controller/datastore/fanout.go) —
-    both the Go comments and the ones inside snapshotSql/scanSql. SQL
-    comments ship to Postgres, so every comment edit needs a live lab re-run
-    (routing-lab is cheapest). (Verified 2026-08-13: pgx sends comments
-    verbatim, but default QueryExecModeCacheStatement sends query text only
-    at prepare time — once per connection per unique query — so the cost is
-    observability noise, not network bytes.)
-  - pkg/metrics; pkg/admin (health/metrics specifically);
-    pkg/consumer/metrics (comments specifically).
-  - The config-struct comment boilerplate ("pass your own *slog.Logger (own
-    Handler)...", the Retry field comment, "Validate runs after
-    WithDefaults...") is copied verbatim across ~40 config files — improving
-    it must be ONE codebase-wide sweep so the files stay identical, never a
-    per-package rewording. The "(own Handler)" fragment looks like a copy
-    artifact to fix in that same sweep.
-
-- **Public API documentation review** — the supported surface review is closed [0670]; audit
-  exported handles, instances, and the declaring packages behind aliases
-  against current behavior. Apply CONVENTIONS.md's existing comment and SQL
-  rules; refine them only where a concrete gap remains. [0664]
-  - Cover meaningful defaults, lifecycle/cancellation requirements, errors,
-    and destructive effects; link to the relevant guide where it helps.
-    Review what callers see through `vulkan`, not the old worker/schedule
-    constructor inventory.
-  - Reconcile quickstarts and the public roadmap with the one-client API.
-    The normal constructors already supply defaults; no separate
-    DefaultProducer / DefaultConsumer path is planned.
+- **Public API documentation review** — the surface is settled ([0670],
+  [0672]); the doc comments a caller reaches through `vulkan` never got a
+  pass, and the site drifted through the client redesign. Audit every
+  reachable declaration against current behavior so each comment states
+  the contract the code actually keeps. [0664]
+  - The inventory is the alias closure tools/conventions computes
+    (~110 declarations across vulkan, common, diagnostic, datastore,
+    produce, producer, consume, consumer, topic, schedule, scheduler,
+    system, worker, admin, alert, metrics) -- never a hand-kept list. A
+    contract lives on the declaring package's declaration; the vulkan
+    wrapper repeats nothing [0665]. Named results are not the
+    documentation layer [0672].
+  - Each comment states: a `Default:` line on every field WithDefaults
+    fills; the Err* variable a verb returns; blocking and cancellation
+    (Consume, Manager().Run, SchedulerInstance.Schedule); destructive
+    effect and the ClientConfig.AllowDestroy gate; the caller's own path
+    (`client.Topic(name).Register`, never `MessageAdmin.RegisterTopic`).
+  - Measured 2026-09-06, ~90 findings, worst in common, admin, consumer:
+    16 stale names (RegisterProducer, RunManager, MessageAdminConfig,
+    GetSystem/ScheduleMessages as the caller's verb, godoc heads naming
+    the pre-prefix type); 7 wrong claims -- MessageOptions.Timeout/Retry
+    "Default: 0 / nil" against WithDefaults' 30s / MaxRetries 3,
+    TopicHandle.Health "stored metrics snapshots" against a live read,
+    TopicConfig.IdempotencyKeyTTL "zero is invalid" while Validate
+    accepts it, SchedulerConfig.Metadata "Default: {}" set only in SQL;
+    ~20 missing contracts (Consume names neither VK error it returns,
+    nine ConsumeOptions/ConsumerConfig fields have no Default line,
+    Beginning/Head/TransactionFunc/NewMeasurement undocumented); ~45
+    uncommented exported declarations.
+  - Boilerplate is ONE codebase-wide sweep so files stay identical:
+    "Validate runs after WithDefaults..." x36 (3 on empty Validate
+    bodies), "cfg may be nil or sparse" x32, "options may be nil" x7.
+    The Logger/Retry field boilerplate is already gone [0657].
+  - SQL comments inside literals ship to Postgres (fanOut,
+    pkg/consume/deliveryconsumer/controller/datastore/fanout.go): a
+    comment edit there needs a live lab re-run (routing-lab is cheapest).
+  - Site: 16 pages, ~30 stale tokens, mostly the admin verb names
+    (RegisterTopic, RegisterSystem, RegisterProducer, RegisterConsumer,
+    RegisterSchedule) for the handle verbs. Reader-breaking ones first:
+    concepts/routing and concepts/fan-out call a dead receiver with
+    positional bindings; the quickstart names a third constructor
+    NewClient builds itself and says system registration is required
+    after saying topic Register does it [0624]; why-vulkan's three-arg
+    ProducerFunc; `vulkan.ScheduleConfig` in client.mdx and
+    consumer-group-config.mdx. Six error pages' fix lines name dead verbs
+    (VK0020, VK0021, VK0058, VK0063, VK0064, VK0065). roadmap.mdx already
+    matches; every Proposed section still stands unshipped; every sample
+    compiles [0581].
+  - Conventions gap: ## Comments says when a comment earns its place, not
+    what a reachable declaration's must state. The contract bullet above
+    is the candidate rule; a tools/conventions walk checking the Default:
+    line on WithDefaults-filled fields is its machine-checkable half.
+    Refine nothing else.
+  - Settled, do not re-open: no DefaultProducer / DefaultConsumer path;
+    the normal constructors take nil configs [0664].
 
 ## Next
 
