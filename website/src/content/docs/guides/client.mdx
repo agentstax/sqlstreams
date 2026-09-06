@@ -54,6 +54,26 @@ settings. Existing instances keep their original settings. Keep the application
 logger for application logs; Vulkan retains that logger, and its own
 concurrency-safe controls can still change its output level.
 
+## Retry-policy helpers
+
+`RetryPolicy` keeps its calculation and comparison methods. Resolve defaults
+with `WithDefaults` and check `Validate` before calculating delays.
+`CalculateDelay(attempt)` takes a zero-based, nonnegative index and caps the
+backoff at `MaxDelay`; it does not stop at `MaxRetries`.
+
+For a datastore policy with four attempts, a 1s base delay, exponent 2, and a
+5s cap, the sleeps are 1s, 2s, and 4s. `CalculateTotalDelay()` returns 7s.
+That excludes time spent executing operations; success, permanent errors,
+or cancellation can end the retry loop earlier. `MaxDelays` does not affect
+these calculations.
+
+`Equal` compares stored fields, including `MaxDelays`, without filling defaults.
+Two nil policies are equal. Nil and an explicit default policy are different.
+
+The total must fit in `time.Duration`. `Validate` currently checks individual
+fields but does not reject a policy whose total overflows; such a sum can
+return a negative duration. Arithmetic overflow handling remains under review.
+
 ## Two grammars
 
 The client selects the noun: `Topic[T](name)`, `Scheduler(name)`, and a

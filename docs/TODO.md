@@ -12,6 +12,10 @@ docs/decisions/.
   callers use owned pools and explicit datastores. Continue with the remaining
   question rows. Client.Config and Client.Logger are also removed; construction
   captures settings and copies the supplied retry policy.
+  RetryPolicy helpers stay public; comments and contract tests are complete.
+  Boundary verification found total-delay overflow for valid fields. Review
+  arithmetic handling with the producer's added operation allowance before
+  closing this item; details are in `_public-surface.md`.
 
 - Table name + column review (pre-v1, last pass before the DDL is expensive
   to change). Automated review 2026-09-06; `tools/conventions` DDL walk

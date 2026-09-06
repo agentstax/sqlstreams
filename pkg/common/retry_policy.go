@@ -26,15 +26,15 @@ func NewDefaultRetryPolicy() *RetryPolicy {
 	}
 }
 
-// CalculateDelay returns the clamped exponential backoff
-// Algo: BaseDelay * Exponent^attempt, floored at 0 and ceiled at MaxDelay.
+// CalculateDelay returns BaseDelay * Exponent^attempt, capped at MaxDelay.
+// Use a defaulted, valid policy and a zero-based, nonnegative attempt; MaxRetries is not enforced.
 func (p *RetryPolicy) CalculateDelay(attempt int) time.Duration {
 	delay := time.Duration(float64(p.BaseDelay) * math.Pow(float64(p.Exponent), float64(attempt)))
 	return max(MIN_DELAY, min(delay, p.MaxDelay))
 }
 
-// CalculateTotalDelay returns the schedule's total sleep time. Wrap never
-// sleeps after the last attempt, so the sum stops at MaxRetries-2.
+// CalculateTotalDelay sums sleeps before the final datastore attempt, excluding
+// operation time and early exits. The defaulted, valid policy's sum must fit time.Duration.
 func (p *RetryPolicy) CalculateTotalDelay() time.Duration {
 	var total time.Duration
 	for attempt := range p.MaxRetries - 1 {
@@ -43,6 +43,8 @@ func (p *RetryPolicy) CalculateTotalDelay() time.Duration {
 	return total
 }
 
+// Equal compares stored fields, including MaxDelays, without resolving defaults.
+// Two nil policies are equal; nil and an explicit default policy are not.
 func (p *RetryPolicy) Equal(other *RetryPolicy) bool {
 	if p == nil || other == nil {
 		return p == other
