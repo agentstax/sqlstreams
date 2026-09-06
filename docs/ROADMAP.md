@@ -69,7 +69,7 @@ the item is removed.
       client.mdx's `Declaration` role): the admin verb names for the
       handle verbs. roadmap.mdx already matches; every Proposed section
       still stands unshipped.
-    - [ ] 5. The comment contract rule: ## Comments says when a comment
+    - [x] 5. The comment contract rule: ## Comments says when a comment
       earns its place, not what a reachable declaration's must state. Add
       the rule from the standing bullet above and a tools/conventions
       walk checking the Default: line on WithDefaults-filled fields.

@@ -29,11 +29,11 @@ roadmap later item for review code for interesting design decisions to write art
   - amount of corrections for frontier models (50%)
   - When to heavily review the code vs skim or not at all (what is the right balance)
 - The importance of keeping notes (previously the slower pace would allow for easier tracking, things change so quick now it is easier to forget)
+- rules vs conventions and the tradeoffs of each
+  - rules are enforced via code, scripts etc. Have maintainenance and overly aggressive rules can be annoying and brittle
+  - conventions easy and work well with workflows but easily accumlate drift overtime (if large enough project)
 
 # Review
-
-Need to do review of admin code for what should or shouldn't be handled there
-- Need some consistent ruling and patterns applied
 
 Probably should have one more table name and column review (this will be hard to change later)
 

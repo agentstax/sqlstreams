@@ -903,6 +903,15 @@ trailing `help` attribute, so the line itself points at its explanation.
 - Default is no comment. A comment earns its place only by stating a why or
   gotcha the adjacent code cannot show -- restating the code/SQL/signature
   below it, boundary/wiring narration, and design essays all get cut.
+- The supported surface is the exception: every declaration a caller
+  reaches through `vulkan` (the alias closure) states its contract. A
+  field WithDefaults fills ends its comment with `Default: <value>.`;
+  a verb names each Err* variable it returns; a blocking verb says that
+  ctx cancellation returns it and what runs beside it; a destructive
+  verb names what it deletes and the ClientConfig.AllowDestroy gate.
+  The path spelled is the caller's own (`client.Topic(name).Register`),
+  never the machinery verb behind it. tools/conventions checks the
+  `Default:` line; the rest is review.
 - 1-2 lines, rationale directly above the statement it explains. Parallel
   facts enumerate one per line (`condition -> outcome`).
 - Every comment stands alone -- it is read cold by someone who was not in the
