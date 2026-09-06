@@ -78,13 +78,24 @@ empty results, owner validation, and the manager's ancestor selection.
 Targeted build/race and conventions checks passed; the consumer-group lab
 passed with -race and worker-claim-lab passed through failover and release.
 
-- [ ] Move TopicVersionHealth to pkg/topic with identical fields and JSON
+- [x] Move TopicVersionHealth to pkg/topic with identical fields and JSON
   tags; update the vulkan alias. Keep TopicHealth composition in admin and
   inline evaluate's logic inside its snapshot loop: compaction heads take
   precedence; otherwise collect groups with Unconsumed > 0 or
   UnresolvedExceptions > 0; otherwise set Safe. Preserve exact Reason text,
   group ordering, and result ordering. Remove evaluate; add no new verdict
   helper or metrics computation. Verify vocabulary imports remain acyclic.
+
+Task 4: TopicVersionHealth now lives in pkg/topic/health.go with the original
+fields and JSON tags; vulkan's alias points there. Admin computes the verdict
+directly in TopicHealth's snapshot loop; evaluate is removed. Targeted build
+and race checks for admin/topic/vulkan and the conventions/alias checks passed.
+The expanded schema-evolution lab passed with -race, covering safe, remaining
+heads, unread groups, exact reason strings, version/group ordering, unchanged
+counts and identity, and head precedence when groups also lag. The topic to
+metrics vocabulary dependency is acyclic. Direct users of the old admin type
+must use topic.TopicVersionHealth; the supported vulkan name is unchanged.
+
 - [ ] Before implementing public behavior changes, write the affected
   doc-site proposal marked Proposed and review it with the user. Explain
   validation-before-bootstrap and preserve the existing error/log contracts

@@ -56,7 +56,7 @@ the item is removed.
       and raw_payload.go naming Register, godoc heads naming the pre-prefix
       type (Error, Event, Status), headless doc sentences (Topic,
       NewProduceItem, Consumer, ConsumerFunc).
-    - [ ] 3. Site, reader-breaking first: concepts/routing and
+    - [x] 3. Site, reader-breaking first: concepts/routing and
       concepts/fan-out call a dead receiver with positional bindings; the
       quickstart names a third constructor NewClient builds itself and says
       system registration is required after saying topic Register does it

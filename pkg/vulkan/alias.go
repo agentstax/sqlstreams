@@ -80,7 +80,7 @@ type (
 
 	DestroyOptions     = admin.DestroyOptions
 	SystemConfig       = system.SystemConfig
-	TopicVersionHealth = admin.TopicVersionHealth
+	TopicVersionHealth = topic.TopicVersionHealth
 
 	PartitionCountAlertConfig     = alert.PartitionCountAlertConfig
 	CompactionReadCostAlertConfig = alert.CompactionReadCostAlertConfig
