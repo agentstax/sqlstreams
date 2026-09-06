@@ -6,6 +6,7 @@ export const createConsumerGroupConfigSql = `
 			topic_id BIGINT NOT NULL REFERENCES %[1]s.topic_config (id) ON DELETE CASCADE, -- owning topic
 			name TEXT NOT NULL,
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			UNIQUE (topic_id, name)
 		);
 	`;

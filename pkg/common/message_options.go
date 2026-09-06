@@ -32,7 +32,8 @@ type MessageOptions struct {
 	ScheduledAt time.Time `json:"scheduled_at,omitzero"`
 }
 
-// returns new copy not modified pointer
+// Fill fills unset delivery fields from defaults, copying Retry without changing inputs.
+// Two nil inputs return nil; ScheduledAt comes only from the receiver.
 func (o *MessageOptions) Fill(defaults *MessageOptions) *MessageOptions {
 	if o == nil && defaults == nil {
 		return nil
@@ -55,8 +56,9 @@ func (o *MessageOptions) Fill(defaults *MessageOptions) *MessageOptions {
 	return &filled
 }
 
-// returns new copy not modified pointer
-func (o *MessageOptions) Clamp(minimum, maximum *MessageOptions) *MessageOptions {
+// Clamp applies positive numeric bounds to Timeout and Retry, copying Retry.
+// A nil receiver returns nil; Concurrency and ScheduledAt remain unchanged.
+func (o *MessageOptions) Clamp(minimum *MessageOptions, maximum *MessageOptions) *MessageOptions {
 	if o == nil {
 		return nil
 	}
@@ -74,7 +76,8 @@ func (o *MessageOptions) Clamp(minimum, maximum *MessageOptions) *MessageOptions
 	return &clamped
 }
 
-// returns new copy not modified pointer
+// ResolveConcurrency selects override, the receiver's policy, or parallel, in that order.
+// It returns a new options struct sharing Retry; a nil receiver is valid.
 func (o *MessageOptions) ResolveConcurrency(override ConcurrencyPolicy) *MessageOptions {
 	var resolved MessageOptions
 	if o != nil {
@@ -90,6 +93,8 @@ func (o *MessageOptions) ResolveConcurrency(override ConcurrencyPolicy) *Message
 	return &resolved
 }
 
+// Equal compares stored fields without resolving defaults, using instant equality for ScheduledAt.
+// Two nil options are equal; nil and an empty options struct are not.
 func (o *MessageOptions) Equal(other *MessageOptions) bool {
 	if o == nil || other == nil {
 		return o == other

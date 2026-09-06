@@ -9,6 +9,8 @@ export const createWorkerConfigSql = `
 			name TEXT NOT NULL,                      -- 'janitor' | 'cursor_advancer' | 'schedule_producer' | user-defined
 			metadata JSONB NOT NULL DEFAULT '{}',    -- per-worker config, written by the declaration that creates the row
 			target_instances INT NOT NULL DEFAULT 1, -- 0 = suspended, -1 = unbounded
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			CHECK (num_nonnulls(system_id, topic_id, consumer_group_id) = 1),
 			CHECK (target_instances >= -1)
 		);

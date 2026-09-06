@@ -452,9 +452,14 @@ topic's family -- never both.
   exception_queue.lease_token); `last_` marks latest-of-many. Singular =
   ordinal (attempt), plural = running count (attempts, reclaims) -- the
   logging registry's rule, extended to columns.
+- Every `_config` table carries `created_at` and `updated_at`, both
+  `TIMESTAMPTZ NOT NULL DEFAULT NOW()`, as its last two columns before
+  any constraint, and every UPDATE on a config row sets
+  `updated_at = NOW()` [0667]. Consistency across the kind outranks the
+  redundancy with the `_config_log` trail.
 - tools/conventions walks the baseline DDL for the machine-checkable
   half of these rules: table kinds, `_at`/`_after` on TIMESTAMPTZ
-  columns, `_ns` on durations.
+  columns, `_ns` on durations, both timestamps on `_config` tables.
 - A new table splits per-topic when every row has exactly one owning topic
   (directly or through its consumer group) and no reader needs the table
   before knowing the topic. It stays shared when rows can exist at system

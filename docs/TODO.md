@@ -43,8 +43,9 @@ docs/decisions/.
        and min_compatible_version); BIGINT stays for ids, `_ns`, sizes, and
        compaction_rank. 18 labs green on a fresh DB.
   2. Settle the shape + order findings:
-     - `_config` timestamps follow no rule: system both, topic both,
-       consumer_group created only, worker/schedule/binding none -> pick one.
+     - `_config` timestamps -- SHIPPED 2026-09-06 [0667]: every `_config`
+       table carries both, every config UPDATE sets updated_at (USER-SETTLED:
+       consistency over trail redundancy). Conventions test enforces it.
      - 1:1 cursor tables differ: consumer_group_cursor has surrogate `id` +
        UNIQUE group id; schedule_cursor uses schedule_id as PK -> pick one.
      - claim_lease leads with `token` (columns + PK); every other per-group

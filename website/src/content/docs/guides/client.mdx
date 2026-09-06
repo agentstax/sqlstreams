@@ -74,6 +74,39 @@ The total must fit in `time.Duration`. `Validate` currently checks individual
 fields but does not reject a policy whose total overflows; such a sum can
 return a negative duration. Arithmetic overflow handling remains under review.
 
+## Message-option helpers
+
+The public helpers let callers inspect how delivery settings resolve:
+
+```go
+resolved := requested.Fill(defaults).Clamp(minimum, maximum).
+ ResolveConcurrency(override)
+```
+
+`Fill` fills unset delivery fields from the supplied defaults. `Clamp` applies
+positive numeric bounds to timeout and retry fields; zero bounds do not constrain
+them. `ResolveConcurrency` chooses a nonempty override, then the requested policy,
+then parallel. These helpers do not validate inputs. `Fill` uses only the
+defaults supplied by its caller.
+
+For example, if `billing` defaults to a 30s timeout and caps it at 10s, a message
+requesting 20s resolves to 10s. A parallel override also replaces an exclusive
+request, independently of the numeric bounds.
+
+`Fill` and `Clamp` copy the nested retry policy when present.
+`ResolveConcurrency` returns a new outer struct but shares the retry pointer.
+None changes its input during the call. `Fill(nil)` on nil returns nil;
+`Clamp` on nil returns nil; `ResolveConcurrency` on nil returns an options
+struct with the override or parallel policy.
+
+`Equal` compares stored values without filling defaults. It compares
+`ScheduledAt` as an instant, so different time zones representing the same
+instant compare equal. Two nil options are equal; nil and an empty struct differ.
+
+`ScheduledAt` passes through from the message unchanged; defaults and bounds
+do not supply or constrain it. Separating that metadata from delivery settings
+is planned work; its current public field and stored representation remain.
+
 ## Two grammars
 
 The client selects the noun: `Topic[T](name)`, `Scheduler(name)`, and a

@@ -13,6 +13,8 @@ export const createScheduleConfigSql = `
 			payload JSONB NOT NULL DEFAULT '{}',             -- the message, marshaled once at Register
 			schema_version INTEGER NOT NULL,                 -- the payload's Message type version, written on every produce
 			metadata JSONB NOT NULL DEFAULT '{}',
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			CHECK (timeout_ns > 0)
 		);
 	`;

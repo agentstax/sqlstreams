@@ -84,7 +84,7 @@ func (d *WorkerDatastore) registerWorker(ctx context.Context, name string, owner
 	updateSql := fmt.Sprintf(`
 		-- vulkan: worker.registerWorker
 		UPDATE %[1]s.worker_config
-		SET metadata = COALESCE($2, '{}'::jsonb)
+		SET metadata = COALESCE($2, '{}'::jsonb), updated_at = NOW()
 		WHERE id = $1
 		RETURNING metadata;
 	`, d.Datastore.Schema)

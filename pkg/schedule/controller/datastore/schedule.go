@@ -106,7 +106,7 @@ func (d *ScheduleDatastore) Suspend(ctx context.Context, name string) error {
 func (d *ScheduleDatastore) suspend(ctx context.Context, name string) error {
 	sql := fmt.Sprintf(`
 		-- vulkan: schedule.suspend
-		UPDATE %[1]s.schedule_config SET suspended = true WHERE name = $1;
+		UPDATE %[1]s.schedule_config SET suspended = true, updated_at = NOW() WHERE name = $1;
 	`, d.Datastore.Schema)
 	tag, err := d.Datastore.Pool.Exec(ctx, sql, name)
 	if err != nil {
@@ -153,7 +153,7 @@ func (d *ScheduleDatastore) unsuspend(ctx context.Context, name string) error {
 
 	configSql := fmt.Sprintf(`
 		-- vulkan: schedule.unsuspend
-		UPDATE %[1]s.schedule_config SET suspended = false WHERE name = $1;
+		UPDATE %[1]s.schedule_config SET suspended = false, updated_at = NOW() WHERE name = $1;
 	`, d.Datastore.Schema)
 	tag, err := tx.Exec(ctx, configSql, name)
 	if err != nil {

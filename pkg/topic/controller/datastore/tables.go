@@ -255,6 +255,8 @@ func (d *TopicDatastore) createTopicTables(ctx context.Context, tx pgx.Tx, id in
 			consumer_group_id BIGINT NOT NULL REFERENCES %[1]s.consumer_group_config (id) ON DELETE CASCADE,
 			pattern_regex TEXT NOT NULL,              -- POSIX regex translated from the declared pattern
 			pattern TEXT,                             -- the declared NATS-style pattern, for humans
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			UNIQUE (consumer_group_id, pattern_regex) -- its index also serves the group lookup
 		);
 	`, d.Datastore.Schema, topic.BindingConfigTable(id))

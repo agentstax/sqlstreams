@@ -89,6 +89,7 @@ func (d *SystemDatastore) createSystemTables(ctx context.Context, tx pgx.Tx) err
 			topic_id BIGINT NOT NULL REFERENCES %[1]s.topic_config (id) ON DELETE CASCADE, -- owning topic
 			name TEXT NOT NULL,
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			UNIQUE (topic_id, name)
 		);
 	`, d.Datastore.Schema)
@@ -107,6 +108,8 @@ func (d *SystemDatastore) createSystemTables(ctx context.Context, tx pgx.Tx) err
 			name TEXT NOT NULL,                      -- 'janitor' | 'cursor_advancer' | 'schedule_producer' | user-defined
 			metadata JSONB NOT NULL DEFAULT '{}',    -- per-worker config, written by the declaration that creates the row
 			target_instances INT NOT NULL DEFAULT 1, -- 0 = suspended, -1 = unbounded
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			CHECK (num_nonnulls(system_id, topic_id, consumer_group_id) = 1),
 			CHECK (target_instances >= -1)
 		);
@@ -211,6 +214,8 @@ func (d *SystemDatastore) createSystemTables(ctx context.Context, tx pgx.Tx) err
 			payload JSONB NOT NULL DEFAULT '{}',             -- the message, marshaled once at Register
 			schema_version INTEGER NOT NULL,                 -- the payload's Message type version, written on every produce
 			metadata JSONB NOT NULL DEFAULT '{}',
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			CHECK (timeout_ns > 0)
 		);
 	`, d.Datastore.Schema)

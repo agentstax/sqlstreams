@@ -43,6 +43,18 @@ rewrite-to-the-real-API pass 2026-08-22 [0581], the board rebuild
   - The eventual move of `pkg/vulkan` to its public import location is separate
     follow-through: update imports and path-aware tooling once that path is
     chosen. No module split or destination path is selected yet.
+- **Separate scheduled occurrence metadata from delivery options.**
+  `MessageOptions.ScheduledAt` describes an occurrence, but also appears in
+  consumer defaults and bounds where it has no effect. Keep
+  `MessageMeta.ScheduledAt`; consider moving the write field to
+  `ProduceOptions` so delivery-option resolution carries only delivery settings.
+  - Review the doc-site proposal before implementation. Choose between retaining
+    the existing `options.scheduled_at` JSON through a storage representation
+    and a dedicated message-log column; trace both scheduler production paths,
+    message claims, redelivery, schedule inspection, and schema compatibility.
+  - Preserve occurrence time versus creation time and manual-run timestamps.
+    Ordinary producers can currently supply this value; making it scheduler-only
+    is a separate decision, not an implied consequence of moving the field.
 - **Table name + column review** -- last naming/column-order pass before
   v1 makes the DDL expensive to change. Expanded in TODO.md.
 - **Manager stops on one instance's permanent error** -- a worker

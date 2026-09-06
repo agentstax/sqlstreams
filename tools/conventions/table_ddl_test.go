@@ -4,8 +4,8 @@ package conventions
 // table-name funcs in pkg/topic and enforces the mechanical half of
 // CONVENTIONS.md ## Tables naming rules [0611][0613]: table names end in a
 // known kind, TIMESTAMPTZ columns end _at/_after, duration columns are
-// BIGINT nanoseconds ending _ns. Judgment rules (root wording, prefix
-// choice) stay review-time.
+// BIGINT nanoseconds ending _ns, every _config table carries created_at and
+// updated_at. Judgment rules (root wording, prefix choice) stay review-time.
 
 import (
 	"go/ast"
@@ -83,6 +83,27 @@ func TestTimestamptzColumnsEndAtOrAfter(t *testing.T) {
 	}
 }
 
+// configTimestampColumns is [0667]'s rule: the pair every _config table
+// declares.
+var configTimestampColumns = []string{"created_at", "updated_at"}
+
+func TestConfigTablesCarryCreatedAtAndUpdatedAt(t *testing.T) {
+	for _, statement := range baselineTableStatements(t) {
+		if !strings.HasSuffix(statement.Name, "_config") {
+			continue
+		}
+		declared := make(map[string]bool)
+		for _, column := range statement.Columns {
+			declared[column.Name] = true
+		}
+		for _, name := range configTimestampColumns {
+			if !declared[name] {
+				t.Errorf("%s _config table %q lacks %s [0667]", statement.Position, statement.Name, name)
+			}
+		}
+	}
+}
+
 // durationWord marks a column as duration-shaped by a whole underscore-
 // separated word, never a substring (settled_head contains "ttl").
 var durationWord = regexp.MustCompile(`(^|_)(ttl|timeout|duration)(_|$)`)
@@ -135,17 +156,36 @@ func baselineTableStatements(t *testing.T) []tableStatement {
 		if err != nil {
 			relative = path
 		}
+		// a per-topic literal names its table only through the Sprintf's
+		// table-name call (topic.BindingConfigTable(id)), so the call is
+		// inspected first and the literal it holds is skipped on its own visit
+		parsedLiterals := make(map[token.Pos]bool)
 		ast.Inspect(parsed, func(node ast.Node) bool {
-			literal, ok := node.(*ast.BasicLit)
-			if !ok || literal.Kind != token.STRING || !strings.Contains(literal.Value, "CREATE TABLE") {
-				return true
+			switch node := node.(type) {
+			case *ast.CallExpr:
+				literal, ok := sprintfCreateTableLiteral(node)
+				if !ok {
+					return true
+				}
+				parsedLiterals[literal.Pos()] = true
+				statement, ok := parseTableLiteral(fileSet, literal, relative)
+				if !ok {
+					return true
+				}
+				// a PARTITION OF statement parses no columns and takes no name:
+				// the kind check reads partition names through pkg/topic's funcs
+				if statement.Name == "" && len(statement.Columns) > 0 {
+					statement.Name = perTopicTableNameFromCall(node)
+				}
+				statements = append(statements, statement)
+			case *ast.BasicLit:
+				if parsedLiterals[node.Pos()] {
+					return true
+				}
+				if statement, ok := parseTableLiteral(fileSet, node, relative); ok {
+					statements = append(statements, statement)
+				}
 			}
-			text, err := strconv.Unquote(literal.Value)
-			if err != nil {
-				return true
-			}
-			startLine := fileSet.Position(literal.Pos()).Line
-			statements = append(statements, parseCreateTable(text, relative, startLine))
 			return true
 		})
 		return nil
@@ -154,6 +194,67 @@ func baselineTableStatements(t *testing.T) []tableStatement {
 		t.Fatal(err)
 	}
 	return statements
+}
+
+// parseTableLiteral reads one string literal into a table statement; false
+// when the literal holds no CREATE TABLE.
+func parseTableLiteral(fileSet *token.FileSet, literal *ast.BasicLit, file string) (tableStatement, bool) {
+	if literal.Kind != token.STRING || !strings.Contains(literal.Value, "CREATE TABLE") {
+		return tableStatement{}, false
+	}
+	text, err := strconv.Unquote(literal.Value)
+	if err != nil {
+		return tableStatement{}, false
+	}
+	startLine := fileSet.Position(literal.Pos()).Line
+	return parseCreateTable(text, file, startLine), true
+}
+
+// sprintfCreateTableLiteral returns the format literal of a fmt.Sprintf call
+// whose format holds a CREATE TABLE.
+func sprintfCreateTableLiteral(call *ast.CallExpr) (*ast.BasicLit, bool) {
+	selector, ok := call.Fun.(*ast.SelectorExpr)
+	if !ok || selector.Sel.Name != "Sprintf" || len(call.Args) == 0 {
+		return nil, false
+	}
+	if pkg, ok := selector.X.(*ast.Ident); !ok || pkg.Name != "fmt" {
+		return nil, false
+	}
+	literal, ok := call.Args[0].(*ast.BasicLit)
+	if !ok || !strings.Contains(literal.Value, "CREATE TABLE") {
+		return nil, false
+	}
+	return literal, true
+}
+
+// perTopicTableNameFromCall reads the table name a per-topic CREATE TABLE
+// literal is filled with: the Sprintf's [2] value is a pkg/topic table-name
+// call, and the func's name minus its Table suffix is the table's root in
+// CamelCase (BindingConfigTable -> binding_config). "" when the shape differs.
+func perTopicTableNameFromCall(call *ast.CallExpr) string {
+	if len(call.Args) < 3 {
+		return ""
+	}
+	nameCall, ok := call.Args[2].(*ast.CallExpr)
+	if !ok {
+		return ""
+	}
+	selector, ok := nameCall.Fun.(*ast.SelectorExpr)
+	if !ok || !strings.HasSuffix(selector.Sel.Name, "Table") {
+		return ""
+	}
+	return camelToSnake(strings.TrimSuffix(selector.Sel.Name, "Table"))
+}
+
+func camelToSnake(name string) string {
+	var out strings.Builder
+	for i, r := range name {
+		if i > 0 && r >= 'A' && r <= 'Z' {
+			out.WriteByte('_')
+		}
+		out.WriteRune(r | 0x20)
+	}
+	return out.String()
 }
 
 // schemaQualifier is what every SQL literal writes ahead of a table name.

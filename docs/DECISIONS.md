@@ -419,3 +419,4 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0664 2026-09-06 accepted (pre-v1) — Defaults use the normal client API
 - 0665 2026-09-06 accepted (pre-v1) — Vulkan defines the supported public API
 - 0666 2026-09-06 accepted (pre-v1) — The payload never reaches a log line or an error
+- 0667 2026-09-06 accepted (pre-v1) — Every _config table carries created_at and updated_at

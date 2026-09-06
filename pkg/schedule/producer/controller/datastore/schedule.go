@@ -122,7 +122,7 @@ func (d *ScheduleProducerDatastore) Suspend(ctx context.Context, q datastore.Que
 func (d *ScheduleProducerDatastore) suspend(ctx context.Context, q datastore.Querier, id int64, produced time.Time) error {
 	configSql := fmt.Sprintf(`
 		-- vulkan: scheduleproducer.suspend
-		UPDATE %[1]s.schedule_config SET suspended = true WHERE id = $1;
+		UPDATE %[1]s.schedule_config SET suspended = true, updated_at = NOW() WHERE id = $1;
 	`, d.Datastore.Schema)
 	if _, err := q.Exec(ctx, configSql, id); err != nil {
 		return err

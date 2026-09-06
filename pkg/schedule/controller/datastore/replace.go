@@ -40,7 +40,8 @@ func (d *ScheduleDatastore) replaceConfig(ctx context.Context, found *ScheduleCo
 			timeout_ns = $5,
 			payload = $6,
 			schema_version = $7,
-			metadata = COALESCE($8, '{}'::jsonb)
+			metadata = COALESCE($8, '{}'::jsonb),
+			updated_at = NOW()
 		WHERE id = $1;
 	`, d.Datastore.Schema)
 	tag, err := tx.Exec(ctx, updateConfigSql, found.Id,
