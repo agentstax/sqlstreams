@@ -1,274 +1,202 @@
 ---
 title: 'Proposed: exporting retained measurements'
-description: The proposed contract for exporting Vulkan measurements, distinguishing source-read failures from observation age and owning discovery and shutdown.
+description: The agreed direction for OTel export, history-based alerts, and collector progress without caller-managed pending state.
 ---
 
-Vulkan's metrics integration exports retained observations from
-`__system.metrics`. This proposal keeps that source and makes read failures,
-observation age, and the integration's lifetime visible to callers.
-The direction is agreed; the freshness signal and lifecycle API remain open.
-The behavior proposed below has not shipped.
+Vulkan would derive alerts from recorded measurement history and export
+retained values through an OTel producer. Core owns alert timing and restart
+behavior; integrations consume actionable `active` and `resolved` alerts
+without maintaining pending timers or suppressing startup alerts themselves.
+This proposal is agreed in direction and has not shipped. Implementation
+details still requiring review are listed at the end.
 
 ## What exists today
 
-The system manager runs a claimed metrics collector. Its default poll rate is
-30 seconds. It measures the deployment and writes observations to the system
-metrics topic. Consumer instances also write changed session counters, and
-applications can [produce custom measurements](/reference/metrics/#your-own-measurements).
+The claimed metrics collector records deployment measurements, with a default
+30-second poll rate. Consumer instances record changed session counters;
+applications choose when to produce custom measurements. The
+[metrics API](/reference/metrics/) reads their latest retained values and
+history from `__system.metrics`, with a 24-hour retention setting.
+`Measurement.At` records when a value was observed.
 
-The metrics topic retains history with a 24-hour retention setting. The
-[metrics handles](/reference/metrics/) read the latest retained values and
-their history without an external monitoring service. `Measurement.At` carries
-the observation time. Reading a retained value does not run a new measurement.
+The current `otelvulkan` adapter registers observable instruments and reads
+retained measurements during collection. Callers using their own meter must
+arrange discovery of new names. A source-read error can leave Vulkan metrics
+missing from an HTTP 200 response.
 
-The current data path has two independent schedules: writing observations and
-reading them for monitoring.
+The current [alerts](/reference/alerts/) machinery evaluates live conditions
+and records active, repeated, and resolved alerts. It does not implement the
+history-based pending calculation below.
 
-```text
-Vulkan core
-  Collector gauges       Changed session counters      Custom measurements
-  periodic measurement   periodic flush                application decides
-           \                     |                     /
-            +--------------------+--------------------+
-                                 |
-                                 v
-                       __system.metrics
-                       retained observations
-                                 |
-                 +---------------+---------------+
-                 |                               |
-                 v                               v
-          Vulkan metrics API              otelvulkan adapter
-          Latest / History                       |
-                                     +-----------+-----------+
-                                     |                       |
-                                     v                       v
-                              caller's OTel           Exporter-owned OTel
-                              meter and pipeline      + Prometheus handler
-```
+## Proposed: export through an OTel producer
 
-`otelvulkan.NewMetrics` supplies observations to a caller's OTel meter.
-`otelvulkan.NewExporter` builds a provider and a Prometheus handler over that
-adapter. Both read retained measurements. The exporter currently omits their
-observation time, and an unsuccessful read can result in HTTP 200 with Vulkan
-metrics missing. Callers using their own meter must arrange repeated
-instrument discovery and cannot detach the adapter independently of their
-provider.
-
-For the examples below, suppose `billing` on `orders` has this retained
-measurement. The JSON is the existing `Measurement` shape; the value and time
-are illustrative.
-
-```json
-{
-  "name": "vulkan.consumer.cursor.backlog",
-  "kind": "gauge",
-  "value": 7,
-  "unit": "{message}",
-  "attributes": { "topic": "orders", "group": "billing" },
-  "at": "2026-09-06T12:00:00Z"
-}
-```
-
-The name identifies [VK0083](/errors/VK0083/). The attributes identify the
-series: `billing` and `fraud-checks` have separate backlog observations even
-though they use the same metric name.
-
-## Proposed: distinguish reading from measuring
-
-A successful scrape would mean the exporter read its measurement source
-successfully. A source-read failure would fail the Prometheus scrape with an
-HTTP 5xx response. The adapter feeding a caller's meter would report that
-failure through the caller's OTel collection path.
-
-Observation age would be available separately. Scraping more often would
-still read the retained observations; the metrics collector's cadence would
-continue to determine when deployment measurements are made.
-
-For example, the `billing` group on `orders` has a recorded
-[`vulkan.consumer.cursor.backlog`, VK0083](/errors/VK0083/) value of 7 at noon.
-A scrape ten seconds later reads that value. If the collector stops, a scrape
-at 12:10 may still read 7 successfully. The proposed freshness signal would
-let a dashboard identify the noon observation as ten minutes old. These are
-four possible outcomes for that series:
-
-| Scrape time | Source result | Proposed response | What the reader knows |
-| --- | --- | --- | --- |
-| 12:00:10 | Value 7, observed at 12:00 | HTTP 200, value and freshness information | The observation is 10 seconds old. |
-| 12:10:00 | The same retained observation | HTTP 200, value and freshness information | The observation is 10 minutes old. The read succeeded. |
-| 12:10:00 | Postgres cannot be read | HTTP 5xx | No observation could be retrieved for this scrape. |
-| 12:10:00 | Read succeeds; no retained observations | HTTP 200, no measurement series | The source is empty. Nothing establishes a backlog of zero. |
-
-The proposed read contract in pseudocode follows. This example assumes the
-names, kinds, and units can be exported; handling unsupported measurements is
-still an open choice. The actions describe outcomes, not Go API methods or a
-registration algorithm.
+`otelvulkan.NewMetrics` would build an external SDK producer. Each
+`Produce(ctx)` call would use core's existing retained-measurement read and
+convert the result to OTel data. The reader owns collection cadence. New
+metric names appear on the next collection without instrument registration,
+a discovery loop, or a retained measurement cache.
 
 ```text
-when a reader requests observations:
-    read the latest retained measurements within the read deadline
-
-    if the read returns an error:
-        Prometheus handler -> fail this scrape with HTTP 5xx
-        caller's OTel reader -> receive the collection error
-        stop this collection
-
-    if no measurements exist:
-        complete successfully with no measurement series
-
-    otherwise:
-        export the supported measurements
-        expose freshness through the representation under review below
+OTel reader requests collection
+    -> producer reads latest retained measurements within its timeout
+    -> validates metric families
+    -> returns gauges, cumulative counters, and exporter health
+    -> reader passes the data to its exporter
 ```
 
-An empty measurement source and a source that cannot be read are different
-outcomes. A retained measurement whose value is zero is a third case: export
-that observed zero with its freshness information.
+Gauges retain their values and attributes. Counters retain their cumulative
+totals: reading a stored total of 120 twice still exports 120. The source
+does not establish counter start times, so the adapter must not invent a
+reset at exporter startup. This proposal adds no universal expiry or
+per-series freshness companions; observation times remain available through
+the core API.
 
-If observation time is exposed as a metric value, the reader can calculate
-age. This is pseudocode; a freshness metric name has not been selected.
+The caller owns its provider and Postgres pool. The convenience Prometheus
+exporter owns its private provider. Stop collection and finish outstanding
+calls before closing the pool. The producer needs no start or stop loop.
 
-```text
-scrape_time      = 2026-09-06 12:10:00 UTC
-observation_time = 2026-09-06 12:00:00 UTC
+Use a dedicated Vulkan reader and exporter for periodic export: the pinned
+SDK skips export when collection returns an error. External producer data
+also bypasses SDK instrument Views and normal aggregation, so callers
+cannot rely on those to filter attributes or convert cumulative totals to
+deltas. See the SDK's [periodic reader](https://github.com/open-telemetry/opentelemetry-go/blob/v1.44.0/sdk/metric/periodic_reader.go).
 
-observation_age = scrape_time - observation_time
-                = 600 seconds
-```
+## Proposed: report reads and rejected measurements
 
-The observation time would be a value available to the reader. This example
-does not propose replacing Prometheus's own sample timestamp.
+Keep the upstream OTel Prometheus exporter and expose source-read success.
+HTTP 200 alone would not establish that Postgres was read successfully.
+These signal names are shorthand; their public names remain under review.
 
-## Proposed: retain each measurement's meaning
-
-Collector gauges are measured every pass. Session counters are written only
-when the totals change. A custom measurement arrives whenever its application
-produces it. The integration would not apply one age cutoff to all of them:
-an unchanged counter can belong to a live, idle consumer. Consider this
-illustrative sequence with the default 30-second cadence:
-
-| Series | Value stored at 12:00 | What happens at 12:00:30 | Meaning of the observation time |
-| --- | --- | --- | --- |
-| `billing` backlog, VK0083 | 7 | Collector measures 7 again and writes it | This level was measured again at 12:00:30. |
-| `billing` session successes, VK0043 | 120 | No totals changed, so the session writes nothing | 12:00 still identifies the last stored counter snapshot. |
-| Custom `billing.queue_depth` | 7 | The application sends nothing | Vulkan has no reporting-frequency promise from this application. |
-
-The current difference between collector and session production is:
-
-```text
-on a collector pass:
-    measure the current state
-    write the value and observation time, even when the value is unchanged
-
-on a session counter flush:
-    read the session's cumulative totals
-    if the totals equal the last successfully stored totals:
-        write nothing
-    otherwise:
-        write the new totals and observation time
-```
-
-A collection pass can write some measurements before a later read or write
-fails. One recent series therefore cannot establish that every series is
-current. For example, a pass can write `billing` and then stop before writing
-`fraud-checks`:
-
-```text
-12:00:00  billing       -> backlog 7 stored
-          fraud-checks  -> backlog 4 stored
-
-12:00:30  billing       -> backlog 6 stored
-          fraud-checks  -> write cannot complete; pass returns an error
-
-12:00:40  scrape reads both retained series successfully
-          billing observation age:       10 seconds
-          fraud-checks observation age:  40 seconds
-```
-
-Taking the newest timestamp from the topic would report 10 seconds and hide
-the older `fraud-checks` observation. Reporting that the collector process is
-alive would also leave this incomplete pass unexplained.
-
-The integration would preserve the stored values and their observation times.
-Choosing a reporting-frequency contract for custom measurements remains work
-on the core metrics API.
-
-## Proposed: own discovery and shutdown
-
-Both integration entry points would discover new metric names during normal
-operation. A caller would configure and start the integration once, including
-when the metrics topic has no measurements yet.
-
-Stopping the adapter would detach its callbacks and stop its discovery work.
-The caller would retain ownership of its meter provider and Postgres pool.
-The Prometheus exporter would also stop the provider it owns. Concurrent
-scrapes and discovery must complete within their cancellation and timeout
-contract.
-
-Here is the proposed lifetime with an initially empty source. These are
-actions in pseudocode; the public start and stop method names remain open.
-
-```text
-caller starts integration
-    |
-    +-> source is empty -> no measurement series yet
-    |
-    +-> application produces billing.queue_depth
-    |       |
-    |       +-> integration discovers name
-    |       +-> later collection exports its latest value
-    |
-caller stops integration
-    |
-    +-> discovery stops
-    +-> observation callbacks are detached
-    +-> caller can safely close its pool after its other users stop
-```
-
-Adding an attribute set to an existing name creates another series under the
-same instrument. Adding a new name requires another instrument. Both cases
-would be handled without the caller arranging another registration pass.
-
-| Resource | Caller-owned meter integration stops | Prometheus exporter stops |
+| Source result | Producer result | Prometheus result |
 | --- | --- | --- |
-| Adapter discovery and callbacks | Stop and detach | Stop and detach |
-| OTel provider | Remains available to the caller's other instrumentation | Exporter's private provider shuts down |
-| Postgres pool | Caller retains ownership | Caller retains ownership |
+| Read succeeds | Supported measurements, read success 1, rejection count | HTTP 200 when conversion and serving succeed |
+| Read succeeds but is empty | Read success 1, rejection count 0 | No retained measurement series; absence is not an observed zero |
+| Read cannot complete | Read success 0 together with the collection error | Can return HTTP 200 with the failure signal; no retained measurements |
 
-For example, an application can stop exporting Vulkan measurements while its
-HTTP request metrics continue through the same caller-owned OTel provider.
+On read failure, omit the rejection count because nothing was inspected.
+The SDK's [manual reader](https://github.com/open-telemetry/opentelemetry-go/blob/v1.44.0/sdk/metric/manual_reader.go)
+preserves producer data alongside its error; periodic export instead reports
+the error and skips that collection. Prometheus collection does not inherit
+the HTTP request context, so the producer's own timeout bounds its reads.
+An exporter-health signal is an established [Prometheus pattern](https://prometheus.io/docs/instrumenting/writing_exporters/#failed-scrapes).
 
-Measurement lookup would use the existing core metrics operation. OTel
-instrument conversion and Prometheus exposure would remain in the optional
-module; collection and retained history would stay in core.
+Both entry points would enforce one portable export contract. Use upstream
+`UnderscoreEscapingWithSuffixes` translation to check final metric and
+attribute names. Reject conflicting kind or unit within a metric family,
+ambiguous translated names or attribute keys, and custom names that enter
+the reserved `vulkan_` or exporter-owned namespace. Healthy families still
+export; a current-collection rejection count and diagnostic identify loss.
 
-## Choices still open
+For example, custom `billing.queue_depth` and `billing_queue_depth` both
+translate to `billing_queue_depth`. Reject both families rather than choose
+by row order. This also restricts OTLP-only callers, but keeps both entry
+points consistent. It does not rewrite retained measurements or enforce
+metadata immutability across time.
 
-- Freshness representation: observation timestamps per series, collection
-  progress, or both. A timestamp exposed as a metric value is distinct from
-  overriding Prometheus's sample timestamp. Names, labels, and the cost of
-  additional series need review.
-- Lifecycle API: the verbs that start and stop the caller-owned-meter
-  integration, the discovery cadence, and the scope of its timeout.
-- Unexportable custom measurements: how unsupported names and conflicting
-  kind or unit are reported, and whether the remaining measurements are
-  exported. Source-read failures already have the separate contract above.
-- Deployment scope: how users configure multiple exporters for the same
-  installation without accidentally adding the same deployment measurements
-  together.
+## Proposed: derive alerts from history
 
-## Comparison
+Pending duration would be calculated from consecutive qualifying
+observations. There is no pending-state table, persisted pending deadline,
+or evaluator-revision mechanism. A fixed history, evaluation time, and policy
+give the same result.
 
-[River's OTel middleware](https://github.com/riverqueue/rivercontrib/tree/master/otelriver)
-records insertion and execution activity directly. Vulkan's retained source
-also serves its own history API, so changing to direct instrumentation would
-change that feature's collection model.
+The following is logical pseudocode, not a new API:
 
-[RabbitMQ separates statistics updates from scraping](https://www.rabbitmq.com/docs/prometheus#metric-collection-and-scraping-intervals).
-That supports treating collection cadence and scrape cadence as separate
-settings. [Prometheus exporter guidance](https://prometheus.io/docs/instrumenting/writing_exporters/#failed-scrapes)
-allows HTTP failures or an exporter-health metric for unsuccessful reads;
-this proposal selects HTTP failure when the retained source cannot be read.
-Its [timestamp guidance](https://prometheus.io/docs/practices/instrumentation/#timestamps-not-time-since)
-describes exporting an occurrence time as a metric value, allowing the reader
-to calculate its age.
+```text
+evaluate(history, evaluationTime, condition, pendingDuration, maximumGap):
+    select observations at or before evaluationTime
+    order them by observation time
+
+    if no observations exist or the newest is too old:
+        return insufficient_evidence
+
+    if the newest observation does not meet the condition:
+        return healthy
+
+    walk backward through qualifying observations
+        stop at an observation that does not qualify
+        stop at a gap larger than maximumGap
+
+    duration = newest observation time - earliest time in that sequence
+    if duration >= pendingDuration:
+        return active
+    return pending
+```
+
+For `orders` / `billing`, suppose backlog
+[VK0083](/errors/VK0083/) must stay above 100 for two minutes.
+These values and thresholds are illustrative, not a new built-in backlog
+alert or selected defaults:
+
+```text
+Yesterday 17:00  backlog 140
+                [Vulkan is off overnight]
+Today     09:00  backlog 130 -> pending; the overnight gap breaks the sequence
+          09:00:30       125
+          09:01         120
+          09:01:30      115
+          09:02         110 -> active; two minutes of qualifying observations
+```
+
+An evaluator restart during those two minutes changes no timer state.
+A fresh healthy observation can resolve an active alert; pending or
+insufficient evidence does not resolve one automatically. Alert production
+retains responsibility for repeats and concurrency. Deterministic evaluation
+does not itself prevent duplicate alert messages.
+
+The history must cover the required window. An arbitrary row limit or
+retention gap cannot establish continuous evidence. Session counters that
+skip unchanged totals and custom measurements with application-owned cadence
+need condition-specific rules; elapsed time alone does not prove failure.
+
+## Proposed: observe collector progress independently
+
+Core would record successful collector completion only after every part of
+the pass and its measurement writes succeed. A partially completed pass
+cannot advance that completion evidence. Restart never resets it.
+
+A separate check in Vulkan's existing scheduled-alert machinery would read
+that evidence and record progress observations in measurement history.
+It runs independently of the collector, with no extra server for users to
+manage. Conceptually, an observation holds its own observation time and the
+last successful completion it found, or an explicit absence of retained
+success evidence. The concrete metric representation remains under review.
+
+```text
+on a collector-progress check:
+    read the latest successful completion
+    if the read cannot complete:
+        return the error; record no fabricated observation
+
+    record the progress observation
+    read its retained history
+    evaluate each sample using its own observation time
+    derive pending or active from the qualifying sequence
+    send the result through normal alert production
+```
+
+This adds one logical observation per check, not stored alert timing state.
+After a day offline, the first observation starts a new sequence. If the
+collector recovers before enough unhealthy observations accumulate, no new
+active alert is produced. If it stays stuck while the check keeps running,
+the evidence can establish an active alert.
+
+A read with no retained completion evidence differs from a read error.
+Neither a stopped observer nor an unreadable database can prove recovery.
+If all checking machinery stops, Vulkan cannot produce an outage report
+while it is stopped.
+
+## Before implementation
+
+- Review the collector completion and independent progress-observation
+  representations, including public names and absent evidence.
+- Set check cadence, progress thresholds, pending durations, and permitted
+  gaps. Define the time-window read, ordering of late observations, and
+  retention requirements through existing core machinery.
+- Review alert activation, recovery, repeats, and concurrent or repeated
+  evaluation against fixed evidence. Apply history-based behavior to the
+  intended checks explicitly; existing alerts do not change silently.
+- Verify empty sources, read errors, rejected families, newly appearing
+  names, concurrent collections, shutdown, and restart gaps. Document one
+  logical export target per installation so replicas are not summed as
+  independent deployment measurements.

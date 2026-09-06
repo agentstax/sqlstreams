@@ -1,10 +1,13 @@
 ---
-status: accepted
+status: superseded
 date: 2026-09-06
 phase: "pre-v1"
 ---
 
 # Metrics export distinguishes read success and observation freshness
+
+Superseded by [0682](0682-metrics-export-uses-an-otel-producer-and-source-read-health.md)
+and [0683](0683-alert-pending-duration-is-derived-from-measurement-history.md).
 
 ## Context
 

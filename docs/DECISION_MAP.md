@@ -13,11 +13,11 @@ are in `docs/DECISIONS.md`. A new record adds its number to its line.
 - compaction, message key, rank, ordered/exclusive/parallel, key lease, deadlock: 0261-0273 0403 0463 0574 0612 0617 0659-0660
 - produce, ProduceInTx, batch, idempotency key, uuid: 0021-0023 0283-0284 0321-0323 0376 0525 0622-0623 0634
 - synchronous_commit, crash lab, bench method: 0081-0086
-- errors (VK codes, fix, diagnose), logging (levels, buffer, suppression, stop line), metrics declarations, collector poll rate, export freshness, otel, Prometheus, payload never logged: 0302-0305 0326 0522-0524 0550-0554 0558-0569 0589-0590 0647-0648 0661 0666 0670 0678
+- errors (VK codes, fix, diagnose), logging (levels, buffer, suppression, stop line), metrics declarations, collector poll rate, export freshness, otel, Prometheus, payload never logged: 0302-0305 0326 0522-0524 0550-0554 0558-0569 0589-0590 0647-0648 0661 0666 0670 0678 0682-0683
 - migrations, schema versioning, advisory lock, MinCompatibleVersion, Postgres schema/search_path: 0341-0347 0501 0526-0527 0579-0580 0588 0629-0632 0650
 - workers, worker_instance, system manager, liveness, instance target, Run loop, fatal consumption errors: 0421-0431 0537 0545-0549 0627 0635-0642 0671
 - schedules, cron, missed runs, job status: 0461-0473 0621
-- alerts, checks, __system.alerts, repeat interval: 0481-0490 0516 0520 0627 0649 0658
+- alerts, checks, __system.alerts, repeat interval, history-derived pending, collector progress, restart gaps: 0481-0490 0516 0520 0627 0649 0658 0683
 - circuit breaker, error_class, reconciliation: 0502-0506
 - packages, layers, seams, naming, receivers, file layout, configs, constructors, admin, validation, consumer worker selection, health: 0441-0451 0507-0510 0528-0549 0555-0557 0643-0646 0657-0658 0670 0676 0677 0680
 - declarations: newest-wins, CLI never writes config, worker metadata: 0515-0521 0626 0670

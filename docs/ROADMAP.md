@@ -16,7 +16,7 @@ the item is removed.
 
 ## Now
 
-- **Metrics export contract and package alignment** — direction [0678];
+- **Metrics export and history-based alerts** — direction [0682] [0683];
   proposed contract in `website/src/content/docs/concepts/metrics-export.mdx`.
   Working details live in TODO.md.
 

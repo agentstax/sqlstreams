@@ -430,7 +430,9 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0675 2026-09-06 rejected (pre-v1) — The message's own time is sent_at
 - 0676 2026-09-06 accepted (pre-v1) — Admin owns orchestration and domains own validation rules and resource reads
 - 0677 2026-09-06 accepted (pre-v1) — Public API comments state their contract
-- 0678 2026-09-06 accepted (pre-v1) — Metrics export distinguishes read success and observation freshness
+- 0678 2026-09-06 superseded (pre-v1) — Metrics export distinguishes read success and observation freshness
 - 0679 2026-09-06 accepted (pre-v1) — The doc site splits by page kind: a Reference board, one thread per handle
 - 0680 2026-09-06 accepted (pre-v1) — pkg/concurrency is infrastructure and lives under common
 - 0681 2026-09-06 accepted (pre-v1) — The rule files carry no decision citations; the decision map is the index
+- 0682 2026-09-06 accepted (pre-v1) — Metrics export uses an OTel producer and source-read health
+- 0683 2026-09-06 accepted (pre-v1) — Alert pending duration is derived from measurement history
