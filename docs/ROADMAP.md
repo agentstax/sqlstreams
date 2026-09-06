@@ -21,31 +21,6 @@ rewrite-to-the-real-API pass 2026-08-22 [0581], the board rebuild
 2026-08-23 [0582] [0583] [0584], the consumer-flow sandbox 2026-08-25
 [0585] [0586] [0587]. All three are in HISTORY.md.
 
-- **Step 3 -- the public-API review**, resumed where the playground
-  gaps interrupted it (Steps 1 and 2 shipped 2026-08-29 -- see
-  HISTORY). The catalog (`examples/playground/`) is the measuring
-  instrument: each scenario's header is its scorecard. Lease extend
-  (scenario 10) is designed as *Lease heartbeat/renewal (9b)* in the
-  parking lot -- promote on its merit. Everything below is that review,
-  in the order it was already sequenced.
-  - Round 1 settled 2026-09-02, four records. [0633] the datastore
-    takes the caller's pool, [0636] the client takes the pool, and
-    [0634] the value-taking `ProduceInTx` all SHIPPED the same day
-    (HISTORY) -- setup is `pool -> NewClient`, the datastore is off the
-    doc site, and the produce surface is four verbs. [0635] `Consume`
-    running the system manager SHIPPED 2026-09-02 as [0638]-[0642]
-    (HISTORY) -- a deployment no longer needs to know the concept.
-    - Closed 2026-09-02 by [0637]: the pool builder moved to
-      `pkg/vulkan`, so `datastore` is off the doc site entirely and a
-      first program imports one package of ours.
-  - Also round 1: the playground gained scenarios 11 (reading
-    `__system.metrics`) and 12 (consuming `__system.alerts` as a pager
-    feed), which is the metric/alert coverage the catalog was missing,
-    and scenario 09 lost a vestigial errgroup. Settled against, so it
-    does not come back: `defer Close()` replacing `LifecycleContext`.
-    `Consume` blocks, so a defer cannot be the shutdown trigger, and the
-    only alternative is the library trapping process-global signals --
-    which controller-runtime, Temporal, and net/http all decline to do.
 - **Library work the doc pass surfaced.**
   - **DefaultProducer / DefaultConsumer** for easier quickstarts, with
     comments and maybe a log line recommending against production use.

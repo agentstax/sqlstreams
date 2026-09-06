@@ -1,7 +1,7 @@
 // Scenario 01 -- produce-only service.
 //
-// A web service that emits an event when an order is placed. It never
-// consumes anything.
+// FrameForge's upload API produces a message when a video finishes uploading.
+// It never consumes anything.
 //
 // Concepts held before domain code (5): connection pool, Client, topic
 // name, the Message type's SchemaVersion, RegisterProducer[T].
@@ -24,13 +24,17 @@ import (
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 )
 
-type OrderPlacedV1 struct {
-	OrderId string `json:"order_id"`
-	Total   int64  `json:"total_cents"`
+type VideoUploadedV1 struct {
+	VideoId         string `json:"video_id"`
+	OwnerId         string `json:"owner_id"`
+	UploadId        string `json:"upload_id"`
+	DurationMinutes int    `json:"duration_minutes"`
+	SourceStatus    string `json:"source_status"`
+	ReleaseAtUnix   int64  `json:"release_at_unix"`
 }
 
 // increment on breaking changes
-func (OrderPlacedV1) SchemaVersion() int { return 1 }
+func (VideoUploadedV1) SchemaVersion() int { return 1 }
 
 func main() {
 	if err := run(); err != nil {
@@ -54,17 +58,23 @@ func run() error {
 		return err
 	}
 
-	registered, err := client.Topic[OrderPlacedV1]("orders.placed").Register(ctx, nil)
+	registered, err := client.Topic[VideoUploadedV1]("videos.uploaded").Register(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	orders, err := client.Topic[OrderPlacedV1](registered.Name).Producer().Register(ctx, nil)
+	uploads, err := client.Topic[VideoUploadedV1](registered.Name).Producer().Register(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	produced, err := orders.Produce(ctx, &OrderPlacedV1{OrderId: "ord-1", Total: 4200}, nil)
+	produced, err := uploads.Produce(ctx, &VideoUploadedV1{
+		VideoId:         "video-42",
+		OwnerId:         "creator-7",
+		UploadId:        "upl-123",
+		DurationMinutes: 12,
+		SourceStatus:    "ready",
+	}, nil)
 	if err != nil {
 		return err
 	}

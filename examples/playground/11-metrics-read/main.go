@@ -1,8 +1,9 @@
 // Scenario 11 -- reading what the system measures about itself.
 //
-// A service that consumes orders while the manager's metrics collector
-// measures the fleet, plus a loop printing the group's live backlog beside
-// its last collected value -- the pull side an ops dashboard would use.
+// FrameForge's transcoder consumes the uploads introduced in scenario 01 while
+// the manager's metrics collector measures the system. A loop prints the
+// transcoder's live backlog beside its last collected value -- the pull side
+// an operations dashboard would use.
 //
 // Concepts held before domain code (11): the 7 from scenario 03, plus a
 // ConsumerMetricsHandle, its Snapshot, its typed CursorBacklog selector, and
@@ -29,12 +30,17 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-type OrderPlaced struct {
-	OrderId string `json:"order_id"`
+type VideoUploadedV1 struct {
+	VideoId         string `json:"video_id"`
+	OwnerId         string `json:"owner_id"`
+	UploadId        string `json:"upload_id"`
+	DurationMinutes int    `json:"duration_minutes"`
+	SourceStatus    string `json:"source_status"`
+	ReleaseAtUnix   int64  `json:"release_at_unix"`
 }
 
 // increment on breaking changes
-func (OrderPlaced) SchemaVersion() int { return 1 }
+func (VideoUploadedV1) SchemaVersion() int { return 1 }
 
 func main() {
 	if err := run(); err != nil {
@@ -57,49 +63,56 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	registered, err := client.Topic[OrderPlaced]("orders.placed").Register(ctx, nil)
+	registered, err := client.Topic[VideoUploadedV1]("videos.uploaded").Register(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	orders, err := client.Topic[OrderPlaced](registered.Name).Producer().Register(ctx, nil)
+	uploads, err := client.Topic[VideoUploadedV1](registered.Name).Producer().Register(ctx, nil)
 	if err != nil {
 		return err
 	}
-	if err := produceOrders(ctx, orders, 5); err != nil {
+	if err := produceVideos(ctx, uploads, 5); err != nil {
 		return err
 	}
 
-	ledger := client.Topic[OrderPlaced](registered.Name).Consumer("ledger")
-	session, err := ledger.Register(ctx, nil)
+	transcoder := client.Topic[VideoUploadedV1](registered.Name).Consumer("transcoder")
+	session, err := transcoder.Register(ctx, nil)
 	if err != nil {
 		return err
 	}
 
 	routines, routinesCtx := errgroup.WithContext(ctx)
-	routines.Go(func() error { return session.Consume(routinesCtx, recordOrder, nil) })
-	routines.Go(func() error { return printBacklog(routinesCtx, ledger.Metrics()) })
+	routines.Go(func() error { return session.Consume(routinesCtx, transcodeVideo, nil) })
+	routines.Go(func() error { return printBacklog(routinesCtx, transcoder.Metrics()) })
 	return routines.Wait()
 }
 
-func produceOrders(ctx context.Context, orders *vulkan.ProducerInstance[OrderPlaced], count int) error {
+func produceVideos(ctx context.Context, uploads *vulkan.ProducerInstance[VideoUploadedV1], count int) error {
 	for i := range count {
-		if _, err := orders.Produce(ctx, &OrderPlaced{OrderId: fmt.Sprintf("ord-%d", i)}, nil); err != nil {
+		video := &VideoUploadedV1{
+			VideoId:         fmt.Sprintf("video-%d", i+42),
+			OwnerId:         "creator-7",
+			UploadId:        fmt.Sprintf("upl-%d", i+123),
+			DurationMinutes: 12,
+			SourceStatus:    "ready",
+		}
+		if _, err := uploads.Produce(ctx, video, nil); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// recordOrder is slow so the backlog drains over ~50s, longer than the
+// transcodeVideo is slow so the backlog drains over ~50s, longer than the
 // collector's 30s poll, and the two backlog numbers printBacklog reads diverge.
-func recordOrder(ctx context.Context, order *OrderPlaced) error {
+func transcodeVideo(ctx context.Context, video *VideoUploadedV1) error {
 	time.Sleep(10 * time.Second)
 	return nil
 }
 
 // printBacklog prints the group's live backlog beside its last collected one.
-func printBacklog(ctx context.Context, ledgerMetrics *vulkan.ConsumerMetricsHandle) error {
+func printBacklog(ctx context.Context, transcoderMetrics *vulkan.ConsumerMetricsHandle) error {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
@@ -110,13 +123,13 @@ func printBacklog(ctx context.Context, ledgerMetrics *vulkan.ConsumerMetricsHand
 		case <-ticker.C:
 		}
 
-		snapshot, err := ledgerMetrics.Snapshot(ctx)
+		snapshot, err := transcoderMetrics.Snapshot(ctx)
 		if err != nil {
 			return err
 		}
 		live := snapshot.Cursor.Backlog
 
-		collected, err := ledgerMetrics.CursorBacklog().Latest(ctx)
+		collected, err := transcoderMetrics.CursorBacklog().Latest(ctx)
 		if err != nil {
 			return err
 		}

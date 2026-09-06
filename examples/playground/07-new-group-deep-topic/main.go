@@ -1,7 +1,7 @@
 // Scenario 07 -- a new consumer group on a topic with deep history.
 //
-// A fraud-scoring service is added a year after orders.placed went live.
-// It wants live traffic only.
+// FrameForge adds moderation a year after videos.uploaded went live. It wants
+// live uploads only rather than processing the entire archive.
 //
 // Concepts held before domain code (8): the 7 from scenario 03, plus
 // ConsumerConfig.Start (vulkan.Head()).
@@ -21,13 +21,17 @@ import (
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 )
 
-type OrderPlaced struct {
-	OrderId string `json:"order_id"`
-	Total   int64  `json:"total_cents"`
+type VideoUploadedV1 struct {
+	VideoId         string `json:"video_id"`
+	OwnerId         string `json:"owner_id"`
+	UploadId        string `json:"upload_id"`
+	DurationMinutes int    `json:"duration_minutes"`
+	SourceStatus    string `json:"source_status"`
+	ReleaseAtUnix   int64  `json:"release_at_unix"`
 }
 
 // increment on breaking changes
-func (OrderPlaced) SchemaVersion() int { return 1 }
+func (VideoUploadedV1) SchemaVersion() int { return 1 }
 
 func main() {
 	if err := run(); err != nil {
@@ -51,7 +55,7 @@ func run() error {
 		return err
 	}
 
-	scoring, err := client.Topic[OrderPlaced]("orders.placed").Consumer("fraud-scoring").Register(ctx, &vulkan.ConsumerConfig{
+	moderation, err := client.Topic[VideoUploadedV1]("videos.uploaded").Consumer("moderation").Register(ctx, &vulkan.ConsumerConfig{
 		Start: vulkan.Head(),
 	})
 
@@ -59,8 +63,8 @@ func run() error {
 		return err
 	}
 
-	return scoring.Consume(ctx, func(ctx context.Context, order *OrderPlaced) error {
-		fmt.Printf("scoring %s\n", order.OrderId)
+	return moderation.Consume(ctx, func(ctx context.Context, video *VideoUploadedV1) error {
+		fmt.Printf("moderating %s for %s\n", video.VideoId, video.OwnerId)
 		return nil
 	}, nil)
 }

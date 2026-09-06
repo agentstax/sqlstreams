@@ -1,7 +1,7 @@
 // Scenario 03 -- consume, plain.
 //
-// A service that only handles OrderPlaced. It owns no topic and needs no
-// admin verbs -- RegisterConsumer resolves the topic by name itself.
+// FrameForge's transcoder only handles VideoUploaded. It owns no topic and
+// needs no admin verbs -- RegisterConsumer resolves the topic by name itself.
 //
 // Concepts held before domain code (7): connection pool, LifecycleContext,
 // the Message type's SchemaVersion, Client, RegisterConsumer[T], consumer
@@ -22,13 +22,17 @@ import (
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 )
 
-type OrderPlacedV1 struct {
-	OrderId string `json:"order_id"`
-	Total   int64  `json:"total_cents"`
+type VideoUploadedV1 struct {
+	VideoId         string `json:"video_id"`
+	OwnerId         string `json:"owner_id"`
+	UploadId        string `json:"upload_id"`
+	DurationMinutes int    `json:"duration_minutes"`
+	SourceStatus    string `json:"source_status"`
+	ReleaseAtUnix   int64  `json:"release_at_unix"`
 }
 
 // increment on breaking changes
-func (OrderPlacedV1) SchemaVersion() int { return 1 }
+func (VideoUploadedV1) SchemaVersion() int { return 1 }
 
 func main() {
 	if err := run(); err != nil {
@@ -52,13 +56,13 @@ func run() error {
 		return err
 	}
 
-	receipts, err := client.Topic[OrderPlacedV1]("orders.placed").Consumer("email-receipts").Register(ctx, nil)
+	transcoder, err := client.Topic[VideoUploadedV1]("videos.uploaded").Consumer("transcoder").Register(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	return receipts.Consume(ctx, func(ctx context.Context, order *OrderPlacedV1) error {
-		fmt.Printf("receipt for %s: %d cents\n", order.OrderId, order.Total)
+	return transcoder.Consume(ctx, func(ctx context.Context, video *VideoUploadedV1) error {
+		fmt.Printf("transcoding %s (%d minutes)\n", video.VideoId, video.DurationMinutes)
 		return nil
 	}, nil)
 }

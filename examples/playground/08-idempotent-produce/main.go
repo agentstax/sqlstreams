@@ -1,7 +1,8 @@
 // Scenario 08 -- idempotent produce with a caller-supplied key.
 //
-// A webhook receiver: the upstream retries on any non-2xx, so the same
-// event arrives more than once and must be stored once.
+// FrameForge receives upload-complete webhooks from its storage provider. The
+// provider retries on any non-2xx, so the same upload arrives more than once
+// and must be stored once on videos.uploaded.
 //
 // Concepts held before domain code (7): the produce set from scenario 01,
 // plus IdempotencyKey as an opaque string and ProduceResult.Duplicate.
@@ -23,13 +24,17 @@ import (
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 )
 
-type WebhookEvent struct {
-	EventId string `json:"event_id"`
-	Kind    string `json:"kind"`
+type VideoUploadedV1 struct {
+	VideoId         string `json:"video_id"`
+	OwnerId         string `json:"owner_id"`
+	UploadId        string `json:"upload_id"`
+	DurationMinutes int    `json:"duration_minutes"`
+	SourceStatus    string `json:"source_status"`
+	ReleaseAtUnix   int64  `json:"release_at_unix"`
 }
 
 // increment on breaking changes
-func (WebhookEvent) SchemaVersion() int { return 1 }
+func (VideoUploadedV1) SchemaVersion() int { return 1 }
 
 func main() {
 	if err := run(); err != nil {
@@ -51,21 +56,27 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	registered, err := client.Topic[WebhookEvent]("webhooks.received").Register(ctx, nil)
+	registered, err := client.Topic[VideoUploadedV1]("videos.uploaded").Register(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	webhooks, err := client.Topic[WebhookEvent](registered.Name).Producer().Register(ctx, nil)
+	uploads, err := client.Topic[VideoUploadedV1](registered.Name).Producer().Register(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	// the upstream delivers evt_123 twice
+	// the storage provider delivers upl-123 twice
 	for range 2 {
-		event := &WebhookEvent{EventId: "evt_123", Kind: "charge.succeeded"}
-		produced, err := webhooks.Produce(ctx, event, &vulkan.ProduceOptions{
-			IdempotencyKey: event.EventId,
+		video := &VideoUploadedV1{
+			VideoId:         "video-42",
+			OwnerId:         "creator-7",
+			UploadId:        "upl-123",
+			DurationMinutes: 12,
+			SourceStatus:    "ready",
+		}
+		produced, err := uploads.Produce(ctx, video, &vulkan.ProduceOptions{
+			IdempotencyKey: video.UploadId,
 		})
 		if err != nil {
 			return err

@@ -1,8 +1,8 @@
 // Scenario 05 -- a compacted topic used as a key/value store.
 //
-// Device configuration: one current document per device id. Read the
-// current value, write a new one, and increment a counter safely under
-// concurrent writers (read-modify-write).
+// FrameForge keeps one current processing document per video id. Read the
+// current value, write a new one, and increment its attempt count safely
+// under concurrent writers (read-modify-write).
 //
 // Concepts held before domain code (15): the 5 from scenario 01, plus
 // MessageKey, CompactionOptions (+NewCompactionOptions), Rank,
@@ -29,14 +29,14 @@ import (
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 )
 
-type DeviceConfig struct {
-	DeviceId string `json:"device_id"`
-	Interval int    `json:"interval_seconds"`
-	Restarts int    `json:"restarts"`
+type VideoProcessingStateV1 struct {
+	VideoId  string `json:"video_id"`
+	Stage    string `json:"stage"`
+	Attempts int    `json:"attempts"`
 }
 
 // increment on breaking changes
-func (DeviceConfig) SchemaVersion() int { return 1 }
+func (VideoProcessingStateV1) SchemaVersion() int { return 1 }
 
 func main() {
 	if err := run(); err != nil {
@@ -58,61 +58,61 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	devices := client.Topic[DeviceConfig]("devices.config")
-	_, err = devices.Register(ctx, nil)
+	processingStates := client.Topic[VideoProcessingStateV1]("videos.processing-state")
+	_, err = processingStates.Register(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	configs, err := devices.Producer().Register(ctx, nil)
+	states, err := processingStates.Producer().Register(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	device := devices.Key("dev-7")
+	video := processingStates.Key("video-42")
 	compaction, err := vulkan.NewCompactionOptions(0)
 	if err != nil {
 		return err
 	}
 
 	// Put
-	_, err = configs.Produce(ctx, &DeviceConfig{DeviceId: "dev-7", Interval: 30},
-		&vulkan.ProduceOptions{MessageKey: "dev-7", Compaction: compaction})
+	_, err = states.Produce(ctx, &VideoProcessingStateV1{VideoId: "video-42", Stage: "transcoding", Attempts: 1},
+		&vulkan.ProduceOptions{MessageKey: "video-42", Compaction: compaction})
 	if err != nil {
 		return err
 	}
 
 	// Get (outside a transaction) -- the topic handle's read
-	current, err := device.CompactionHead(ctx)
+	current, err := video.CompactionHead(ctx)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("current: id=%d interval=%d restarts=%d\n", current.Id, current.Message.Interval, current.Message.Restarts)
+	fmt.Printf("current: id=%d stage=%s attempts=%d\n", current.Id, current.Message.Stage, current.Message.Attempts)
 
 	// Update (compare-and-set): lock the head, write the next version
 	if err := client.InTransaction(ctx, func(ctx context.Context, tx vulkan.Tx) error {
-		head, err := device.LockCompactionHead(ctx, tx)
+		head, err := video.LockCompactionHead(ctx, tx)
 		if err != nil {
 			return err
 		}
-		next := DeviceConfig{DeviceId: "dev-7"}
+		next := VideoProcessingStateV1{VideoId: "video-42", Stage: "transcoding"}
 		if head != nil {
 			next = *head.Message
 		}
-		next.Restarts++
-		_, err = configs.ProduceInTx(ctx, tx, &next, &vulkan.ProduceOptions{MessageKey: "dev-7", Compaction: compaction})
+		next.Attempts++
+		_, err = states.ProduceInTx(ctx, tx, &next, &vulkan.ProduceOptions{MessageKey: "video-42", Compaction: compaction})
 		return err
 	}); err != nil {
 		return err
 	}
 
 	// History
-	versions, err := device.Messages(ctx, 10)
+	versions, err := video.Messages(ctx, 10)
 	if err != nil {
 		return err
 	}
 	for _, version := range versions {
-		fmt.Printf("version id=%d restarts=%d\n", version.Id, version.Message.Restarts)
+		fmt.Printf("version id=%d attempts=%d\n", version.Id, version.Message.Attempts)
 	}
 	return nil
 }

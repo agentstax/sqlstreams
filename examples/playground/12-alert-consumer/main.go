@@ -1,19 +1,19 @@
-// Scenario 12 -- consuming __system.alerts as a pager feed.
+// Scenario 12 -- FrameForge consumes __system.alerts as its pager feed.
 //
 // The built-in checks (partition_count, compaction_read_cost,
 // worker_liveness) run as schedules under the manager and publish Alert
-// messages; a consumer group on the alert topic is the push integration a
-// Slack or PagerDuty hook would hang off. The checks are re-declared here
-// at every-minute so a run has any chance of seeing one.
+// messages; a consumer group on the alert topic is the push integration the
+// platform's PagerDuty hook would use. The checks are re-declared here at
+// every-minute so a run has any chance of seeing one.
 //
 // Concepts held before domain code (12): the 7 from scenario 03, plus
-// RegisterSystem, the three check JobConfigs and their cron expressions,
-// AlertTopicName and Alert. The checks run because Consume runs the
+// RegisterSystem, the three alert configs and their ScheduleExpression
+// fields, AlertTopicName and Alert. The checks run because Consume runs the
 // manager.
 //
 // Traps hit:
 //   - The default check schedules are @hourly; tightening them means
-//     knowing all three JobConfig fields by name -- there is no single
+//     knowing all three alert config fields by name -- there is no single
 //     "check interval" knob.
 package main
 
@@ -63,7 +63,7 @@ func run() error {
 	}
 	fmt.Printf("%d current alerts at startup\n", len(current))
 
-	pager, err := client.Topic[vulkan.Alert](vulkan.AlertTopicName).Consumer("alert-pager").Register(ctx, nil)
+	pager, err := client.Topic[vulkan.Alert](vulkan.AlertTopicName).Consumer("frameforge-pager").Register(ctx, nil)
 	if err != nil {
 		return err
 	}

@@ -1,8 +1,8 @@
 // Scenario 06 -- a schedule.
 //
-// Nightly invoice run: register the schedule once with the message it
-// produces and the topic it produces to, consume that topic like any
-// other.
+// FrameForge's nightly usage report: register the schedule once with the
+// message it produces and the topic it produces to, then consume that topic
+// like any other.
 //
 // Concepts held before domain code (12): the 7 from scenario 03, plus
 // SchedulerHandle.Register[T] and the returned
@@ -28,12 +28,12 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-type InvoiceRun struct {
-	Region string `json:"region"`
+type UsageReportRequestedV1 struct {
+	Scope string `json:"scope"`
 }
 
 // increment on breaking changes
-func (InvoiceRun) SchemaVersion() int { return 1 }
+func (UsageReportRequestedV1) SchemaVersion() int { return 1 }
 
 func main() {
 	if err := run(); err != nil {
@@ -56,17 +56,17 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	invoices, err := client.Topic[InvoiceRun]("invoices").Register(ctx, nil)
+	reports, err := client.Topic[UsageReportRequestedV1]("usage.reports.requested").Register(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	nightly, err := client.Scheduler("invoices.nightly").Register(ctx, invoices.Name, "0 2 * * *", &InvoiceRun{Region: "eu"}, nil)
+	nightly, err := client.Scheduler("usage.reports.nightly").Register(ctx, reports.Name, "0 2 * * *", &UsageReportRequestedV1{Scope: "all-creators"}, nil)
 	if err != nil {
 		return err
 	}
 
-	runs, err := client.Topic[InvoiceRun](invoices.Name).Consumer("invoice-runner").Register(ctx, nil)
+	builder, err := client.Topic[UsageReportRequestedV1](reports.Name).Consumer("usage-report-builder").Register(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -74,9 +74,9 @@ func run() error {
 	group, groupCtx := errgroup.WithContext(ctx)
 	group.Go(func() error { return nightly.Schedule(groupCtx) })
 	group.Go(func() error {
-		return runs.Consume(groupCtx, func(ctx context.Context, run *InvoiceRun) error {
+		return builder.Consume(groupCtx, func(ctx context.Context, request *UsageReportRequestedV1) error {
 			meta, _ := vulkan.MetaFromContext(ctx)
-			fmt.Printf("invoicing %s for %s\n", run.Region, meta.ScheduledAt.Format("2006-01-02"))
+			fmt.Printf("building %s usage report for %s\n", request.Scope, meta.ScheduledAt.Format("2006-01-02"))
 			return nil
 		}, nil)
 	})

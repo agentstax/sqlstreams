@@ -1,7 +1,8 @@
 // Scenario 09 -- keyed ordering: what a same-key consumer actually sees.
 //
-// Account balance updates for one account must apply in order and never
-// overlap. The producer keys by account; the consumer runs concurrently.
+// FrameForge's uploaded -> scanned -> transcoded -> ready transitions for one
+// video must apply in order and never overlap. The producer keys by video;
+// the consumer runs concurrently across different videos.
 //
 // Concepts held before domain code (8): the produce set from scenario 01,
 // plus MessageKey, ConsumerConfig.ConcurrencyOverride (ConcurrencyOrdered),
@@ -26,13 +27,13 @@ import (
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 )
 
-type BalanceChanged struct {
-	AccountId string `json:"account_id"`
-	Delta     int64  `json:"delta_cents"`
+type VideoStateChangedV1 struct {
+	VideoId string `json:"video_id"`
+	State   string `json:"state"`
 }
 
 // increment on breaking changes
-func (BalanceChanged) SchemaVersion() int { return 1 }
+func (VideoStateChangedV1) SchemaVersion() int { return 1 }
 
 func main() {
 	if err := run(); err != nil {
@@ -55,36 +56,36 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	registered, err := client.Topic[BalanceChanged]("accounts.balance").Register(ctx, nil)
+	registered, err := client.Topic[VideoStateChangedV1]("videos.state-changed").Register(ctx, nil)
 	if err != nil {
 		return err
 	}
-	balances, err := client.Topic[BalanceChanged](registered.Name).Producer().Register(ctx, nil)
+	states, err := client.Topic[VideoStateChangedV1](registered.Name).Producer().Register(ctx, nil)
 	if err != nil {
 		return err
 	}
-	ledger, err := client.Topic[BalanceChanged](registered.Name).Consumer("ledger").Register(ctx, &vulkan.ConsumerConfig{ConcurrencyOverride: vulkan.ConcurrencyOrdered})
+	catalog, err := client.Topic[VideoStateChangedV1](registered.Name).Consumer("video-catalog").Register(ctx, &vulkan.ConsumerConfig{ConcurrencyOverride: vulkan.ConcurrencyOrdered})
 	if err != nil {
 		return err
 	}
 
-	for _, account := range []string{"acct-1", "acct-2"} {
-		for _, delta := range []int64{100, -30, 55} {
-			if _, err := balances.Produce(ctx, &BalanceChanged{AccountId: account, Delta: delta}, &vulkan.ProduceOptions{MessageKey: account}); err != nil {
+	for _, videoId := range []string{"video-42", "video-43"} {
+		for _, state := range []string{"uploaded", "scanned", "transcoded", "ready"} {
+			if _, err := states.Produce(ctx, &VideoStateChangedV1{VideoId: videoId, State: state}, &vulkan.ProduceOptions{MessageKey: videoId}); err != nil {
 				return err
 			}
 		}
 	}
 
-	return ledger.Consume(ctx, applyBalanceChange, &vulkan.ConsumeOptions{MessageConcurrency: 8})
+	return catalog.Consume(ctx, applyStateChange, &vulkan.ConsumeOptions{MessageConcurrency: 8})
 }
 
-// applyBalanceChange fails acct-1's -30 once; its +55 waits for the retry.
-func applyBalanceChange(ctx context.Context, change *BalanceChanged) error {
+// applyStateChange fails video-42's scan once; its later states wait for the retry.
+func applyStateChange(ctx context.Context, change *VideoStateChangedV1) error {
 	meta, _ := vulkan.MetaFromContext(ctx)
-	if change.AccountId == "acct-1" && change.Delta == -30 && meta.Attempts == 0 {
-		return errors.New("ledger row locked")
+	if change.VideoId == "video-42" && change.State == "scanned" && meta.Attempts == 0 {
+		return errors.New("scanner result is not committed")
 	}
-	fmt.Printf("%s %+d (message %d, attempt %d)\n", change.AccountId, change.Delta, meta.Id, meta.Attempts+1)
+	fmt.Printf("%s -> %s (message %d, attempt %d)\n", change.VideoId, change.State, meta.Id, meta.Attempts+1)
 	return nil
 }

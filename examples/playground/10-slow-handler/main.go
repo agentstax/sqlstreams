@@ -1,7 +1,8 @@
 // Scenario 10 -- a handler that runs longer than its lease.
 //
-// Video transcoding: most jobs finish in a minute, some take an hour. The
-// handler cannot know up front.
+// FrameForge's transcoder from scenarios 03 and 04 usually finishes quickly,
+// but feature-length videos can take an hour. The handler cannot know its
+// actual runtime up front.
 //
 // Concepts held before domain code (12): the 7 from scenario 03, plus
 // MessageOptions.Timeout, MessageMax, the producer-side per-message
@@ -12,8 +13,8 @@
 //   - There is no way to extend a lease from inside the handler (SQS
 //     ChangeMessageVisibility, JetStream InProgress). The only knob is a
 //     ceiling chosen before the work starts: set it to the worst case and
-//     a crashed worker's message waits an hour to be reclaimed; set it to
-//     the common case and the long jobs time out and retry forever.
+//     a crashed consumer instance's message waits an hour to be reclaimed;
+//     set it to the common case and long videos time out and retry forever.
 //   - The timeout is decided by three parties -- the message's request,
 //     the consumer's default, the consumer's MessageMax clamp -- and a
 //     message asking for more than MessageMax is clamped silently (a Warn
@@ -31,13 +32,17 @@ import (
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 )
 
-type TranscodeRequested struct {
-	VideoId string `json:"video_id"`
-	Minutes int    `json:"minutes"`
+type VideoUploadedV1 struct {
+	VideoId         string `json:"video_id"`
+	OwnerId         string `json:"owner_id"`
+	UploadId        string `json:"upload_id"`
+	DurationMinutes int    `json:"duration_minutes"`
+	SourceStatus    string `json:"source_status"`
+	ReleaseAtUnix   int64  `json:"release_at_unix"`
 }
 
 // increment on breaking changes
-func (TranscodeRequested) SchemaVersion() int { return 1 }
+func (VideoUploadedV1) SchemaVersion() int { return 1 }
 
 func main() {
 	if err := run(); err != nil {
@@ -60,7 +65,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	transcodes, err := client.Topic[TranscodeRequested]("videos.transcode").Consumer("transcoder").Register(ctx, &vulkan.ConsumerConfig{
+	transcoder, err := client.Topic[VideoUploadedV1]("videos.uploaded").Consumer("transcoder").Register(ctx, &vulkan.ConsumerConfig{
 		Message:    &vulkan.MessageOptions{Timeout: 2 * time.Minute},
 		MessageMax: &vulkan.MessageOptions{Timeout: time.Hour},
 	})
@@ -69,14 +74,14 @@ func run() error {
 		return err
 	}
 
-	return transcodes.Consume(ctx, func(ctx context.Context, request *TranscodeRequested) error {
-		for minute := range request.Minutes {
+	return transcoder.Consume(ctx, func(ctx context.Context, video *VideoUploadedV1) error {
+		for minute := range video.DurationMinutes {
 			// TODO - wanted: "still working, extend my lease" -- nothing to call.
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
 			case <-time.After(time.Minute):
-				fmt.Printf("%s: minute %d\n", request.VideoId, minute+1)
+				fmt.Printf("%s: minute %d\n", video.VideoId, minute+1)
 			}
 		}
 		return nil

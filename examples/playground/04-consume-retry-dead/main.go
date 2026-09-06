@@ -1,8 +1,9 @@
 // Scenario 04 -- consume with retry and dead-lettering.
 //
-// A payment handler: a declined card will never succeed (terminal), the
-// gateway being down will (retry), and "the bank settles at 02:00" should
-// wait without counting as a failure (delay).
+// FrameForge's transcoder from scenario 03 now handles real outcomes: a
+// corrupt upload will never succeed (terminal), unavailable storage may
+// recover (retry), and an embargoed video waits without counting as a failure
+// (delay).
 //
 // Concepts held before domain code (10): the 7 from scenario 03, plus
 // MessageOptions, RetryPolicy, and the ClientConfig.Retry vs
@@ -29,17 +30,21 @@ import (
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 )
 
-type PaymentRequestedV1 struct {
-	OrderId string `json:"order_id"`
-	Card    string `json:"card"` // "declined" | "gateway-down" | "settles-later" | anything else succeeds
+type VideoUploadedV1 struct {
+	VideoId         string `json:"video_id"`
+	OwnerId         string `json:"owner_id"`
+	UploadId        string `json:"upload_id"`
+	DurationMinutes int    `json:"duration_minutes"`
+	SourceStatus    string `json:"source_status"` // "ready" | "corrupt" | "unavailable"
+	ReleaseAtUnix   int64  `json:"release_at_unix"`
 }
 
 // increment on breaking changes
-func (PaymentRequestedV1) SchemaVersion() int { return 1 }
+func (VideoUploadedV1) SchemaVersion() int { return 1 }
 
 var (
-	errCardDeclined = errors.New("card declined")
-	errGatewayDown  = errors.New("could not reach gateway")
+	errSourceCorrupt      = errors.New("source video is corrupt")
+	errStorageUnavailable = errors.New("source storage is unavailable")
 )
 
 func main() {
@@ -63,7 +68,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	payments, err := client.Topic[PaymentRequestedV1]("payments.requested").Consumer("charge-cards").Register(ctx, &vulkan.ConsumerConfig{
+	transcoder, err := client.Topic[VideoUploadedV1]("videos.uploaded").Consumer("transcoder").Register(ctx, &vulkan.ConsumerConfig{
 		Message: &vulkan.MessageOptions{
 			Timeout: 10 * time.Second,
 			Retry:   &vulkan.RetryPolicy{MaxRetries: 3, BaseDelay: 2 * time.Second},
@@ -74,32 +79,26 @@ func run() error {
 		return err
 	}
 
-	return payments.Consume(ctx, func(ctx context.Context, payment *PaymentRequestedV1) error {
+	return transcoder.Consume(ctx, func(ctx context.Context, video *VideoUploadedV1) error {
 		meta, _ := vulkan.MetaFromContext(ctx)
-		fmt.Printf("charging %s (message %d, attempt %d, delays %d)\n",
-			payment.OrderId, meta.Id, meta.Attempts+1, meta.Delays)
+		fmt.Printf("transcoding %s (message %d, attempt %d, delays %d)\n",
+			video.VideoId, meta.Id, meta.Attempts+1, meta.Delays)
 
-		switch payment.Card {
-		case "declined":
+		switch video.SourceStatus {
+		case "corrupt":
 			// dead on this attempt; the cause lands in last_error
-			return vulkan.Terminal(errCardDeclined)
-		case "gateway-down":
-			// retried MaxRetries times with backoff
-			return errGatewayDown
-		case "settles-later":
-			// runs again after the delay
-			return vulkan.Delay(untilSettlement())
+			return vulkan.Terminal(errSourceCorrupt)
+		case "unavailable":
+			// the first attempt retries with backoff; the next simulates recovery
+			if meta.Attempts == 0 {
+				return errStorageUnavailable
+			}
+		}
+		releaseAt := time.Unix(video.ReleaseAtUnix, 0)
+		if releaseAt.After(time.Now()) {
+			// runs again after the release window
+			return vulkan.Delay(time.Until(releaseAt))
 		}
 		return nil
 	}, nil)
-}
-
-// untilSettlement is the wait until the bank's next 02:00 settlement.
-func untilSettlement() time.Duration {
-	now := time.Now()
-	settlement := time.Date(now.Year(), now.Month(), now.Day(), 2, 0, 0, 0, now.Location())
-	if !settlement.After(now) {
-		settlement = settlement.AddDate(0, 0, 1)
-	}
-	return settlement.Sub(now)
 }

@@ -1,7 +1,7 @@
 // Scenario 02 -- produce inside the caller's own transaction.
 //
-// Insert the order row and the OrderPlaced message atomically; then the
-// multi-topic form where the caller owns the transaction.
+// FrameForge records a completed upload and its VideoUploaded message
+// atomically; then the multi-topic form also records billable usage.
 //
 // Concepts held before domain code (8): the 5 from scenario 01, plus
 // ProducerFunc, vulkan.Tx, InTransaction / ProduceInTx.
@@ -22,20 +22,26 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type OrderPlacedV1 struct {
-	OrderId string `json:"order_id"`
+type VideoUploadedV1 struct {
+	VideoId         string `json:"video_id"`
+	OwnerId         string `json:"owner_id"`
+	UploadId        string `json:"upload_id"`
+	DurationMinutes int    `json:"duration_minutes"`
+	SourceStatus    string `json:"source_status"`
+	ReleaseAtUnix   int64  `json:"release_at_unix"`
 }
 
 // increment on breaking changes
-func (OrderPlacedV1) SchemaVersion() int { return 1 }
+func (VideoUploadedV1) SchemaVersion() int { return 1 }
 
-type InventoryReservedV1 struct {
-	OrderId string `json:"order_id"`
-	Sku     string `json:"sku"`
+type UsageRecordedV1 struct {
+	VideoId      string `json:"video_id"`
+	OwnerId      string `json:"owner_id"`
+	StorageBytes int64  `json:"storage_bytes"`
 }
 
 // increment on breaking changes
-func (InventoryReservedV1) SchemaVersion() int { return 1 }
+func (UsageRecordedV1) SchemaVersion() int { return 1 }
 
 func main() {
 	if err := run(); err != nil {
@@ -54,7 +60,7 @@ func run() error {
 	}
 	defer pool.Close()
 
-	if err := createOrdersTable(ctx, pool); err != nil {
+	if err := createVideosTable(ctx, pool); err != nil {
 		return err
 	}
 
@@ -62,31 +68,37 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	_, err = client.Topic[OrderPlacedV1]("orders.placed").Register(ctx, nil)
+	_, err = client.Topic[VideoUploadedV1]("videos.uploaded").Register(ctx, nil)
 	if err != nil {
 		return err
 	}
-	_, err = client.Topic[InventoryReservedV1]("inventory.reserved").Register(ctx, nil)
+	_, err = client.Topic[UsageRecordedV1]("usage.recorded").Register(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	orders, err := client.Topic[OrderPlacedV1]("orders.placed").Producer().Register(ctx, nil)
+	uploads, err := client.Topic[VideoUploadedV1]("videos.uploaded").Producer().Register(ctx, nil)
 	if err != nil {
 		return err
 	}
-	inventory, err := client.Topic[InventoryReservedV1]("inventory.reserved").Producer().Register(ctx, nil)
+	usage, err := client.Topic[UsageRecordedV1]("usage.recorded").Producer().Register(ctx, nil)
 	if err != nil {
 		return err
 	}
 
 	// one topic: the message's own transaction carries the business write
-	produced, err := orders.ProduceFunc(ctx,
-		func(ctx context.Context, tx vulkan.Tx) (*OrderPlacedV1, error) {
-			if _, err := tx.Exec(ctx, `INSERT INTO playground_orders (id) VALUES ($1) ON CONFLICT DO NOTHING`, "ord-2"); err != nil {
+	produced, err := uploads.ProduceFunc(ctx,
+		func(ctx context.Context, tx vulkan.Tx) (*VideoUploadedV1, error) {
+			if _, err := tx.Exec(ctx, `INSERT INTO playground_videos (id, owner_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, "video-42", "creator-7"); err != nil {
 				return nil, err
 			}
-			return &OrderPlacedV1{OrderId: "ord-2"}, nil
+			return &VideoUploadedV1{
+				VideoId:         "video-42",
+				OwnerId:         "creator-7",
+				UploadId:        "upl-123",
+				DurationMinutes: 12,
+				SourceStatus:    "ready",
+			}, nil
 		}, nil)
 	if err != nil {
 		return err
@@ -95,13 +107,20 @@ func run() error {
 
 	// two topics: the caller owns the transaction, each instance produces into it
 	if err := client.InTransaction(ctx, func(ctx context.Context, tx vulkan.Tx) error {
-		if _, err := tx.Exec(ctx, `INSERT INTO playground_orders (id) VALUES ($1) ON CONFLICT DO NOTHING`, "ord-3"); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO playground_videos (id, owner_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, "video-43", "creator-7"); err != nil {
 			return err
 		}
-		if _, err := orders.ProduceInTx(ctx, tx, &OrderPlacedV1{OrderId: "ord-3"}, nil); err != nil {
+		video := &VideoUploadedV1{
+			VideoId:         "video-43",
+			OwnerId:         "creator-7",
+			UploadId:        "upl-124",
+			DurationMinutes: 48,
+			SourceStatus:    "ready",
+		}
+		if _, err := uploads.ProduceInTx(ctx, tx, video, nil); err != nil {
 			return err
 		}
-		_, err := inventory.ProduceInTx(ctx, tx, &InventoryReservedV1{OrderId: "ord-3", Sku: "sku-9"}, nil)
+		_, err := usage.ProduceInTx(ctx, tx, &UsageRecordedV1{VideoId: "video-43", OwnerId: "creator-7", StorageBytes: 8_400_000_000}, nil)
 		return err
 	}); err != nil {
 		return err
@@ -110,9 +129,9 @@ func run() error {
 	return nil
 }
 
-// createOrdersTable stands in for a business table an application would
+// createVideosTable stands in for a business table an application would
 // already have -- without it the scenario cannot run against a fresh database.
-func createOrdersTable(ctx context.Context, pool *pgxpool.Pool) error {
-	_, err := pool.Exec(ctx, `CREATE TABLE IF NOT EXISTS playground_orders (id text PRIMARY KEY)`)
+func createVideosTable(ctx context.Context, pool *pgxpool.Pool) error {
+	_, err := pool.Exec(ctx, `CREATE TABLE IF NOT EXISTS playground_videos (id text PRIMARY KEY, owner_id text NOT NULL)`)
 	return err
 }

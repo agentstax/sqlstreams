@@ -2,9 +2,6 @@
 
 09 and 11 - need to review again and make sure code makes sense and clearly outlines what it intends to describe.
 
-should ideally come up with one or two 'fake scenarios' that all the example playgrounds can follow so
-it is conceptually easier to follow along each
-
 janitor sweep step need to be non blocking with a timeout context, otherwise can get blocked
 func (i *JanitorInstance) sweep(ctx context.Context) error {
 	current := i.Topic
