@@ -2,6 +2,7 @@ package consume
 
 import "fmt"
 
+// CursorPositionKind names where a new group's cursor starts.
 type CursorPositionKind string
 
 const (

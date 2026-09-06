@@ -21,13 +21,13 @@ type Schedule struct {
 	SystemId        int64                    `json:"system_id"`
 	TopicId         int64                    `json:"topic_id"`
 	Name            string                   `json:"schedule"`
-	Expression      string                   `json:"expression"`
-	SchemaVersion   int                      `json:"schema_version"`
-	Concurrency     common.ConcurrencyPolicy `json:"concurrency"`
+	Expression      string                   `json:"expression"`     // the cron expression
+	SchemaVersion   int                      `json:"schema_version"` // the payload type's declared version
+	Concurrency     common.ConcurrencyPolicy `json:"concurrency"`    // how each produced message runs, with Timeout
 	Timeout         time.Duration            `json:"timeout"`
-	Suspended       bool                     `json:"suspended"`
-	Payload         json.RawMessage          `json:"payload"`
-	Metadata        json.RawMessage          `json:"metadata"`
-	NextScheduledAt time.Time                `json:"next_scheduled_at"`
-	LastScheduledAt *time.Time               `json:"last_scheduled_at"`
+	Suspended       bool                     `json:"suspended"`         // nothing is produced until Unsuspend
+	Payload         json.RawMessage          `json:"payload"`           // produced as-is on every run
+	Metadata        json.RawMessage          `json:"metadata"`          // opaque; {} when none was declared
+	NextScheduledAt time.Time                `json:"next_scheduled_at"` // the scheduled time the next produce is for
+	LastScheduledAt *time.Time               `json:"last_scheduled_at"` // nil until the first produce
 }

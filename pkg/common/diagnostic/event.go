@@ -26,6 +26,8 @@ func NewDiagnosticEvent(code string, message string, consequence string, queries
 	return declared
 }
 
+// Message is the static line a call site logs: the declared message, then
+// " -- " and the consequence when one was declared.
 func (e *DiagnosticEvent) Message() string {
 	return e.message
 }
@@ -40,11 +42,12 @@ func (e *DiagnosticEvent) Docs() string {
 	return docsBaseURL + e.code
 }
 
-// GetCode and GetKind identify the registered declaration.
+// GetCode is the declaration's VK code.
 func (e *DiagnosticEvent) GetCode() string {
 	return e.code
 }
 
+// GetKind is DiagnosticKindEvent.
 func (e *DiagnosticEvent) GetKind() DiagnosticKind {
 	return DiagnosticKindEvent
 }

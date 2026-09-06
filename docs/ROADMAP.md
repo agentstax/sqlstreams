@@ -80,7 +80,7 @@ the item is removed.
       Terminal/Delay; Beginning/Head/TransactionFunc/NewMeasurement
       undocumented; DestroyOptions.Force's system/consumer idle guards;
       Binding omits BindingJoined; exported instance fields uncommented.
-    - [ ] 7. Uncommented exported declarations (~45): the no-comment list
+    - [x] 7. Uncommented exported declarations (~45): the no-comment list
       across common (Owner, RawPayload, RetryPolicy, ConcurrencyPolicy),
       consume (CursorPosition, outcome), producer/scheduler/batcher config
       types, worker, schedule, alert, metrics, datastore.TransactionFunc.

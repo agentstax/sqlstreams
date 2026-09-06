@@ -11,9 +11,9 @@ import (
 // read inside consumerFunc via MetaFromContext.
 type MessageMeta struct {
 	Id             int64     `json:"message_id"`
-	RoutingKey     string    `json:"routing_key"`
-	MessageKey     string    `json:"message_key"`
-	CompactionRank int64     `json:"compaction_rank"`
+	RoutingKey     string    `json:"routing_key"`     // "" if the producer set none
+	MessageKey     string    `json:"message_key"`     // "" if the producer set none
+	CompactionRank int64     `json:"compaction_rank"` // the message's rank under its key; 0 for an uncompacted message
 	CreatedAt      time.Time `json:"created_at"`
 	ScheduledAt    time.Time `json:"scheduled_at"` // the scheduled time a schedule's message is for; zero on every other message
 	Attempts       int       `json:"attempts"`     // runs before this one -- 0 on the first delivery

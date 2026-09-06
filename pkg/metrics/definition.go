@@ -9,13 +9,13 @@ import (
 // MetricDefinition is one Vulkan built-in metric's identity and metadata.
 // It exists before any measurement is collected.
 type MetricDefinition struct {
-	Code          string                 `json:"code"`
-	Name          string                 `json:"name"`
+	Code          string                 `json:"code"` // the VK code its docs page lives under
+	Name          string                 `json:"name"` // the wire name every measurement carries
 	Kind          MetricKind             `json:"kind"`
 	Unit          MetricUnit             `json:"unit"`
 	Description   string                 `json:"description"`
-	Scope         diagnostic.MetricScope `json:"scope"`
-	AttributeKeys []string               `json:"attribute_keys"`
+	Scope         diagnostic.MetricScope `json:"scope"`          // which resource kind a series is about
+	AttributeKeys []string               `json:"attribute_keys"` // the attribute names every measurement of it carries
 }
 
 // Definitions returns Vulkan's built-in metric definitions ordered by VK code.

@@ -49,14 +49,17 @@ func NewDiagnosticError(code string, recovery DiagnosticRecovery, problem string
 	return declared
 }
 
+// Recovery says whether an unchanged retry can succeed.
 func (e *DiagnosticError) Recovery() DiagnosticRecovery {
 	return e.recovery
 }
 
+// Problem is the declared fact -- what is wrong and why.
 func (e *DiagnosticError) Problem() string {
 	return e.problem
 }
 
+// Fix is the declared remedy, its {attribute} placeholders unfilled.
 func (e *DiagnosticError) Fix() string {
 	return e.fix
 }
@@ -100,6 +103,7 @@ func (e *DiagnosticError) Values() []slog.Attr {
 	return slices.Clone(e.values)
 }
 
+// Unwrap returns the wrapped cause, nil when none was attached.
 func (e *DiagnosticError) Unwrap() error {
 	return e.wrapped
 }
@@ -176,11 +180,12 @@ func (e *DiagnosticError) Docs() string {
 	return docsBaseURL + e.code
 }
 
-// GetCode and GetKind identify the registered declaration.
+// GetCode is the declaration's VK code.
 func (e *DiagnosticError) GetCode() string {
 	return e.code
 }
 
+// GetKind is DiagnosticKindError.
 func (e *DiagnosticError) GetKind() DiagnosticKind {
 	return DiagnosticKindError
 }

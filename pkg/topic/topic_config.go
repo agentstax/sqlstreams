@@ -105,6 +105,7 @@ func (c *TopicConfig) Validate() error {
 	return nil
 }
 
+// ToTopic builds the topic row a registration writes from the resolved config.
 func (c *TopicConfig) ToTopic(id int64, systemId int64, name string) *Topic {
 	return &Topic{
 		Id:                     id,

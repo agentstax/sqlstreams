@@ -9,10 +9,10 @@ import (
 type MetricScope string
 
 const (
-	MetricScopeSystem          MetricScope = "system"
-	MetricScopeTopic           MetricScope = "topic"
-	MetricScopeConsumerGroup   MetricScope = "consumer_group"
-	MetricScopeConsumerSession MetricScope = "consumer_session"
+	MetricScopeSystem          MetricScope = "system"           // one series per installation
+	MetricScopeTopic           MetricScope = "topic"            // one series per topic
+	MetricScopeConsumerGroup   MetricScope = "consumer_group"   // one series per consumer group
+	MetricScopeConsumerSession MetricScope = "consumer_session" // one series per Consume call
 )
 
 // Validate rejects a scope outside Vulkan's built-in resource scopes.

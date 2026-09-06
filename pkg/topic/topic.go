@@ -18,7 +18,7 @@ const (
 )
 
 // Topic is the registered topic row; Id addresses this topic's own
-// message_log_<id>.
+// message_log_<id>. The remaining fields hold TopicConfig's resolved values.
 type Topic struct {
 	Id                     int64           `json:"topic_id"`
 	SystemId               int64           `json:"system_id"`

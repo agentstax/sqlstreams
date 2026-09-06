@@ -7,6 +7,8 @@ import (
 	"github.com/agentstax/vulkan/pkg/common"
 )
 
+// SchedulerConfig is a schedule's declared delivery semantics, stored on
+// its row: how each message it produces runs.
 type SchedulerConfig struct {
 	// Timeout - how long one message's delivery may run.
 	// Default: 30s.

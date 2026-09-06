@@ -8,6 +8,8 @@ import (
 	"github.com/agentstax/vulkan/pkg/produce/batcher"
 )
 
+// ProducerConfig is one producer instance's process-local settings: its
+// message defaults and batching. Nothing durable -- a producer has no row.
 type ProducerConfig struct {
 	// Message - this producer's default MessageOptions, merged UNDER every
 	// produce: a field the per-produce ProduceOptions.Message leaves unset

@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+// BatcherConfig tunes the shared-transaction batching of concurrent Produce
+// calls on one producer instance.
 type BatcherConfig struct {
 	// MaxSize - messages sharing one batched-Produce transaction. Caps
 	// lock-hold, latency tail, and the rerun cost of evicting poison.

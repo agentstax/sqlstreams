@@ -19,8 +19,8 @@ const (
 type ScheduleMessageStatus struct {
 	ConsumerGroup string                 `json:"consumer_group"`
 	MessageId     int64                  `json:"message_id"`
-	ScheduledAt   time.Time              `json:"scheduled_at"`
-	ProducedAt    time.Time              `json:"produced_at"`
+	ScheduledAt   time.Time              `json:"scheduled_at"` // the time the message was produced for
+	ProducedAt    time.Time              `json:"produced_at"`  // when it was actually produced
 	Outcome       ScheduleMessageOutcome `json:"outcome"`
 
 	// SupersededBy/SupersededAt - the replacing message's id and produce

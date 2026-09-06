@@ -5,6 +5,7 @@ import (
 	"fmt"
 )
 
+// OwnerKind is which resource an Owner names, derived from the ids it holds.
 type OwnerKind string
 
 const (
@@ -12,9 +13,9 @@ const (
 	// manager worker every owner declares.
 	OwnerAny OwnerKind = ""
 
-	OwnerSystem        OwnerKind = "system"
-	OwnerTopic         OwnerKind = "topic"
-	OwnerConsumerGroup OwnerKind = "consumer_group"
+	OwnerSystem        OwnerKind = "system"         // SystemId only
+	OwnerTopic         OwnerKind = "topic"          // SystemId and TopicId
+	OwnerConsumerGroup OwnerKind = "consumer_group" // all three ids
 )
 
 func (k OwnerKind) Validate() error {
@@ -30,9 +31,9 @@ func (k OwnerKind) Validate() error {
 // schedule, migration_log).
 type Owner struct {
 	SystemId        int64  `json:"system_id"`
-	TopicId         int64  `json:"topic_id"`
-	ConsumerGroupId int64  `json:"group_id"`
-	Name            string `json:"owner"`
+	TopicId         int64  `json:"topic_id"` // 0 for a system owner
+	ConsumerGroupId int64  `json:"group_id"` // 0 unless the owner is a consumer group
+	Name            string `json:"owner"`    // "system", the topic name, or the group name
 }
 
 func NewSystemOwner(systemId int64) (*Owner, error) {
@@ -73,6 +74,7 @@ func NewConsumerGroupOwner(systemId int64, topicId int64, consumerGroupId int64,
 	return &Owner{SystemId: systemId, TopicId: topicId, ConsumerGroupId: consumerGroupId, Name: name}, nil
 }
 
+// Kind reads the owner's kind off its ids: the deepest set id wins.
 func (o Owner) Kind() OwnerKind {
 	switch {
 	case o.ConsumerGroupId > 0:

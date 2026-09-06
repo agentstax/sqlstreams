@@ -7,10 +7,10 @@ import (
 // AlertDefinition is one Vulkan built-in alert's identity and metadata. It
 // exists before any alert is published.
 type AlertDefinition struct {
-	Code        string                 `json:"code"`
-	Name        string                 `json:"name"`
+	Code        string                 `json:"code"` // the VK code its docs page lives under
+	Name        string                 `json:"name"` // e.g. "partition_count"; Alert.Name of what it publishes
 	Description string                 `json:"description"`
-	Scope       diagnostic.MetricScope `json:"scope"`
+	Scope       diagnostic.MetricScope `json:"scope"` // which resource kind its alerts are about
 	Severity    AlertSeverity          `json:"severity"`
 }
 

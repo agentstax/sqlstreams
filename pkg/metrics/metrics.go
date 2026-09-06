@@ -40,8 +40,8 @@ type ExceptionSnapshot struct {
 // of its snapshot.
 type ConsumerGroupLag struct {
 	ConsumerGroup        string `json:"group"`
-	Committed            int64  `json:"committed"`
-	Head                 int64  `json:"head"`
+	Committed            int64  `json:"committed"`             // the group's committed cursor id
+	Head                 int64  `json:"head"`                  // the log's max id when read
 	Lag                  int64  `json:"lag"`                   // Head - Committed, floored at 0
 	UnresolvedExceptions int64  `json:"unresolved_exceptions"` // delivery rows still 'ready', 'inflight', or 'deferred'
 }

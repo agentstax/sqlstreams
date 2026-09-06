@@ -15,6 +15,8 @@ import (
 // must not use it.
 const MetricNameReservedPrefix = "vulkan."
 
+// MetricKind is how a series' values read over time: a gauge replaces, a
+// counter accumulates.
 type MetricKind string
 
 const (
@@ -37,7 +39,7 @@ func (k MetricKind) Validate() error {
 // label only. "" is no unit.
 type MetricUnit string
 
-const MetricUnitMilliseconds MetricUnit = "ms"
+const MetricUnitMilliseconds MetricUnit = "ms" // the one dimensioned unit the built-ins use
 
 // MetricUnitCount is the UCUM annotation for a dimensionless count of noun.
 // Ex: MetricUnitCount("worker") -> "{worker}"
@@ -79,10 +81,10 @@ func (u MetricUnit) Validate() error {
 type Measurement struct {
 	Name       string            `json:"name"`
 	Kind       MetricKind        `json:"kind"`
-	Value      float64           `json:"value"`
+	Value      float64           `json:"value"` // the observation, in Unit
 	Unit       MetricUnit        `json:"unit"`
-	Attributes map[string]string `json:"attributes"`
-	At         time.Time         `json:"at"`
+	Attributes map[string]string `json:"attributes"` // the series' identity beside Name; nil for none
+	At         time.Time         `json:"at"`         // when the value was observed
 }
 
 func (Measurement) SchemaVersion() int { return 1 }

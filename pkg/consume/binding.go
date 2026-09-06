@@ -18,9 +18,9 @@ const (
 type Binding struct {
 	ConsumerGroupName string         `json:"consumer_group"`
 	TopicName         string         `json:"topic"`
-	Status            BindingOutcome `json:"status"`
-	Patterns          []string       `json:"patterns"` // empty = the whole topic
-	DeclaredBy        string         `json:"declared_by"`
-	DeclaredAt        time.Time      `json:"declared_at"`
-	AttemptedAt       time.Time      `json:"attempted_at"`
+	Status            BindingOutcome `json:"status"`       // installed, joined, or waiting
+	Patterns          []string       `json:"patterns"`     // empty = the whole topic
+	DeclaredBy        string         `json:"declared_by"`  // the declaring process (common.ProcessIdentity)
+	DeclaredAt        time.Time      `json:"declared_at"`  // when the declarer's Register ran
+	AttemptedAt       time.Time      `json:"attempted_at"` // the declarer's latest attempt -- a waiting declarer retries
 }

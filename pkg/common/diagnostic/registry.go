@@ -20,10 +20,10 @@ type Declaration interface {
 type DiagnosticKind string
 
 const (
-	DiagnosticKindError  DiagnosticKind = "error"
-	DiagnosticKindEvent  DiagnosticKind = "event"
-	DiagnosticKindMetric DiagnosticKind = "metric"
-	DiagnosticKindAlert  DiagnosticKind = "alert"
+	DiagnosticKindError  DiagnosticKind = "error"  // a declared error value (Err*)
+	DiagnosticKindEvent  DiagnosticKind = "event"  // a declared log event (Event*)
+	DiagnosticKindMetric DiagnosticKind = "metric" // a built-in metric
+	DiagnosticKindAlert  DiagnosticKind = "alert"  // a built-in alert
 )
 
 // The VK code registry: every declaration kind shares one serial space, so

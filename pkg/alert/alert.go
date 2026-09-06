@@ -13,13 +13,15 @@ import (
 type AlertStatus string
 
 const (
-	AlertStatusActive   AlertStatus = "active"
-	AlertStatusResolved AlertStatus = "resolved"
+	AlertStatusActive   AlertStatus = "active"   // the condition holds
+	AlertStatusResolved AlertStatus = "resolved" // a later run found the condition gone
 )
 
+// AlertSeverity is how urgently an operator should act; every built-in
+// alert is warn.
 type AlertSeverity string
 
-const AlertSeverityWarn AlertSeverity = "warn"
+const AlertSeverityWarn AlertSeverity = "warn" // degraded, not down -- an operator should learn of it eventually
 
 // RecordOutcome is what one AlertController.Record call published.
 type RecordOutcome string
@@ -34,9 +36,9 @@ const (
 // __system.alerts topic as an ordinary message.
 type Alert struct {
 	// identity
-	Name     string        `json:"name"`  // e.g. "partition_count"
-	Owner    *common.Owner `json:"owner"` // the resource the alert is about
-	Status   AlertStatus   `json:"status"`
+	Name     string        `json:"name"`   // e.g. "partition_count"
+	Owner    *common.Owner `json:"owner"`  // the resource the alert is about
+	Status   AlertStatus   `json:"status"` // active while the condition holds; resolved is a later version of the same key
 	Severity AlertSeverity `json:"severity"`
 
 	// prose -- Postgres MESSAGE/DETAIL/HINT

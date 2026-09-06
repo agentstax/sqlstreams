@@ -8,7 +8,7 @@ type StoredMessage[Message any] struct {
 	Id             int64     `json:"message_id"`
 	Message        *Message  `json:"message"`
 	CreatedAt      time.Time `json:"created_at"`
-	RoutingKey     string    `json:"routing_key"`
-	MessageKey     string    `json:"message_key"`
-	CompactionRank int64     `json:"compaction_rank"`
+	RoutingKey     string    `json:"routing_key"`     // "" if the producer set none
+	MessageKey     string    `json:"message_key"`     // "" if the producer set none
+	CompactionRank int64     `json:"compaction_rank"` // the message's rank under its key; 0 for an uncompacted message
 }

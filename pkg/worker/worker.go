@@ -16,6 +16,7 @@ type InstanceTarget int
 // NoInstanceTarget lifts the claim gate -- any number of instances can run.
 const NoInstanceTarget InstanceTarget = -1
 
+// Suspended reports a zero target -- no instance may claim the row.
 func (t InstanceTarget) Suspended() bool {
 	return t == 0
 }
@@ -30,8 +31,8 @@ func (t InstanceTarget) Validate() error {
 // Worker is one row of the worker_config table.
 type Worker struct {
 	Id    int64         `json:"id"`
-	Name  string        `json:"worker"`
-	Owner *common.Owner `json:"owner"`
+	Name  string        `json:"worker"` // the worker kind: topic_janitor, message_consumer, metrics_collector, ...
+	Owner *common.Owner `json:"owner"`  // the resource whose row this is
 	// Metadata is a stored configuration snapshot with worker-specific fields and omitted defaults.
 	// It is not an instance's effective configuration; editing it does not update the worker.
 	Metadata        any            `json:"metadata"`
