@@ -9,10 +9,10 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// Status is one ScheduleGroupSummaryRow per consumer group that receives the
+// Status is one ScheduleConsumerGroupSummaryRow per consumer group that receives the
 // schedule's messages. Counts cover the topic's retention window.
-func (d *ScheduleDatastore) Status(ctx context.Context, topicId int64, name string) ([]ScheduleGroupSummaryRow, error) {
-	var statuses []ScheduleGroupSummaryRow
+func (d *ScheduleDatastore) Status(ctx context.Context, topicId int64, name string) ([]ScheduleConsumerGroupSummaryRow, error) {
+	var statuses []ScheduleConsumerGroupSummaryRow
 	err := d.DatastoreRetry.Wrap(ctx, func() error {
 		var err error
 		statuses, err = d.status(ctx, topicId, name)
@@ -21,7 +21,7 @@ func (d *ScheduleDatastore) Status(ctx context.Context, topicId int64, name stri
 	return statuses, err
 }
 
-func (d *ScheduleDatastore) status(ctx context.Context, topicId int64, name string) ([]ScheduleGroupSummaryRow, error) {
+func (d *ScheduleDatastore) status(ctx context.Context, topicId int64, name string) ([]ScheduleConsumerGroupSummaryRow, error) {
 	groups, err := d.matchingGroups(ctx, topicId, name)
 	if err != nil {
 		return nil, err
@@ -35,13 +35,13 @@ func (d *ScheduleDatastore) status(ctx context.Context, topicId int64, name stri
 		return nil, err
 	}
 
-	var statuses []ScheduleGroupSummaryRow
+	var statuses []ScheduleConsumerGroupSummaryRow
 	for _, group := range groups {
 		outcomes, err := d.messageOutcomes(ctx, topicId, group.Id, messageIds)
 		if err != nil {
 			return nil, err
 		}
-		statuses = append(statuses, scheduleGroupSummary(group, messageIds, headId, outcomes))
+		statuses = append(statuses, scheduleConsumerGroupSummary(group, messageIds, headId, outcomes))
 	}
 	return statuses, nil
 }
@@ -176,8 +176,8 @@ func (d *ScheduleDatastore) messageOutcomes(ctx context.Context, topicId int64, 
 
 // 'superseded' and still-pending 'deferred' messages never
 // ran, so ran = succeeded + failed always holds
-func scheduleGroupSummary(group matchingGroupRow, messageIds []int64, headId int64, outcomes map[int64]messageOutcomeRow) ScheduleGroupSummaryRow {
-	status := ScheduleGroupSummaryRow{ConsumerGroup: group.Name}
+func scheduleConsumerGroupSummary(group matchingGroupRow, messageIds []int64, headId int64, outcomes map[int64]messageOutcomeRow) ScheduleConsumerGroupSummaryRow {
+	status := ScheduleConsumerGroupSummaryRow{ConsumerGroup: group.Name}
 	for _, messageId := range messageIds {
 		outcome := outcomes[messageId]
 		switch {

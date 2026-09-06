@@ -6,7 +6,7 @@ docs/decisions/.
 
 - Supported public API review [0665]: boundary settled; `_public-surface.md`
   holds the current inventory and proposed decisions. Review the remove/question
-  rows before implementation; fold final verdicts into decision records and
+  rows before implementation; fold final verdicts into one decision record and
   delete the working inventory at close-out.
 
 - Table name + column review (pre-v1, last pass before the DDL is expensive
@@ -16,9 +16,9 @@ docs/decisions/.
   1. Settle the naming findings (same concept, different name):
      - `message_key_lease.lease_token` -> `token` (bare rule; `claim_lease.token`,
        `worker_instance.token`; the `lease_` prefix stays only on exception_queue).
-     - `worker_instance.attempts` (consecutive failures, resets on success) vs
-       `exception_queue.attempts` (runs so far) -> rename the worker one
-       (`failures`).
+     - `worker_instance.attempts` vs `exception_queue.attempts` -- USER-SETTLED
+       2026-09-06: keep `attempts`; a rename adds a term and locks in one
+       meaning of the streak.
      - `migration_log.migration_version` -> `version` (bare rule; Row already
        maps it to `Version`).
      - `compaction_head.head_id` -> `message_id` (FK columns keep the resource's

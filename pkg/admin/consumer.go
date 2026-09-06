@@ -37,7 +37,7 @@ func (a *MessageAdmin) ListConsumers(ctx context.Context, topicName string) ([]*
 }
 
 // ListConsumerWorkers lists the consumer group's shared worker rows -- its stored config.
-// Returns ErrTopicNotFound / ErrGroupNotFound when either side is missing.
+// Returns ErrTopicNotFound / ErrConsumerNotFound when either side is missing.
 func (a *MessageAdmin) ListConsumerWorkers(ctx context.Context, topicName string, consumerName string) ([]*worker.Worker, error) {
 	consumerGroupOwner, err := a.ConsumerGroupOwner(ctx, topicName, consumerName)
 	if err != nil {
@@ -64,10 +64,10 @@ func (a *MessageAdmin) ListConsumerWorkers(ctx context.Context, topicName string
 // topic and its messages are untouched. All instances share this registration.
 //
 // Returns topic.ErrDestroyDisabled unless MessageAdminConfig.AllowDestroy is set,
-// and ErrTopicNotFound / ErrGroupNotFound when either side is missing.
+// and ErrTopicNotFound / ErrConsumerNotFound when either side is missing.
 // Unless options.Force is set:
-//   - any consumer instance is live     -> ErrGroupLive
-//   - the group still holds delivery rows    -> ErrGroupDeliveriesPending
+//   - any consumer instance is live     -> ErrConsumerGroupLive
+//   - the group still holds delivery rows    -> ErrConsumerGroupDeliveriesPending
 func (a *MessageAdmin) DestroyConsumer(ctx context.Context, topicName string, consumerName string, options *DestroyOptions) error {
 	if !a.allowDestroy {
 		return topic.ErrDestroyDisabled
@@ -102,7 +102,7 @@ func (a *MessageAdmin) assertConsumerGroupIdle(ctx context.Context, topicId int6
 	}
 	for _, snapshot := range workers {
 		if snapshot.Owner.ConsumerGroupId == consumerGroupId && snapshot.LiveInstances > 0 {
-			return consume.ErrGroupLive.With("group", consumerName, "group_id", consumerGroupId)
+			return consume.ErrConsumerGroupLive.With("group", consumerName, "group_id", consumerGroupId)
 		}
 	}
 
@@ -114,7 +114,7 @@ func (a *MessageAdmin) assertConsumerGroupIdle(ctx context.Context, topicId int6
 	exceptions := consumerGroup.Exceptions
 	total := exceptions.Ready + exceptions.Inflight + exceptions.Deferred + exceptions.Dead
 	if total > 0 {
-		return consume.ErrGroupDeliveriesPending.With("group", consumerName, "topic_id", topicId, "group_id", consumerGroupId)
+		return consume.ErrConsumerGroupDeliveriesPending.With("group", consumerName, "topic_id", topicId, "group_id", consumerGroupId)
 	}
 	return nil
 }

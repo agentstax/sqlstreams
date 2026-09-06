@@ -736,7 +736,7 @@ func startConsumer(ctx context.Context, group string, bindings []string, concurr
 	}
 }
 
-func statusFor(statuses []*schedule.ScheduleGroupSummary, group string) *schedule.ScheduleGroupSummary {
+func statusFor(statuses []*schedule.ScheduleConsumerGroupSummary, group string) *schedule.ScheduleConsumerGroupSummary {
 	for _, status := range statuses {
 		if status.ConsumerGroup == group {
 			return status

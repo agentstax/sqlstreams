@@ -32,7 +32,9 @@ rewrite-to-the-real-API pass 2026-08-22 [0581], the board rebuild
     Schedule run-now now takes
     `ScheduleRunOptions` from its scheduler owner. Admin operations and CLI
     commands now name the resource `consumer`; shared ownership and metrics
-    retain `ConsumerGroup`. Settle
+    retain `ConsumerGroup`. Error aliases, schedule summaries, and binding
+    fields now follow the same rule; binding/schedule JSON uses
+    `consumer_group` and the CLI summary list uses `consumer_groups`. Settle
     `Client.Datastore()` and mutable client fields, and utility methods exposed
     through `Owner`, `RetryPolicy`, `MessageOptions`, and diagnostic aliases.
   - Keep useful batching and transaction controls; preserve separate single-topic

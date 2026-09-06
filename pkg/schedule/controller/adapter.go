@@ -32,8 +32,8 @@ func toSchedule(data *datastore.ScheduleConfigRow) (*schedule.Schedule, error) {
 	}, nil
 }
 
-func toScheduleGroupSummary(data *datastore.ScheduleGroupSummaryRow) *schedule.ScheduleGroupSummary {
-	return &schedule.ScheduleGroupSummary{
+func toScheduleConsumerGroupSummary(data *datastore.ScheduleConsumerGroupSummaryRow) *schedule.ScheduleConsumerGroupSummary {
+	return &schedule.ScheduleConsumerGroupSummary{
 		ConsumerGroup: data.ConsumerGroup,
 		Ran:           data.Ran,
 		Succeeded:     data.Succeeded,

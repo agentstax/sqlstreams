@@ -15,11 +15,11 @@ const (
 // BindingInstalled is the group's effective set.
 // BindingWaiting a declarer still blocked on changing effective set.
 type Binding struct {
-	GroupName   string         `json:"group"`
-	TopicName   string         `json:"topic"`
-	Status      BindingOutcome `json:"status"`
-	Patterns    []string       `json:"patterns"` // empty = the whole topic
-	DeclaredBy  string         `json:"declared_by"`
-	DeclaredAt  time.Time      `json:"declared_at"`
-	AttemptedAt time.Time      `json:"attempted_at"`
+	ConsumerGroupName string         `json:"consumer_group"`
+	TopicName         string         `json:"topic"`
+	Status            BindingOutcome `json:"status"`
+	Patterns          []string       `json:"patterns"` // empty = the whole topic
+	DeclaredBy        string         `json:"declared_by"`
+	DeclaredAt        time.Time      `json:"declared_at"`
+	AttemptedAt       time.Time      `json:"attempted_at"`
 }

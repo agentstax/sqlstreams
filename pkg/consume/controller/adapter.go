@@ -16,12 +16,12 @@ func toConsumer(data *datastore.ConsumerGroupConfigRow) *consume.Consumer {
 
 func toBinding(data *datastore.BindingConfigLogRow) *consume.Binding {
 	return &consume.Binding{
-		GroupName:   data.GroupName,
-		TopicName:   data.TopicName,
-		Status:      consume.BindingOutcome(data.Status),
-		Patterns:    data.Patterns,
-		DeclaredBy:  data.DeclaredBy,
-		DeclaredAt:  data.DeclaredAt,
-		AttemptedAt: data.AttemptedAt,
+		ConsumerGroupName: data.GroupName,
+		TopicName:         data.TopicName,
+		Status:            consume.BindingOutcome(data.Status),
+		Patterns:          data.Patterns,
+		DeclaredBy:        data.DeclaredBy,
+		DeclaredAt:        data.DeclaredAt,
+		AttemptedAt:       data.AttemptedAt,
 	}
 }

@@ -24,9 +24,9 @@ var (
 	ErrCompactionHeadNotFound         = compaction.ErrCompactionHeadNotFound
 	ErrDeliveryDelayed                = consume.ErrDeliveryDelayed
 	ErrDeliveryTerminal               = consume.ErrDeliveryTerminal
-	ErrGroupDeliveriesPending         = consume.ErrGroupDeliveriesPending
-	ErrGroupLive                      = consume.ErrGroupLive
-	ErrGroupNotFound                  = consume.ErrGroupNotFound
+	ErrConsumerGroupDeliveriesPending = consume.ErrConsumerGroupDeliveriesPending
+	ErrConsumerGroupLive              = consume.ErrConsumerGroupLive
+	ErrConsumerNotFound               = consume.ErrConsumerNotFound
 	ErrNotRegistered                  = migrate.ErrNotRegistered
 	ErrSchemaNewerThanBuild           = migrate.ErrSchemaNewerThanBuild
 	ErrSchemaOlderThanBuild           = migrate.ErrSchemaOlderThanBuild

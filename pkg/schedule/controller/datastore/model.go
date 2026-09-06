@@ -22,8 +22,8 @@ type ScheduleConfigRow struct {
 	LastScheduledAt *time.Time      `db:"last_scheduled_at"`
 }
 
-// ScheduleGroupSummaryRow is one consumer group's Status counts.
-type ScheduleGroupSummaryRow struct {
+// ScheduleConsumerGroupSummaryRow is one consumer group's Status counts.
+type ScheduleConsumerGroupSummaryRow struct {
 	ConsumerGroup string
 	Ran           int64
 	Succeeded     int64

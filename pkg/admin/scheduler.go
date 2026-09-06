@@ -46,10 +46,10 @@ func (a *MessageAdmin) RunSchedule(ctx context.Context, name string, options *sc
 	return a.scheduler.RunSchedule(ctx, name, options)
 }
 
-// ScheduleStatus is one ScheduleGroupSummary per consumer group that receives the
+// ScheduleStatus is one ScheduleConsumerGroupSummary per consumer group that receives the
 // schedule's messages. Counts cover the target topic's retention window.
 // Returns ErrScheduleNotFound if name isn't registered.
-func (a *MessageAdmin) ScheduleStatus(ctx context.Context, name string) ([]*schedule.ScheduleGroupSummary, error) {
+func (a *MessageAdmin) ScheduleStatus(ctx context.Context, name string) ([]*schedule.ScheduleConsumerGroupSummary, error) {
 	if name == "" {
 		return nil, errors.New("schedule name is required")
 	}

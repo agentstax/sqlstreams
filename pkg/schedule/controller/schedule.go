@@ -135,9 +135,9 @@ func (c *ScheduleController) ListMessages(ctx context.Context, topicId int64, na
 	return messages, nil
 }
 
-// Status is one ScheduleGroupSummary per consumer group that receives the
+// Status is one ScheduleConsumerGroupSummary per consumer group that receives the
 // schedule's messages. Counts cover the topic's retention window.
-func (c *ScheduleController) Status(ctx context.Context, topicId int64, name string) ([]*schedule.ScheduleGroupSummary, error) {
+func (c *ScheduleController) Status(ctx context.Context, topicId int64, name string) ([]*schedule.ScheduleConsumerGroupSummary, error) {
 	if topicId <= 0 {
 		return nil, fmt.Errorf("topicId must be > 0, got %d", topicId)
 	}
@@ -150,9 +150,9 @@ func (c *ScheduleController) Status(ctx context.Context, topicId int64, name str
 		return nil, err
 	}
 
-	var statuses []*schedule.ScheduleGroupSummary
+	var statuses []*schedule.ScheduleConsumerGroupSummary
 	for _, data := range listed {
-		statuses = append(statuses, toScheduleGroupSummary(&data))
+		statuses = append(statuses, toScheduleConsumerGroupSummary(&data))
 	}
 	return statuses, nil
 }

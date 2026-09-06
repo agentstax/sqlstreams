@@ -169,7 +169,7 @@ func seedingSection(ctx context.Context) {
 	for _, jobName := range []string{partitioncount.JobName, compactionreadcost.JobName} {
 		declared := false
 		for _, declaration := range declarations {
-			if declaration.GroupName == jobName && declaration.TopicName == schedule.ScheduleTopicName &&
+			if declaration.ConsumerGroupName == jobName && declaration.TopicName == schedule.ScheduleTopicName &&
 				declaration.Status == consume.BindingInstalled &&
 				len(declaration.Patterns) == 1 && declaration.Patterns[0] == jobName {
 				declared = true
@@ -352,7 +352,7 @@ func executorSection(ctx context.Context) {
 	must(err)
 	declared := false
 	for _, declaration := range declarations {
-		if declaration.GroupName == partitioncount.JobName && declaration.TopicName == schedule.ScheduleTopicName &&
+		if declaration.ConsumerGroupName == partitioncount.JobName && declaration.TopicName == schedule.ScheduleTopicName &&
 			declaration.Status == consume.BindingInstalled &&
 			len(declaration.Patterns) == 1 && declaration.Patterns[0] == partitioncount.JobName {
 			declared = true

@@ -27,7 +27,7 @@ func (c *MetricsController) ConsumerGroupSnapshot(ctx context.Context, topicId i
 		return nil, err
 	}
 	if data == nil {
-		return nil, consume.ErrGroupNotFound.With("group", consumerGroupName, "topic_id", topicId, "group_id", consumerGroupId)
+		return nil, consume.ErrConsumerNotFound.With("group", consumerGroupName, "topic_id", topicId, "group_id", consumerGroupId)
 	}
 	abandonedRoutines, err := c.AbandonedRoutineSnapshot(ctx, topicId, consumerGroupName)
 	if err != nil {

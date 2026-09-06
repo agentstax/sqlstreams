@@ -139,5 +139,5 @@ func compareBindings(left *consume.Binding, right *consume.Binding) int {
 	if c := strings.Compare(left.TopicName, right.TopicName); c != 0 {
 		return c
 	}
-	return strings.Compare(left.GroupName, right.GroupName)
+	return strings.Compare(left.ConsumerGroupName, right.ConsumerGroupName)
 }

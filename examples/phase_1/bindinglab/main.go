@@ -313,7 +313,7 @@ func labDeclarations(ctx context.Context) (*consume.Binding, *consume.Binding) {
 	var installed *consume.Binding
 	var waiter *consume.Binding
 	for _, declaration := range declarations {
-		if declaration.TopicName != topicName || declaration.GroupName != groupName {
+		if declaration.TopicName != topicName || declaration.ConsumerGroupName != groupName {
 			continue
 		}
 		switch declaration.Status {

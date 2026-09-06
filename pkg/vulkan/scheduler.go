@@ -57,7 +57,7 @@ func (s *SchedulerHandle) Run(ctx context.Context, options *ScheduleRunOptions) 
 }
 
 // Status reports the schedule's messages rolled up per consumer group.
-func (s *SchedulerHandle) Status(ctx context.Context) ([]*ScheduleGroupSummary, error) {
+func (s *SchedulerHandle) Status(ctx context.Context) ([]*ScheduleConsumerGroupSummary, error) {
 	return s.client.admin.ScheduleStatus(ctx, s.name)
 }
 

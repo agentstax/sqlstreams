@@ -56,7 +56,7 @@ func printBindingsTable(w io.Writer, bindings []*consume.Binding) {
 	fmt.Fprintln(tw, "CONSUMER\tTOPIC\tSTATUS\tPATTERNS\tDECLARED BY\tDECLARED AT\tLAST ATTEMPT")
 	for _, binding := range bindings {
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-			binding.GroupName,
+			binding.ConsumerGroupName,
 			binding.TopicName,
 			string(binding.Status),
 			patternsCell(binding.Patterns),

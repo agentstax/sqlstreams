@@ -117,11 +117,11 @@ type consumerDestroyedDocument struct {
 // consumerDestroyError maps a DestroyConsumer failure to CLI output.
 func consumerDestroyError(topicName string, consumerName string, err error) error {
 	switch {
-	case errors.Is(err, consume.ErrGroupNotFound):
+	case errors.Is(err, consume.ErrConsumerNotFound):
 		return failOp("consumer %q not found on topic %q", consumerName, topicName)
-	case errors.Is(err, consume.ErrGroupLive):
+	case errors.Is(err, consume.ErrConsumerGroupLive):
 		return failOp("consumer %q still has live instances -- stop them, or pass --force to destroy anyway", consumerName)
-	case errors.Is(err, consume.ErrGroupDeliveriesPending):
+	case errors.Is(err, consume.ErrConsumerGroupDeliveriesPending):
 		return failOp("consumer %q still has delivery rows (failures awaiting retry, or dead-letters) -- pass --force to discard them", consumerName)
 	case errors.Is(err, topic.ErrTopicNotFound):
 		return errTopicNotFound(topicName)

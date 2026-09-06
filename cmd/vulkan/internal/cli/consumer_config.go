@@ -96,7 +96,7 @@ func decodeMessageOptions(value any) (*common.MessageOptions, error) {
 // consumerError maps a consumer config command failure to CLI output.
 func consumerError(topicName string, consumerName string, err error) error {
 	switch {
-	case errors.Is(err, consume.ErrGroupNotFound):
+	case errors.Is(err, consume.ErrConsumerNotFound):
 		return failOp("consumer %q not found on topic %q", consumerName, topicName)
 	case errors.Is(err, topic.ErrTopicNotFound):
 		return errTopicNotFound(topicName)

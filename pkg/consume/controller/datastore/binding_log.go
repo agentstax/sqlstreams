@@ -46,7 +46,7 @@ func (d *ConsumeDatastore) declareBindings(ctx context.Context, topicId int64, g
 	var lockedGroupId int64
 	if err := tx.QueryRow(ctx, lockSql, groupId).Scan(&lockedGroupId); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return "", consume.ErrGroupNotFound.With("group_id", groupId)
+			return "", consume.ErrConsumerNotFound.With("group_id", groupId)
 		}
 		return "", err
 	}

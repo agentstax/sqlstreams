@@ -420,6 +420,14 @@ Alert commands select it with `--topic orders --consumer billing`.
 These commands replace `vulkan group` and `--group`. Scripts reading consumer
 config or destroy JSON output should use the `consumer` key, which replaces `group`.
 
+Binding reads expose `Binding.ConsumerGroupName`. Schedule summaries are
+`ScheduleConsumerGroupSummary` values. Binding and schedule reads serialize
+the shared consumer group name as `consumer_group`, replacing `group`; the
+CLI schedule summary list uses `consumer_groups`, replacing `groups`.
+The corresponding errors are `ErrConsumerNotFound`, `ErrConsumerGroupLive`,
+and `ErrConsumerGroupDeliveriesPending`. Their diagnostic codes remain
+VK0014, VK0015, and VK0016, and log attribute keys are unchanged.
+
 Every block reads the same way: list the collection, name one, read
 it, act on it.
 
@@ -653,7 +661,7 @@ only their typed built-ins.
 absence. Those reads do not prove that the named topic or group exists: a
 collected series can outlive its resource, and a new resource may exist before
 the collector reaches it. `Snapshot` is the live existence check and returns
-`ErrTopicNotFound` or `ErrGroupNotFound`.
+`ErrTopicNotFound` or `ErrConsumerNotFound`.
 
 The observation time stays on every returned value. For example,
 `payments.requested` is topic id `41`, `charge-cards` is group id `73`, and
@@ -752,7 +760,7 @@ resolves the name to the id first. Destroy the topic and
 `topic.Alerts().PartitionCount().Latest(ctx)` returns `ErrTopicNotFound`
 rather than the last alert: the check only evaluates owners still in the
 catalog, so nothing would ever resolve that alert and reading it as current
-is wrong. A missing group is `ErrGroupNotFound` the same way. The id is also
+is wrong. A missing group is `ErrConsumerNotFound` the same way. The id is also
 what makes the alert follow the topic through `Rename` instead of merging
 with a later topic that reuses the name.
 
@@ -933,7 +941,7 @@ outputs, `Snapshot` for point-in-time observability, `Status` for current
 state, `Summary` for an aggregate projection, `Health` for a verdict,
 `Declaration` for a declared relationship, `Row` for a table-exact scan, and
 `Instance` for running process state. A projection includes its subject when
-the bare role would be vague: `ScheduleGroupSummary`,
+the bare role would be vague: `ScheduleConsumerGroupSummary`,
 `ScheduleMessageStatus`, `TopicVersionHealth`, and
 `ConsumerGroupSchemaVersionLag`.
 

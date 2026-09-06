@@ -33,7 +33,7 @@ func (a *MessageAdmin) TopicOwner(ctx context.Context, name string) (*common.Own
 }
 
 // ConsumerGroupOwner resolves the group registered under consumerName on topicName to
-// its owner. Returns ErrTopicNotFound / ErrGroupNotFound when either side
+// its owner. Returns ErrTopicNotFound / ErrConsumerNotFound when either side
 // is missing.
 func (a *MessageAdmin) ConsumerGroupOwner(ctx context.Context, topicName string, consumerName string) (*common.Owner, error) {
 	if consumerName == "" {
@@ -53,7 +53,7 @@ func (a *MessageAdmin) ConsumerGroupOwner(ctx context.Context, topicName string,
 		return nil, err
 	}
 	if consumerGroup == nil {
-		return nil, consume.ErrGroupNotFound.With("group", consumerName, "topic", topicName)
+		return nil, consume.ErrConsumerNotFound.With("group", consumerName, "topic", topicName)
 	}
 	return common.NewConsumerGroupOwner(found.SystemId, found.Id, consumerGroup.Id, consumerGroup.Name)
 }

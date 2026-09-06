@@ -66,13 +66,13 @@ type (
 	Topic           = topic.Topic
 	DeliveryLogMode = topic.DeliveryLogMode
 
-	SchedulerConfig        = scheduler.SchedulerConfig
-	ScheduleRunOptions     = scheduler.ScheduleRunOptions
-	Schedule               = schedule.Schedule
-	ScheduleGroupSummary   = schedule.ScheduleGroupSummary
-	ScheduleMessageStatus  = schedule.ScheduleMessageStatus
-	ScheduleMessageOutcome = schedule.ScheduleMessageOutcome
-	ScheduleStoredMessage  = schedule.ScheduleStoredMessage
+	SchedulerConfig              = scheduler.SchedulerConfig
+	ScheduleRunOptions           = scheduler.ScheduleRunOptions
+	Schedule                     = schedule.Schedule
+	ScheduleConsumerGroupSummary = schedule.ScheduleConsumerGroupSummary
+	ScheduleMessageStatus        = schedule.ScheduleMessageStatus
+	ScheduleMessageOutcome       = schedule.ScheduleMessageOutcome
+	ScheduleStoredMessage        = schedule.ScheduleStoredMessage
 
 	System         = system.System
 	Worker         = worker.Worker

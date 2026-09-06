@@ -137,11 +137,11 @@ type scheduleDocument struct {
 // scheduleGetDocument is schedule get's json result; the not-found case is data
 // (exists false, schedule null), the exit code stays 1.
 type scheduleGetDocument struct {
-	Schedule string                            `json:"schedule"`
-	Exists   bool                              `json:"exists"`
-	Job      *scheduleDocument                 `json:"row"`
-	Groups   []*schedule.ScheduleGroupSummary  `json:"groups"`
-	Messages []*schedule.ScheduleMessageStatus `json:"messages"` // null unless --messages
+	Schedule       string                                   `json:"schedule"`
+	Exists         bool                                     `json:"exists"`
+	Job            *scheduleDocument                        `json:"row"`
+	ConsumerGroups []*schedule.ScheduleConsumerGroupSummary `json:"consumer_groups"`
+	Messages       []*schedule.ScheduleMessageStatus        `json:"messages"` // null unless --messages
 }
 
 func toScheduleDocument(row *schedule.Schedule) scheduleDocument {
@@ -169,14 +169,14 @@ func toScheduleDocuments(schedules []*schedule.Schedule) []scheduleDocument {
 	return documents
 }
 
-func toScheduleGetDocument(name string, row *schedule.Schedule, groups []*schedule.ScheduleGroupSummary, messages []*schedule.ScheduleMessageStatus) scheduleGetDocument {
+func toScheduleGetDocument(name string, row *schedule.Schedule, groups []*schedule.ScheduleConsumerGroupSummary, messages []*schedule.ScheduleMessageStatus) scheduleGetDocument {
 	document := scheduleGetDocument{
-		Schedule: name,
-		Exists:   row != nil,
-		Groups:   make([]*schedule.ScheduleGroupSummary, 0, len(groups)),
-		Messages: messages,
+		Schedule:       name,
+		Exists:         row != nil,
+		ConsumerGroups: make([]*schedule.ScheduleConsumerGroupSummary, 0, len(groups)),
+		Messages:       messages,
 	}
-	document.Groups = append(document.Groups, groups...)
+	document.ConsumerGroups = append(document.ConsumerGroups, groups...)
 
 	if row != nil {
 		jobDocument := toScheduleDocument(row)
@@ -201,7 +201,7 @@ func printScheduleDetail(w io.Writer, row *schedule.Schedule) {
 
 // printScheduleStatuses is one line per consumer group whose binding matches
 // the schedule's name -- message outcomes over the target topic's retention window.
-func printScheduleStatuses(w io.Writer, statuses []*schedule.ScheduleGroupSummary) {
+func printScheduleStatuses(w io.Writer, statuses []*schedule.ScheduleConsumerGroupSummary) {
 	fmt.Fprintln(w)
 	if len(statuses) == 0 {
 		fmt.Fprintln(w, "  no consumer group is bound to this row's name")

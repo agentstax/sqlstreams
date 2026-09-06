@@ -23,7 +23,7 @@ func (a *MessageAdmin) TopicMetrics(ctx context.Context, name string) (*metrics.
 }
 
 // ConsumerGroupMetrics returns the named consumer group's live snapshot.
-// Returns ErrTopicNotFound / ErrGroupNotFound when either side is missing.
+// Returns ErrTopicNotFound / ErrConsumerNotFound when either side is missing.
 func (a *MessageAdmin) ConsumerGroupMetrics(ctx context.Context, topicName string, consumerName string) (*metrics.ConsumerGroupSnapshot, error) {
 	owner, err := a.ConsumerGroupOwner(ctx, topicName, consumerName)
 	if err != nil {

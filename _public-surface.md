@@ -1,7 +1,7 @@
 # Supported public API review
 
-Working review, 2026-09-06. Boundary accepted in [0665]; recommendations below
-are proposed, not implemented. Replaces the obsolete 2026-08-01 inventory.
+Working review, 2026-09-06. Boundary accepted in [0665]; rows distinguish
+implemented changes from remaining proposals. Replaces the obsolete 2026-08-01 inventory.
 Delete this file at close-out after verdicts are recorded in docs/decisions/.
 
 ## Boundary
@@ -23,6 +23,7 @@ contract before v1. Removed records a decision implemented in this review.
 | Verdict | Surface | Recommendation and consequence |
 | --- | --- | --- |
 | Removed (review in progress) | Nested `SystemConfig` stub | Empty configuration offered no choice. The real alert and collector declaration is now `SystemConfig`; registration creates the singleton directly. No settings or stored rows changed. |
+| Renamed (review in progress) | `ErrConsumerNotFound`, `ErrConsumerGroupLive`, `ErrConsumerGroupDeliveriesPending`, `ScheduleConsumerGroupSummary`, `Binding.ConsumerGroupName` | Applied the consumer resource / consumer-group shared-state distinction at the declarations and callers. Binding and schedule JSON use `consumer_group`; the CLI schedule summary collection uses `consumer_groups`. Diagnostic codes VK0014–VK0016 and log attribute keys are unchanged. Old Go names and JSON keys are replaced without compatibility aliases. |
 | Question | `Client.Datastore()`, `PostgresDatastore` alias | This returns shared state with writable Pool, Schema, Logger, and Retry. Decide whether this is an intentional supported escape hatch. Keep until direct users and integrations are checked; deleting only the alias cannot hide a reachable return type. A replacement must preserve custom SQL/integration needs without creating a second datastore. |
 | Question | `Client.Config`, `Client.Logger` | Exported mutable state can imply live reconfiguration, but different components retain different resolved values. Decide whether these are supported read access, live controls, or construction details. Trace mutations before promising behavior; do not silently make existing assignments ineffective. |
 | Keep | `ProducerConfig.Batch`, `BatcherConfig` | MaxSize, ConcurrencyLimit, AttemptTimeout, and ShutdownGrace express caller-visible batching and cancellation tradeoffs. Their implementation-package location is not a reason to remove them. |
@@ -88,8 +89,8 @@ that every method's behavior has received a correctness audit.
 
 Every type alias in alias.go is listed here, with exported methods found on
 its declaring type. Fields remain part of the review through the linked
-source; the first table identifies field-level candidates. All aliases remain
-unchanged in this pass. A method on an aliased type is supported even when no
+source; the first table identifies field-level candidates. Rows include the
+SystemConfig and ScheduleRunOptions changes already implemented. A method on an aliased type is supported even when no
 free constructor for that type is exported by vulkan.
 
 | Alias | Declaration | Exported methods | Verdict |
@@ -133,7 +134,7 @@ free constructor for that type is exported by vulkan.
 | `DeliveryLogMode` | [topic.DeliveryLogMode](pkg/topic/topic.go) | None declared | Keep |
 | `SchedulerConfig` | [scheduler.SchedulerConfig](pkg/scheduler/scheduler_config.go) | `WithDefaults`, `Validate` | Keep |
 | `Schedule` | [schedule.Schedule](pkg/schedule/schedule.go) | None declared | Keep |
-| `ScheduleGroupSummary` | [schedule.ScheduleGroupSummary](pkg/schedule/group_summary.go) | None declared | Keep |
+| `ScheduleConsumerGroupSummary` | [schedule.ScheduleConsumerGroupSummary](pkg/schedule/consumer_group_summary.go) | None declared | Keep |
 | `ScheduleMessageStatus` | [schedule.ScheduleMessageStatus](pkg/schedule/message_status.go) | None declared | Keep |
 | `ScheduleMessageOutcome` | [schedule.ScheduleMessageOutcome](pkg/schedule/message_status.go) | None declared | Keep |
 | `ScheduleStoredMessage` | [schedule.ScheduleStoredMessage](pkg/schedule/stored_message.go) | `SchemaVersion`, `MarshalJSON` | Keep |
@@ -181,7 +182,7 @@ noted above, not their availability to users.
 
 [alias.go](pkg/vulkan/alias.go): `RecoveryTransient`, `RecoveryPermanent`, `DiagnosticKindError`, `DiagnosticKindEvent`, `DiagnosticKindMetric`, `DiagnosticKindAlert`, `ConcurrencyParallel`, `ConcurrencyExclusive`, `ConcurrencyOrdered`, `DeliveryLogModeOff`, `DeliveryLogModeFailures`, `DeliveryLogModeAll`, `OwnerAny`, `OwnerSystem`, `OwnerTopic`, `OwnerConsumerGroup`, `CursorPositionBeginning`, `CursorPositionHead`, `BindingInstalled`, `BindingJoined`, `BindingWaiting`, `ScheduleMessagePending`, `ScheduleMessageDeferred`, `ScheduleMessageSucceeded`, `ScheduleMessageFailed`, `ScheduleMessageSuperseded`, `NoInstanceTarget`, `MetricKindCounter`, `MetricKindGauge`, `MetricScopeSystem`, `MetricScopeTopic`, `MetricScopeConsumerGroup`, `MetricScopeConsumerSession`, `MetricUnitMilliseconds`, `AlertStatusActive`, `AlertStatusResolved`, `AlertSeverityWarn`, `MetricsTopicName`, `ScheduleTopicName`, `AlertTopicName`, `LifecycleContext`, `MetaFromContext`, `Terminal`, `Delay`, `Beginning`, `Head`, `NewCompactionOptions`.
 
-[errors.go](pkg/vulkan/errors.go): `ErrAlreadyConsuming`, `ErrCommitConfirmationLost`, `ErrLeaseLost`, `ErrLifecycleContextNotCancellable`, `ErrCompactionHeadNotFound`, `ErrDeliveryDelayed`, `ErrDeliveryTerminal`, `ErrGroupDeliveriesPending`, `ErrGroupLive`, `ErrGroupNotFound`, `ErrNotRegistered`, `ErrSchemaNewerThanBuild`, `ErrSchemaOlderThanBuild`, `ErrStepLockTimeout`, `ErrPartitionCreationBehind`, `ErrPartitionLockTimeout`, `ErrScheduleDeclarationInterrupted`, `ErrScheduleNotFound`, `ErrSchemaNotCreatable`, `ErrSystemLive`, `ErrTopicsRegistered`, `ErrDestroyDisabled`, `ErrReservedTopicName`, `ErrTopicConfigMismatch`, `ErrTopicDeclarationInterrupted`, `ErrTopicNameTaken`, `ErrTopicNotEmpty`, `ErrTopicNotFound`, `ErrTopicPartitionsRemain`, `ErrInstanceLost`, `ErrWorkerDeclarationInterrupted`.
+[errors.go](pkg/vulkan/errors.go): `ErrAlreadyConsuming`, `ErrCommitConfirmationLost`, `ErrLeaseLost`, `ErrLifecycleContextNotCancellable`, `ErrCompactionHeadNotFound`, `ErrDeliveryDelayed`, `ErrDeliveryTerminal`, `ErrConsumerGroupDeliveriesPending`, `ErrConsumerGroupLive`, `ErrConsumerNotFound`, `ErrNotRegistered`, `ErrSchemaNewerThanBuild`, `ErrSchemaOlderThanBuild`, `ErrStepLockTimeout`, `ErrPartitionCreationBehind`, `ErrPartitionLockTimeout`, `ErrScheduleDeclarationInterrupted`, `ErrScheduleNotFound`, `ErrSchemaNotCreatable`, `ErrSystemLive`, `ErrTopicsRegistered`, `ErrDestroyDisabled`, `ErrReservedTopicName`, `ErrTopicConfigMismatch`, `ErrTopicDeclarationInterrupted`, `ErrTopicNameTaken`, `ErrTopicNotEmpty`, `ErrTopicNotFound`, `ErrTopicPartitionsRemain`, `ErrInstanceLost`, `ErrWorkerDeclarationInterrupted`.
 
 [events.go](pkg/vulkan/events.go): `EventAlertConditionHolds`, `EventConsumerStopped`, `EventExceptionDeadLettered`, `EventGroupConfigNotRefreshed`, `EventKillBackstopFired`, `EventLeaseReclaimed`, `EventMessageDeadLettered`, `EventMessagesDeadLettered`, `EventRangeQuarantined`, `EventSlowDispatch`, `EventStoredOptionsClamped`, `EventGoRoutineEventsDropped`, `EventPartitionCreatedOnInsert`, `EventPartitionNotCreatedAhead`, `EventSlowProduce`, `EventMessageAlreadyProduced`, `EventScheduleConfigReplaced`, `EventTargetKeepsNoSuccessRows`, `EventSystemManagerStopped`, `EventTopicConfigReplaced`, `EventInstanceLost`, `EventManagerRowSuspended`, `EventSlowTick`, `EventTickBackoffCurveExhausted`, `EventWorkerConfigReplaced`.
 

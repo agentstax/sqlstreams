@@ -1,9 +1,9 @@
 package schedule
 
-// ScheduleGroupSummary is one consumer group's outcomes for one schedule's messages,
+// ScheduleConsumerGroupSummary is one consumer group's outcomes for one schedule's messages,
 // derived from the target topic's delivery log.
-type ScheduleGroupSummary struct {
-	ConsumerGroup string `json:"group"`
+type ScheduleConsumerGroupSummary struct {
+	ConsumerGroup string `json:"consumer_group"`
 
 	// Ran - messages the group ran at least once.
 	// Messages superseded or deferred are not counted.
