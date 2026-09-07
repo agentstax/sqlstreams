@@ -24,17 +24,17 @@ func (r *Runner) RunConsumer(ctx context.Context) error {
 		return err
 	}
 
-	handled, err := r.openWriter(record.FileHandler)
+	handlerRecords, err := r.openWriter(record.FileHandler)
 	if err != nil {
 		return err
 	}
-	defer handled.Close()
-	phases, err := r.openWriter(record.FilePhase)
+	defer handlerRecords.Close()
+	phaseRecords, err := r.openWriter(record.FilePhase)
 	if err != nil {
 		return err
 	}
-	defer phases.Close()
-	fleet, err := consumer.NewInstances(orders.Consumer(r.declared.Group), r.consumerConfig(), r.declared.Group, r.declared.HandlerFailRate, handled, r.name)
+	defer phaseRecords.Close()
+	instances, err := consumer.NewInstances(orders.Consumer(r.declared.Group), r.consumerConfig(), r.declared.Group, r.declared.HandlerFailRate, handlerRecords, r.name)
 	if err != nil {
 		return err
 	}
@@ -42,38 +42,38 @@ func (r *Runner) RunConsumer(ctx context.Context) error {
 	start := time.Now()
 	for _, change := range r.declared.Consumers {
 		if err := common.WaitUntil(ctx, start.Add(change.At)); err != nil {
-			return stopFleet(fleet, ignoreCancellation(err))
+			return stopInstances(instances, ignoreCancellation(err))
 		}
-		if err := fleet.SetCount(ctx, change.Instances); err != nil {
-			return stopFleet(fleet, err)
+		if err := instances.SetCount(ctx, change.Instances); err != nil {
+			return stopInstances(instances, err)
 		}
-		if err := r.writeConsumerPhase(phases, change); err != nil {
-			return stopFleet(fleet, err)
+		if err := r.writeConsumerPhase(phaseRecords, change); err != nil {
+			return stopInstances(instances, err)
 		}
 	}
 
 	select {
 	case <-ctx.Done():
-		return stopFleet(fleet, nil)
-	case err := <-fleet.Failed():
-		return stopFleet(fleet, err)
+		return stopInstances(instances, nil)
+	case err := <-instances.Failed():
+		return stopInstances(instances, err)
 	}
 }
 
-func (r *Runner) writeConsumerPhase(phases *record.Writer, change scenario.ConsumerChange) error {
+func (r *Runner) writeConsumerPhase(phaseRecords *record.Writer, change scenario.ConsumerChange) error {
 	name := fmt.Sprintf("consumers %d", change.Instances)
 	detail := strings.Join(strings.Fields(change.String()), " ")
-	return r.writePhase(phases, record.PhaseConsumers, name, record.PhaseStarted, detail)
+	return r.writePhase(phaseRecords, record.PhaseConsumers, name, record.PhaseStarted, detail)
 }
 
 // ***************
 // *** HELPERS ***
 // ***************
 
-// stopFleet stops every instance and returns cause; the stop must outlive
-// the cancelled run ctx so each session can return.
-func stopFleet(fleet *consumer.Instances, cause error) error {
-	if err := fleet.SetCount(context.WithoutCancel(context.Background()), 0); err != nil {
+// stopInstances stops every instance and returns cause; the stop must
+// outlive the cancelled run ctx so each session can return.
+func stopInstances(instances *consumer.Instances, cause error) error {
+	if err := instances.SetCount(context.WithoutCancel(context.Background()), 0); err != nil {
 		return errors.Join(cause, err)
 	}
 	return cause

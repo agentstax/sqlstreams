@@ -76,7 +76,7 @@ func (c *Checker) Run(ctx context.Context) (*Verdict, error) {
 	}
 
 	if err := c.judge(ctx, verdict); err != nil {
-		verdict.Status = StatusUnknown
+		verdict.Status = VerdictUnknown
 		verdict.Reason = err.Error()
 	}
 	verdict.Duration = time.Since(verdict.StartedAt)
@@ -108,7 +108,7 @@ func (c *Checker) judge(ctx context.Context, verdict *Verdict) error {
 	}
 
 	// the handler files are complete only once the group has drained: a
-	// handler fact is on disk before the delivery it records is committed
+	// handler row is on disk before the delivery it records is committed
 	if err := c.drain(ctx, target); err != nil {
 		return err
 	}

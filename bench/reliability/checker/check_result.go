@@ -22,7 +22,7 @@ const (
 // counted -- Witness says whether they are keys or message ids.
 type CheckResult struct {
 	Check     scenario.Check `json:"check"`
-	Want      string         `json:"want"`
+	Want      scenario.Want  `json:"want"`
 	Actual    int64          `json:"actual"`
 	Status    CheckStatus    `json:"status"`
 	Witness   string         `json:"witness"`

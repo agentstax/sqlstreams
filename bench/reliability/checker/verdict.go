@@ -6,29 +6,28 @@ import (
 	"github.com/agentstax/vulkan/bench/reliability/record"
 )
 
-// Status is the run's one-word outcome. Unknown means the checks could not
-// be run to completion; Reason says why.
-type Status string
+// VerdictStatus is the run's one-word outcome. Unknown means the checks
+// could not be run to completion; Reason says why.
+type VerdictStatus string
 
 const (
-	StatusPass    Status = "pass"
-	StatusFail    Status = "fail"
-	StatusUnknown Status = "unknown"
+	VerdictPass    VerdictStatus = "pass"
+	VerdictFail    VerdictStatus = "fail"
+	VerdictUnknown VerdictStatus = "unknown"
 )
 
-// exit codes: the verdict's, then 3 for a lab failure that produced none
+// the verdict's exit codes; the binary reserves 3 for a lab failure
 const (
-	ExitPass       = 0
-	ExitFail       = 1
-	ExitUnknown    = 2
-	ExitLabFailure = 3
+	ExitPass    = 0
+	ExitFail    = 1
+	ExitUnknown = 2
 )
 
 // Verdict is the record one checker run writes: what was judged, under what
 // server setting and library version, and how each expectation came out.
 type Verdict struct {
 	Scenario          string         `json:"scenario"`
-	Status            Status         `json:"status"`
+	Status            VerdictStatus  `json:"status"`
 	Reason            string         `json:"reason"` // "" unless unknown
 	StartedAt         time.Time      `json:"started_at"`
 	Duration          time.Duration  `json:"duration_ns"`
@@ -43,9 +42,9 @@ type Verdict struct {
 
 func (v *Verdict) ExitCode() int {
 	switch v.Status {
-	case StatusPass:
+	case VerdictPass:
 		return ExitPass
-	case StatusFail:
+	case VerdictFail:
 		return ExitFail
 	}
 	return ExitUnknown
@@ -57,11 +56,11 @@ func (v *Verdict) ExitCode() int {
 
 // statusOf is fail when any check failed, else pass; unknown is decided
 // before the checks run.
-func statusOf(checks []CheckResult) Status {
+func statusOf(checks []CheckResult) VerdictStatus {
 	for _, check := range checks {
 		if check.Status == CheckFailed {
-			return StatusFail
+			return VerdictFail
 		}
 	}
-	return StatusPass
+	return VerdictPass
 }

@@ -2,7 +2,7 @@ package record
 
 import "time"
 
-// ProduceKind is which of a produce's two facts a row records: the attempt
+// ProduceKind is which of a produce's two rows this one is: the attempt
 // before the call, then one of the three outcomes after it.
 type ProduceKind string
 

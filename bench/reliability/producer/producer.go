@@ -16,22 +16,22 @@ import (
 // nothing of phases or rates; the runner decides when it is called.
 type Producer struct {
 	instance *vulkan.ProducerInstance[common.Order]
-	produces *record.Writer
+	writer   *record.Writer
 	name     string
 	seq      atomic.Int64
 }
 
-func NewProducer(instance *vulkan.ProducerInstance[common.Order], produces *record.Writer, name string) (*Producer, error) {
+func NewProducer(instance *vulkan.ProducerInstance[common.Order], writer *record.Writer, name string) (*Producer, error) {
 	if instance == nil {
 		return nil, errors.New("instance must not be nil")
 	}
-	if produces == nil {
-		return nil, errors.New("produces must not be nil")
+	if writer == nil {
+		return nil, errors.New("writer must not be nil")
 	}
 	if name == "" {
 		return nil, errors.New("name must not be empty")
 	}
-	return &Producer{instance: instance, produces: produces, name: name}, nil
+	return &Producer{instance: instance, writer: writer, name: name}, nil
 }
 
 // Produce is one scheduled call: the attempt goes to the records first, then
@@ -39,7 +39,7 @@ func NewProducer(instance *vulkan.ProducerInstance[common.Order], produces *reco
 // A record write failing is a lab failure, never a produce outcome.
 func (p *Producer) Produce(ctx context.Context, scheduled time.Time) error {
 	order := &common.Order{Producer: p.name, Seq: p.seq.Add(1)}
-	fact := record.Produce{
+	row := record.Produce{
 		At:          time.Now(),
 		Kind:        record.ProduceAttempted,
 		Producer:    order.Producer,
@@ -47,19 +47,19 @@ func (p *Producer) Produce(ctx context.Context, scheduled time.Time) error {
 		Key:         order.Key(),
 		ScheduledAt: scheduled,
 	}
-	if err := p.produces.Write(fact); err != nil {
+	if err := p.writer.Write(row); err != nil {
 		return err
 	}
 
 	result, err := p.instance.Produce(ctx, order, &vulkan.ProduceOptions{IdempotencyKey: order.Key()})
-	fact.At = time.Now()
+	row.At = time.Now()
 	if err == nil {
-		fact.Kind = record.ProduceCommitted
-		fact.MessageId = result.Id
-		fact.Duplicate = result.Duplicate
+		row.Kind = record.ProduceCommitted
+		row.MessageId = result.Id
+		row.Duplicate = result.Duplicate
 	} else {
-		fact.Kind, fact.Code = classify(err)
-		fact.Error = err.Error()
+		row.Kind, row.Code = classify(err)
+		row.Error = err.Error()
 	}
-	return p.produces.Write(fact)
+	return p.writer.Write(row)
 }

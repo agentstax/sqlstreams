@@ -11,7 +11,7 @@ import (
 	"github.com/agentstax/vulkan/bench/reliability/scenario"
 )
 
-// record file names under <dir>/<scenario>/<timestamp>/
+// the results files under <dir>/<scenario>/<timestamp>/
 const (
 	verdictFile = "verdict.json"
 	reportFile  = "report.scenario"
@@ -20,8 +20,8 @@ const (
 // WriteResults writes the verdict as JSON and the report beside it under
 // <dir>/<scenario>/<started at>/ and returns that directory.
 func WriteResults(dir string, declared *scenario.Scenario, verdict *Verdict) (string, error) {
-	recordDir := filepath.Join(dir, declared.Name, verdict.StartedAt.UTC().Format("20060102T150405Z"))
-	if err := os.MkdirAll(recordDir, 0o755); err != nil {
+	runDir := filepath.Join(dir, declared.Name, verdict.StartedAt.UTC().Format("20060102T150405Z"))
+	if err := os.MkdirAll(runDir, 0o755); err != nil {
 		return "", err
 	}
 
@@ -29,13 +29,13 @@ func WriteResults(dir string, declared *scenario.Scenario, verdict *Verdict) (st
 	if err != nil {
 		return "", err
 	}
-	if err := os.WriteFile(filepath.Join(recordDir, verdictFile), append(encoded, '\n'), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(runDir, verdictFile), append(encoded, '\n'), 0o644); err != nil {
 		return "", err
 	}
-	if err := os.WriteFile(filepath.Join(recordDir, reportFile), []byte(Report(declared, verdict)), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(runDir, reportFile), []byte(Report(declared, verdict)), 0o644); err != nil {
 		return "", err
 	}
-	return recordDir, nil
+	return runDir, nil
 }
 
 // Report is the scenario printed back with each expectation's actual beside

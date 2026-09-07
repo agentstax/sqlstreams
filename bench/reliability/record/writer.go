@@ -50,11 +50,11 @@ func NewWriter(dir string, name string, kind FileKind) (*Writer, error) {
 	return &Writer{file: file, buffered: buffered, encoder: json.NewEncoder(buffered)}, nil
 }
 
-func (w *Writer) Write(fact any) error {
+func (w *Writer) Write(row any) error {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
-	if err := w.encoder.Encode(fact); err != nil {
+	if err := w.encoder.Encode(row); err != nil {
 		return err
 	}
 	return w.buffered.Flush()

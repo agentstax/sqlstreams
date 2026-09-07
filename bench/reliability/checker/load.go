@@ -25,33 +25,33 @@ var layouts = map[record.FileKind]tableLayout{
 		table:   produceTable,
 		columns: []string{"at", "kind", "producer", "seq", "key", "scheduled_at", "message_id", "duplicate", "code", "error"},
 		decode: func(line []byte) ([]any, error) {
-			var fact record.Produce
-			if err := json.Unmarshal(line, &fact); err != nil {
+			var row record.Produce
+			if err := json.Unmarshal(line, &row); err != nil {
 				return nil, err
 			}
-			return []any{fact.At, string(fact.Kind), fact.Producer, fact.Seq, fact.Key, fact.ScheduledAt, fact.MessageId, fact.Duplicate, fact.Code, fact.Error}, nil
+			return []any{row.At, string(row.Kind), row.Producer, row.Seq, row.Key, row.ScheduledAt, row.MessageId, row.Duplicate, row.Code, row.Error}, nil
 		},
 	},
 	record.FileHandler: {
 		table:   handlerTable,
 		columns: []string{"at", "consumer", "group", "message_id", "key", "attempt", "outcome"},
 		decode: func(line []byte) ([]any, error) {
-			var fact record.Handler
-			if err := json.Unmarshal(line, &fact); err != nil {
+			var row record.Handler
+			if err := json.Unmarshal(line, &row); err != nil {
 				return nil, err
 			}
-			return []any{fact.At, fact.Consumer, fact.Group, fact.MessageId, fact.Key, fact.Attempt, string(fact.Outcome)}, nil
+			return []any{row.At, row.Consumer, row.Group, row.MessageId, row.Key, row.Attempt, string(row.Outcome)}, nil
 		},
 	},
 	record.FilePhase: {
 		table:   phaseTable,
-		columns: []string{"at", "role", "kind", "name", "status", "detail"},
+		columns: []string{"at", "process", "kind", "name", "status", "detail"},
 		decode: func(line []byte) ([]any, error) {
-			var fact record.Phase
-			if err := json.Unmarshal(line, &fact); err != nil {
+			var row record.Phase
+			if err := json.Unmarshal(line, &row); err != nil {
 				return nil, err
 			}
-			return []any{fact.At, fact.Role, string(fact.Kind), fact.Name, string(fact.Status), fact.Detail}, nil
+			return []any{row.At, row.Process, string(row.Kind), row.Name, string(row.Status), row.Detail}, nil
 		},
 	},
 }

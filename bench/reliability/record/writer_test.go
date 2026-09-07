@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func TestWriterAppendsOneLinePerFact(t *testing.T) {
+func TestWriterAppendsOneLinePerRow(t *testing.T) {
 	dir := t.TempDir()
 	writer, err := NewWriter(dir, "p-1", FileProduce)
 	if err != nil {
@@ -17,12 +17,12 @@ func TestWriterAppendsOneLinePerFact(t *testing.T) {
 	}
 
 	at := time.Date(2026, 9, 6, 12, 0, 0, 0, time.UTC)
-	facts := []Produce{
+	rows := []Produce{
 		{At: at, Kind: ProduceAttempted, Producer: "p-1", Seq: 1, Key: "p-1-1", ScheduledAt: at},
 		{At: at, Kind: ProduceCommitted, Producer: "p-1", Seq: 1, Key: "p-1-1", ScheduledAt: at, MessageId: 118402},
 	}
-	for _, fact := range facts {
-		if err := writer.Write(fact); err != nil {
+	for _, row := range rows {
+		if err := writer.Write(row); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -36,7 +36,7 @@ func TestWriterAppendsOneLinePerFact(t *testing.T) {
 	}
 	defer file.Close()
 	lines := bufio.NewScanner(file)
-	for i, want := range facts {
+	for i, want := range rows {
 		if !lines.Scan() {
 			t.Fatalf("line %d is missing", i)
 		}

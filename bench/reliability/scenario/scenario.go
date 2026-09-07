@@ -3,8 +3,6 @@ package scenario
 import (
 	"errors"
 	"fmt"
-	"strings"
-	"text/tabwriter"
 	"time"
 
 	"github.com/agentstax/vulkan/pkg/topic"
@@ -75,7 +73,7 @@ func (s *Scenario) Validate() error {
 		return errors.New("Consumers must end with at least one instance running")
 	}
 
-	declared := map[Check]string{}
+	declared := map[Check]Want{}
 	for i, expectation := range s.Expect {
 		if err := expectation.Validate(); err != nil {
 			return fmt.Errorf("Expect[%d]: %w", i, err)
@@ -101,58 +99,4 @@ func (s *Scenario) Validate() error {
 // [shape], and [expect] sections.
 func (s *Scenario) String() string {
 	return s.Report(nil)
-}
-
-func (s *Scenario) inputLines() []string {
-	return []string{
-		fmt.Sprintf("topic\t%s\tDeliveryLogMode %s", s.Topic, s.DeliveryLogMode),
-		fmt.Sprintf("consumers\t%s\thandler fail rate %g, %d retries then dead", s.Group, s.HandlerFailRate, s.MaxRetries),
-		fmt.Sprintf("duration\t%s", formatDuration(s.Duration)),
-	}
-}
-
-func (s *Scenario) producerLines() []string {
-	lines := make([]string, 0, len(s.Producer))
-	for _, phase := range s.Producer {
-		lines = append(lines, phase.Name+":\t"+phase.String())
-	}
-	return lines
-}
-
-func (s *Scenario) consumerLines() []string {
-	lines := make([]string, 0, len(s.Consumers))
-	for _, change := range s.Consumers {
-		lines = append(lines, change.String())
-	}
-	return lines
-}
-
-func (s *Scenario) expectLines(beside map[Check]string) []string {
-	lines := make([]string, 0, len(s.Expect))
-	for _, expectation := range s.Expect {
-		line := expectation.String()
-		if columns, ok := beside[expectation.Check]; ok {
-			line += "\t" + columns
-		}
-		lines = append(lines, line)
-	}
-	return lines
-}
-
-// ***************
-// *** HELPERS ***
-// ***************
-
-// writeSection writes a blank line, the header when there is one, and the
-// lines with their tab-separated columns aligned as one table.
-func writeSection(out *strings.Builder, header string, lines []string) {
-	out.WriteString("\n")
-	if header != "" {
-		fmt.Fprintln(out, header)
-	}
-	table := tabwriter.NewWriter(out, 0, 0, 4, ' ', 0)
-	for _, line := range lines {
-		fmt.Fprintln(table, line)
-	}
-	table.Flush()
 }

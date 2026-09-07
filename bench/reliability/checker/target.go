@@ -12,13 +12,6 @@ import (
 // a nil ClientConfig, so the default.
 const vulkanSchema = datastore.DefaultSchema
 
-// the loaded records' tables, qualified
-var (
-	produceLedger = labSchema + "." + produceTable
-	handlerLedger = labSchema + "." + handlerTable
-	runPhase      = labSchema + "." + phaseTable
-)
-
 // target is the topic and consumer group the checks read, resolved from the
 // catalog by the names the scenario declares.
 type target struct {

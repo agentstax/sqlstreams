@@ -23,10 +23,10 @@ type Handler struct {
 	consumer string
 	group    string
 	failRate float64
-	handled  *record.Writer
+	writer   *record.Writer
 }
 
-func NewHandler(consumer string, group string, failRate float64, handled *record.Writer) (*Handler, error) {
+func NewHandler(consumer string, group string, failRate float64, writer *record.Writer) (*Handler, error) {
 	if consumer == "" {
 		return nil, errors.New("consumer must not be empty")
 	}
@@ -36,10 +36,10 @@ func NewHandler(consumer string, group string, failRate float64, handled *record
 	if failRate < 0 || failRate > 1 {
 		return nil, fmt.Errorf("failRate must be between 0 and 1, got %g", failRate)
 	}
-	if handled == nil {
-		return nil, errors.New("handled must not be nil")
+	if writer == nil {
+		return nil, errors.New("writer must not be nil")
 	}
-	return &Handler{consumer: consumer, group: group, failRate: failRate, handled: handled}, nil
+	return &Handler{consumer: consumer, group: group, failRate: failRate, writer: writer}, nil
 }
 
 func (h *Handler) Handle(ctx context.Context, order *common.Order) error {
@@ -52,7 +52,7 @@ func (h *Handler) Handle(ctx context.Context, order *common.Order) error {
 	if h.failRate > 0 && rand.Float64() < h.failRate {
 		outcome = record.HandlerError
 	}
-	fact := record.Handler{
+	row := record.Handler{
 		At:        time.Now(),
 		Consumer:  h.consumer,
 		Group:     h.group,
@@ -61,7 +61,7 @@ func (h *Handler) Handle(ctx context.Context, order *common.Order) error {
 		Attempt:   meta.Attempts,
 		Outcome:   outcome,
 	}
-	if err := h.handled.Write(fact); err != nil {
+	if err := h.writer.Write(row); err != nil {
 		return err
 	}
 	if outcome == record.HandlerError {

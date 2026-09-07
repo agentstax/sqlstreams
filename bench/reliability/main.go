@@ -17,18 +17,21 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/agentstax/vulkan/bench/reliability/checker"
 	"github.com/agentstax/vulkan/bench/reliability/common"
 	"github.com/agentstax/vulkan/bench/reliability/runner"
 	"github.com/agentstax/vulkan/bench/reliability/scenarios"
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 )
 
+// exitLabFailure is the one exit code that is not a verdict: connection,
+// flags, or record files failed before or beside any judging.
+const exitLabFailure = 3
+
 func main() {
 	code, err := run()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		os.Exit(checker.ExitLabFailure)
+		os.Exit(exitLabFailure)
 	}
 	os.Exit(code)
 }
@@ -56,18 +59,18 @@ func run() (int, error) {
 		return 0, err
 	}
 	defer connection.Close()
-	lab, err := runner.NewRunner(declared.Scaled(flags.timeScale), connection, flags.recordDir, flags.name)
+	role, err := runner.NewRunner(declared.Scaled(flags.timeScale), connection, flags.recordDir, flags.name)
 	if err != nil {
 		return 0, err
 	}
 
 	switch flags.role {
 	case "producer":
-		return 0, lab.RunProducer(ctx)
+		return 0, role.RunProducer(ctx)
 	case "consumer":
-		return 0, lab.RunConsumer(ctx)
+		return 0, role.RunConsumer(ctx)
 	case "checker":
-		verdict, err := lab.RunChecker(ctx, flags.resultsDir, flags.drainBudget)
+		verdict, err := role.RunChecker(ctx, flags.resultsDir, flags.drainBudget)
 		if err != nil {
 			return 0, err
 		}

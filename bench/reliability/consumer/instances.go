@@ -11,7 +11,7 @@ import (
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 )
 
-// Instances is the verifiable consumer fleet one container runs, numbered
+// Instances is the verifiable consumer instances one container runs, numbered
 // c-1 upward. Each instance is its own Register and Consume session under its
 // own ctx, so a scale-down is a graceful stop of the highest-numbered ones.
 // The runner decides the count; Instances only moves to it.
@@ -20,12 +20,12 @@ type Instances struct {
 	cfg      *vulkan.ConsumerConfig
 	group    string
 	failRate float64
-	handled  *record.Writer
+	writer   *record.Writer
 	name     string
 
 	mutex   sync.Mutex
 	running []*runningInstance
-	errs    chan error
+	failed  chan error
 }
 
 type runningInstance struct {
@@ -33,7 +33,7 @@ type runningInstance struct {
 	done chan struct{}
 }
 
-func NewInstances(handle *vulkan.ConsumerHandle[common.Order], cfg *vulkan.ConsumerConfig, group string, failRate float64, handled *record.Writer, name string) (*Instances, error) {
+func NewInstances(handle *vulkan.ConsumerHandle[common.Order], cfg *vulkan.ConsumerConfig, group string, failRate float64, writer *record.Writer, name string) (*Instances, error) {
 	if handle == nil {
 		return nil, errors.New("handle must not be nil")
 	}
@@ -46,13 +46,13 @@ func NewInstances(handle *vulkan.ConsumerHandle[common.Order], cfg *vulkan.Consu
 	if failRate < 0 || failRate > 1 {
 		return nil, fmt.Errorf("failRate must be between 0 and 1, got %g", failRate)
 	}
-	if handled == nil {
-		return nil, errors.New("handled must not be nil")
+	if writer == nil {
+		return nil, errors.New("writer must not be nil")
 	}
 	if name == "" {
 		return nil, errors.New("name must not be empty")
 	}
-	return &Instances{handle: handle, cfg: cfg, group: group, failRate: failRate, handled: handled, name: name, errs: make(chan error, 1)}, nil
+	return &Instances{handle: handle, cfg: cfg, group: group, failRate: failRate, writer: writer, name: name, failed: make(chan error, 1)}, nil
 }
 
 // SetCount starts or stops instances until count are running. Stopping
@@ -78,14 +78,14 @@ func (i *Instances) SetCount(ctx context.Context, count int) error {
 }
 
 // Failed reports the first Consume session that returned an error other
-// than its own cancellation; a healthy fleet never sends.
+// than its own cancellation; healthy instances never send.
 func (i *Instances) Failed() <-chan error {
-	return i.errs
+	return i.failed
 }
 
 func (i *Instances) start(ctx context.Context, number int) (*runningInstance, error) {
 	consumerName := fmt.Sprintf("%s/c-%d", i.name, number)
-	handler, err := NewHandler(consumerName, i.group, i.failRate, i.handled)
+	handler, err := NewHandler(consumerName, i.group, i.failRate, i.writer)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func (i *Instances) start(ctx context.Context, number int) (*runningInstance, er
 		err := session.Consume(sessionCtx, handler.Handle, nil)
 		if err != nil && !errors.Is(err, context.Canceled) {
 			select {
-			case i.errs <- fmt.Errorf("%s: %w", consumerName, err):
+			case i.failed <- fmt.Errorf("%s: %w", consumerName, err):
 			default:
 			}
 		}

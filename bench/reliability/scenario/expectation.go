@@ -35,12 +35,22 @@ func (c Check) Validate() error {
 	return fmt.Errorf("unrecognized check: %q", string(c))
 }
 
-// WantZero and WantReport are the two values an Expectation can want: a
-// count that must be zero, or a count that is shown and never fails.
+// Want is what an Expectation asks of its count: zero, or shown and never
+// failed.
+type Want string
+
 const (
-	WantZero   = "0"
-	WantReport = "report"
+	WantZero   Want = "0"
+	WantReport Want = "report"
 )
+
+func (w Want) Validate() error {
+	switch w {
+	case WantZero, WantReport:
+		return nil
+	}
+	return fmt.Errorf("unrecognized want: %q", string(w))
+}
 
 // Invariants are the expectations every scenario must declare, with these
 // wants: the safety checks hold for any run, so a scenario cannot drop one
@@ -54,21 +64,17 @@ var Invariants = []Expectation{
 	{Check: CheckUnbucketed, Want: WantZero},
 }
 
-// Expectation is one [expect] line: the check and the value the report prints
-// beside the actual.
+// Expectation is one [expect] line: the check and what its count must be.
 type Expectation struct {
 	Check Check
-	Want  string
+	Want  Want
 }
 
 func (e Expectation) Validate() error {
 	if err := e.Check.Validate(); err != nil {
 		return err
 	}
-	if e.Want != WantZero && e.Want != WantReport {
-		return fmt.Errorf("Want must be %q or %q, got %q", WantZero, WantReport, e.Want)
-	}
-	return nil
+	return e.Want.Validate()
 }
 
 // String is the [expect] line: "lost\t0", tab-separated for the section's

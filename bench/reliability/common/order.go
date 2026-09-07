@@ -10,10 +10,11 @@ type Order struct {
 	Seq      int64  `json:"seq"`
 }
 
+// Value receivers: the library reads SchemaVersion off the zero value.
 func (Order) SchemaVersion() int { return 1 }
 
 // Key is the order's record key and idempotency key, "<producer>-<seq>". The
 // checker rebuilds it in SQL from the stored payload.
-func (o *Order) Key() string {
+func (o Order) Key() string {
 	return fmt.Sprintf("%s-%d", o.Producer, o.Seq)
 }

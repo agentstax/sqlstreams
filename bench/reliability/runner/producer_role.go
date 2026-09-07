@@ -28,36 +28,36 @@ func (r *Runner) RunProducer(ctx context.Context) error {
 		return err
 	}
 
-	produces, err := r.openWriter(record.FileProduce)
+	produceRecords, err := r.openWriter(record.FileProduce)
 	if err != nil {
 		return err
 	}
-	defer produces.Close()
-	phases, err := r.openWriter(record.FilePhase)
+	defer produceRecords.Close()
+	phaseRecords, err := r.openWriter(record.FilePhase)
 	if err != nil {
 		return err
 	}
-	defer phases.Close()
-	verifiable, err := producer.NewProducer(instance, produces, r.name)
+	defer phaseRecords.Close()
+	verifiable, err := producer.NewProducer(instance, produceRecords, r.name)
 	if err != nil {
 		return err
 	}
 
 	for _, phase := range r.declared.Producer {
-		if err := r.runProducerPhase(ctx, phase, verifiable, phases); err != nil {
+		if err := r.runProducerPhase(ctx, phase, verifiable, phaseRecords); err != nil {
 			return ignoreCancellation(err)
 		}
 	}
 	return nil
 }
 
-func (r *Runner) runProducerPhase(ctx context.Context, phase scenario.ProducerPhase, verifiable *producer.Producer, phases *record.Writer) error {
+func (r *Runner) runProducerPhase(ctx context.Context, phase scenario.ProducerPhase, verifiable *producer.Producer, phaseRecords *record.Writer) error {
 	pacer, err := NewPacer(phase.Rate, phase.Duration, inFlightLimit)
 	if err != nil {
 		return err
 	}
 
-	if err := r.writePhase(phases, record.PhaseProducer, phase.Name, record.PhaseStarted, phase.String()); err != nil {
+	if err := r.writePhase(phaseRecords, record.PhaseProducer, phase.Name, record.PhaseStarted, phase.String()); err != nil {
 		return err
 	}
 	runErr := pacer.Run(ctx, func(ctx context.Context, scheduled time.Time) {
@@ -65,7 +65,7 @@ func (r *Runner) runProducerPhase(ctx context.Context, phase scenario.ProducerPh
 			panic(fmt.Errorf("record write: %w", err))
 		}
 	})
-	if err := r.writePhase(phases, record.PhaseProducer, phase.Name, record.PhaseEnded, phase.String()); err != nil {
+	if err := r.writePhase(phaseRecords, record.PhaseProducer, phase.Name, record.PhaseEnded, phase.String()); err != nil {
 		return err
 	}
 	return runErr

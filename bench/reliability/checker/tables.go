@@ -18,6 +18,13 @@ const (
 	phaseTable   = "run_phase"
 )
 
+// the same tables, qualified for the check queries
+var (
+	produceLedger = labSchema + "." + produceTable
+	handlerLedger = labSchema + "." + handlerTable
+	runPhase      = labSchema + "." + phaseTable
+)
+
 // tables is the loaded records: one table per file kind in labSchema, with
 // the JSON-lines field names as columns. create drops and recreates the
 // schema, so a checker run reads only the files it loaded.
@@ -65,12 +72,12 @@ func (t *tables) create(ctx context.Context) error {
 		CREATE INDEX %[3]s_message_id ON %[1]s.%[3]s (message_id);
 
 		CREATE TABLE %[1]s.%[4]s (
-			at     TIMESTAMPTZ NOT NULL,
-			role   TEXT NOT NULL,
-			kind   TEXT NOT NULL,                 -- 'producer' | 'consumers'
-			name   TEXT NOT NULL,
-			status TEXT NOT NULL,                 -- 'started' | 'ended'
-			detail TEXT NOT NULL
+			at      TIMESTAMPTZ NOT NULL,
+			process TEXT NOT NULL,                -- the writing process's name
+			kind    TEXT NOT NULL,                -- 'producer' | 'consumers'
+			name    TEXT NOT NULL,
+			status  TEXT NOT NULL,                -- 'started' | 'ended'
+			detail  TEXT NOT NULL
 		);
 	`, labSchema, produceTable, handlerTable, phaseTable)
 	_, err := t.pool.Exec(ctx, createSql)

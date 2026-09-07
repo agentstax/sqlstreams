@@ -9,7 +9,7 @@ import (
 )
 
 // RunChecker judges the run from the record files the other roles left,
-// writes the record under resultsDir, and prints the report. The verdict
+// writes the results under resultsDir, and prints the report. The verdict
 // is returned for its exit code; a returned error is a lab failure that
 // left no verdict.
 func (r *Runner) RunChecker(ctx context.Context, resultsDir string, drainBudget time.Duration) (*checker.Verdict, error) {
