@@ -159,12 +159,11 @@ const (
 )
 
 var (
-	LifecycleContext     = common.LifecycleContext
-	MetaFromContext      = consume.MetaFromContext
-	Terminal             = consume.Terminal
-	Delay                = consume.Delay
-	Beginning            = consume.Beginning
-	Head                 = consume.Head
-	NewCompactionOptions = produce.NewCompactionOptions
-	NewMeasurement       = metrics.NewMeasurement
+	LifecycleContext = common.LifecycleContext
+	MetaFromContext  = consume.MetaFromContext
+	Terminal         = consume.Terminal
+	Delay            = consume.Delay
+	Beginning        = consume.Beginning
+	Head             = consume.Head
+	NewMeasurement   = metrics.NewMeasurement
 )

@@ -91,11 +91,9 @@ func run() (err error) {
 	must(err)
 	janitor, err := janitorcontroller.NewJanitorController(ds, ds.Logger)
 	must(err)
-	compaction, err := vulkan.NewCompactionOptions(0)
-	must(err)
 
-	firstWritesCompose(ctx, client, ds, producer, newLabKey(counters, "first-write"), compaction)
-	ordinaryProduceFillsEmptyRow(ctx, client, ds, producer, newLabKey(counters, "ordinary-fill"), compaction, registered.Id)
+	firstWritesCompose(ctx, client, ds, producer, newLabKey(counters, "first-write"), &vulkan.CompactionOptions{Enable: true})
+	ordinaryProduceFillsEmptyRow(ctx, client, ds, producer, newLabKey(counters, "ordinary-fill"), &vulkan.CompactionOptions{Enable: true}, registered.Id)
 	ttlRemovesOnlyEmptyRows(ctx, client, ds, janitor, counters, registered.Id)
 	lockerFirstSkipsWithoutWaiting(ctx, client, ds, janitor, newLabKey(counters, "locker-first"), registered.Id)
 	janitorFirstDeletesThenLockerRecreates(ctx, client, ds, janitor, newLabKey(counters, "janitor-first"), registered.Id)

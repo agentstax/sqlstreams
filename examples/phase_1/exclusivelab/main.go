@@ -803,13 +803,11 @@ func ran(key string, version int) bool {
 }
 
 func publish(ctx context.Context, wpInstance *vulkan.ProducerInstance[Rec], key string, version int, policy common.ConcurrencyPolicy) {
-	compaction, err := vulkan.NewCompactionOptions(0)
-	must(err)
-	opts := &vulkan.ProduceOptions{MessageKey: key, Compaction: compaction}
+	opts := &vulkan.ProduceOptions{MessageKey: key, Compaction: &vulkan.CompactionOptions{Enable: true}}
 	if policy != "" {
 		opts.Message = &common.MessageOptions{Concurrency: policy}
 	}
-	_, err = wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*Rec, error) {
+	_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*Rec, error) {
 		return &Rec{Key: key, Version: version}, nil
 	}, opts)
 	must(err)

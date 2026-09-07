@@ -317,11 +317,9 @@ func claim(ctx context.Context, cd *keyleasecontroller.KeyLeaseController, key s
 }
 
 func publish(ctx context.Context, wpInstance *vulkan.ProducerInstance[Rec], key string, version int) {
-	compaction, err := vulkan.NewCompactionOptions(0)
-	must(err)
-	_, err = wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*Rec, error) {
+	_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*Rec, error) {
 		return &Rec{Key: key, Version: version}, nil
-	}, &vulkan.ProduceOptions{MessageKey: key, Compaction: compaction})
+	}, &vulkan.ProduceOptions{MessageKey: key, Compaction: &vulkan.CompactionOptions{Enable: true}})
 	must(err)
 }
 

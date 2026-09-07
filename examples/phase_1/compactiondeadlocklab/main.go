@@ -149,12 +149,7 @@ func batcherAbsenceScenario(ctx context.Context) {
 			defer wg.Done()
 			for produced := range producesPerGoroutine {
 				key := keys[(offset+produced)%len(keys)]
-				compaction, err := vulkan.NewCompactionOptions(0)
-				if err != nil {
-					record(err)
-					return
-				}
-				if _, err := instance.Produce(ctx, &labMessage{Note: key}, &vulkan.ProduceOptions{MessageKey: key, Compaction: compaction}); err != nil {
+				if _, err := instance.Produce(ctx, &labMessage{Note: key}, &vulkan.ProduceOptions{MessageKey: key, Compaction: &vulkan.CompactionOptions{Enable: true}}); err != nil {
 					record(err)
 					return
 				}
@@ -187,9 +182,7 @@ func produceInTxDeadlockScenario(ctx context.Context) {
 
 	// seed both head rows so the second produces contend on existing rows
 	for _, key := range []string{"tx-a", "tx-b"} {
-		compaction, err := vulkan.NewCompactionOptions(0)
-		must(err)
-		_, err = wpInstance.Produce(ctx, &labMessage{Note: "seed"}, &vulkan.ProduceOptions{MessageKey: key, Compaction: compaction})
+		_, err := wpInstance.Produce(ctx, &labMessage{Note: "seed"}, &vulkan.ProduceOptions{MessageKey: key, Compaction: &vulkan.CompactionOptions{Enable: true}})
 		must(err)
 	}
 	deadlocksBefore := deadlockCount(ctx)
@@ -276,11 +269,7 @@ func runCallerWithRetry(ctx context.Context, firstKey string, secondKey string, 
 }
 
 func produceKeyInTx(ctx context.Context, tx vulkan.Tx, key string, idempotencyKey string) error {
-	compaction, err := vulkan.NewCompactionOptions(0)
-	if err != nil {
-		return err
-	}
-	_, err = wpInstance.ProduceInTx(ctx, tx, &labMessage{Note: key}, &vulkan.ProduceOptions{MessageKey: key, Compaction: compaction, IdempotencyKey: idempotencyKey})
+	_, err := wpInstance.ProduceInTx(ctx, tx, &labMessage{Note: key}, &vulkan.ProduceOptions{MessageKey: key, Compaction: &vulkan.CompactionOptions{Enable: true}, IdempotencyKey: idempotencyKey})
 	return err
 }
 

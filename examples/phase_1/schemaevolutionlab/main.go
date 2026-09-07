@@ -123,9 +123,7 @@ func run() (err error) {
 	step("the topic holds live keyed V1Order traffic for 5 users")
 	for i, key := range keys {
 		cents := int64(i+1) * 100
-		compaction, err := vulkan.NewCompactionOptions(0)
-		must(err)
-		_, err = wp1Instance.Produce(ctx, &V1Order{Key: key, Cents: cents}, &vulkan.ProduceOptions{MessageKey: key, Compaction: compaction})
+		_, err := wp1Instance.Produce(ctx, &V1Order{Key: key, Cents: cents}, &vulkan.ProduceOptions{MessageKey: key, Compaction: &vulkan.CompactionOptions{Enable: true}})
 		must(err)
 		fmt.Printf("  wrote %s cents=%d as V1Order\n", key, cents)
 	}
@@ -157,13 +155,9 @@ func run() (err error) {
 		if !ok {
 			return fmt.Errorf("no MessageMeta in context for key %q", work.Key)
 		}
-		compaction, err := vulkan.NewCompactionOptions(-1)
-		if err != nil {
-			return err
-		}
-		_, err = wp2Instance.Produce(ctx, &V2Order{Key: work.Key, Cents: work.Cents, Currency: "USD"}, &vulkan.ProduceOptions{
+		_, err := wp2Instance.Produce(ctx, &V2Order{Key: work.Key, Cents: work.Cents, Currency: "USD"}, &vulkan.ProduceOptions{
 			MessageKey:     work.Key,
-			Compaction:     compaction,
+			Compaction:     &vulkan.CompactionOptions{Enable: true, Rank: -1},
 			IdempotencyKey: bridgeIdempotencyKey(meta.Id),
 		})
 		if err == nil {
@@ -253,11 +247,7 @@ func run() (err error) {
 // ---- helpers ----
 
 func liveWrite(ctx context.Context, wp *vulkan.ProducerInstance[V2Order], key string, cents int64, currency string) error {
-	compaction, err := vulkan.NewCompactionOptions(0)
-	if err != nil {
-		return err
-	}
-	_, err = wp.Produce(ctx, &V2Order{Key: key, Cents: cents, Currency: currency}, &vulkan.ProduceOptions{MessageKey: key, Compaction: compaction})
+	_, err := wp.Produce(ctx, &V2Order{Key: key, Cents: cents, Currency: currency}, &vulkan.ProduceOptions{MessageKey: key, Compaction: &vulkan.CompactionOptions{Enable: true}})
 	return err
 }
 

@@ -138,10 +138,11 @@ partial passes and uncommitted completion writes cannot establish success.
 Startup never refreshes it. Completion timestamps must be positive; 0 in the
 observation series means absent evidence and is unhealthy, not a read error.
 A read error records no sample. Historical completion age uses that sample's
-own observation time; future completion timestamps are unusable.
+stored `CreatedAt` time; future completion timestamps are unusable.
 
-Use Postgres observation times and `At.UnixMicro()` ranks for both series.
-Late writes retain history without replacing newer heads. Replayed schedules
+Use rank zero for both series and stored `CreatedAt` for history windows
+and pending duration. A delayed write can make older evidence count as fresh;
+this is the accepted [storage-time contract](/decisions/0690/). Replayed schedules
 record actual reads, never backdated observations; write retries reuse the
 same sample time and idempotency key. Collector age defaults to
 max(2m, 3 live collector poll intervals), with an explicit positive override.

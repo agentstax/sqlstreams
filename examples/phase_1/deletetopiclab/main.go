@@ -96,9 +96,7 @@ func run() (err error) {
 	}
 	// Compaction seeds compaction_head; the default (protected) idempotency
 	// claim seeds idempotency_key -- one Produce call, two tables.
-	compaction, err := vulkan.NewCompactionOptions(0)
-	must(err)
-	_, err = wpInstance.ProduceFunc(ctx, fn, &vulkan.ProduceOptions{RoutingKey: "orders.created", MessageKey: "seed-key", Compaction: compaction})
+	_, err = wpInstance.ProduceFunc(ctx, fn, &vulkan.ProduceOptions{RoutingKey: "orders.created", MessageKey: "seed-key", Compaction: &vulkan.CompactionOptions{Enable: true}})
 	must(err)
 
 	claim, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, 10, 3, 5*time.Second, topic.DeliveryLogModeFailures)

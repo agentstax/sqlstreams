@@ -106,15 +106,12 @@ func concurrentRaceScenario(ctx context.Context, pool *pgxpool.Pool) {
 	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 
-	compaction, err := vulkan.NewCompactionOptions(0)
-	must(err)
-
 	var wg sync.WaitGroup
 	for range n {
 		wg.Go(func() {
 			_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
 				return common.NewWork(30, "admin@example.com")
-			}, &vulkan.ProduceOptions{MessageKey: "hot-key", Compaction: compaction})
+			}, &vulkan.ProduceOptions{MessageKey: "hot-key", Compaction: &vulkan.CompactionOptions{Enable: true}})
 			must(err)
 		})
 	}

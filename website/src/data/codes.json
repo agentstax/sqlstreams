@@ -1230,6 +1230,19 @@
       "problem": "payload cannot be encoded as JSON",
       "recovery": "permanent",
       "fix": "give the payload a shape encoding/json accepts -- the cause names what it could not encode"
+    },
+    "VK0098": {
+      "code": "VK0098",
+      "kind": "metric",
+      "name": "vulkan.alert.observed_partitions",
+      "metric_kind": "gauge",
+      "unit": "{partition}",
+      "description": "partitions observed by the scheduled alert check",
+      "scope": "topic",
+      "attribute_keys": [
+        "alert",
+        "topic_id"
+      ]
     }
   }
 }

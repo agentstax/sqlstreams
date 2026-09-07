@@ -35,13 +35,8 @@ but the row is locked: another transaction running the same locked read
 waits and then sees the first transaction's value.
 
 ```go
-compaction, err := vulkan.NewCompactionOptions(0)
-if err != nil {
-	return err
-}
-
 device := devices.Key("dev-7")
-err = client.InTransaction(ctx, func(ctx context.Context, tx vulkan.Tx) error {
+err := client.InTransaction(ctx, func(ctx context.Context, tx vulkan.Tx) error {
 	head, err := device.LockCompactionHead(ctx, tx)
 	if err != nil {
 		return err
@@ -55,7 +50,7 @@ err = client.InTransaction(ctx, func(ctx context.Context, tx vulkan.Tx) error {
 
 	_, err = configs.ProduceInTx(ctx, tx, &next, &vulkan.ProduceOptions{
 		MessageKey: "dev-7",
-		Compaction: compaction,
+		Compaction: &vulkan.CompactionOptions{Enable: true},
 	})
 	return err
 })

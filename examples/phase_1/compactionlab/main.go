@@ -254,10 +254,8 @@ func run() (err error) {
 func publish(ctx context.Context, wpInstance *vulkan.ProducerInstance[KeyedRecord], key string, version int, deleted bool) {
 	opts := &vulkan.ProduceOptions{}
 	if key != "" {
-		compaction, err := vulkan.NewCompactionOptions(0)
-		must(err)
 		opts.MessageKey = key
-		opts.Compaction = compaction
+		opts.Compaction = &vulkan.CompactionOptions{Enable: true}
 	}
 	_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*KeyedRecord, error) {
 		return &KeyedRecord{Key: key, Version: version, Deleted: deleted}, nil

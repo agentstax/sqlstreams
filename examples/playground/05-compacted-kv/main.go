@@ -57,14 +57,10 @@ func run() error {
 	}
 
 	video := states.Key("video-42")
-	compaction, err := vulkan.NewCompactionOptions(0)
-	if err != nil {
-		return err
-	}
 
 	// Put
 	_, err = producer.Produce(ctx, &VideoProcessingStateV1{VideoId: "video-42", Stage: "transcoding", Attempts: 1},
-		&vulkan.ProduceOptions{MessageKey: "video-42", Compaction: compaction})
+		&vulkan.ProduceOptions{MessageKey: "video-42", Compaction: &vulkan.CompactionOptions{Enable: true}})
 	if err != nil {
 		return err
 	}
@@ -87,7 +83,7 @@ func run() error {
 			next = *head.Message
 		}
 		next.Attempts++
-		_, err = producer.ProduceInTx(ctx, tx, &next, &vulkan.ProduceOptions{MessageKey: "video-42", Compaction: compaction})
+		_, err = producer.ProduceInTx(ctx, tx, &next, &vulkan.ProduceOptions{MessageKey: "video-42", Compaction: &vulkan.CompactionOptions{Enable: true}})
 		return err
 	}); err != nil {
 		return err

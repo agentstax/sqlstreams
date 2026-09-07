@@ -130,15 +130,10 @@ func (i *ScheduleProducerInstance) produceDue(ctx context.Context, id int64) err
 			return err
 		}
 
-		compaction, err := produce.NewCompactionOptions(0)
-		if err != nil {
-			return err
-		}
-
 		produced, err := target.ProduceInTx(ctx, tx, stored, &produce.ProduceOptions{
 			RoutingKey:     row.Name,
 			MessageKey:     row.Name,
-			Compaction:     compaction,
+			Compaction:     &produce.CompactionOptions{Enable: true},
 			IdempotencyKey: schedule.IdempotencyKey(scheduledTime, row.Id).String(),
 			Message: &common.MessageOptions{
 				Concurrency: row.Concurrency,

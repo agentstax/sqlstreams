@@ -161,10 +161,8 @@ func timeSequential(ctx context.Context, wpInstance *vulkan.ProducerInstance[com
 	for i := range n {
 		opts := &vulkan.ProduceOptions{}
 		if key := keyFn(i); key != "" {
-			compaction, err := vulkan.NewCompactionOptions(0)
-			must(err)
 			opts.MessageKey = key
-			opts.Compaction = compaction
+			opts.Compaction = &vulkan.CompactionOptions{Enable: true}
 		}
 		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
 			return common.NewWork(30, "admin@example.com")
@@ -193,11 +191,9 @@ func timeConcurrent(ctx context.Context, pool *pgxpool.Pool, label string, gorou
 	for g := range goroutines {
 		wg.Go(func() {
 			for i := range perGoroutine {
-				compaction, err := vulkan.NewCompactionOptions(0)
-				must(err)
-				_, err = wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
+				_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
 					return common.NewWork(30, "admin@example.com")
-				}, &vulkan.ProduceOptions{MessageKey: keyFn(g, i), Compaction: compaction})
+				}, &vulkan.ProduceOptions{MessageKey: keyFn(g, i), Compaction: &vulkan.CompactionOptions{Enable: true}})
 				must(err)
 			}
 		})

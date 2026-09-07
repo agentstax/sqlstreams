@@ -75,17 +75,12 @@ func (s *Scheduler) RunSchedule(ctx context.Context, name string, options *Sched
 		return nil, err
 	}
 
-	compaction, err := produce.NewCompactionOptions(0)
-	if err != nil {
-		return nil, err
-	}
-
 	// no IdempotencyKey: Produce creates a fresh v7 per call, so every run is
 	// its own message
 	return instance.Produce(ctx, stored, &produce.ProduceOptions{
 		RoutingKey: found.Name,
 		MessageKey: found.Name,
-		Compaction: compaction,
+		Compaction: &produce.CompactionOptions{Enable: true},
 		Message: &common.MessageOptions{
 			Concurrency: options.Concurrency,
 			Timeout:     found.Timeout,

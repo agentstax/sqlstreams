@@ -44,14 +44,9 @@ func (p *MetricsProducerInstance) Produce(ctx context.Context, measurement *metr
 		return nil, fmt.Errorf("metric name %q uses the %q prefix, reserved for Vulkan's own metrics", measurement.Name, metrics.MetricNameReservedPrefix)
 	}
 
-	compaction, err := produce.NewCompactionOptions(0)
-	if err != nil {
-		return nil, err
-	}
-
 	return p.instance.Produce(ctx, measurement, &produce.ProduceOptions{
 		RoutingKey: measurement.Name,
 		MessageKey: metrics.MeasurementKey(measurement.Name, measurement.Attributes),
-		Compaction: compaction,
+		Compaction: &produce.CompactionOptions{Enable: true},
 	})
 }

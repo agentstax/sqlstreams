@@ -9,6 +9,11 @@ recording path. History-based duration and the public snapshot read below
 have not shipped; standalone evaluator types are not an implementation mandate.
 [OTel export](/concepts/metrics-export/) remains independent.
 
+The scheduled partition-count check already retains
+[raw counts](/errors/VK0098/), including healthy and quiet checks. Alert
+activation and recovery still use the current count without a pending delay;
+the existing hourly schedule is unchanged.
+
 ## Proposed: one policy for the existing checks
 
 Each check owns its condition. The shared alert controller evaluates duration
@@ -45,8 +50,8 @@ Vulkan would derive duration from retained observations rather than a timer.
 ## Proposed: retain the facts used by each condition
 
 Use `__system.metrics` and its existing measurement producers. Proposed
-names below are gauges; observation time comes from Postgres at the source
-read. The series key includes `alert` and `topic_id`, keeping renamed or
+names below are gauges; pending duration uses each stored message's
+`CreatedAt`. The series key includes `alert` and `topic_id`, keeping renamed or
 recreated topics distinct and independently scheduled checks separate.
 
 | Measurement | Unit | Value |
@@ -76,20 +81,20 @@ read, or add a snapshot store. The evidence/message contract needs review.
 
 Collector completion and independent observations retain their
 [timestamp contract](/concepts/metrics-export/#proposed-observe-collector-progress-independently).
-All new evidence uses `At.UnixMicro()` ranks. Existing metric ranks and public
-`History(ctx, limit)` behavior stay unchanged. Read errors produce no sample;
+Evidence uses rank zero; the highest message id becomes the head. Public
+`History(ctx, limit)` behavior stays unchanged. Read errors produce no sample;
 write retries reuse the same idempotency key and timestamp. A new source read
 is a new observation. Threshold changes reevaluate raw history.
 
 ## Proposed: calculate state in the shared controller
 
 This is logical pseudocode, not a callable API. `condition` interprets each
-sample using its own observation time and the one resolved policy:
+sample using its storage time and the one resolved policy:
 
 ```text
 evaluate(history, evaluationTime, policy, condition):
-    select the retained time window; order by At then message id
-    for equal At, use the highest message id
+    select the retained CreatedAt window; order by CreatedAt then message id
+    for equal CreatedAt, use the highest message id
     if newest is missing, unusable, or older than policy.MaximumGap:
         return insufficient_evidence
     if condition(newest) is healthy:
@@ -101,7 +106,7 @@ evaluate(history, evaluationTime, policy, condition):
     walk backward while each sample is usable and unhealthy:
         stop before any gap greater than policy.MaximumGap
         earliest = that sample
-    span = newest.At - earliest.At
+    span = newest.CreatedAt - earliest.CreatedAt
     return active if span >= policy.Duration else pending
 ```
 
@@ -176,9 +181,11 @@ boundary. Disabled pending needs only `[E - G, E]`. Read retained rows without
 a fixed count limit; require retention strictly longer than that window or
 disabled retention. Validate duration arithmetic before reading.
 
-Use observation time for eligibility; ids only break ties, never establish
-commit order. Unusable intermediate samples break a span. A late commit can
-change the next result without rewriting a prior alert. Enforce the logical
+Use storage time for eligibility; ids break timestamp ties, not establish
+commit order. A delayed write can make an older observation count as fresh;
+this is an accepted tradeoff [0690](/decisions/0690/). `Measurement.At`
+remains measurement metadata, not the pending clock. Unusable intermediate
+samples break a span. Enforce the logical
 window even before physical cleanup; decoding/read errors abort evaluation.
 
 ## Proposed: adoption and cost checkpoint

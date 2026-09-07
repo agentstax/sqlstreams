@@ -30,7 +30,7 @@ type ProduceOptions struct {
 	// Compaction - opts this message into log compaction under its
 	// MessageKey: it becomes one version of the key, and claims only ever
 	// return the key's latest version, not every version ever written.
-	// Build with NewCompactionOptions.
+	// Set Enable: true to opt in; Rank: 0 uses message-id order.
 	// Default: nil (not compacted; delivered independently, never superseded).
 	//
 	// A hot key caps batched throughput: same-key batches commit one after
@@ -98,19 +98,13 @@ type CompactionOptions struct {
 	Rank int64
 }
 
-// NewCompactionOptions builds the Compaction option for a produce, enabled.
-// Pass rank 0 to let arrival order pick the key's winner.
-func NewCompactionOptions(rank int64) (*CompactionOptions, error) {
-	return &CompactionOptions{Enable: true, Rank: rank}, nil
-}
-
 // Validate tolerates a nil receiver -- nil means not compacted.
 func (o *CompactionOptions) Validate() error {
 	if o == nil {
 		return nil
 	}
 	if !o.Enable && o.Rank != 0 {
-		return fmt.Errorf("Rank must be 0 when Enable is false, got %d -- build with NewCompactionOptions", o.Rank)
+		return fmt.Errorf("Rank must be 0 when Enable is false, got %d -- set Enable to true to use a rank", o.Rank)
 	}
 	return nil
 }

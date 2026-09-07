@@ -37,14 +37,10 @@ key to its newest version, and older versions still waiting are
 superseded — recorded, never delivered.
 
 ```go
-compaction, err := vulkan.NewCompactionOptions(0)
-if err != nil {
-	return err
-}
 produced, err := instance.Produce(ctx, &UserUpdated{Id: "user:123", Plan: "pro"},
 	&vulkan.ProduceOptions{
 		MessageKey: "user:123",
-		Compaction: compaction,
+		Compaction: &vulkan.CompactionOptions{Enable: true},
 	})
 ```
 

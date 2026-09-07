@@ -74,7 +74,7 @@ value.
 | --- | --- | --- |
 | `RoutingKey` | `""` (no key) | matched against a group's bindings; a keyless message reaches only groups with no bindings ([routing](/concepts/routing/)) |
 | `MessageKey` | `""` (no key) | the entity the message is about; read by compaction and by the exclusive and ordered policies ([message key](/concepts/message-key/)) |
-| `Compaction` | `nil` (not compacted) | opts the message into compaction under its key; build with `vulkan.NewCompactionOptions(rank)` |
+| `Compaction` | `nil` (not compacted) | opts the message into compaction under its key; use `&vulkan.CompactionOptions{Enable: true, Rank: rank}` |
 | `IdempotencyKey` | `""` (minted per call) | dedups your own retries across a restart; a UUID string is stored verbatim, anything else is hashed to one |
 | `Message` | `nil` | what this message requests from its consumer ([message options](/reference/message-options/)) |
 

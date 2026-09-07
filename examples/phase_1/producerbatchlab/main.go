@@ -288,11 +288,7 @@ func hotCompactedKeysScenario(ctx context.Context, client *vulkan.Client, ds *iD
 		if err != nil {
 			return err
 		}
-		compaction, err := vulkan.NewCompactionOptions(0)
-		if err != nil {
-			return err
-		}
-		_, err = wpInstance.Produce(ctx, work, &vulkan.ProduceOptions{MessageKey: fmt.Sprintf("hot:%d", (p+s)%keys), Compaction: compaction})
+		_, err = wpInstance.Produce(ctx, work, &vulkan.ProduceOptions{MessageKey: fmt.Sprintf("hot:%d", (p+s)%keys), Compaction: &vulkan.CompactionOptions{Enable: true}})
 		return err
 	})
 

@@ -28,8 +28,8 @@ func TestDefinitionsFiltersScopes(t *testing.T) {
 			t.Fatalf("definition %s has unrequested scope %q", definition.Name, definition.Scope)
 		}
 	}
-	if len(definitions) != 11 {
-		t.Fatalf("got %d definitions, want 11", len(definitions))
+	if len(definitions) != 12 {
+		t.Fatalf("got %d definitions, want 12", len(definitions))
 	}
 }
 

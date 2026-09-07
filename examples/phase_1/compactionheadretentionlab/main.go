@@ -173,10 +173,8 @@ func sweepBatchScenario(ctx context.Context, pool *pgxpool.Pool) {
 func publish(ctx context.Context, wpInstance *vulkan.ProducerInstance[common.Work], key string) {
 	opts := &vulkan.ProduceOptions{}
 	if key != "" {
-		compaction, err := vulkan.NewCompactionOptions(0)
-		must(err)
 		opts.MessageKey = key
-		opts.Compaction = compaction
+		opts.Compaction = &vulkan.CompactionOptions{Enable: true}
 	}
 	_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
 		return common.NewWork(30, "admin@example.com")

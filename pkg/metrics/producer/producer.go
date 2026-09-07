@@ -200,15 +200,10 @@ func (p *MetricsProducer) flushSessionCounters(ctx context.Context, instance *iP
 			p.Logger.WarnContext(ctx, "could not produce session counters", "group", attributes["group"], "topic", attributes["topic"], "session", attributes["session"], "error", err)
 			return
 		}
-		compaction, err := produce.NewCompactionOptions(0)
-		if err != nil {
-			p.Logger.WarnContext(ctx, "could not produce session counters", "group", attributes["group"], "topic", attributes["topic"], "session", attributes["session"], "error", err)
-			return
-		}
 		item, err := iProducer.NewProduceItem(measurement, &produce.ProduceOptions{
 			RoutingKey: measurement.Name,
 			MessageKey: metrics.MeasurementKey(measurement.Name, measurement.Attributes),
-			Compaction: compaction,
+			Compaction: &produce.CompactionOptions{Enable: true},
 		})
 		if err != nil {
 			p.Logger.WarnContext(ctx, "could not produce session counters", "group", attributes["group"], "topic", attributes["topic"], "session", attributes["session"], "error", err)
