@@ -11,7 +11,7 @@ import (
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 )
 
-// Instances is the consumer instances one container runs, numbered
+// Instances is the consumer instances one process runs, numbered
 // c-1 upward. Each instance is its own Register and Consume session under its
 // own ctx, so a scale-down is a graceful stop of the highest-numbered ones.
 // The runner decides the count; Instances only moves to it.
@@ -77,15 +77,16 @@ func (i *Instances) SetCount(ctx context.Context, count int) error {
 	return nil
 }
 
-// Failed reports the first Consume session that returned an error other
-// than its own cancellation; healthy instances never send.
+// Failed reports the first lab failure among the instances: a Consume
+// session that returned an error other than its own cancellation, or a
+// handler whose record write failed. Healthy instances never send.
 func (i *Instances) Failed() <-chan error {
 	return i.failed
 }
 
 func (i *Instances) start(ctx context.Context, number int) (*runningInstance, error) {
 	consumerName := fmt.Sprintf("%s/c-%d", i.name, number)
-	handler, err := NewHandler(consumerName, i.group, i.failRate, i.writer)
+	handler, err := NewHandler(consumerName, i.group, i.failRate, i.writer, i.failed)
 	if err != nil {
 		return nil, err
 	}

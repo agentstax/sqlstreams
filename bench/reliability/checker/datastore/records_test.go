@@ -31,12 +31,15 @@ func TestLineSourceDecodesEveryLine(t *testing.T) {
 }
 
 func TestLineSourceStopsOnATornLine(t *testing.T) {
-	lines := strings.NewReader(`{"at":"2026-09-06T12:00:00Z","kind":"started","role":"producer","name":"hold","status":"started","detail":""}
+	lines := strings.NewReader(`{"at":"2026-09-06T12:00:00Z","process":"producer","kind":"producer","name":"hold","status":"started","detail":"steady 200/s 1m"}
 {"at":"2026-09-06T12:0`)
 	source := newLineSource(lines, phaseLayout.decode)
 
 	if !source.Next() {
 		t.Fatal("the first, whole line did not decode")
+	}
+	if row, _ := source.Values(); row[1] != "producer" || row[4] != "started" {
+		t.Fatalf("first row = %v, want process producer, status started", row)
 	}
 	if source.Next() {
 		t.Fatal("the torn second line decoded")

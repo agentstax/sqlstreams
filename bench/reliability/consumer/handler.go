@@ -20,15 +20,16 @@ var errInjectedFailure = errors.New("handler failure injected by the scenario's 
 // Handler is one consumer instance's handler: it writes one record per
 // invocation before returning, and fails the scenario's share of them.
 type Handler struct {
-	consumer string
+	name     string
 	group    string
 	failRate float64
 	writer   *record.Writer
+	failed   chan error
 }
 
-func NewHandler(consumer string, group string, failRate float64, writer *record.Writer) (*Handler, error) {
-	if consumer == "" {
-		return nil, errors.New("consumer must not be empty")
+func NewHandler(name string, group string, failRate float64, writer *record.Writer, failed chan error) (*Handler, error) {
+	if name == "" {
+		return nil, errors.New("name must not be empty")
 	}
 	if group == "" {
 		return nil, errors.New("group must not be empty")
@@ -39,9 +40,16 @@ func NewHandler(consumer string, group string, failRate float64, writer *record.
 	if writer == nil {
 		return nil, errors.New("writer must not be nil")
 	}
-	return &Handler{consumer: consumer, group: group, failRate: failRate, writer: writer}, nil
+	if failed == nil {
+		return nil, errors.New("failed must not be nil")
+	}
+	return &Handler{name: name, group: group, failRate: failRate, writer: writer, failed: failed}, nil
 }
 
+// Handle writes the invocation's record, then returns the injected outcome.
+// A record write failing is a lab failure, never a delivery outcome: it is
+// sent on failed for the runner to stop on, and returned so the library does
+// not record a success the records lack.
 func (h *Handler) Handle(ctx context.Context, order *common.Order) error {
 	meta, ok := vulkan.MetaFromContext(ctx)
 	if !ok {
@@ -54,7 +62,7 @@ func (h *Handler) Handle(ctx context.Context, order *common.Order) error {
 	}
 	row := record.HandlerRecord{
 		At:        time.Now(),
-		Consumer:  h.consumer,
+		Consumer:  h.name,
 		Group:     h.group,
 		MessageId: meta.Id,
 		Key:       order.Key(),
@@ -62,6 +70,10 @@ func (h *Handler) Handle(ctx context.Context, order *common.Order) error {
 		Outcome:   outcome,
 	}
 	if err := h.writer.Write(row); err != nil {
+		select {
+		case h.failed <- fmt.Errorf("%s: record write: %w", h.name, err):
+		default:
+		}
 		return err
 	}
 	if outcome == record.HandlerOutcomeError {

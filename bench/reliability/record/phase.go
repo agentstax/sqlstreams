@@ -16,9 +16,9 @@ const (
 	PhaseStatusEnded   PhaseStatus = "ended"
 )
 
-// PhaseRecord is one row of run_phase: a timeline edge the checker uses to
-// attribute what it counts to the window it happened in. Process is the
-// name of the process that wrote it; Detail is the phase's own line from
+// PhaseRecord is one row of run_phase: a timeline edge, read back into the
+// verdict beside the counts. Process is the name of the process that wrote
+// it; Detail is the phase's own line from
 // the scenario ("steady 200/s 10m", "consumers 3").
 type PhaseRecord struct {
 	At      time.Time   `json:"at"`

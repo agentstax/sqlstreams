@@ -31,8 +31,8 @@ var (
 	runPhase      = labSchema + "." + phaseTable
 )
 
-// maxLineBytes bounds one record line; the longest field is an error text.
-const maxLineBytes = 1 << 20
+// lineByteLimit bounds one record line; the longest field is an error text.
+const lineByteLimit = 1 << 20
 
 // tableLayout is how one record file kind lands in its table: the columns
 // in the order decode returns them.
@@ -96,7 +96,7 @@ var _ pgx.CopyFromSource = (*lineSource)(nil)
 
 func newLineSource(reader io.Reader, decode func(line []byte) ([]any, error)) *lineSource {
 	scanner := bufio.NewScanner(reader)
-	scanner.Buffer(nil, maxLineBytes)
+	scanner.Buffer(nil, lineByteLimit)
 	return &lineSource{scanner: scanner, decode: decode}
 }
 
