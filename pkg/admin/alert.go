@@ -2,12 +2,40 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	"github.com/agentstax/vulkan/pkg/alert"
 	"github.com/agentstax/vulkan/pkg/common"
 	"github.com/agentstax/vulkan/pkg/migrate"
+	"github.com/agentstax/vulkan/pkg/schedule"
 	"github.com/agentstax/vulkan/pkg/topic"
 )
+
+// GetAlertSnapshot evaluates a built-in using its current schedule declaration.
+// It writes nothing and returns schedule.ErrScheduleNotFound if the declaration is absent.
+func (a *MessageAdmin) GetAlertSnapshot(ctx context.Context, name string, owner *common.Owner) (*alert.AlertEvaluationSnapshot, error) {
+	evaluator, found := a.alertEvaluators[name]
+	if !found {
+		return nil, fmt.Errorf("unrecognized built-in alert: %q", name)
+	}
+
+	declared, err := a.scheduleController.Get(ctx, "alert."+name)
+	if err != nil {
+		return nil, err
+	}
+	if declared == nil {
+		return nil, schedule.ErrScheduleNotFound.With("schedule", "alert."+name)
+	}
+	var policy *alert.JobPayload
+	if declared.SchemaVersion != common.SchemaVersionOf[alert.JobPayload]() {
+		return nil, fmt.Errorf("unrecognized alert policy schema version: %d", declared.SchemaVersion)
+	}
+	if err := json.Unmarshal(declared.Payload, &policy); err != nil {
+		return nil, err
+	}
+	return evaluator.Evaluate(ctx, owner, policy)
+}
 
 // ListAlerts returns the current head per (alert, owner) on __system.alerts --
 // each key's latest publish, active or resolved, within the topic's retention

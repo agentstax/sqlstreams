@@ -18,7 +18,7 @@ import (
 
 // Evaluate compares the latest completion with continuous system-manager lease coverage.
 // No measurement or alert is written; MaximumAge 0 uses the collector's declared poll rate.
-func (c *CollectorProgressController) Evaluate(ctx context.Context, owner *common.Owner, policy *alert.JobPayload) (*alert.AlertEvaluationResult, error) {
+func (c *CollectorProgressController) Evaluate(ctx context.Context, owner *common.Owner, policy *alert.JobPayload) (*alert.AlertEvaluationSnapshot, error) {
 	if err := workercontroller.ValidateOwner(owner, common.OwnerSystem, alert.AlertMetricsCollectorProgress.Name); err != nil {
 		return nil, err
 	}
@@ -67,20 +67,39 @@ func (c *CollectorProgressController) maximumAge(ctx context.Context, owner *com
 	return max(2*time.Minute, 3*pollRate), nil
 }
 
-func (c *CollectorProgressController) evaluateHistory(owner *common.Owner, completion *common.StoredMessage[metrics.Measurement], history *worker.WorkerInstanceHistory, maximumAge time.Duration, policy *alert.JobPayload) (*alert.AlertEvaluationResult, error) {
+func (c *CollectorProgressController) evaluateHistory(owner *common.Owner, completion *common.StoredMessage[metrics.Measurement], history *worker.WorkerInstanceHistory, maximumAge time.Duration, policy *alert.JobPayload) (*alert.AlertEvaluationSnapshot, error) {
 	current := history.EvaluatedAt
 	completedAt, usable := completionTimestamp(completion, current)
 	if !usable {
-		return alert.NewAlertEvaluationResult(alert.AlertEvaluationStateInsufficientEvidence, nil)
+		return alert.NewAlertEvaluationSnapshot(alert.AlertEvaluationStateInsufficientEvidence, nil, &alert.AlertEvaluationSnapshotConfig{
+			EvaluatedAt:     current,
+			PendingDuration: policy.PendingDuration,
+			MaximumAge:      maximumAge,
+			DisablePending:  policy.DisablePending,
+			Reason:          "collector completion timestamp is unusable or after evaluation time",
+		})
 	}
 	if !completedAt.IsZero() && current.Sub(completedAt) < maximumAge {
-		return alert.NewAlertEvaluationResult(alert.AlertEvaluationStateHealthy, nil)
+		return alert.NewAlertEvaluationSnapshot(alert.AlertEvaluationStateHealthy, nil, &alert.AlertEvaluationSnapshotConfig{
+			EvaluatedAt:     current,
+			ObservedAt:      completedAt,
+			PendingDuration: policy.PendingDuration,
+			MaximumAge:      maximumAge,
+			DisablePending:  policy.DisablePending,
+		})
 	}
 
 	// Without current manager coverage, no unhealthy duration can be established.
 	managerCoverageStart := continuousLeaseStart(history)
 	if managerCoverageStart.IsZero() {
-		return alert.NewAlertEvaluationResult(alert.AlertEvaluationStateInsufficientEvidence, nil)
+		return alert.NewAlertEvaluationSnapshot(alert.AlertEvaluationStateInsufficientEvidence, nil, &alert.AlertEvaluationSnapshotConfig{
+			EvaluatedAt:     current,
+			ObservedAt:      completedAt,
+			PendingDuration: policy.PendingDuration,
+			MaximumAge:      maximumAge,
+			DisablePending:  policy.DisablePending,
+			Reason:          "no current manager lease coverage",
+		})
 	}
 
 	// Time before continuous manager coverage, including a shutdown, does not count.
@@ -100,16 +119,25 @@ func (c *CollectorProgressController) evaluateHistory(owner *common.Owner, compl
 			unhealthySince = completionOverdueAt
 		}
 	}
-	unhealthyDuration := current.Sub(unhealthySince)
+	observedDuration := current.Sub(unhealthySince)
 
 	finding, err := newCollectorProgressAlert(owner, completedAt, maximumAge, current)
 	if err != nil {
 		return nil, err
 	}
-	if policy.DisablePending || unhealthyDuration >= policy.PendingDuration {
-		return alert.NewAlertEvaluationResult(alert.AlertEvaluationStateActive, finding)
+	state := alert.AlertEvaluationStateActive
+	if !policy.DisablePending && observedDuration < policy.PendingDuration {
+		state = alert.AlertEvaluationStatePending
 	}
-	return alert.NewAlertEvaluationResult(alert.AlertEvaluationStatePending, finding)
+	return alert.NewAlertEvaluationSnapshot(state, finding, &alert.AlertEvaluationSnapshotConfig{
+		EvaluatedAt:      current,
+		ObservedAt:       completedAt,
+		UnhealthySince:   unhealthySince,
+		ObservedDuration: observedDuration,
+		PendingDuration:  policy.PendingDuration,
+		MaximumAge:       maximumAge,
+		DisablePending:   policy.DisablePending,
+	})
 }
 
 // ***************

@@ -171,16 +171,25 @@ rolled-back prototype are not implementation requirements.
   Preserve pending across continuous replacements and break it across gaps.
   Use the existing scheduled check and Record/classify patterns; no independent
   progress-observation series or separate observation worker.
-  The system-owned check uses consumed policy, shared duration evaluation, and
+  The system-owned check uses consumed policy, an inline pending decision, and
   normal atomic recording. Targeted tests cover gaps/replacements, missing and
   recent completion, activation/recovery, and repeated recording. Real-worker
   lab verification remains at the deferred checkpoint.
 - [ ] Verify each adaptation's real worker, diagnostics, restart behavior, and
   repeat/recovery semantics with targeted checks and affected labs.
-- [ ] After all three existing alerts support pending, add the approved
+- [x] After all three existing alerts support pending, add the approved
   read-only diagnostic through the existing alert handle using the same
   evaluation path. Retain Latest/History's recorded-message contracts; no
   persisted status mirror.
+  - [x] Refine the doc-site proposal for all four built-ins: return shape,
+    current-declaration policy versus consumed-message policy, and error/
+    insufficient-evidence behavior. Contract reviewed and approved.
+  - [x] Review the refined Snapshot contract, then expose the diagnostic facts
+    from the existing evaluation path and add the handle/admin read.
+    All four evaluators return AlertEvaluationSnapshot [0704]. PostgreSQL tests
+    exercise the public selectors with writes disabled, current/suspended policy,
+    missing schedules, unsupported names/scopes, and malformed policy. Scheduled
+    workers still use consumed policy and existing Record; labs remain deferred.
 
 ### 6. Replace instrument registration with the OTel producer
 

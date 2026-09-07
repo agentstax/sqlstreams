@@ -21,6 +21,10 @@ history, err := topic.Alerts().WorkerLiveness().History(ctx, 20)
 if err != nil {
 	return err
 }
+snapshot, err := topic.Alerts().PartitionCount().Snapshot(ctx)
+if err != nil {
+	return err
+}
 all, err := client.System().Alerts().Latest(ctx) // every current alert, active or resolved
 ```
 
@@ -47,6 +51,7 @@ On an `AlertHandle`:
 | --- | --- | --- |
 | `Latest(ctx)` | `*Alert` | `(nil, nil)` when the owner exists and nothing is retained under the key |
 | `History(ctx, limit)` | `[]*Alert` | newest first; `limit` must be positive |
+| `Snapshot(ctx)` | `*AlertEvaluationSnapshot` | read-only evaluation of a built-in under its current declared schedule policy; returns `ErrScheduleNotFound` for a missing schedule, `ErrTopicNotFound` or `ErrConsumerNotFound` for a missing owner; unsupported names/scopes and malformed policies return errors |
 
 A definition is metadata, never a value: `Code`, `Name`, `Description`,
 `Scope`, `Severity`. Severity is fixed per built-in; message, detail,
@@ -102,3 +107,11 @@ already active.
   declare `PartitionCountAlert: &vulkan.PartitionCountAlertConfig{Threshold: 1}`,
   which alerts after a sustained count on every topic with a partition, and put the real threshold
   back on the next register.
+- `Snapshot` evaluates current evidence even when the schedule is suspended.
+  Queued checks retain their consumed policy. Its `State` is one of
+  `AlertEvaluationStateHealthy`, `AlertEvaluationStatePending`,
+  `AlertEvaluationStateActive`, or `AlertEvaluationStateInsufficientEvidence`.
+  `Finding` accompanies pending/active states; `Reason` explains insufficient
+  evidence for display. Timing and resolved settings are described in
+  [evaluation diagnostics](/concepts/alert-history/#inspect-the-current-evaluation).
+  `Latest` and `History` still read recorded alerts, so their results can differ.

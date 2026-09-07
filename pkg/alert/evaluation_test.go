@@ -2,7 +2,7 @@ package alert
 
 import "testing"
 
-func TestAlertEvaluationResult(t *testing.T) {
+func TestAlertEvaluationSnapshot(t *testing.T) {
 	tests := []struct {
 		name      string
 		state     AlertEvaluationState
@@ -23,7 +23,7 @@ func TestAlertEvaluationResult(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			result, err := NewAlertEvaluationResult(test.state, test.finding)
+			result, err := NewAlertEvaluationSnapshot(test.state, test.finding, nil)
 			if test.wantError {
 				if err == nil || result != nil {
 					t.Fatalf("got %v, %v; want nil result and error", result, err)

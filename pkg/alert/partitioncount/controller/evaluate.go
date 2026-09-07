@@ -10,6 +10,7 @@ import (
 	"github.com/agentstax/vulkan/pkg/alert/evaluation"
 	"github.com/agentstax/vulkan/pkg/common"
 	"github.com/agentstax/vulkan/pkg/metrics"
+	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
 )
 
 // warnDivisor halves the lock ceiling so the alert leaves headroom to act
@@ -18,9 +19,9 @@ const warnDivisor = 2
 
 // Evaluate derives pending from retained partition counts, using storage time.
 // Threshold 0 uses half the live lock ceiling; missing evidence cannot resolve.
-func (c *PartitionCountController) Evaluate(ctx context.Context, owner *common.Owner, policy *alert.JobPayload) (*alert.AlertEvaluationResult, error) {
-	if owner == nil {
-		return nil, errors.New("owner must not be nil")
+func (c *PartitionCountController) Evaluate(ctx context.Context, owner *common.Owner, policy *alert.JobPayload) (*alert.AlertEvaluationSnapshot, error) {
+	if err := workercontroller.ValidateOwner(owner, common.OwnerTopic, alert.AlertPartitionCount.Name); err != nil {
+		return nil, err
 	}
 	if policy == nil {
 		return nil, errors.New("policy must not be nil")
@@ -42,38 +43,38 @@ func (c *PartitionCountController) Evaluate(ctx context.Context, owner *common.O
 	return c.evaluateHistory(owner, policy, ceiling, history)
 }
 
-func (c *PartitionCountController) evaluateHistory(owner *common.Owner, policy *alert.JobPayload, ceiling int64, history *metrics.MeasurementHistory) (*alert.AlertEvaluationResult, error) {
+func (c *PartitionCountController) evaluateHistory(owner *common.Owner, policy *alert.JobPayload, ceiling int64, history *metrics.MeasurementHistory) (*alert.AlertEvaluationSnapshot, error) {
 	threshold := policy.Threshold
 	if threshold == 0 {
 		threshold = ceiling / warnDivisor
 	}
-	samples := make([]*common.StoredMessage[alert.AlertEvaluationResult], 0, len(history.Messages))
+	samples := make([]*common.StoredMessage[alert.AlertEvaluationSnapshot], 0, len(history.Messages))
 	for _, stored := range history.Messages {
 		result, err := c.evaluateMeasurement(owner, threshold, ceiling, stored.Message, stored.CreatedAt)
 		if err != nil {
 			return nil, err
 		}
-		samples = append(samples, &common.StoredMessage[alert.AlertEvaluationResult]{Id: stored.Id, CreatedAt: stored.CreatedAt, Message: result})
+		samples = append(samples, &common.StoredMessage[alert.AlertEvaluationSnapshot]{Id: stored.Id, CreatedAt: stored.CreatedAt, Message: result})
 	}
 	return evaluation.EvaluateHistory(samples, history.EvaluatedAt, policy)
 }
 
-func (c *PartitionCountController) evaluateMeasurement(owner *common.Owner, threshold int64, ceiling int64, measurement *metrics.Measurement, at time.Time) (*alert.AlertEvaluationResult, error) {
+func (c *PartitionCountController) evaluateMeasurement(owner *common.Owner, threshold int64, ceiling int64, measurement *metrics.Measurement, at time.Time) (*alert.AlertEvaluationSnapshot, error) {
 	// Check measurement identity and value.
 	if measurement.Name != metrics.MetricTopicPartitions.Name ||
 		measurement.Kind != metrics.MetricKindGauge ||
 		measurement.Unit != metrics.MetricUnit(metrics.MetricTopicPartitions.Unit) {
-		return alert.NewAlertEvaluationResult(alert.AlertEvaluationStateInsufficientEvidence, nil)
+		return alert.NewAlertEvaluationSnapshot(alert.AlertEvaluationStateInsufficientEvidence, nil, nil)
 	}
 	value := measurement.Value
 	if math.IsNaN(value) || value < 0 || value >= math.MaxInt64 || math.Trunc(value) != value {
-		return alert.NewAlertEvaluationResult(alert.AlertEvaluationStateInsufficientEvidence, nil)
+		return alert.NewAlertEvaluationSnapshot(alert.AlertEvaluationStateInsufficientEvidence, nil, nil)
 	}
 
 	// Counts below the threshold are healthy.
 	count := int64(value)
 	if count < threshold {
-		return alert.NewAlertEvaluationResult(alert.AlertEvaluationStateHealthy, nil)
+		return alert.NewAlertEvaluationSnapshot(alert.AlertEvaluationStateHealthy, nil, nil)
 	}
 
 	// Construct the active finding.
@@ -81,5 +82,5 @@ func (c *PartitionCountController) evaluateMeasurement(owner *common.Owner, thre
 	if err != nil {
 		return nil, err
 	}
-	return alert.NewAlertEvaluationResult(alert.AlertEvaluationStateActive, finding)
+	return alert.NewAlertEvaluationSnapshot(alert.AlertEvaluationStateActive, finding, nil)
 }

@@ -10,7 +10,7 @@ import (
 
 // EvaluateHistory applies pending to condition results ordered by CreatedAt/id
 // descending. The input is read-only; elapsed time alone adds no duration.
-func EvaluateHistory(samples []*common.StoredMessage[alert.AlertEvaluationResult], current time.Time, policy *alert.JobPayload) (*alert.AlertEvaluationResult, error) {
+func EvaluateHistory(samples []*common.StoredMessage[alert.AlertEvaluationSnapshot], current time.Time, policy *alert.JobPayload) (*alert.AlertEvaluationSnapshot, error) {
 	// Validate the resolved policy and evaluation time.
 	if policy == nil {
 		return nil, errors.New("policy must not be nil")
@@ -24,22 +24,49 @@ func EvaluateHistory(samples []*common.StoredMessage[alert.AlertEvaluationResult
 
 	// Require a fresh observation before evaluating the condition.
 	if len(samples) == 0 {
-		return alert.NewAlertEvaluationResult(alert.AlertEvaluationStateInsufficientEvidence, nil)
+		return alert.NewAlertEvaluationSnapshot(alert.AlertEvaluationStateInsufficientEvidence, nil, &alert.AlertEvaluationSnapshotConfig{
+			EvaluatedAt:     current,
+			PendingDuration: policy.PendingDuration,
+			MaximumGap:      policy.MaximumGap,
+			DisablePending:  policy.DisablePending,
+			Reason:          "no retained measurement",
+		})
 	}
 	newest := samples[0]
-	if newest.CreatedAt.After(current) {
-		return alert.NewAlertEvaluationResult(alert.AlertEvaluationStateInsufficientEvidence, nil)
+	var reason string
+	switch {
+	case newest.CreatedAt.After(current):
+		reason = "measurement storage time is after evaluation time"
+	case current.Sub(newest.CreatedAt) > policy.MaximumGap:
+		reason = "newest measurement exceeds MaximumGap"
+	default:
+		if err := newest.Message.Validate(); err != nil {
+			return nil, err
+		}
+		if newest.Message.State == alert.AlertEvaluationStateInsufficientEvidence {
+			reason = "newest measurement cannot establish the alert condition"
+		}
 	}
-	if current.Sub(newest.CreatedAt) > policy.MaximumGap {
-		return alert.NewAlertEvaluationResult(alert.AlertEvaluationStateInsufficientEvidence, nil)
-	}
-	if err := newest.Message.Validate(); err != nil {
-		return nil, err
+	if reason != "" {
+		return alert.NewAlertEvaluationSnapshot(alert.AlertEvaluationStateInsufficientEvidence, nil, &alert.AlertEvaluationSnapshotConfig{
+			EvaluatedAt:     current,
+			ObservedAt:      newest.CreatedAt,
+			PendingDuration: policy.PendingDuration,
+			MaximumGap:      policy.MaximumGap,
+			DisablePending:  policy.DisablePending,
+			Reason:          reason,
+		})
 	}
 
 	// Only an active condition with pending enabled needs a history scan.
 	if newest.Message.State != alert.AlertEvaluationStateActive || policy.DisablePending {
-		return newest.Message, nil
+		return alert.NewAlertEvaluationSnapshot(newest.Message.State, newest.Message.Finding, &alert.AlertEvaluationSnapshotConfig{
+			EvaluatedAt:     current,
+			ObservedAt:      newest.CreatedAt,
+			PendingDuration: policy.PendingDuration,
+			MaximumGap:      policy.MaximumGap,
+			DisablePending:  policy.DisablePending,
+		})
 	}
 
 	// Walk backward through consecutive active observations within the window.
@@ -64,8 +91,17 @@ func EvaluateHistory(samples []*common.StoredMessage[alert.AlertEvaluationResult
 
 	// Pending duration comes from the observed span, not time spent waiting.
 	observedDuration := newest.CreatedAt.Sub(earliestAt)
-	if observedDuration >= policy.PendingDuration {
-		return newest.Message, nil
+	state := alert.AlertEvaluationStateActive
+	if observedDuration < policy.PendingDuration {
+		state = alert.AlertEvaluationStatePending
 	}
-	return alert.NewAlertEvaluationResult(alert.AlertEvaluationStatePending, newest.Message.Finding)
+	return alert.NewAlertEvaluationSnapshot(state, newest.Message.Finding, &alert.AlertEvaluationSnapshotConfig{
+		EvaluatedAt:      current,
+		ObservedAt:       newest.CreatedAt,
+		UnhealthySince:   earliestAt,
+		ObservedDuration: observedDuration,
+		PendingDuration:  policy.PendingDuration,
+		MaximumGap:       policy.MaximumGap,
+		DisablePending:   policy.DisablePending,
+	})
 }

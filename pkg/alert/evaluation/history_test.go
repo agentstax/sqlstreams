@@ -36,17 +36,17 @@ func TestEvaluateHistory(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			pending := (&alert.JobPayload{DisablePending: test.disabled}).WithDefaults()
-			var samples []*common.StoredMessage[alert.AlertEvaluationResult]
+			var samples []*common.StoredMessage[alert.AlertEvaluationSnapshot]
 			for i, state := range test.states {
 				var found *alert.Alert
 				if state == alert.AlertEvaluationStateActive {
 					found = finding
 				}
-				result, err := alert.NewAlertEvaluationResult(state, found)
+				result, err := alert.NewAlertEvaluationSnapshot(state, found, nil)
 				if err != nil {
 					t.Fatal(err)
 				}
-				samples = append(samples, &common.StoredMessage[alert.AlertEvaluationResult]{Id: int64(7106 - i), CreatedAt: current.Add(-test.ages[i]), Message: result})
+				samples = append(samples, &common.StoredMessage[alert.AlertEvaluationSnapshot]{Id: int64(7106 - i), CreatedAt: current.Add(-test.ages[i]), Message: result})
 			}
 			for range 2 {
 				result, err := EvaluateHistory(samples, current, pending)
@@ -55,6 +55,25 @@ func TestEvaluateHistory(t *testing.T) {
 				}
 				if result.State != test.want {
 					t.Fatalf("got %s, want %s", result.State, test.want)
+				}
+				if result.EvaluatedAt != current || result.PendingDuration != pending.PendingDuration || result.MaximumGap != pending.MaximumGap || result.DisablePending != test.disabled || result.MaximumAge != 0 {
+					t.Fatalf("snapshot lost evaluation policy: %+v", result)
+				}
+				if (result.Reason != "") != (result.State == alert.AlertEvaluationStateInsufficientEvidence) {
+					t.Fatalf("reason does not match state: %+v", result)
+				}
+				if len(samples) > 0 && result.ObservedAt != samples[0].CreatedAt {
+					t.Fatal("snapshot lost newest observation time")
+				}
+				if result.State == alert.AlertEvaluationStateHealthy || result.State == alert.AlertEvaluationStateInsufficientEvidence || test.disabled {
+					if !result.UnhealthySince.IsZero() || result.ObservedDuration != 0 {
+						t.Fatal("snapshot reports an unestablished span")
+					}
+				} else if result.UnhealthySince.IsZero() || result.ObservedDuration != result.ObservedAt.Sub(result.UnhealthySince) {
+					t.Fatal("snapshot span does not match its evidence times")
+				}
+				if test.name == "sustained" && result.ObservedDuration != 2*time.Minute {
+					t.Fatal("snapshot lost the two-minute unhealthy span")
 				}
 			}
 		})

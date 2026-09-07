@@ -105,9 +105,16 @@ type (
 	AlertDefinition               = alert.AlertDefinition
 	AlertStatus                   = alert.AlertStatus
 	AlertSeverity                 = alert.AlertSeverity
+	AlertEvaluationSnapshot       = alert.AlertEvaluationSnapshot
+	AlertEvaluationState          = alert.AlertEvaluationState
 )
 
 const (
+	AlertEvaluationStateHealthy              = alert.AlertEvaluationStateHealthy
+	AlertEvaluationStatePending              = alert.AlertEvaluationStatePending
+	AlertEvaluationStateActive               = alert.AlertEvaluationStateActive
+	AlertEvaluationStateInsufficientEvidence = alert.AlertEvaluationStateInsufficientEvidence
+
 	RecoveryTransient = diagnostic.RecoveryTransient
 	RecoveryPermanent = diagnostic.RecoveryPermanent
 

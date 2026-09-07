@@ -5,6 +5,15 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-07 — Read-only alert evaluation snapshots [0704]
+
+All four built-in alert handles expose Snapshot using the existing evaluator
+under current declared policy. Snapshots include state, finding, evidence
+timing, resolved timing settings, and an insufficient-evidence reason.
+Scheduled checks retain consumed policy; recorded alert semantics are unchanged.
+Targeted race tests and PostgreSQL read-only selector checks passed. Real-worker
+labs and the full-suite checkpoint remain deferred.
+
 ## 2026-09-07 — Reliability lab v1: records, a checker, two scenarios [0687] [0696] [0697]
 
 `bench/reliability/` runs a scenario on its own compose stack (`just

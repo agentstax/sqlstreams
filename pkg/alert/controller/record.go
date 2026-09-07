@@ -13,7 +13,7 @@ import (
 
 // Record serializes classification and production on the owner's alert head.
 // Only healthy results resolve an active head; transition logs follow commit.
-func (c *AlertController) Record(ctx context.Context, name string, owner *common.Owner, result *alert.AlertEvaluationResult) (alert.RecordOutcome, error) {
+func (c *AlertController) Record(ctx context.Context, name string, owner *common.Owner, result *alert.AlertEvaluationSnapshot) (alert.RecordOutcome, error) {
 	if owner == nil {
 		return "", errors.New("owner must not be nil")
 	}

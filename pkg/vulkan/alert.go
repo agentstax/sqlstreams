@@ -20,6 +20,18 @@ func newAlertHandle(client *Client, name string, topicName string, groupName str
 	return &AlertHandle{name: name, topicName: topicName, groupName: groupName, client: client}
 }
 
+// Snapshot evaluates a built-in alert using retained evidence and the current
+// schedule policy, without writes. Queued checks retain their consumed policy.
+// Returns ErrTopicNotFound or ErrConsumerNotFound for a missing owner and
+// ErrScheduleNotFound for a missing schedule; unsupported names/scopes return errors.
+func (a *AlertHandle) Snapshot(ctx context.Context) (*AlertEvaluationSnapshot, error) {
+	owner, err := a.owner(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return a.client.admin.GetAlertSnapshot(ctx, a.name, owner)
+}
+
 // Latest returns the current alert, active or resolved, or nil if no
 // retained alert has its key.
 func (a *AlertHandle) Latest(ctx context.Context) (*Alert, error) {

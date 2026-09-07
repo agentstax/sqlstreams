@@ -67,6 +67,25 @@ func TestCollectorProgressHistory(t *testing.T) {
 				if result.State != test.want {
 					t.Fatalf("state = %s, want %s", result.State, test.want)
 				}
+				if result.EvaluatedAt != current || result.PendingDuration != policy.PendingDuration || result.MaximumAge != 2*time.Minute || result.MaximumGap != 0 || result.DisablePending != test.disabled {
+					t.Fatalf("snapshot lost evaluation policy: %+v", result)
+				}
+				if (result.Reason != "") != (result.State == alert.AlertEvaluationStateInsufficientEvidence) {
+					t.Fatalf("reason does not match state: %+v", result)
+				}
+				if test.missing && !result.ObservedAt.IsZero() {
+					t.Fatal("missing completion has an observation time")
+				}
+				if result.State == alert.AlertEvaluationStateHealthy || result.State == alert.AlertEvaluationStateInsufficientEvidence {
+					if !result.UnhealthySince.IsZero() || result.ObservedDuration != 0 {
+						t.Fatal("snapshot reports an unestablished span")
+					}
+				} else if result.UnhealthySince.IsZero() || result.ObservedDuration != current.Sub(result.UnhealthySince) {
+					t.Fatal("snapshot span does not match its evaluation times")
+				}
+				if test.name == "recent manager limits span" && result.ObservedDuration != time.Minute {
+					t.Fatal("snapshot counted time before manager coverage")
+				}
 				if result.Finding != nil && (result.Finding.Owner != owner || result.Finding.At != current) {
 					t.Fatal("finding lost system owner or evaluation time")
 				}

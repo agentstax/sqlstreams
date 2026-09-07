@@ -1,10 +1,15 @@
 package admin
 
 import (
+	"github.com/agentstax/vulkan/pkg/alert"
 	"github.com/agentstax/vulkan/pkg/alert/collectorprogress"
+	collectorprogresscontroller "github.com/agentstax/vulkan/pkg/alert/collectorprogress/controller"
 	"github.com/agentstax/vulkan/pkg/alert/compactionreadcost"
+	compactionreadcostcontroller "github.com/agentstax/vulkan/pkg/alert/compactionreadcost/controller"
 	"github.com/agentstax/vulkan/pkg/alert/partitioncount"
+	partitioncountcontroller "github.com/agentstax/vulkan/pkg/alert/partitioncount/controller"
 	"github.com/agentstax/vulkan/pkg/alert/workerliveness"
+	workerlivenesscontroller "github.com/agentstax/vulkan/pkg/alert/workerliveness/controller"
 	"github.com/agentstax/vulkan/pkg/common"
 	"github.com/agentstax/vulkan/pkg/common/logging"
 	compactioncontroller "github.com/agentstax/vulkan/pkg/compaction/controller"
@@ -40,6 +45,7 @@ type MessageAdmin struct {
 	workerController   *workercontroller.WorkerController
 	migrateController  *migratecontroller.Controller
 	alertDeclarers     []worker.Declarer
+	alertEvaluators    map[string]alert.Evaluator
 	allowDestroy       bool
 }
 
@@ -138,6 +144,23 @@ func NewMessageAdmin(ds *datastore.PostgresDatastore, cfg *MessageAdminConfig) (
 		return nil, err
 	}
 
+	partitionCountController, err := partitioncountcontroller.NewPartitionCountController(ds, ds.Logger)
+	if err != nil {
+		return nil, err
+	}
+	compactionReadCostController, err := compactionreadcostcontroller.NewCompactionReadCostController(ds, ds.Logger)
+	if err != nil {
+		return nil, err
+	}
+	workerLivenessController, err := workerlivenesscontroller.NewWorkerLivenessController(ds, ds.Logger)
+	if err != nil {
+		return nil, err
+	}
+	collectorProgressController, err := collectorprogresscontroller.NewCollectorProgressController(ds, ds.Logger)
+	if err != nil {
+		return nil, err
+	}
+
 	alertScheduler, err := scheduler.NewScheduler(ds)
 	if err != nil {
 		return nil, err
@@ -157,6 +180,12 @@ func NewMessageAdmin(ds *datastore.PostgresDatastore, cfg *MessageAdminConfig) (
 		workerController:   workerController,
 		migrateController:  migrateController,
 		alertDeclarers:     []worker.Declarer{partitionCountProvisioner, compactionReadCostProvisioner, workerLivenessProvisioner, collectorProgressProvisioner},
-		allowDestroy:       cfg.AllowDestroy,
+		alertEvaluators: map[string]alert.Evaluator{
+			alert.AlertPartitionCount.Name:           partitionCountController,
+			alert.AlertCompactionReadCost.Name:       compactionReadCostController,
+			alert.AlertWorkerLiveness.Name:           workerLivenessController,
+			alert.AlertMetricsCollectorProgress.Name: collectorProgressController,
+		},
+		allowDestroy: cfg.AllowDestroy,
 	}, nil
 }

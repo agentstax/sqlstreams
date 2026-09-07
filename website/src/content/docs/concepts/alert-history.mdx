@@ -1,6 +1,6 @@
 ---
 title: 'Alerts from measurement history'
-description: Shared pending policy, retained evidence, restart gaps, and proposed evaluation diagnostics.
+description: Shared pending policy, retained evidence, restart gaps, and read-only evaluation diagnostics.
 ---
 
 The three topic alerts calculate pending duration from collector-owned
@@ -105,7 +105,7 @@ span. A retained active alert stays active until fresh healthy evidence resolves
 
 ## Recording and evidence gaps
 
-`AlertEvaluationResult` carries `State` and `Finding`. Finding is present
+`AlertEvaluationSnapshot` carries `State` and `Finding`. Finding is present
 for pending and active conditions. Evaluation states are not additional
 statuses produced to the alerts topic.
 
@@ -146,19 +146,66 @@ break timestamp ties. A delayed write can count as fresh evidence, an accepted
 tradeoff [0690](/decisions/0690/). `Measurement.At` remains observation metadata,
 not the pending clock. History remains bounded even before physical cleanup.
 
-## Proposed: diagnostics and further adoption
+## Inspect the current evaluation
 
-Propose `AlertHandle.Snapshot(ctx)` alongside existing `Latest` and `History`.
-It would use the same calculation, with no measurement or alert writes,
-returning `AlertEvaluationSnapshot`: `Status`, `EvaluatedAt`, `ObservedAt`,
-`UnhealthySince`, `ObservedDuration`, resolved `PendingDuration`, `MaximumGap`,
-`DisablePending`, and an insufficient-evidence reason. Absent times are zero.
+`AlertHandle.Snapshot(ctx)` answers: what does the retained evidence
+say now, under the current declared policy? It supports all four built-in
+alerts and returns `(*AlertEvaluationSnapshot, error)`, without producing
+measurements, recording alerts, or changing a consumer cursor.
 
-Observed duration is an established sample span, not elapsed time since a
-remembered start. For active alerts it is a lower bound within the window.
-Disabled pending reports zero span from the newest sample. Latest and History
-remain recorded active/resolved messages: Snapshot could say insufficient
-while Latest stays active. No persisted status mirror is proposed.
+The return shape uses evaluation `State`, keeping it distinct
+from a recorded alert's active/resolved status:
+
+| Field | Meaning |
+| --- | --- |
+| `State` | Healthy, pending, active, or insufficient evidence |
+| `Finding` | The existing condition finding for pending/active; absent otherwise |
+| `EvaluatedAt` | Database time used by this evaluation |
+| `ObservedAt` | Newest sample's stored time; collector progress uses its completion timestamp; zero when unavailable |
+| `UnhealthySince` | Start of the established unhealthy span, bounded by the evidence window |
+| `ObservedDuration` | Unhealthy duration established by this evaluation |
+| `PendingDuration`, `DisablePending` | Resolved pending settings used |
+| `MaximumGap` | Resolved sample-gap limit for topic alerts; zero for collector progress |
+| `MaximumAge` | Resolved completion-age limit for collector progress; zero for topic alerts |
+| `Reason` | Human-readable explanation for insufficient evidence; empty otherwise |
+
+Healthy and insufficient results report zero unhealthy start/duration.
+With pending disabled, topic alerts skip the history scan and report zero
+span; collector progress still calculates its coverage-backed overdue span.
+An active span is bounded evidence, not the condition's lifetime. Reason text
+is for display; callers branch on State.
+
+The call follows the existing ownership and evaluation paths:
+
+```text
+AlertHandle.Snapshot(ctx):
+    resolve the owner and built-in alert
+    read its current schedule payload through the schedule controller
+    decode and resolve that policy
+    run the same condition.Evaluate used by scheduled checks
+    return the evaluation with its timing and evidence reason
+```
+
+The evaluator retains diagnostic facts as it makes each decision.
+Snapshot exposes those facts without repeating the calculation.
+Scheduled workers call Evaluate with the consumed payload,
+then Record. Snapshot never consumes a scheduled message.
+
+For example, `orders`, topic 41, has unhealthy messages 7101 and 7102 one
+minute apart. A current two-minute pending policy gives Snapshot `pending`
+with `ObservedDuration: 1m`. A queued check carrying the earlier one-minute
+policy can still activate. Snapshot explains the current declaration, not
+the last check or the next queued check.
+
+Missing schedules, unsupported alert names/scopes, malformed policy, and
+database/decode failures return errors; no default policy is substituted.
+Missing, stale, or unusable evidence returns an insufficient snapshot with
+its reason. Suspended schedules remain inspectable: Snapshot evaluates the
+condition, not whether automatic checks are running.
+
+`Latest` and `History` remain recorded active/resolved messages. Snapshot
+could say insufficient while Latest stays active, or healthy before a
+scheduled check records recovery. The snapshot is not persisted.
 
 The implemented system-owned collector-progress alert uses worker instance
 history to establish manager lease coverage independently of collector

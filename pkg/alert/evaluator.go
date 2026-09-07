@@ -6,8 +6,8 @@ import (
 	"github.com/agentstax/vulkan/pkg/common"
 )
 
-// Evaluator returns an explicit condition result per owner topic.
+// Evaluator validates its owner scope and evaluates retained evidence.
 // Threshold 0 uses the alert's live default; read failures return errors.
 type Evaluator interface {
-	Evaluate(ctx context.Context, owner *common.Owner, policy *JobPayload) (*AlertEvaluationResult, error)
+	Evaluate(ctx context.Context, owner *common.Owner, policy *JobPayload) (*AlertEvaluationSnapshot, error)
 }

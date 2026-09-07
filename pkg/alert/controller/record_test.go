@@ -23,7 +23,7 @@ func TestRecordLeavesInconclusiveEvidenceUnchanged(t *testing.T) {
 			if state == alert.AlertEvaluationStatePending {
 				found = finding
 			}
-			result, err := alert.NewAlertEvaluationResult(state, found)
+			result, err := alert.NewAlertEvaluationSnapshot(state, found, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -43,7 +43,7 @@ func TestRecordRejectsMalformedResultsBeforeReading(t *testing.T) {
 		t.Fatal(err)
 	}
 	controller := &AlertController{}
-	for _, result := range []*alert.AlertEvaluationResult{
+	for _, result := range []*alert.AlertEvaluationSnapshot{
 		nil,
 		{},
 		{State: alert.AlertEvaluationStateActive},
