@@ -27,7 +27,7 @@ func (c *Checker) undelivered(ctx context.Context, target *target) (measurement,
 				SELECT 1 FROM %[3]s e
 				WHERE e.consumer_group_id = $1 AND e.message_id = m.id AND e.status = 'dead');
 	`, target.messageLog(), handlerLedger, target.exceptionQueue(), witnessLimit)
-	return c.measure(ctx, undeliveredSql, target.groupId)
+	return c.measure(ctx, witnessMessageId, undeliveredSql, target.groupId)
 }
 
 // duplicates: messages the handler succeeded on more than once, by the
@@ -47,7 +47,7 @@ func (c *Checker) duplicates(ctx context.Context) (measurement, error) {
 			COALESCE((array_agg(message_id::text ORDER BY message_id))[1:%[2]d], ARRAY[]::text[])
 		FROM repeated;
 	`, handlerLedger, witnessLimit)
-	return c.measure(ctx, duplicatesSql)
+	return c.measure(ctx, witnessMessageId, duplicatesSql)
 }
 
 // unbucketed: by the library's own tables, messages in no bucket or in both,
@@ -72,5 +72,5 @@ func (c *Checker) unbucketed(ctx context.Context, target *target) (measurement, 
 		FROM buckets
 		WHERE (success AND dead) OR (NOT success AND NOT dead);
 	`, target.messageLog(), target.deliveryLog(), target.exceptionQueue(), witnessLimit)
-	return c.measure(ctx, unbucketedSql, target.groupId)
+	return c.measure(ctx, witnessMessageId, unbucketedSql, target.groupId)
 }

@@ -19,7 +19,7 @@ func (c *Checker) reclaims(ctx context.Context, target *target) (measurement, er
 		FROM %[1]s
 		WHERE consumer_group_id = $1 AND status = 'expired';
 	`, target.deliveryLog(), witnessLimit)
-	return c.measure(ctx, reclaimsSql, target.groupId)
+	return c.measure(ctx, witnessMessageId, reclaimsSql, target.groupId)
 }
 
 // dead: exception rows the group dead-lettered.
@@ -32,5 +32,5 @@ func (c *Checker) dead(ctx context.Context, target *target) (measurement, error)
 		FROM %[1]s
 		WHERE consumer_group_id = $1 AND status = 'dead';
 	`, target.exceptionQueue(), witnessLimit)
-	return c.measure(ctx, deadSql, target.groupId)
+	return c.measure(ctx, witnessMessageId, deadSql, target.groupId)
 }

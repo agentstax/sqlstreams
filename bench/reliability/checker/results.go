@@ -58,3 +58,20 @@ func Report(declared *scenario.Scenario, verdict *Verdict) string {
 	table.Flush()
 	return out.String()
 }
+
+// Beside is the report's columns after the declared line, tab-separated:
+// the actual, then PASS or FAIL for a want of 0, then the witnesses of a
+// non-zero count.
+func (r CheckResult) Beside() string {
+	columns := []string{fmt.Sprintf("actual %d", r.Actual)}
+	switch r.Status {
+	case CheckPassed:
+		columns = append(columns, "PASS")
+	case CheckFailed:
+		columns = append(columns, "FAIL")
+	}
+	if len(r.Witnesses) > 0 {
+		columns = append(columns, r.Witness+" "+strings.Join(r.Witnesses, ", "))
+	}
+	return strings.Join(columns, "\t")
+}

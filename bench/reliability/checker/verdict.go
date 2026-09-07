@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/agentstax/vulkan/bench/reliability/record"
+	"github.com/agentstax/vulkan/bench/reliability/scenario"
 )
 
 // VerdictStatus is the run's one-word outcome. Unknown means the checks
@@ -14,13 +15,6 @@ const (
 	VerdictPass    VerdictStatus = "pass"
 	VerdictFail    VerdictStatus = "fail"
 	VerdictUnknown VerdictStatus = "unknown"
-)
-
-// the verdict's exit codes; the binary reserves 3 for a lab failure
-const (
-	ExitPass    = 0
-	ExitFail    = 1
-	ExitUnknown = 2
 )
 
 // Verdict is the record one checker run writes: what was judged, under what
@@ -40,14 +34,56 @@ type Verdict struct {
 	Phases            []record.Phase `json:"phases"`
 }
 
+// ExitCode is the process exit code for the verdict: 0 pass, 1 fail,
+// 2 unknown. The binary reserves 3 for a lab failure that left no verdict.
 func (v *Verdict) ExitCode() int {
 	switch v.Status {
 	case VerdictPass:
-		return ExitPass
+		return 0
 	case VerdictFail:
-		return ExitFail
+		return 1
 	}
-	return ExitUnknown
+	return 2
+}
+
+// CheckStatus is one expectation's outcome: a want of 0 passes or fails on
+// its count; a want of report is reported whatever the count.
+type CheckStatus string
+
+const (
+	CheckPassed   CheckStatus = "pass"
+	CheckFailed   CheckStatus = "fail"
+	CheckReported CheckStatus = "report"
+)
+
+// CheckResult is one [expect] line judged: the expectation as declared, the
+// count the query returned, and up to witnessLimit examples of what it
+// counted -- Witness says whether they are keys or message ids.
+type CheckResult struct {
+	Check     scenario.Check `json:"check"`
+	Want      scenario.Want  `json:"want"`
+	Actual    int64          `json:"actual"`
+	Status    CheckStatus    `json:"status"`
+	Witness   string         `json:"witness"`
+	Witnesses []string       `json:"witnesses"`
+}
+
+func newCheckResult(expectation scenario.Expectation, measured measurement) CheckResult {
+	status := CheckReported
+	if expectation.Want == scenario.WantZero {
+		status = CheckPassed
+		if measured.Count != 0 {
+			status = CheckFailed
+		}
+	}
+	return CheckResult{
+		Check:     expectation.Check,
+		Want:      expectation.Want,
+		Actual:    measured.Count,
+		Status:    status,
+		Witness:   measured.Witness,
+		Witnesses: measured.Witnesses,
+	}
 }
 
 // ***************

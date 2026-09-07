@@ -19,7 +19,7 @@ func (c *Checker) lost(ctx context.Context, target *target) (measurement, error)
 		WHERE p.kind = 'committed'
 			AND NOT EXISTS (SELECT 1 FROM %[2]s m WHERE m.id = p.message_id);
 	`, produceLedger, target.messageLog(), witnessLimit)
-	return c.measure(ctx, lostSql)
+	return c.measure(ctx, witnessKey, lostSql)
 }
 
 // unexpected: message rows whose key the records never committed and never
@@ -41,7 +41,7 @@ func (c *Checker) unexpected(ctx context.Context, target *target) (measurement, 
 			WHERE p.key = m.key AND p.kind IN ('committed', 'unknown')
 		);
 	`, produceLedger, target.messageLog(), witnessLimit)
-	return c.measure(ctx, unexpectedSql)
+	return c.measure(ctx, witnessMessageId, unexpectedSql)
 }
 
 // recovered: produces whose reply was lost but whose row is there.
@@ -59,5 +59,5 @@ func (c *Checker) recovered(ctx context.Context, target *target) (measurement, e
 		WHERE p.kind = 'unknown'
 			AND EXISTS (SELECT 1 FROM messages m WHERE m.key = p.key);
 	`, produceLedger, target.messageLog(), witnessLimit)
-	return c.measure(ctx, recoveredSql)
+	return c.measure(ctx, witnessKey, recoveredSql)
 }

@@ -11,15 +11,11 @@ import (
 const drainPoll = 500 * time.Millisecond
 
 // drainPosition is the two ids drain compares: the highest message id the
-// topic holds, and the group's cursor -- every id at or below `committed`
-// is done or dead.
+// topic holds, and the group's cursor -- every id at or below committed is
+// done or dead.
 type drainPosition struct {
-	HighestMessage  int64
-	CursorCommitted int64
-}
-
-func (p drainPosition) drained() bool {
-	return p.CursorCommitted >= p.HighestMessage
+	highestMessage  int64
+	cursorCommitted int64
 }
 
 // drain waits until the group's cursor has passed the highest message the
@@ -34,11 +30,11 @@ func (c *Checker) drain(ctx context.Context, target *target) error {
 		if err != nil {
 			return err
 		}
-		if position.drained() {
+		if position.cursorCommitted >= position.highestMessage {
 			return nil
 		}
 		if time.Now().After(deadline) {
-			return fmt.Errorf("drain budget %v spent: cursor committed %d, highest message %d", c.drainBudget, position.CursorCommitted, position.HighestMessage)
+			return fmt.Errorf("drain budget %v spent: cursor committed %d, highest message %d", c.drainBudget, position.cursorCommitted, position.highestMessage)
 		}
 		if err := common.WaitUntil(ctx, time.Now().Add(drainPoll)); err != nil {
 			return err
@@ -54,6 +50,6 @@ func (c *Checker) readDrainPosition(ctx context.Context, target *target) (drainP
 			(SELECT COALESCE(max(committed), 0) FROM %[2]s WHERE consumer_group_id = $1);
 	`, target.messageLog(), target.consumerGroupCursor())
 	var position drainPosition
-	err := c.pool.QueryRow(ctx, positionSql, target.groupId).Scan(&position.HighestMessage, &position.CursorCommitted)
+	err := c.pool.QueryRow(ctx, positionSql, target.groupId).Scan(&position.highestMessage, &position.cursorCommitted)
 	return position, err
 }

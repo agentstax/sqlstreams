@@ -12,14 +12,12 @@ type RecordSummary struct {
 	Phase   int64 `json:"phase"`
 }
 
-// ProduceSummary counts the records' produce outcomes; Duplicate is the
-// committed replies the library flagged as an idempotency-key repeat.
+// ProduceSummary counts the records' produce outcomes.
 type ProduceSummary struct {
 	Attempted int64 `json:"attempted"`
 	Committed int64 `json:"committed"`
 	Rejected  int64 `json:"rejected"`
 	Unknown   int64 `json:"unknown"`
-	Duplicate int64 `json:"duplicate"`
 }
 
 // HandlerSummary counts the records' handler invocations by outcome.
@@ -35,12 +33,11 @@ func (c *Checker) produceSummary(ctx context.Context) (ProduceSummary, error) {
 			count(*) FILTER (WHERE kind = 'attempted'),
 			count(*) FILTER (WHERE kind = 'committed'),
 			count(*) FILTER (WHERE kind = 'rejected'),
-			count(*) FILTER (WHERE kind = 'unknown'),
-			count(*) FILTER (WHERE kind = 'committed' AND duplicate)
+			count(*) FILTER (WHERE kind = 'unknown')
 		FROM %[1]s;
 	`, produceLedger)
 	var summary ProduceSummary
-	err := c.pool.QueryRow(ctx, summarySql).Scan(&summary.Attempted, &summary.Committed, &summary.Rejected, &summary.Unknown, &summary.Duplicate)
+	err := c.pool.QueryRow(ctx, summarySql).Scan(&summary.Attempted, &summary.Committed, &summary.Rejected, &summary.Unknown)
 	return summary, err
 }
 

@@ -38,6 +38,11 @@ func (s *Scenario) Validate() error {
 	if s.Group == "" {
 		return errors.New("Group is required")
 	}
+
+	// unbucketed reads delivery_log success rows, which only mode all writes
+	if s.DeliveryLogMode != topic.DeliveryLogModeAll {
+		return fmt.Errorf("DeliveryLogMode must be %q, got %q", topic.DeliveryLogModeAll, s.DeliveryLogMode)
+	}
 	if s.HandlerFailRate < 0 || s.HandlerFailRate > 1 {
 		return fmt.Errorf("HandlerFailRate must be between 0 and 1, got %g", s.HandlerFailRate)
 	}
