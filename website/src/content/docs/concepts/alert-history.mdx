@@ -4,9 +4,9 @@ description: Shared pending policy, retained evidence, restart gaps, and inspect
 ---
 
 Vulkan would calculate pending duration in its existing alert framework.
-The [step 3 contract](/decisions/0688/) is accepted. The pure history calculation
-is implemented; scheduled checks and the public snapshot read are not connected.
-Runtime behavior and API additions below have not shipped.
+The [implementation plan](/decisions/0689/) starts in the existing alert
+recording path. History-based duration and the public snapshot read below
+have not shipped; standalone evaluator types are not an implementation mandate.
 [OTel export](/concepts/metrics-export/) remains independent.
 
 ## Proposed: one policy for the existing checks

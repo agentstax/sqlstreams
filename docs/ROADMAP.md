@@ -1,5 +1,5 @@
 # Roadmap
-
+ 0689
 Future work, in order of intent. Not a promise — items reorder freely.
 
 - **Now** — committed next work. Picking an item up expands it into TODO.md's
@@ -16,7 +16,7 @@ the item is removed.
 
 ## Now
 
-- **Metrics export and history-based alerts** — direction [0682] [0683] [0686];
+- **Metrics export and history-based alerts** — direction [0682] [0683] [0686] [0688];
   proposed contract in `website/src/content/docs/concepts/metrics-export.mdx`.
   Working details live in TODO.md.
 

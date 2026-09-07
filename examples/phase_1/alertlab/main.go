@@ -43,6 +43,7 @@ import (
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 	"github.com/agentstax/vulkan/pkg/worker"
 	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -244,7 +245,7 @@ func classifySection(ctx context.Context) {
 	heads, err := compactioncontroller.NewCompactionController(ds, ds.Logger)
 	must(err)
 	capture := newCaptureLogger()
-	alerts, err := alertcontroller.NewAlertController(ctx, instance, heads, classifyRepeat, capture)
+	alerts, err := alertcontroller.NewAlertController(ctx, instance, ds, heads, classifyRepeat, capture)
 	must(err)
 
 	key, err := alert.MessageKey(labCheckName, labTopicOwner)
@@ -328,6 +329,67 @@ func classifySection(ctx context.Context) {
 		die(fmt.Sprintf("resolved + nothing found must publish nothing, got %d messages", got))
 	}
 	fmt.Println("  ✓ resolve edge INFOed once, resolved head stayed silent")
+
+	concurrentAlerts, err := alertcontroller.NewAlertController(ctx, instance, ds, heads, 4*time.Hour, capture)
+	must(err)
+	for _, test := range []struct {
+		name    string
+		finding *alert.Alert
+		changed alert.RecordOutcome
+		count   int
+	}{
+		{"concurrent activation", found, alert.RecordOutcomeActive, 1},
+		{"concurrent quiet checks", found, alert.RecordOutcomeActive, 0},
+		{"concurrent recovery", nil, alert.RecordOutcomeResolved, 1},
+	} {
+		before := alertMessageCount(ctx, key)
+		start := make(chan struct{})
+		outcomes := make(chan alert.RecordOutcome, 16)
+		var routines errgroup.Group
+		for range 16 {
+			routines.Go(func() error {
+				<-start
+				outcome, err := concurrentAlerts.Record(ctx, labCheckName, labTopicOwner, test.finding)
+				if err != nil {
+					return err
+				}
+				outcomes <- outcome
+				return nil
+			})
+		}
+		close(start)
+		must(routines.Wait())
+		close(outcomes)
+		changed := 0
+		for outcome := range outcomes {
+			if outcome == test.changed {
+				changed++
+			} else if outcome != alert.RecordOutcomeNothing {
+				die(fmt.Sprintf("%s: unexpected outcome %q", test.name, outcome))
+			}
+		}
+		if changed != test.count || alertMessageCount(ctx, key)-before != int64(test.count) {
+			die(fmt.Sprintf("%s: want %d transitions, got %d", test.name, test.count, changed))
+		}
+	}
+	if capture.count("warn", labCheckName, labTopic.Name) != 2 || capture.count("info", labCheckName, labTopic.Name) != 2 {
+		die("concurrent checks must log each committed transition once")
+	}
+	fmt.Println("  ✓ concurrent checks recorded and logged each transition once")
+
+	unencodable, err := alert.NewAlert(labCheckName, labTopicOwner, alert.AlertStatusActive, alert.AlertSeverityWarn, "labcheck condition holds", time.Now(), &alert.AlertOptions{
+		Data: map[string]any{"unencodable": make(chan struct{})},
+	})
+	must(err)
+	before := alertMessageCount(ctx, key)
+	outcome, err := concurrentAlerts.Record(ctx, labCheckName, labTopicOwner, unencodable)
+	if err == nil || outcome != "" || alertMessageCount(ctx, key) != before || headStatus(ctx, key) != string(alert.AlertStatusResolved) {
+		die("a rejected alert write must leave the resolved head and history unchanged")
+	}
+	if capture.count("warn", labCheckName, labTopic.Name) != 2 || capture.count("info", labCheckName, labTopic.Name) != 2 {
+		die("a rolled-back alert must not log a transition")
+	}
+	fmt.Println("  ✓ rejected alert write left no transition or log")
 }
 
 func executorSection(ctx context.Context) {

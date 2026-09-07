@@ -16,7 +16,7 @@ generic per-series freshness companion, or new backlog alert.
 
 Original collector-only contract approved in [0684], now superseded by [0686]
 for shared alert support. The completed checklist below records that original
-review; chunk 3 reopens the affected choices. Runtime remains Proposed in
+review; chunks 3–5 replace the rolled-back implementation plan. Runtime remains Proposed in
 `concepts/metrics-export.mdx` and `concepts/alert-history.mdx` until shipped.
 
 - [x] Check current collector, history reads, schedule resolution, alert
@@ -54,70 +54,73 @@ the policy's time bounds.
   Build, vet, targeted race tests, the PostgreSQL retained-history integration
   test, and `just metrics-collector-lab` passed. No full-suite checkpoint yet.
 
-### 3. Revise the shared alert contract — next review checkpoint
+### 3. Make existing alert recording atomic
 
-Reopened after the collector-only calculation review [0686]. The existing
-unconnected implementation and tests are useful starting material, not a
-completed shared capability. Step 2 stays complete; runtime code has not
-changed during this proposal revision.
+The standalone history implementation was rolled back. No shared evaluation
+prototype is complete. Start where all three existing checks already meet:
+`instance.evaluateTopics -> condition.Evaluate -> AlertController.Record ->
+classify -> alert producer`. Keep condition evaluation and startup warnings
+unchanged in this task.
 
-- [x] Revise the Proposed alert-history page around shared duration evaluation
-  and the existing AlertController.Record path. Show partition-count pseudocode
-  and a concrete sequence; align metrics-export and record the scope change.
-- [x] Draft shared AlertPendingConfig (Duration, MaximumGap, Disabled),
-  proposed cadence/defaults, current-schedule policy resolution, immediate
-  mode, and query-cost checkpoints. Preserve registration-time log-only checks.
-- [x] Draft per-owner measurement names, attributes, time/rank ordering,
-  healthy/unusable evidence, and partition-count flow using existing reads.
-  Counts alone cannot reconstruct worker details; tied compaction pairs need
-  an identity rule. These are explicit open design gates, not implementation
-  details to patch around.
-- [x] Propose AlertHandle.Snapshot using the same calculation, exposing status,
-  observation time, supported span, and resolved timing without a persisted
-  state mirror. Existing Latest/History retain active/resolved semantics.
-- [ ] Review config/API names, default cadence and tolerance, and the snapshot
-  contract. The page's one-minute/two-minute settings remain unapproved.
-- [ ] Resolve compaction pair identity and worker detail retention before
-  declaring the full shared evidence contract complete. Do not add a generic
-  snapshot store or silently trim existing alert messages to close these gaps.
-- [ ] Approve that contract before code; record additional settled choices.
+- [x] Put the existing head read, classify call, and alert production in one
+  transaction using LockHead and ProduceInTx. Log transitions only after
+  commit. Keep the current repeat, severity-change, and recovery rules.
+- [x] Update the three existing worker call sites, without another runner,
+  evaluator hierarchy, observation-status model, or supported API change.
+- [x] Verify concurrent activation/recovery, quiet checks, repeat handling,
+  corrupt-head isolation, and committed-only logs in the existing alert lab.
+  Targeted build/vet/race checks and the alert lab passed, including rejected
+  writes leaving both alert history and transition logs unchanged. Docs
+  lint and site build passed. No full-suite or fresh-database run.
 
-### 4. Prove the shared path with partition count
+This serializes recorded transitions, not source observations taken before
+Record. Quiet checks also lock/create the head identity. Transaction errors
+return to the existing worker retry path; no automatic transaction replay is
+added. History ordering and database evaluation time belong to chunk 4.
 
-- [ ] Move the general duration/gap/freshness calculation and tests into the
-  existing alert controller. Keep collector timestamp interpretation local;
-  do not create another duration mechanism or persist pending state.
-- [ ] Adapt the existing partition-count check to retain raw observations,
-  including healthy counts, then invoke shared history evaluation. Resolve
-  condition policy once per run; changed thresholds reuse raw evidence.
-- [ ] Validate the sufficient window and retention, reusing step 2's read.
-  Preserve fixed-history determinism, tied/late observation ordering, and
-  actual execution timestamps rather than scheduled timestamps.
-- [ ] Extend existing alert recording/repeat handling to consume the result.
-  Pending/insufficient evidence must never become nil-means-healthy recovery.
-  Serialize decisions through the existing head and produce-transaction seam;
-  refresh evidence after locking. Read errors do not fabricate observations.
-- [ ] Add the agreed diagnostic visibility and verify brief spikes, sustained
-  conditions, fresh recovery, stale/missing evidence while active, overnight
-  gaps, policy changes, repeats, concurrent checks, and ambiguous commits.
-- [ ] Run targeted build/vet/race checks and directly affected labs, including
-  query-cost checks for the proposed cadence; review this complete existing
-  alert before adapting the others. No full-suite checkpoint yet.
+### 4. Integrate partition-count history in that recording path
 
-### 5. Adopt the shared path for the remaining checks
+Deliver a working existing alert, not an unconnected general calculator.
+The site remains the behavior proposal; names or abstractions from the
+rolled-back prototype are not implementation requirements.
 
-- [ ] Adapt compaction read cost and worker liveness without changing their
-  condition meaning. Preserve applicability and topic-scoped worker identity;
-  worker checks keep their own existing snapshot reads, independent of the
-  metrics collector. Review per-check evidence and defaults before adapting.
-- [ ] Record collector completion only after the full pass and all concurrent
-  writes succeed. Startup and partial passes do not refresh completion.
-- [ ] Add collector progress through existing scheduled alert machinery:
-  independently record the completion seen or explicit absence, then use the
-  same shared evaluation/recording path. No separate runner or user state.
-- [ ] Verify all checks' activation, recovery, gaps, and diagnostic visibility;
-  test collector partial failure, observer independence, and whole-system
-  restart. Run targeted checks and affected labs per adaptation.
+- [ ] Separate measurement from condition comparison inside the existing
+  partition-count controller, only as needed by real callers. Keep one source
+  read and one comparison shared with immediate registration-time warnings.
+- [ ] Record healthy and unhealthy raw partition counts through the alert
+  worker's existing metrics producer; reuse the retained rank-window read.
+  Resolve policy once per check from the current schedule, preserving raw
+  evidence for later threshold changes.
+- [ ] Extend Record/classify to evaluate retained history after the alert-head
+  lock. Derive consecutive duration there; do not add a second classification
+  pipeline or manufacture an active Alert before deciding to record one.
+  Healthy evidence may resolve; pending/insufficient evidence must not.
+- [ ] Add only the config/result fields consumed by this complete path. Keep
+  pending off by explicit choice, freshness/gap/window validation, and no
+  pending timer or cursor. Use database observation/evaluation time.
+- [ ] Add the approved read-only diagnostic through the existing alert handle
+  using the same evaluation path; retain Latest/History's recorded-message
+  contracts. Do not add a persisted status mirror.
+- [ ] Verify spikes, sustained conditions, recovery, overnight gaps, late/tied
+  observations, retention, policy changes, and concurrent/retried recording.
+  Run targeted checks and affected labs; measure the existing queries before
+  changing hourly defaults to the proposed one-minute cadence.
+
+### 5. Adapt the other conditions, then collector progress
+
+- [ ] Resolve compaction applicability/pair identity and worker-detail evidence
+  in the existing condition implementations before coding their adoption.
+  Preserve current alert messages and topic-scoped worker meaning; do not
+  invent a generic snapshot store or split condition facts across ambiguous
+  samples to satisfy a preselected measurement shape.
+- [ ] Apply the partition-count recording path to compaction read cost and
+  worker liveness. Worker checks keep independent snapshot reads; their
+  ability to observe trouble cannot depend on the metrics collector.
+- [ ] Record full-pass collector completion after all writes succeed; startup
+  and partial passes do not refresh it. Add independent scheduled progress
+  observations and use the same Record/classify path, with no extra runner.
+- [ ] Verify each adaptation's real worker, diagnostics, restart behavior, and
+  repeat/recovery semantics with targeted checks and affected labs.
 
 ### 6. Replace instrument registration with the OTel producer
 
@@ -174,9 +177,10 @@ bench module (pgx only); no new dependency.
 
 ### 1. Ledger shape and scenario declaration
 
-- [ ] Settle the ledger row shapes (produce attempted/outcome, handler
-  invocation, run_phase) as one JSON-lines format and the `lab` schema tables.
-- [ ] `Scenario` struct with `quiet` and `dev` declarations; a String printer
+- [x] Settle the ledger row shapes: append-only facts, key `<producer>-<seq>`,
+  two produce rows (attempted, outcome) and one handler row per invocation;
+  `produce_ledger`, `handler_ledger`, `run_phase` share the JSON-lines names.
+- [x] `Scenario` struct with `quiet` and `dev` declarations; a String printer
   emitting the `.scenario` format; a test diffing it against the checked-in
   file.
 

@@ -8,7 +8,7 @@ retained values through an OTel producer. Core owns alert timing and restart
 behavior; integrations consume actionable `active` and `resolved` alerts
 without maintaining pending timers or suppressing startup alerts themselves.
 The [shared alert direction](/decisions/0686/) is agreed and has not shipped;
-the [step 3 calculation contract](/decisions/0688/) is approved. Core runtime timing is proposed in
+the [implementation plan](/decisions/0689/) starts in existing alert recording. Core runtime timing is proposed in
 [history-based alerts](/concepts/alert-history/).
 
 ## What exists today

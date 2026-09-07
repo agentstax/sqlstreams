@@ -9,6 +9,7 @@ import (
 	"github.com/agentstax/vulkan/pkg/alert"
 	"github.com/agentstax/vulkan/pkg/common/logging"
 	compactioncontroller "github.com/agentstax/vulkan/pkg/compaction/controller"
+	"github.com/agentstax/vulkan/pkg/datastore"
 	"github.com/agentstax/vulkan/pkg/producer"
 )
 
@@ -17,18 +18,19 @@ import (
 type AlertController struct {
 	Logger logging.Logger
 
+	ds     *datastore.PostgresDatastore
 	alerts *producer.ProducerInstance[alert.Alert]
 	heads  *compactioncontroller.CompactionController
 	repeat time.Duration
 }
 
-// alerts is a registered producer instance on the __system.alerts topic;
-// heads reads that topic's compaction heads;
-// repeat is the alert worker row's repeat_interval.
-// ctx is for the clamp warning only.
-func NewAlertController(ctx context.Context, alerts *producer.ProducerInstance[alert.Alert], heads *compactioncontroller.CompactionController, repeat time.Duration, logger logging.Logger) (*AlertController, error) {
+// repeat is the worker's repeat interval, clamped below alert retention.
+func NewAlertController(ctx context.Context, alerts *producer.ProducerInstance[alert.Alert], ds *datastore.PostgresDatastore, heads *compactioncontroller.CompactionController, repeat time.Duration, logger logging.Logger) (*AlertController, error) {
 	if alerts == nil {
 		return nil, errors.New("alert producer instance must not be nil")
+	}
+	if ds == nil {
+		return nil, errors.New("ds must not be nil")
 	}
 	if heads == nil {
 		return nil, errors.New("compaction controller must not be nil")
@@ -49,5 +51,5 @@ func NewAlertController(ctx context.Context, alerts *producer.ProducerInstance[a
 			"repeat", repeat, "retention", retention, "clamped", clamped)
 		repeat = clamped
 	}
-	return &AlertController{Logger: logger, alerts: alerts, heads: heads, repeat: repeat}, nil
+	return &AlertController{Logger: logger, ds: ds, alerts: alerts, heads: heads, repeat: repeat}, nil
 }

@@ -67,7 +67,7 @@ func (i *WorkerLivenessInstance) consume(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	alerts, err := alertcontroller.NewAlertController(ctx, registered, i.provisioner.alertHeads, i.repeatInterval, i.Logger)
+	alerts, err := alertcontroller.NewAlertController(ctx, registered, i.provisioner.ds, i.provisioner.alertHeads, i.repeatInterval, i.Logger)
 	if err != nil {
 		return err
 	}

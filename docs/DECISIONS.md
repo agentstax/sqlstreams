@@ -440,3 +440,5 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0685 2026-09-06 accepted (pre-v1) — A claim poll reads its snapshot before any transaction and opens the reclaim transaction only on an expired lease
 - 0686 2026-09-06 accepted (pre-v1) — History-based pending belongs to the shared alert framework
 - 0687 2026-09-06 accepted (pre-v1) — The reliability lab is a ledger and a checker, with scenarios written as Go and printed, never parsed
+- 0688 2026-09-06 superseded (pre-v1) — Shared alert history evaluation contract
+- 0689 2026-09-06 accepted (pre-v1) — Alert implementation starts in existing recording
