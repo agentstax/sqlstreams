@@ -51,7 +51,7 @@ final report is a SQL join between the two.
         │ key, outcome                                           │ every handler call:
         ▼                                                        ▼ message id, outcome
    ┌─────────────────────────────────────────────────────────────────────┐
-   │ lab.*   produce_ledger        handler_ledger        run_phase       │
+   │ lab.*   produce_record        handler_record        run_phase       │
    └─────────────────────────────────────────────────────────────────────┘
                                       │
                                       ▼  after producers stop and consumers drain
@@ -86,7 +86,7 @@ buckets must add up:
 There is no acceptable "dropped" bucket. Every expected skip has a name,
 and a message that lands in none of them fails the run.
 
-Delivered has two witnesses. The lab's own handler ledger says the handler
+Delivered has two witnesses. The lab's own handler records say the handler
 ran and returned; the library's tables say it recorded the outcome. A
 success the library records without the handler running fails the first
 check; a message it drops silently fails both.
@@ -152,7 +152,7 @@ unbucketed     0         actual 0    PASS
 reclaims       0         actual 0    PASS
 dead           0         actual 0    PASS
 
-ledger      24000 produce, 12000 handler, 3 phase rows
+records     24000 produce, 12000 handler, 3 phase rows
 produced    attempted 12000, committed 12000, rejected 0, unknown 0
 handled     success 12000, error 0
 verdict     pass
@@ -169,8 +169,8 @@ fails.
 
 A green run is trusted only after sabotage. Deleting one `message_log` row
 after the run turns `lost` into `actual 1  FAIL  key producer-1`. Deleting
-one handler ledger line turns `undelivered` into
-`actual 1  FAIL  message_id 2`. A run with an empty ledger reads
+one handler record line turns `undelivered` into
+`actual 1  FAIL  message_id 2`. A run with no records reads
 `unknown  nothing was produced`.
 
 ## Proposed: the chaos run

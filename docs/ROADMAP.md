@@ -21,13 +21,13 @@ the item is removed.
   Working details live in TODO.md.
 
 - **Reliability lab -- the chaos stages** -- v1 (quiet and dev, `just
-  reliability-lab`) shipped [0687] [0693]; the page
+  reliability-lab`) shipped [0687] [0696]; the page
   `website/src/content/docs/concepts/reliability-lab.mdx` keeps the chaos
   run as Proposed. Build-on-later, in order: chaos kills and Postgres pause
   (the host for the Later chaos/fixture item and for Antithesis in the
   parking lot); a compacted topic with keys; a schema-version mix;
   bindings / fan-out; schedules; metrics and alert assertions. Open from
-  [0693]: the default delivery log mode, and a ledger-witnessed `dead`.
+  [0696]: the default delivery log mode, and a record-witnessed `dead`.
   TEST.md stays the unit-scale complement.
 
 ## Next

@@ -6,7 +6,7 @@ phase: "pre-v1"
 
 # The reliability lab is a ledger and a checker, with scenarios written as Go and printed, never parsed
 
-Superseded in part by [0693]: the drain clause.
+Superseded in part by [0696]: the drain clause; by [0697]: the table names.
 
 ## Context
 

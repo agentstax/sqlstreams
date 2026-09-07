@@ -79,6 +79,12 @@ already active.
 
 ## Gotchas
 
+- All three built-in alerts require two minutes of consecutive unhealthy
+  measurements by default. Each alert config's `Pending` accepts `AlertPendingConfig`:
+  `Duration` and `MaximumGap` default to two minutes; `Disabled: true` allows
+  immediate activation but still requires fresh evidence. Missing or stale
+  evidence leaves recorded alerts unchanged and increments the check's failed
+  topic count. See [measurement history](/concepts/alert-history/) for the rules.
 - An alert's key is its owner's id, so the read resolves the name first.
   Destroy the topic and `topic.Alerts().PartitionCount().Latest(ctx)`
   returns `ErrTopicNotFound` rather than the last alert; a missing group is
@@ -86,5 +92,5 @@ already active.
   follow its topic through `Rename`.
 - Nothing raises a test alert. To watch the pipeline on a healthy system,
   declare `PartitionCountAlert: &vulkan.PartitionCountAlertConfig{Threshold: 1}`,
-  which alerts on every topic with a partition, and put the real threshold
+  which alerts after a sustained count on every topic with a partition, and put the real threshold
   back on the next register.

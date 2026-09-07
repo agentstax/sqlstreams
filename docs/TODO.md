@@ -15,6 +15,10 @@ generic per-series freshness companion, or new backlog alert.
 During code iteration, defer alert-lab runs and repairs to the review checkpoint
 at the user's request. Use targeted compile and unit checks while editing.
 
+Current priority: complete the same pending capability for all three existing
+alerts before diagnostics or OTel work. Partition-count support alone is not
+this checkpoint's completion condition.
+
 ### 1. Settle the remaining implementation contract
 
 Original collector-only contract approved in [0684], now superseded by [0686]
@@ -42,7 +46,8 @@ review; chunks 3–5 replace the rolled-back implementation plan. Runtime remain
 
 Originally implemented a rank-window read. Under [0690], this is now
 `CompactionController.ListKeyMessagesByCreatedAt`, reached through metrics'
-`ListMeasurementMessagesByCreatedAt`. The unused rank-window method is removed.
+`GetMeasurementHistory`, which supplies database time and validates retention.
+The unused rank-window method is removed.
 Each history read owns its complete SQL; row scanning and payload decoding
 are shared. No supported public API or table changes; the evaluator supplies
 the policy's time bounds.
@@ -103,23 +108,25 @@ rolled-back prototype are not implementation requirements.
   to the lab checkpoint; unit checks cover invalid bounds before I/O.
 - [x] Use the consumed schedule payload as the policy for that run. Schedule
   changes affect subsequently produced messages, not queued checks. Preserve
-  raw evidence for evaluation under the supplied threshold. Pending fields
-  remain to be implemented.
+  raw evidence for evaluation under the supplied threshold.
 - [x] Apply AlertEvaluationResult consistently to every evaluator, scheduled
   worker, and registration warning [0694]. Record accepts explicit healthy,
   pending, active, or insufficient evidence; only healthy can resolve. Pending
   and insufficient results never access the alert head. Targeted race tests,
-  vet, and conventions pass; history calculation remains unfinished.
-- [ ] Extend existing evaluation to derive consecutive duration from collected
-  history. Keep Record/classify responsible for serialized alert transitions.
+  vet, and conventions pass.
+- [x] Extend existing evaluation to derive consecutive duration from collected
+  history [0695]. Keep Record/classify responsible for serialized alert transitions.
   Healthy evidence may resolve; pending/insufficient evidence must not.
-- [ ] Add only the config/result fields consumed by this complete path. Keep
+- [x] Add only the config/result fields consumed by this complete path. Keep
   pending off by explicit choice, freshness/gap/window validation, and no
   pending timer or cursor. Use StoredMessage.CreatedAt for evidence timing
   and database time for evaluation; accept delayed writes as fresh evidence.
-- [ ] Add the approved read-only diagnostic through the existing alert handle
-  using the same evaluation path; retain Latest/History's recorded-message
-  contracts. Do not add a persisted status mirror.
+  Partition count uses the consumed Pending policy; all evaluators accept the
+  same payload. Other conditions retain live reads until chunk 5. Insufficient
+  evidence increments failed-topic counts; registration warnings remain immediate
+  with fresh evidence. Targeted race tests cover duration, gaps, ties, stale and
+  unusable evidence, disabled pending, and replayed calculations. Database
+  window/retention checks and alert-lab repairs remain deferred to the checkpoint.
 - [ ] Verify spikes, sustained conditions, recovery, overnight gaps, late/tied
   observations, retention, policy changes, and concurrent/retried recording.
   Run targeted checks and affected labs; measure the existing queries before
@@ -127,19 +134,35 @@ rolled-back prototype are not implementation requirements.
 
 ### 5. Adapt the other conditions, then collector progress
 
-- [ ] Resolve compaction applicability/pair identity and worker-detail evidence
+- [x] Resolve compaction applicability/pair identity and worker-detail evidence
   in the existing condition implementations before coding their adoption.
   Preserve current alert messages and topic-scoped worker meaning; do not
   invent a generic snapshot store or split condition facts across ambiguous
   samples to satisfy a preselected measurement shape.
-- [ ] Apply collected-history evaluation to compaction read cost and worker
+  Measurement.Metadata is approved and implemented [0698]: compaction status
+  accompanies the partition count; topic-scoped unclaimed-worker measurements
+  carry the matching worker identities. No compatibility machinery or size limits.
+- [x] Move the duration calculation into the shared alert domain;
+  all three conditions interpret their evidence for that same calculation.
+  Keep Evaluate -> Record and expose Pending consistently on their configs.
+- [x] Apply collected-history evaluation to compaction read cost and worker
   liveness after the required evidence is collected by metrics. Collector
   progress monitoring must remain independent of the collector it monitors.
+  All three now read retained measurements, share EvaluateHistory, and carry
+  Pending in their consumed policy. Old compaction live-read SQL is removed.
+  Targeted race tests cover shared timing, each condition, metadata, collector
+  topic/group ownership, healthy zero samples, and all three schedule configs.
+  OTel's existing integration test now asserts metadata is not exported; it
+  remains database-gated. No labs or compatibility runs during this change.
 - [ ] Record full-pass collector completion after all writes succeed; startup
   and partial passes do not refresh it. Add independent scheduled progress
   observations and use the same Record/classify path, with no extra runner.
 - [ ] Verify each adaptation's real worker, diagnostics, restart behavior, and
   repeat/recovery semantics with targeted checks and affected labs.
+- [ ] After all three existing alerts support pending, add the approved
+  read-only diagnostic through the existing alert handle using the same
+  evaluation path. Retain Latest/History's recorded-message contracts; no
+  persisted status mirror.
 
 ### 6. Replace instrument registration with the OTel producer
 

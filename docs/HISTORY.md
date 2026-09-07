@@ -5,7 +5,7 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
-## 2026-09-06 — Reliability lab v1: a ledger, a checker, two scenarios [0687] [0693]
+## 2026-09-06 — Reliability lab v1: a ledger, a checker, two scenarios [0687] [0696] [0697]
 
 `bench/reliability/` runs a scenario on its own compose stack (`just
 reliability-lab dev`): an open-loop producer and one container of consumer

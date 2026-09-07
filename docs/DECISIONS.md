@@ -446,5 +446,8 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0691 2026-09-06 accepted (pre-v1) — Compaction options are constructed inline
 - 0692 2026-09-06 superseded (pre-v1) — Alert evaluations carry findings and evidence
 - 0693 2026-09-06 accepted (pre-v1) — Metrics collection owns alert evidence
-- 0693 2026-09-06 accepted (pre-v1) — The checker drains on the consumer group cursor, and every scenario declares the safety checks
 - 0694 2026-09-07 accepted (pre-v1) — Alert evaluations return explicit states
+- 0695 2026-09-07 accepted (pre-v1) — Partition alerts calculate retained duration
+- 0696 2026-09-06 accepted (pre-v1) — The checker drains on the consumer group cursor, and every scenario declares the safety checks
+- 0697 2026-09-07 accepted (pre-v1) — The record tables are produce_record and handler_record
+- 0698 2026-09-07 accepted (pre-v1) — All existing alerts share retained history
