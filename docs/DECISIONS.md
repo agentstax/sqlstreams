@@ -461,3 +461,4 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0706 2026-09-07 superseded (pre-v1) — Portable export validation and read health
 - 0707 2026-09-07 accepted (pre-v1) — Export validation checks only export compatibility
 - 0708 2026-09-07 accepted (pre-v1) — Exporter health has a collection scope
+- 0709 2026-09-07 accepted (pre-v1) — Topic alerts evaluate every minute

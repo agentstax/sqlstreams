@@ -1,9 +1,11 @@
 package main
 
-// Scenario 03 -- consume, plain.
+// Scenario 02 -- consume-only service.
 //
-// FrameForge's transcoder only handles VideoUploaded. It owns no topic and
-// needs no admin verbs -- consumer registration resolves the topic by name.
+// A transcoder only handles VideoUploaded. It owns no topic and needs no
+// admin verbs -- consumer registration resolves the topic by name.
+//
+// Run first: 01
 
 import (
 	"context"
@@ -54,6 +56,7 @@ func run() error {
 		return err
 	}
 
+	// blocking
 	return consumer.Consume(ctx, transcodeVideo, nil)
 }
 

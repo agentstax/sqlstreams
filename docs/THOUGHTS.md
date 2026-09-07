@@ -1,7 +1,5 @@
 # Public API
 
-09 and 11 - need to review again and make sure code makes sense and clearly outlines what it intends to describe.
-
 # Docs
 
 roadmap later item for review code for interesting design decisions to write articles on (big or small things)
@@ -45,5 +43,3 @@ manual review of public user facing comments :(. I don't want to but its got to 
 review of most important website docs
 
 # Other
-
-This should be a parking lot roadmap item - An agent 'operator', collection of skills or agent or mcp server that acts as the operator for managing vulkan running.

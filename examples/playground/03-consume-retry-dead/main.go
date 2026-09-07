@@ -1,11 +1,13 @@
 package main
 
-// Scenario 04 -- consume with retry and dead-lettering.
+// Scenario 03 -- consume with retry and dead-lettering.
 //
-// FrameForge's transcoder from scenario 03 now handles real outcomes: a
-// corrupt upload will never succeed (terminal), unavailable storage may
-// recover (retry), and an embargoed video waits without counting as a failure
+// The transcoder from scenario 02 now handles real outcomes: a corrupt
+// upload will never succeed (terminal), unavailable storage may recover
+// (retry), and an embargoed video waits without counting as a failure
 // (delay).
+//
+// Run first: 01
 
 import (
 	"context"
@@ -68,6 +70,7 @@ func run() error {
 		return err
 	}
 
+	//blocking
 	return consumer.Consume(ctx, transcodeVideo, nil)
 }
 

@@ -1,0 +1,23 @@
+# The playground database. Every scenario connects with these exact values:
+# user example_user, password example_password, host localhost, database
+# example_db, port 5432. They match the repo's .env, so a database started
+# with `just database-up` serves the scenarios too.
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      - POSTGRES_USER=example_user
+      - POSTGRES_PASSWORD=example_password
+      - POSTGRES_DB=example_db
+    ports:
+      - 5432:5432
+    volumes:
+      - playground_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U example_user -d example_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  playground_data:

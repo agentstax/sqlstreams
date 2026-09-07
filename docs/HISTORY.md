@@ -5,6 +5,25 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-07 — One-minute topic-alert cadence [0709]
+
+Partition count, compaction read cost, and worker liveness now default to
+@every 1m. Explicit expressions remain unchanged; existing schedules adopt
+the default when the system is redeclared. Collector sampling, pending/gap,
+retention, and repeat policy are unchanged. No query or index changes.
+
+The reproducible checkpoint in bench/alertcadence/RESULTS.md uses the existing
+Evaluate/Record path on disk-backed Postgres 18.4. At 100 owners with 4.896
+million retained rows, three measured combined passes had median 14.459s and
+maximum 15.159s. The measured path updates 300 alert heads per combined pass
+even when alerts do not change; the record states excluded scheduling and
+summary costs and does not claim capacity beyond the measured workloads.
+
+Affected builds/race tests, alert-lab, worker-liveness-lab, targeted site prose
+checks, and the site build passed. Real registration persisted @every 1m for
+all three schedules. Labs ran inside the isolated Postgres 18 container;
+the development database was untouched. The cadence follow-up is complete.
+
 ## 2026-09-07 — Metrics export and history-based alerts close-out [0693] [0698] [0703] [0704] [0705] [0707] [0708]
 
 Exporter health now has collection scope in the existing diagnostic catalog,

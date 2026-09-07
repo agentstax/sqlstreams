@@ -1,12 +1,11 @@
 package main
 
-// Scenario 12 -- FrameForge consumes __system.alerts as its pager feed.
+// Scenario 12 -- consuming __system.alerts as a pager feed.
 //
 // The built-in checks (partition_count, compaction_read_cost,
-// worker_liveness) run as schedules under the manager and produce Alert
-// messages; a consumer group on the alert topic is the push integration the
-// platform's PagerDuty hook would use. The checks are re-declared here at
-// every-minute so a run has any chance of seeing one.
+// worker_liveness, metrics_collector_progress) run as schedules under the
+// manager and produce Alert messages; a consumer group on the alert topic is
+// the push integration a PagerDuty hook would use.
 
 import (
 	"context"
@@ -38,12 +37,9 @@ func run() error {
 		return err
 	}
 
-	// newest declaration wins: every minute instead of the @hourly default
-	if err := client.System().Register(ctx, &vulkan.SystemConfig{
-		PartitionCountAlert:     &vulkan.PartitionCountAlertConfig{ScheduleExpression: "* * * * *"},
-		CompactionReadCostAlert: &vulkan.CompactionReadCostAlertConfig{ScheduleExpression: "* * * * *"},
-		WorkerLivenessAlert:     &vulkan.WorkerLivenessAlertConfig{ScheduleExpression: "* * * * *"},
-	}); err != nil {
+	// stands up the control-plane tables and the __system.alerts topic; the
+	// built-in checks run every minute by default
+	if err := client.System().Register(ctx, nil); err != nil {
 		return err
 	}
 
@@ -55,7 +51,7 @@ func run() error {
 	fmt.Printf("%d current alerts at startup\n", len(current))
 
 	alerts := client.Topic[vulkan.Alert](vulkan.AlertTopicName)
-	pager := alerts.Consumer("frameforge-pager")
+	pager := alerts.Consumer("pager")
 	consumer, err := pager.Register(ctx, nil)
 	if err != nil {
 		return err

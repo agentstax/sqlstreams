@@ -1,10 +1,10 @@
 package main
 
-// Scenario 08 -- idempotent produce with a caller-supplied key.
+// Scenario 05 -- idempotent produce with a caller-supplied key.
 //
-// FrameForge receives upload-complete webhooks from its storage provider. The
-// provider retries on any non-2xx, so the same upload arrives more than once
-// and must be stored once on videos.uploaded.
+// Upload-complete webhooks arrive from a storage provider. The provider
+// retries on any non-2xx, so the same upload arrives more than once and must
+// be stored once on videos.uploaded.
 
 import (
 	"fmt"
@@ -59,6 +59,7 @@ func run() error {
 	}
 
 	// the storage provider delivers upl-123 twice
+	// and is identified as a .Duplicate second time
 	for range 2 {
 		video := &VideoUploadedV1{
 			VideoId:         "video-42",

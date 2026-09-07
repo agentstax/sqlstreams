@@ -1,10 +1,10 @@
 package main
 
-// Scenario 05 -- a compacted topic used as a key/value store.
+// Scenario 13 -- a compacted topic used as a key/value store.
 //
-// FrameForge keeps one current processing document per video id. Read the
-// current value, write a new one, and increment its attempt count safely
-// under concurrent writers (read-modify-write).
+// One current processing document per video id. Read the current value,
+// write a new one, and increment its attempt count safely under concurrent
+// writers (read-modify-write).
 
 import (
 	"context"

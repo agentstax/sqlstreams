@@ -95,21 +95,36 @@ the item is removed.
 
 ## Later
 
-- **Topic-alert evaluation cadence** — keep the shipped hourly defaults;
-  one-minute checks remain Proposed in `concepts/alert-history.mdx`. Measure
-  the existing history queries, whole-check duration, and writes at representative
-  topic counts on Postgres 18 before changing defaults. Collector evidence
-  cadence is independent; do not increase its writes to shorten evaluation cadence.
-
 Pre-v1 — the 14b public-API pass, then measurement, evaluation, and
 documentation; the latter want a surface that has stopped moving.
+
+- **Reliability scenarios declare the janitor's TTLs** -- the quiet run
+  registers `orders` with defaults, so every janitor sweep returns before
+  touching a row: retention 0 disables drop and sweep, the 24h idempotency
+  key TTL never expires inside 60m, and 720k rows never fill a 1M-row
+  partition. A green run proves 720 heartbeats and nothing about the
+  question the janitor poses -- does a drop or sweep ever take a row a
+  lagging group has not been delivered. `--time-scale` scales phases, not
+  TTLs, so it cannot help. Fix: the scenario's `[input]` topic line carries
+  `RetentionTTL`, `PartitionSize`, and `IdempotencyKeyTTL`, `Scaled`
+  scales the two durations with the phases, and the quiet run declares
+  `RetentionTTL 5m PartitionSize 10000 IdempotencyKeyTTL 5m` -- 72
+  partitions filled, most dropped, keys swept from minute 5, with
+  `AllowDropPastCommitted` left false so the existing `lost 0` and
+  `undelivered 0` become the janitor's checks. Validation rule at parse
+  time: every TTL is at most duration/5 and the partition size at most
+  produced rows/5, so each path fires many times per run. Open cost:
+  dropped partitions take their delivery_log rows, so the `duplicates`,
+  `dead`, and `reclaims` checks that read the database lose evidence for
+  swept messages -- move them to the handler ledger files, which hold
+  every delivery, before turning retention on.
 
 - **Claim stall Warn** -- a produce inside a caller-owned transaction
   holds every consumer group on the topic at that message id until the
   commit, and today the only symptom is lag. Add a declared Warn event on
   the consumer side when a claim has waited on an uncommitted message
   longer than a threshold, carrying topic, group, the message id it is
-  held at, and the stall duration. Surfaced by playground scenario 02;
+  held at, and the stall duration. Surfaced by playground scenario 04;
   the guide (transactional-produce) states the rule in prose, this is the
   observability half.
 
@@ -121,7 +136,7 @@ documentation; the latter want a surface that has stopped moving.
   status, limit)` returning the rows and `Retry(ctx, messageId)` setting
   dead -> ready, with CLI `group exceptions list|retry` and a docs page.
   A list with no action on the same surface is half a feature, so the
-  pair ships together. Surfaced by playground scenario 04.
+  pair ships together. Surfaced by playground scenario 03.
 
 - **Compacted key Update verb + missed-opt-in Warn** -- read-modify-write
   on a compacted key is an unnamed three-step pattern (InTransaction +
@@ -137,7 +152,7 @@ documentation; the latter want a surface that has stopped moving.
   which is hot -- extra latency per keyed produce is the cost, so it
   ships only if the lookup rides a statement produce already runs, never
   as its own round trip; otherwise drop the Warn and keep the verb.
-  Surfaced by playground scenario 05.
+  Surfaced by playground scenario 13.
 
 - **Rewind an existing group + Start-ignored Warn** -- `ConsumerConfig.Start`
   is read once, when Register creates the cursor row; on an existing group
@@ -150,6 +165,18 @@ documentation; the latter want a surface that has stopped moving.
   `AtMessageId` / `AtTime` positions, which is the only way to move an
   existing group. The guide is the spec; this line is its owner. Surfaced
   by playground scenario 07.
+
+- **Revisit the `ConsumeOptions.BatchLimit` default of 1** -- with
+  `QueueSize` defaulting to `BatchLimit`, a default consumer makes one
+  claim round trip per message and prefetches nothing, and an idle instance
+  waits the 5s `ClaimPollRate` before looking again. No record argues the
+  value: 0046 settles who owns the knob, 0505 only notes that a debounce
+  derived from it would be neutered. Decide whether "no batching by
+  default" is the right posture for a Postgres-backed log, or whether a
+  small default (a handful of rows, with `QueueSize` following) is the
+  better first experience; the lease arithmetic in `ConsumeOptions`
+  (QueueMargin, ShutdownTimeout) scales with the answer. Surfaced by
+  playground scenario 06.
 
 - **Doc-site breadcrumb structured data** -- emit `BreadcrumbList` JSON-LD
   from the same trail each page already renders, so the machine-readable and

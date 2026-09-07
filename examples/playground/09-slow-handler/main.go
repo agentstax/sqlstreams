@@ -1,10 +1,15 @@
 package main
 
-// Scenario 10 -- a handler that runs longer than its lease.
+// Scenario 09 -- a handler that runs longer than its lease.
 //
-// FrameForge's transcoder from scenarios 03 and 04 usually finishes quickly,
-// but feature-length videos can take an hour. The handler cannot know its
-// actual runtime up front.
+// The transcoder from scenarios 02 and 03 usually finishes quickly, but
+// feature-length videos can take an hour. The handler cannot know its actual
+// runtime up front, so the timeout is resolved per message.
+//
+// How timeout resolves, highest first:
+//	consumer clamp (MessageMin/MessageMax) > produced message > producer defaults > consumer defaults > system defaults
+//
+// Run first: 01
 
 import (
 	"context"
@@ -50,6 +55,13 @@ func run() error {
 	}
 
 	uploads := client.Topic[VideoUploadedV1]("videos.uploaded")
+	producer, err := uploads.Producer().Register(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	// ConsumerConfig.Message    -> the timeout a message gets when it asks for nothing (most videos)
+	// ConsumerConfig.MessageMax -> the most a message may ask for; a request above it is lowered to it
 	transcoder := uploads.Consumer("transcoder")
 	consumer, err := transcoder.Register(ctx, &vulkan.ConsumerConfig{
 		Message:    &vulkan.MessageOptions{Timeout: 2 * time.Minute},
@@ -59,10 +71,23 @@ func run() error {
 		return err
 	}
 
+	// ProduceOptions.Message    -> what this one message asks for; the producer knows the upload is feature-length
+	if _, err := producer.Produce(ctx, &VideoUploadedV1{
+		VideoId:         "video-99",
+		OwnerId:         "creator-7",
+		UploadId:        "upl-999",
+		DurationMinutes: 95,
+		SourceStatus:    "ready",
+	}, &vulkan.ProduceOptions{Message: &vulkan.MessageOptions{Timeout: time.Hour}}); err != nil {
+		return err
+	}
+
 	return consumer.Consume(ctx, transcodeVideo, nil)
 }
 
 func transcodeVideo(ctx context.Context, video *VideoUploadedV1) error {
+	// past the timeout ctx is cancelled, not the goroutine: a handler that
+	// ignores ctx.Done() keeps running while the message is redelivered
 	for minute := range video.DurationMinutes {
 		select {
 		case <-ctx.Done():

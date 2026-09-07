@@ -2,8 +2,8 @@ package main
 
 // Scenario 01 -- produce-only service.
 //
-// FrameForge's upload API produces a message when a video finishes uploading.
-// It never consumes anything.
+// An upload API produces a message when a video finishes uploading. It never
+// consumes anything.
 
 import (
 	"fmt"

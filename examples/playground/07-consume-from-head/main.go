@@ -1,9 +1,18 @@
 package main
 
-// Scenario 07 -- a new consumer group on a topic with deep history.
+// Get your mind out of the gutter.
+
+// Scenario 07 -- a consumer that starts at the head of the topic.
 //
-// FrameForge adds moderation a year after videos.uploaded went live. It wants
-// live uploads only rather than processing the entire archive.
+// The head is the newest message in the topic at the moment the consumer
+// group is registered. A group that starts there reads only messages produced
+// after it. The default, vulkan.Beginning(), reads every message ever stored.
+//
+// Moderation is added a year after videos.uploaded went live. It wants live
+// uploads only rather than processing the entire archive, so the new consumer
+// group starts at the head.
+//
+// Run first: 01
 
 import (
 	"context"
@@ -49,6 +58,8 @@ func run() error {
 
 	uploads := client.Topic[VideoUploadedV1]("videos.uploaded")
 	moderation := uploads.Consumer("moderation")
+
+	// skip the archive: only consume uploads produced after this registration
 	consumer, err := moderation.Register(ctx, &vulkan.ConsumerConfig{
 		Start: vulkan.Head(),
 	})

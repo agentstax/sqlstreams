@@ -1,9 +1,9 @@
 package main
 
-// Scenario 02 -- produce inside the caller's own transaction.
+// Scenario 04 -- produce inside the caller's own transaction.
 //
-// FrameForge records a completed upload and its VideoUploaded message
-// atomically; then the multi-topic form also records billable usage.
+// A completed upload and its VideoUploaded message are recorded atomically;
+// then the multi-topic form also records billable usage.
 
 import (
 	"context"

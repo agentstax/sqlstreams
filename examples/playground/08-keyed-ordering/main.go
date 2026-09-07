@@ -1,10 +1,10 @@
 package main
 
-// Scenario 09 -- keyed ordering: what a same-key consumer actually sees.
+// Scenario 08 -- keyed ordering: what a same-key consumer actually sees.
 //
-// FrameForge's uploaded -> scanned -> transcoded -> ready transitions for one
-// video must apply in order and never overlap. The producer keys by video;
-// the consumer runs concurrently across different videos.
+// The uploaded -> scanned -> transcoded -> ready transitions for one video
+// must apply in order and never overlap. The producer keys by video; the
+// consumer runs concurrently across different videos.
 
 import (
 	"context"
@@ -56,12 +56,19 @@ func run() error {
 		return err
 	}
 
+	// vulkan.ConcurrencyOrdered            -> one video's states run one at a time, in produce order
+	//                                         a failed state holds the later ones until its retry succeeds
+	//                                         or it exhausts its retries and is marked dead
+	// vulkan.ConcurrencyParallel (default) -> same-key states overlap, so video-42 can go "ready"
+	//                                         before its "scanned" retry lands
 	catalog := states.Consumer("video-catalog")
 	consumer, err := catalog.Register(ctx, &vulkan.ConsumerConfig{ConcurrencyOverride: vulkan.ConcurrencyOrdered})
 	if err != nil {
 		return err
 	}
 
+	// the message key is what ordering is scoped by: same key, same line;
+	// a message without a key has nothing to order against and runs freely
 	for _, videoId := range []string{"video-42", "video-43"} {
 		for _, state := range []string{"uploaded", "scanned", "transcoded", "ready"} {
 			if _, err := producer.Produce(ctx, &VideoStateChangedV1{VideoId: videoId, State: state}, &vulkan.ProduceOptions{MessageKey: videoId}); err != nil {
@@ -70,6 +77,8 @@ func run() error {
 		}
 	}
 
+	// concurrency 8 still applies across videos: video-43 runs alongside
+	// video-42, ordering only serializes within one key
 	return consumer.Consume(ctx, applyStateChange, &vulkan.ConsumeOptions{MessageConcurrency: 8})
 }
 
