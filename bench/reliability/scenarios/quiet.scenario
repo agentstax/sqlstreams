@@ -1,0 +1,19 @@
+# the hour-long quiet run: constant load, fixed consumers, no chaos, nothing may move
+
+[input]
+topic        orders           DeliveryLogMode all
+consumers    fraud-scoring    handler fail rate 0, 3 retries then dead
+duration     60m
+
+[shape]
+hold:    steady 200/s 60m
+
+at 0m    consumers 3
+
+[expect]
+lost           0
+undelivered    0
+unbucketed     0
+duplicates     report
+reclaims       0
+dead           0

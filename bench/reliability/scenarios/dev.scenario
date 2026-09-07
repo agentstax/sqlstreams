@@ -1,0 +1,19 @@
+# the quiet run at one minute, for a laptop
+
+[input]
+topic        orders           DeliveryLogMode all
+consumers    fraud-scoring    handler fail rate 0, 3 retries then dead
+duration     1m
+
+[shape]
+hold:    steady 200/s 1m
+
+at 0m    consumers 3
+
+[expect]
+lost           0
+undelivered    0
+unbucketed     0
+duplicates     report
+reclaims       0
+dead           0

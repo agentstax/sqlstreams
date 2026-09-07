@@ -4,8 +4,9 @@ description: Shared pending policy, retained evidence, restart gaps, and inspect
 ---
 
 Vulkan would calculate pending duration in its existing alert framework.
-The [shared direction](/decisions/0686/) is accepted. This step 3 contract is
-proposed for review; its settings and API additions have not shipped.
+The [step 3 contract](/decisions/0688/) is accepted. The pure history calculation
+is implemented; scheduled checks and the public snapshot read are not connected.
+Runtime behavior and API additions below have not shipped.
 [OTel export](/concepts/metrics-export/) remains independent.
 
 ## Proposed: one policy for the existing checks
@@ -196,5 +197,5 @@ the snapshot exposes its limited coverage, and existing check-failure metrics
 and worker diagnostics remain available.
 
 Review partition count end to end before compaction read cost, worker liveness,
-and collector progress. Compaction pair identity and worker details remain gates;
-shared config and snapshot names also need approval before implementation.
+and collector progress. Compaction pair identity and worker details remain
+design gates before those checks adopt the shared calculation.

@@ -60,7 +60,7 @@ an hour; Kafka defaults 30 s per partition). The criterion matters:
   early under duplicates.
 - NATS 2.12.1: fetch until the last acknowledged message of EACH producer
   has been observed. This per-producer high-water mark is the cleanest
-  quiesce criterion for us: per producer, its last committed idempotency key
+  drain criterion for us: per producer, its last committed idempotency key
   has a delivery_log row ending success or dead.
 
 Jepsen makes the drain the test's responsibility: "Queues only obey this
@@ -219,16 +219,17 @@ mode so the two are never compared.
 
 ### 3.3 File format
 
-Hand-rolled line parser, on the go.mod and testscript precedents ("each line
-parses into space-separated command words", `#` comments, failures as
-`FAIL: script.txt:3:`). TOML/YAML/HCL/CUE each cost a dependency and YAML
-has the Norway problem. Pitfalls to design around: `time.ParseDuration` has
-no `d` and `m` is minutes, so require a unit on every duration; a rate needs
-its own token (`200/s`) so `200` can never be read as a rate; every parse
-error carries `file:line:`; an unrecognized keyword lists the closed set
-(the CONVENTIONS fix rule); validate the timeline (offsets within the sum of
-phase durations) before anything runs. Gherkin's failure mode is the one to
-avoid in `[expect]`: abstract expectations with no concrete values.
+Settled 2026-09-06: no parser. The `.scenario` file is a description for
+readers; each scenario is a hand-written Go declaration (a typed struct
+literal, one phase per line, the roachtest `TestSpec` and omes `Scenario`
+shape), and the agent keeps file and Go in step. The one mechanical guard
+is a printer, not a parser: the report already prints the scenario back
+from the Go value in the file's format, so a test that diffs that output
+against the checked-in file catches drift for about twenty lines. The
+format rules still apply to what the printer emits and what a human
+writes: a unit on every duration, `200/s` for every rate, `#` comments,
+`[expect]` lines with concrete values (Gherkin's failure mode is abstract
+expectations).
 
 ## 4. Chaos mechanics for a Go author
 
@@ -414,7 +415,7 @@ schema in the same Postgres. At an hour of `steady 2000/s` that is roughly
 fourteen million extra row writes on the instance under test. Pick: keep
 the ledger schema and the SQL-join report, but make the transport a local
 JSON-lines file per role, `COPY`'d into the ledger schema by the checker at
-quiesce. The container volume survives `docker kill`; the checker is
+the drain. The container volume survives `docker kill`; the checker is
 unchanged; the cost is one volume mount and about sixty lines. v1 may write
 directly if the dev rates are modest, provided the row shape is the file's
 row shape so the switch is transport only.
