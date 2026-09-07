@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/agentstax/vulkan/pkg/common"
 )
@@ -29,20 +30,26 @@ func (c *CompactionController) ListKeyMessages[Message common.Versioned](ctx con
 	return toStoredMessages[Message](data)
 }
 
-// ListKeyMessagesByRank returns retained compacted messages within inclusive
-// rank bounds, including superseded rows, ordered by rank then id descending.
-func (c *CompactionController) ListKeyMessagesByRank[Message common.Versioned](ctx context.Context, topicId int64, messageKey string, minimumRank int64, maximumRank int64) ([]*common.StoredMessage[Message], error) {
+// ListKeyMessagesByCreatedAt returns retained messages within inclusive time bounds,
+// including superseded rows, ordered by created_at then id descending.
+func (c *CompactionController) ListKeyMessagesByCreatedAt[Message common.Versioned](ctx context.Context, topicId int64, messageKey string, start time.Time, end time.Time) ([]*common.StoredMessage[Message], error) {
 	if topicId <= 0 {
 		return nil, fmt.Errorf("topicId must be > 0, got %d", topicId)
 	}
 	if messageKey == "" {
 		return nil, errors.New("messageKey must not be empty")
 	}
-	if maximumRank < minimumRank {
-		return nil, fmt.Errorf("maximumRank must be >= minimumRank %d, got %d", minimumRank, maximumRank)
+	if start.IsZero() {
+		return nil, errors.New("start must not be zero")
+	}
+	if end.IsZero() {
+		return nil, errors.New("end must not be zero")
+	}
+	if end.Before(start) {
+		return nil, fmt.Errorf("end must be >= start %v, got %v", start, end)
 	}
 
-	data, err := c.datastore.ListKeyMessagesByRank(ctx, topicId, messageKey, minimumRank, maximumRank)
+	data, err := c.datastore.ListKeyMessagesByCreatedAt(ctx, topicId, messageKey, start, end)
 	if err != nil {
 		return nil, err
 	}

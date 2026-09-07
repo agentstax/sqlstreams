@@ -3,6 +3,7 @@ package datastore
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/agentstax/vulkan/pkg/topic"
 	"github.com/jackc/pgx/v5"
@@ -43,21 +44,21 @@ func (d *CompactionDatastore) listKeyMessages(ctx context.Context, topicId int64
 	return d.scanMessageLogRows(rows)
 }
 
-// ListKeyMessagesByRank reads the inclusive rank interval without a row limit,
-// ordered by rank then id descending. Uncompacted messages are excluded.
-func (d *CompactionDatastore) ListKeyMessagesByRank(ctx context.Context, topicId int64, messageKey string, minimumRank int64, maximumRank int64) ([]MessageLogRow, error) {
+// ListKeyMessagesByCreatedAt reads the inclusive storage-time interval without
+// a row limit, ordered by created_at then id descending.
+func (d *CompactionDatastore) ListKeyMessagesByCreatedAt(ctx context.Context, topicId int64, messageKey string, start time.Time, end time.Time) ([]MessageLogRow, error) {
 	var messages []MessageLogRow
 	err := d.DatastoreRetry.Wrap(ctx, func() error {
 		var err error
-		messages, err = d.listKeyMessagesByRank(ctx, topicId, messageKey, minimumRank, maximumRank)
+		messages, err = d.listKeyMessagesByCreatedAt(ctx, topicId, messageKey, start, end)
 		return err
 	})
 	return messages, err
 }
 
-func (d *CompactionDatastore) listKeyMessagesByRank(ctx context.Context, topicId int64, messageKey string, minimumRank int64, maximumRank int64) ([]MessageLogRow, error) {
+func (d *CompactionDatastore) listKeyMessagesByCreatedAt(ctx context.Context, topicId int64, messageKey string, start time.Time, end time.Time) ([]MessageLogRow, error) {
 	sql := fmt.Sprintf(`
-		-- vulkan: compaction.listKeyMessagesByRank
+		-- vulkan: compaction.listKeyMessagesByCreatedAt
 		SELECT
 			id,
 			payload,
@@ -67,11 +68,11 @@ func (d *CompactionDatastore) listKeyMessagesByRank(ctx context.Context, topicId
 			COALESCE(compaction_rank, 0)
 		FROM %[1]s.%[2]s
 		WHERE message_key = $1
-			AND compaction_rank BETWEEN $2 AND $3
-		ORDER BY compaction_rank DESC, id DESC;
+			AND created_at BETWEEN $2 AND $3
+		ORDER BY created_at DESC, id DESC;
 	`, d.Datastore.Schema, topic.MessageLogTable(topicId))
 
-	rows, err := d.Datastore.Pool.Query(ctx, sql, messageKey, minimumRank, maximumRank)
+	rows, err := d.Datastore.Pool.Query(ctx, sql, messageKey, start, end)
 	if err != nil {
 		return nil, err
 	}

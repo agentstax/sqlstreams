@@ -42,4 +42,6 @@ review of most important website docs
 
 # Other
 
+bench mark tests should be done on at least postgres 18 as there could be performance gains, specifically with uuidv7
+
 This should be a parking lot roadmap item - An agent 'operator', collection of skills or agent or mcp server that acts as the operator for managing vulkan running.

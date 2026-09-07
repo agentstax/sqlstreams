@@ -40,9 +40,9 @@ review; chunks 3–5 replace the rolled-back implementation plan. Runtime remain
 
 ### 2. Read sufficient retained measurement history
 
-Implemented `CompactionController.ListKeyMessagesByRank` under the original
-observation-time design. [0690] replaces its use for alert evidence with a
-`StoredMessage.CreatedAt` window; that read remains to be implemented.
+Originally implemented a rank-window read. Under [0690], this is now
+`CompactionController.ListKeyMessagesByCreatedAt`, reached through metrics'
+`ListMeasurementMessagesByCreatedAt`. The unused rank-window method is removed.
 Each history read owns its complete SQL; row scanning and payload decoding
 are shared. No supported public API or table changes; the evaluator supplies
 the policy's time bounds.
@@ -96,11 +96,13 @@ rolled-back prototype are not implementation requirements.
   resolving an alert. Registration warnings use the same read-only evaluation.
   Build, vet, and targeted unit/race checks passed; lab adaptation and execution
   remain deferred. Pending and freshness-window evaluation are not enabled.
-- [ ] Add the retained CreatedAt-window read for evaluation, without a fixed row
-  limit. Remove the unused rank-window path if no other runtime caller needs
-  it. Resolve policy once per
-  check from the current schedule, preserving raw evidence for later
-  threshold changes.
+- [x] Add the retained CreatedAt-window read through metrics, without a fixed
+  row limit. Use inclusive bounds and created_at/id descending order; include
+  superseded messages. Remove the unused rank-window path. Existing count-limited
+  History behavior is unchanged. Database boundary/order checks remain deferred
+  to the lab checkpoint; unit checks cover invalid bounds before I/O.
+- [ ] Resolve policy once per check from the current schedule, preserving raw
+  evidence for later threshold changes.
 - [ ] Extend existing evaluation to derive consecutive duration from collected
   history. Keep Record/classify responsible for serialized alert transitions.
   Healthy evidence may resolve; pending/insufficient evidence must not.
