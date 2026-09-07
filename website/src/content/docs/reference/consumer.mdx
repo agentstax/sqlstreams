@@ -104,6 +104,9 @@ Passed to `Consume`, one session's own.
 
 ## Queue and lease budgets
 
+See [consumer tuning](/guides/consumer-tuning/) for workload-specific starting
+settings and the measurements to compare before raising them.
+
 The default consumer claims four messages at a time and buffers up to four
 ordinary messages ahead of processing. Handlers remain serial unless
 `MessageConcurrency` is raised. Idle claim and exception polling share

@@ -1,0 +1,77 @@
+---
+title: Consumer Tuning
+description: Consumer tuning patterns — what to change, what to measure, and what each change costs.
+---
+
+Start with `nil` options: `BatchLimit: 4`, `QueueSize: 4`,
+`MessageConcurrency: 1`, `ClaimPollRate: 500ms`, `QueueMargin: 15s`.
+Change one setting at a time. Unlisted settings keep their defaults.
+
+The patterns below adjust `ConsumeOptions` at `Consume`; restart the session
+to apply them. Group timeouts belong to `ConsumerConfig` at `Register`.
+See the [field reference](/reference/consumer/) for the full contract.
+
+## Local feedback or many quiet consumers
+
+| pattern | change | watch | cost |
+| --- | --- | --- | --- |
+| Faster local pickup | try `ClaimPollRate: 250ms` | produce-to-handler-start latency | twice the default idle polling frequency |
+| Lower quiet-fleet traffic | try `ClaimPollRate: 1s` | database query rate and pickup latency | slower pickup and ready-retry checks |
+
+Larger batches do not reduce empty polling. A shorter poll cannot remove
+database stalls or ordered cursor waits.
+
+## Fast handlers with backlog
+
+- **Set:** try `BatchLimit: 8`, `QueueSize: 8`. Compare `16` next if useful.
+  Separately try `MessageConcurrency: 4` when independent handlers and
+  downstream capacity permit it.
+- **Watch:** successful throughput, backlog, pool waits, and throttling.
+- **Cost:** larger reservations, more memory, and more successful handlers
+  exposed to range replay. Concurrency increases fresh dispatch capacity;
+  exception handling remains serial.
+
+## Long handlers
+
+- **Set:** `BatchLimit: 1`, `QueueSize: 1`. Choose `Message.Timeout` from
+  legitimate runtime; size `QueueMargin` for a preceding dispatch plus
+  database slack.
+- **Watch:** duration tails, retries, and [VK0105](/errors/VK0105/).
+- **Cost:** less batching; more margin means longer crash recovery.
+
+Example: `transcode-video` runs id 101 while 102 waits. For twelve-second
+handlers with a thirty-second timeout, try `QueueMargin: 35s`. Queue `1`
+still prefetches; this profile has a `67.1s` lease.
+
+Raising the timeout and its following ceiling together adds no queue
+allowance. Pass the handler context to blocking calls.
+See [timeouts](/guides/consumer-timeouts/) and
+[lease budgets](/reference/consumer/#queue-and-lease-budgets).
+
+## Mixed short and long handlers
+
+- **Set:** start with batch and queue `1` when slow tails exhaust queue
+  allowance. Separate topics or use disjoint [bindings](/concepts/routing/)
+  when the classes need different timeout and capacity profiles.
+- **Watch:** short-message latency separately from overall throughput.
+- **Cost:** separate groups need separate declarations. Differently
+  configured instances of one group do not route messages by runtime.
+
+## Ordered messages
+
+- **Set:** keep batch and queue `4`; raise `MessageConcurrency` for many
+  independent keys. For one slow key, use the long-handler pattern.
+- **Watch:** progress by key, unresolved deliveries, and cursor waits.
+- **Cost:** one key stays serial. Ordered chains can retain messages outside
+  the queue, so `QueueSize` alone does not bound waiting or memory.
+
+Use `ConcurrencyOverride: vulkan.ConcurrencyOrdered` on the group and a
+message key on every ordered message. See [ordered delivery](/guides/ordered-delivery/).
+
+## Large payloads or limited memory
+
+- **Set:** batch, queue, and concurrency `1`; raise one at a time.
+- **Watch:** peak process memory, garbage collection, and throughput with
+  realistic payload sizes and replica counts.
+- **Cost:** more transactions. Limits count messages, not bytes, and reclaim
+  keeps an existing range's size even after you lower the batch limit.
