@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// maxLineBytes bounds one ledger line; the longest field is an error text.
+// maxLineBytes bounds one record line; the longest field is an error text.
 const maxLineBytes = 1 << 20
 
 // lineSource feeds COPY one decoded JSON line at a time, so a file is never

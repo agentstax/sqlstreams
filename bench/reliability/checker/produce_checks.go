@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-// The produce side: the ledger's committed and unknown keys against the
+// The produce side: the records' committed and unknown keys against the
 // message_log rows the library kept.
 
 // lost: committed produces whose message row is missing.
@@ -22,7 +22,7 @@ func (c *Checker) lost(ctx context.Context, target *target) (measurement, error)
 	return c.measure(ctx, lostSql)
 }
 
-// unexpected: message rows whose key the ledger never committed and never
+// unexpected: message rows whose key the records never committed and never
 // lost track of -- a rejected produce that landed, or a row nobody attempted.
 // The key is rebuilt from the payload as common.Order.Key builds it.
 func (c *Checker) unexpected(ctx context.Context, target *target) (measurement, error) {

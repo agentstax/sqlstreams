@@ -3,7 +3,7 @@ package checker
 import (
 	"time"
 
-	"github.com/agentstax/vulkan/bench/reliability/ledger"
+	"github.com/agentstax/vulkan/bench/reliability/record"
 )
 
 // Status is the run's one-word outcome. Unknown means the checks could not
@@ -27,18 +27,18 @@ const (
 // Verdict is the record one checker run writes: what was judged, under what
 // server setting and library version, and how each expectation came out.
 type Verdict struct {
-	Scenario          string             `json:"scenario"`
-	Status            Status             `json:"status"`
-	Reason            string             `json:"reason"` // "" unless unknown
-	StartedAt         time.Time          `json:"started_at"`
-	Duration          time.Duration      `json:"duration_ns"`
-	VulkanVersion     string             `json:"vulkan_version"`
-	SynchronousCommit string             `json:"synchronous_commit"`
-	Ledger            LedgerSummary      `json:"ledger_rows"`
-	Produced          ProduceSummary     `json:"produced"`
-	Handled           HandlerSummary     `json:"handled"`
-	Checks            []CheckResult      `json:"checks"`
-	Phases            []ledger.PhaseFact `json:"phases"`
+	Scenario          string         `json:"scenario"`
+	Status            Status         `json:"status"`
+	Reason            string         `json:"reason"` // "" unless unknown
+	StartedAt         time.Time      `json:"started_at"`
+	Duration          time.Duration  `json:"duration_ns"`
+	VulkanVersion     string         `json:"vulkan_version"`
+	SynchronousCommit string         `json:"synchronous_commit"`
+	Records           RecordSummary  `json:"records"`
+	Produced          ProduceSummary `json:"produced"`
+	Handled           HandlerSummary `json:"handled"`
+	Checks            []CheckResult  `json:"checks"`
+	Phases            []record.Phase `json:"phases"`
 }
 
 func (v *Verdict) ExitCode() int {

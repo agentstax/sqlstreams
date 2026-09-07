@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// labSchema is the Postgres namespace the checker loads the ledger into, on
+// labSchema is the Postgres namespace the checker loads the records into, on
 // the same database as vulkan's own schema so the checks are plain joins.
 const labSchema = "lab"
 
@@ -18,7 +18,7 @@ const (
 	phaseTable   = "run_phase"
 )
 
-// tables is the loaded ledger: one table per file kind in labSchema, with
+// tables is the loaded records: one table per file kind in labSchema, with
 // the JSON-lines field names as columns. create drops and recreates the
 // schema, so a checker run reads only the files it loaded.
 type tables struct {

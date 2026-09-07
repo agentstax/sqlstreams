@@ -1,4 +1,4 @@
-package ledger
+package record
 
 import "time"
 
@@ -13,10 +13,10 @@ const (
 	ProduceUnknown   ProduceKind = "unknown" // the reply was lost: the row may or may not exist
 )
 
-// ProduceFact is one row of produce_ledger. Only committed rows carry a
+// Produce is one row of produce_ledger. Only committed rows carry a
 // MessageId; only rejected rows carry a Code; rejected and unknown rows carry
 // the Error text.
-type ProduceFact struct {
+type Produce struct {
 	At          time.Time   `json:"at"`
 	Kind        ProduceKind `json:"kind"`
 	Producer    string      `json:"producer"`

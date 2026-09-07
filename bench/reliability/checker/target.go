@@ -12,7 +12,7 @@ import (
 // a nil ClientConfig, so the default.
 const vulkanSchema = datastore.DefaultSchema
 
-// the loaded ledger's tables, qualified
+// the loaded records' tables, qualified
 var (
 	produceLedger = labSchema + "." + produceTable
 	handlerLedger = labSchema + "." + handlerTable

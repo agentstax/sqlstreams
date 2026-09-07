@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/agentstax/vulkan/bench/reliability/common"
-	"github.com/agentstax/vulkan/bench/reliability/ledger"
+	"github.com/agentstax/vulkan/bench/reliability/record"
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 )
 
@@ -20,7 +20,7 @@ type Instances struct {
 	cfg      *vulkan.ConsumerConfig
 	group    string
 	failRate float64
-	handled  *ledger.Writer
+	handled  *record.Writer
 	name     string
 
 	mutex   sync.Mutex
@@ -33,7 +33,7 @@ type runningInstance struct {
 	done chan struct{}
 }
 
-func NewInstances(handle *vulkan.ConsumerHandle[common.Order], cfg *vulkan.ConsumerConfig, group string, failRate float64, handled *ledger.Writer, name string) (*Instances, error) {
+func NewInstances(handle *vulkan.ConsumerHandle[common.Order], cfg *vulkan.ConsumerConfig, group string, failRate float64, handled *record.Writer, name string) (*Instances, error) {
 	if handle == nil {
 		return nil, errors.New("handle must not be nil")
 	}

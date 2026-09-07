@@ -6,7 +6,7 @@ import "fmt"
 // closed: a new check is a checker change and a new const here.
 //
 //	lost         committed produces whose message_log row is missing
-//	unexpected   message_log rows the ledger never committed or lost track of
+//	unexpected   message_log rows the records never committed or lost track of
 //	recovered    unknown produces (reply lost) whose row is there after all
 //	undelivered  messages the handler never succeeded on and the library never dead-lettered
 //	duplicates   messages the handler succeeded on more than once

@@ -4,17 +4,17 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/agentstax/vulkan/bench/reliability/ledger"
+	"github.com/agentstax/vulkan/bench/reliability/record"
 )
 
-// LedgerSummary counts the rows loaded from the ledger files, per kind.
-type LedgerSummary struct {
+// RecordSummary counts the rows loaded from the record files, per kind.
+type RecordSummary struct {
 	Produce int64 `json:"produce"`
 	Handler int64 `json:"handler"`
 	Phase   int64 `json:"phase"`
 }
 
-// ProduceSummary counts the ledger's produce outcomes; Duplicate is the
+// ProduceSummary counts the records' produce outcomes; Duplicate is the
 // committed replies the library flagged as an idempotency-key repeat.
 type ProduceSummary struct {
 	Attempted int64 `json:"attempted"`
@@ -24,7 +24,7 @@ type ProduceSummary struct {
 	Duplicate int64 `json:"duplicate"`
 }
 
-// HandlerSummary counts the ledger's handler invocations by outcome.
+// HandlerSummary counts the records' handler invocations by outcome.
 type HandlerSummary struct {
 	Success int64 `json:"success"`
 	Error   int64 `json:"error"`
@@ -59,7 +59,7 @@ func (c *Checker) handlerSummary(ctx context.Context) (HandlerSummary, error) {
 	return summary, err
 }
 
-func (c *Checker) readPhases(ctx context.Context) ([]ledger.PhaseFact, error) {
+func (c *Checker) readPhases(ctx context.Context) ([]record.Phase, error) {
 	phasesSql := fmt.Sprintf(`
 		-- lab: checker.readPhases
 		SELECT
@@ -78,9 +78,9 @@ func (c *Checker) readPhases(ctx context.Context) ([]ledger.PhaseFact, error) {
 	}
 	defer rows.Close()
 
-	phases := []ledger.PhaseFact{}
+	phases := []record.Phase{}
 	for rows.Next() {
-		var phase ledger.PhaseFact
+		var phase record.Phase
 		if err := rows.Scan(&phase.At, &phase.Role, &phase.Kind, &phase.Name, &phase.Status, &phase.Detail); err != nil {
 			return nil, err
 		}

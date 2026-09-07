@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/agentstax/vulkan/bench/reliability/common"
-	"github.com/agentstax/vulkan/bench/reliability/ledger"
+	"github.com/agentstax/vulkan/bench/reliability/record"
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 )
 
@@ -17,16 +17,16 @@ import (
 // handler error.
 var errInjectedFailure = errors.New("handler failure injected by the scenario's fail rate")
 
-// Handler is one consumer instance's handler: it writes one ledger fact per
+// Handler is one consumer instance's handler: it writes one record per
 // invocation before returning, and fails the scenario's share of them.
 type Handler struct {
 	consumer string
 	group    string
 	failRate float64
-	handled  *ledger.Writer
+	handled  *record.Writer
 }
 
-func NewHandler(consumer string, group string, failRate float64, handled *ledger.Writer) (*Handler, error) {
+func NewHandler(consumer string, group string, failRate float64, handled *record.Writer) (*Handler, error) {
 	if consumer == "" {
 		return nil, errors.New("consumer must not be empty")
 	}
@@ -48,11 +48,11 @@ func (h *Handler) Handle(ctx context.Context, order *common.Order) error {
 		return errors.New("message meta is missing from the handler ctx")
 	}
 
-	outcome := ledger.HandlerSuccess
+	outcome := record.HandlerSuccess
 	if h.failRate > 0 && rand.Float64() < h.failRate {
-		outcome = ledger.HandlerError
+		outcome = record.HandlerError
 	}
-	fact := ledger.HandlerFact{
+	fact := record.Handler{
 		At:        time.Now(),
 		Consumer:  h.consumer,
 		Group:     h.group,
@@ -64,7 +64,7 @@ func (h *Handler) Handle(ctx context.Context, order *common.Order) error {
 	if err := h.handled.Write(fact); err != nil {
 		return err
 	}
-	if outcome == ledger.HandlerError {
+	if outcome == record.HandlerError {
 		return errInjectedFailure
 	}
 	return nil

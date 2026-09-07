@@ -9,7 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/agentstax/vulkan/bench/reliability/ledger"
+	"github.com/agentstax/vulkan/bench/reliability/record"
 )
 
 // tableLayout is how one file kind lands in its table: the columns in the
@@ -20,34 +20,34 @@ type tableLayout struct {
 	decode  func(line []byte) ([]any, error)
 }
 
-var layouts = map[ledger.FileKind]tableLayout{
-	ledger.FileProduce: {
+var layouts = map[record.FileKind]tableLayout{
+	record.FileProduce: {
 		table:   produceTable,
 		columns: []string{"at", "kind", "producer", "seq", "key", "scheduled_at", "message_id", "duplicate", "code", "error"},
 		decode: func(line []byte) ([]any, error) {
-			var fact ledger.ProduceFact
+			var fact record.Produce
 			if err := json.Unmarshal(line, &fact); err != nil {
 				return nil, err
 			}
 			return []any{fact.At, string(fact.Kind), fact.Producer, fact.Seq, fact.Key, fact.ScheduledAt, fact.MessageId, fact.Duplicate, fact.Code, fact.Error}, nil
 		},
 	},
-	ledger.FileHandler: {
+	record.FileHandler: {
 		table:   handlerTable,
 		columns: []string{"at", "consumer", "group", "message_id", "key", "attempt", "outcome"},
 		decode: func(line []byte) ([]any, error) {
-			var fact ledger.HandlerFact
+			var fact record.Handler
 			if err := json.Unmarshal(line, &fact); err != nil {
 				return nil, err
 			}
 			return []any{fact.At, fact.Consumer, fact.Group, fact.MessageId, fact.Key, fact.Attempt, string(fact.Outcome)}, nil
 		},
 	},
-	ledger.FilePhase: {
+	record.FilePhase: {
 		table:   phaseTable,
 		columns: []string{"at", "role", "kind", "name", "status", "detail"},
 		decode: func(line []byte) ([]any, error) {
-			var fact ledger.PhaseFact
+			var fact record.Phase
 			if err := json.Unmarshal(line, &fact); err != nil {
 				return nil, err
 			}
@@ -61,10 +61,10 @@ var layouts = map[ledger.FileKind]tableLayout{
 // produce files load before the drain and the handler files after, so each
 // table is read once it is complete. A line that does not decode is an
 // error.
-func (t *tables) load(ctx context.Context, dir string, kind ledger.FileKind) (int64, error) {
+func (t *tables) load(ctx context.Context, dir string, kind record.FileKind) (int64, error) {
 	layout, ok := layouts[kind]
 	if !ok {
-		return 0, fmt.Errorf("unrecognized ledger file kind: %q", string(kind))
+		return 0, fmt.Errorf("unrecognized record file kind: %q", string(kind))
 	}
 	if _, err := os.Stat(dir); err != nil {
 		return 0, err

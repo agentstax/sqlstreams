@@ -1,4 +1,4 @@
-package ledger
+package record
 
 import "time"
 
@@ -9,9 +9,9 @@ const (
 	HandlerError   HandlerOutcome = "error"
 )
 
-// HandlerFact is one row of handler_ledger: one handler invocation, written
+// Handler is one row of handler_ledger: one handler invocation, written
 // before the handler returns so a crash after it still leaves the row.
-type HandlerFact struct {
+type Handler struct {
 	At        time.Time      `json:"at"`
 	Consumer  string         `json:"consumer"`
 	Group     string         `json:"group"`

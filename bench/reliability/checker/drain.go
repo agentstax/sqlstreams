@@ -23,7 +23,7 @@ func (p drainPosition) drained() bool {
 }
 
 // drain waits until the group's cursor has passed the highest message the
-// topic holds -- not the ledger's last committed id, so a recovered or
+// topic holds -- not the records' last committed id, so a recovered or
 // unexpected row above it is settled too -- and the checks read finished
 // work, not work in flight. The budget spent is a verdict of unknown: the
 // checker cannot tell a slow consumer from a stuck one.

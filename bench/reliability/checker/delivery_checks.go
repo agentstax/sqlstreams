@@ -6,12 +6,12 @@ import (
 )
 
 // The delivery side: every message row sorted into its bucket. Two witnesses
-// say a message reached its end: the handler ledger, written by the lab's own
+// say a message reached its end: the handler records, written by the lab's own
 // handler, and the library's tables -- a 'success' delivery_log row (mode
 // 'all' writes one) or a 'dead' exception row.
 
 // undelivered: messages the lab's handler never succeeded on that the
-// library did not dead-letter either. The handler ledger is the witness, so a
+// library did not dead-letter either. The handler records is the witness, so a
 // success the library recorded without the handler running counts here.
 func (c *Checker) undelivered(ctx context.Context, target *target) (measurement, error) {
 	undeliveredSql := fmt.Sprintf(`
@@ -31,7 +31,7 @@ func (c *Checker) undelivered(ctx context.Context, target *target) (measurement,
 }
 
 // duplicates: messages the handler succeeded on more than once, by the
-// ledger's own count -- the redelivery the lease contract allows.
+// records' own count -- the redelivery the lease contract allows.
 func (c *Checker) duplicates(ctx context.Context) (measurement, error) {
 	duplicatesSql := fmt.Sprintf(`
 		-- lab: checker.duplicates

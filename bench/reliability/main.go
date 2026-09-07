@@ -2,8 +2,8 @@ package main
 
 // reliability lab: an hour of real producers and consumers against a real
 // Postgres, ending in one verdict. Every produce and every handler invocation
-// is written to a ledger; after producers stop and consumers drain, the
-// checker joins the ledger against Vulkan's own tables and sorts every
+// is written to a record file; after producers stop and consumers drain, the
+// checker joins those records against Vulkan's own tables and sorts every
 // message into a named bucket. Design in decision record 0687; the proposal
 // page is website/src/content/docs/concepts/reliability-lab.mdx.
 //
@@ -11,7 +11,7 @@ package main
 // phases, -role consumer follows its consumer timeline until stopped, -role
 // checker judges the run and exits with the verdict (0 pass, 1 fail, 2
 // unknown), and -role print writes the scenario in its .scenario format.
-// Exit 3 is a lab failure (connection, flags, ledger), never a verdict.
+// Exit 3 is a lab failure (connection, flags, records), never a verdict.
 
 import (
 	"fmt"
@@ -56,7 +56,7 @@ func run() (int, error) {
 		return 0, err
 	}
 	defer connection.Close()
-	lab, err := runner.NewRunner(declared.Scaled(flags.timeScale), connection, flags.ledgerDir, flags.name)
+	lab, err := runner.NewRunner(declared.Scaled(flags.timeScale), connection, flags.recordDir, flags.name)
 	if err != nil {
 		return 0, err
 	}

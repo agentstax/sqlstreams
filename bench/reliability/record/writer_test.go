@@ -1,4 +1,4 @@
-package ledger
+package record
 
 import (
 	"bufio"
@@ -17,7 +17,7 @@ func TestWriterAppendsOneLinePerFact(t *testing.T) {
 	}
 
 	at := time.Date(2026, 9, 6, 12, 0, 0, 0, time.UTC)
-	facts := []ProduceFact{
+	facts := []Produce{
 		{At: at, Kind: ProduceAttempted, Producer: "p-1", Seq: 1, Key: "p-1-1", ScheduledAt: at},
 		{At: at, Kind: ProduceCommitted, Producer: "p-1", Seq: 1, Key: "p-1-1", ScheduledAt: at, MessageId: 118402},
 	}
@@ -40,7 +40,7 @@ func TestWriterAppendsOneLinePerFact(t *testing.T) {
 		if !lines.Scan() {
 			t.Fatalf("line %d is missing", i)
 		}
-		var got ProduceFact
+		var got Produce
 		if err := json.Unmarshal(lines.Bytes(), &got); err != nil {
 			t.Fatalf("line %d: %v", i, err)
 		}
@@ -63,7 +63,7 @@ func TestWriterReopensForAppend(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := writer.Write(HandlerFact{Consumer: "c-1", Outcome: HandlerSuccess}); err != nil {
+		if err := writer.Write(Handler{Consumer: "c-1", Outcome: HandlerSuccess}); err != nil {
 			t.Fatal(err)
 		}
 		if err := writer.Close(); err != nil {

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/agentstax/vulkan/bench/reliability/common"
-	"github.com/agentstax/vulkan/bench/reliability/ledger"
+	"github.com/agentstax/vulkan/bench/reliability/record"
 	"github.com/agentstax/vulkan/bench/reliability/scenario"
 )
 
@@ -17,32 +17,32 @@ import (
 type Runner struct {
 	declared   *scenario.Scenario
 	connection *common.Connection
-	ledgerDir  string
+	recordDir  string
 	name       string
 }
 
-func NewRunner(declared *scenario.Scenario, connection *common.Connection, ledgerDir string, name string) (*Runner, error) {
+func NewRunner(declared *scenario.Scenario, connection *common.Connection, recordDir string, name string) (*Runner, error) {
 	if declared == nil {
 		return nil, errors.New("declared must not be nil")
 	}
 	if connection == nil {
 		return nil, errors.New("connection must not be nil")
 	}
-	if ledgerDir == "" {
-		return nil, errors.New("ledgerDir must not be empty")
+	if recordDir == "" {
+		return nil, errors.New("recordDir must not be empty")
 	}
 	if name == "" {
 		return nil, errors.New("name must not be empty")
 	}
-	return &Runner{declared: declared, connection: connection, ledgerDir: ledgerDir, name: name}, nil
+	return &Runner{declared: declared, connection: connection, recordDir: recordDir, name: name}, nil
 }
 
-func (r *Runner) openLedger(kind ledger.FileKind) (*ledger.Writer, error) {
-	return ledger.NewWriter(r.ledgerDir, r.name, kind)
+func (r *Runner) openWriter(kind record.FileKind) (*record.Writer, error) {
+	return record.NewWriter(r.recordDir, r.name, kind)
 }
 
-func (r *Runner) writePhase(phases *ledger.Writer, kind ledger.PhaseKind, name string, status ledger.PhaseStatus, detail string) error {
-	return phases.Write(ledger.PhaseFact{
+func (r *Runner) writePhase(phases *record.Writer, kind record.PhaseKind, name string, status record.PhaseStatus, detail string) error {
+	return phases.Write(record.Phase{
 		At:     time.Now(),
 		Role:   r.name,
 		Kind:   kind,

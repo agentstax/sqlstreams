@@ -1,4 +1,4 @@
-package ledger
+package record
 
 import "time"
 
@@ -16,10 +16,10 @@ const (
 	PhaseEnded   PhaseStatus = "ended"
 )
 
-// PhaseFact is one row of run_phase: a timeline edge the checker uses to
+// Phase is one row of run_phase: a timeline edge the checker uses to
 // attribute what it counts to the window it happened in. Detail is the
 // phase's own line from the scenario ("steady 200/s 10m", "consumers 3").
-type PhaseFact struct {
+type Phase struct {
 	At     time.Time   `json:"at"`
 	Role   string      `json:"role"`
 	Kind   PhaseKind   `json:"kind"`

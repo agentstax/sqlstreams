@@ -1,6 +1,6 @@
 package checker
 
-// checker judges one finished run. The loaded ledger (package ledger) says
+// checker judges one finished run. The loaded records (package record) say
 // what the producers and handlers saw; vulkan's own tables say what the
 // library kept. Each declared expectation is one SQL join across the two,
 // returning a count and a few witnesses. Design in decision record 0687.
@@ -13,7 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/agentstax/vulkan/bench/reliability/ledger"
+	"github.com/agentstax/vulkan/bench/reliability/record"
 	"github.com/agentstax/vulkan/bench/reliability/scenario"
 	"github.com/agentstax/vulkan/pkg/common"
 	"github.com/agentstax/vulkan/pkg/topic"
@@ -23,19 +23,19 @@ type Checker struct {
 	pool        *pgxpool.Pool
 	declared    *scenario.Scenario
 	tables      *tables
-	ledgerDir   string
+	recordDir   string
 	drainBudget time.Duration
 }
 
-func NewChecker(pool *pgxpool.Pool, declared *scenario.Scenario, ledgerDir string, drainBudget time.Duration) (*Checker, error) {
+func NewChecker(pool *pgxpool.Pool, declared *scenario.Scenario, recordDir string, drainBudget time.Duration) (*Checker, error) {
 	if pool == nil {
 		return nil, errors.New("pool must not be nil")
 	}
 	if declared == nil {
 		return nil, errors.New("declared must not be nil")
 	}
-	if ledgerDir == "" {
-		return nil, errors.New("ledgerDir must not be empty")
+	if recordDir == "" {
+		return nil, errors.New("recordDir must not be empty")
 	}
 	if drainBudget <= 0 {
 		return nil, fmt.Errorf("drainBudget must be > 0, got %v", drainBudget)
@@ -45,11 +45,11 @@ func NewChecker(pool *pgxpool.Pool, declared *scenario.Scenario, ledgerDir strin
 	if err != nil {
 		return nil, err
 	}
-	return &Checker{pool: pool, declared: declared, tables: tables, ledgerDir: ledgerDir, drainBudget: drainBudget}, nil
+	return &Checker{pool: pool, declared: declared, tables: tables, recordDir: recordDir, drainBudget: drainBudget}, nil
 }
 
-// Run loads the producers' ledger, drains the group, loads the handlers'
-// ledger, runs every declared expectation, and returns the verdict. A
+// Run loads the producers' records, drains the group, loads the handlers'
+// records, runs every declared expectation, and returns the verdict. A
 // returned error is a lab failure before judging began; anything that stops
 // the checks short after that -- nothing produced, the drain budget spent, a
 // query failing -- is a verdict of unknown carrying the reason, so the
@@ -63,14 +63,14 @@ func (c *Checker) Run(ctx context.Context) (*Verdict, error) {
 		StartedAt:     time.Now(),
 		VulkanVersion: common.BuildVersion(),
 		Checks:        []CheckResult{},
-		Phases:        []ledger.PhaseFact{},
+		Phases:        []record.Phase{},
 	}
 	var err error
-	verdict.Ledger.Produce, err = c.tables.load(ctx, c.ledgerDir, ledger.FileProduce)
+	verdict.Records.Produce, err = c.tables.load(ctx, c.recordDir, record.FileProduce)
 	if err != nil {
 		return nil, err
 	}
-	verdict.Ledger.Phase, err = c.tables.load(ctx, c.ledgerDir, ledger.FilePhase)
+	verdict.Records.Phase, err = c.tables.load(ctx, c.recordDir, record.FilePhase)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +112,7 @@ func (c *Checker) judge(ctx context.Context, verdict *Verdict) error {
 	if err := c.drain(ctx, target); err != nil {
 		return err
 	}
-	verdict.Ledger.Handler, err = c.tables.load(ctx, c.ledgerDir, ledger.FileHandler)
+	verdict.Records.Handler, err = c.tables.load(ctx, c.recordDir, record.FileHandler)
 	if err != nil {
 		return err
 	}

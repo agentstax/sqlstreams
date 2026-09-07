@@ -17,9 +17,9 @@ const (
 	reportFile  = "report.scenario"
 )
 
-// WriteRecord writes the verdict as JSON and the report beside it under
+// WriteResults writes the verdict as JSON and the report beside it under
 // <dir>/<scenario>/<started at>/ and returns that directory.
-func WriteRecord(dir string, declared *scenario.Scenario, verdict *Verdict) (string, error) {
+func WriteResults(dir string, declared *scenario.Scenario, verdict *Verdict) (string, error) {
 	recordDir := filepath.Join(dir, declared.Name, verdict.StartedAt.UTC().Format("20060102T150405Z"))
 	if err := os.MkdirAll(recordDir, 0o755); err != nil {
 		return "", err
@@ -50,7 +50,7 @@ func Report(declared *scenario.Scenario, verdict *Verdict) string {
 	out.WriteString(declared.Report(beside))
 	out.WriteString("\n")
 	table := tabwriter.NewWriter(&out, 0, 0, 4, ' ', 0)
-	fmt.Fprintf(table, "ledger\t%d produce, %d handler, %d phase rows\n", verdict.Ledger.Produce, verdict.Ledger.Handler, verdict.Ledger.Phase)
+	fmt.Fprintf(table, "records\t%d produce, %d handler, %d phase rows\n", verdict.Records.Produce, verdict.Records.Handler, verdict.Records.Phase)
 	fmt.Fprintf(table, "produced\tattempted %d, committed %d, rejected %d, unknown %d\n",
 		verdict.Produced.Attempted, verdict.Produced.Committed, verdict.Produced.Rejected, verdict.Produced.Unknown)
 	fmt.Fprintf(table, "handled\tsuccess %d, error %d\n", verdict.Handled.Success, verdict.Handled.Error)

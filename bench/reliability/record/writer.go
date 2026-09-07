@@ -1,4 +1,4 @@
-package ledger
+package record
 
 import (
 	"bufio"
@@ -19,7 +19,7 @@ const (
 	FilePhase   FileKind = "phase"
 )
 
-// Writer appends one JSON object per line to a role's ledger file and
+// Writer appends one JSON object per line to a role's record file and
 // flushes every line, so a row is in the kernel before the call it records
 // is made -- a SIGKILL in between leaves the attempt on disk.
 type Writer struct {

@@ -9,7 +9,7 @@ import (
 
 	"github.com/agentstax/vulkan/bench/reliability/common"
 	"github.com/agentstax/vulkan/bench/reliability/consumer"
-	"github.com/agentstax/vulkan/bench/reliability/ledger"
+	"github.com/agentstax/vulkan/bench/reliability/record"
 	"github.com/agentstax/vulkan/bench/reliability/scenario"
 )
 
@@ -24,12 +24,12 @@ func (r *Runner) RunConsumer(ctx context.Context) error {
 		return err
 	}
 
-	handled, err := r.openLedger(ledger.FileHandler)
+	handled, err := r.openWriter(record.FileHandler)
 	if err != nil {
 		return err
 	}
 	defer handled.Close()
-	phases, err := r.openLedger(ledger.FilePhase)
+	phases, err := r.openWriter(record.FilePhase)
 	if err != nil {
 		return err
 	}
@@ -60,10 +60,10 @@ func (r *Runner) RunConsumer(ctx context.Context) error {
 	}
 }
 
-func (r *Runner) writeConsumerPhase(phases *ledger.Writer, change scenario.ConsumerChange) error {
+func (r *Runner) writeConsumerPhase(phases *record.Writer, change scenario.ConsumerChange) error {
 	name := fmt.Sprintf("consumers %d", change.Instances)
 	detail := strings.Join(strings.Fields(change.String()), " ")
-	return r.writePhase(phases, ledger.PhaseConsumers, name, ledger.PhaseStarted, detail)
+	return r.writePhase(phases, record.PhaseConsumers, name, record.PhaseStarted, detail)
 }
 
 // ***************

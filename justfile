@@ -22,7 +22,7 @@ reliability-lab scenario="dev" time_scale="1":
     cd bench/reliability
     export SCENARIO={{ scenario }} TIME_SCALE={{ time_scale }}
     trap 'docker compose down -v' EXIT
-    docker compose build
+    docker compose --profile checker build
     docker compose up --detach consumer
     docker compose run --rm producer
     docker compose run --rm checker
