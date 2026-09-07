@@ -1242,6 +1242,57 @@
       "attribute_keys": [
         "topic"
       ]
+    },
+    "VK0099": {
+      "code": "VK0099",
+      "kind": "metric",
+      "name": "vulkan.topic.workers.unclaimed",
+      "metric_kind": "gauge",
+      "unit": "{worker}",
+      "description": "unclaimed workers owned by the topic or its consumer groups",
+      "scope": "topic",
+      "attribute_keys": [
+        "topic"
+      ]
+    },
+    "VK0100": {
+      "code": "VK0100",
+      "kind": "metric",
+      "name": "vulkan.metrics.collector.completed_timestamp",
+      "metric_kind": "gauge",
+      "unit": "s",
+      "description": "Unix timestamp of the last completed metrics collection pass",
+      "scope": "system"
+    },
+    "VK0101": {
+      "code": "VK0101",
+      "kind": "alert",
+      "name": "metrics_collector_progress",
+      "description": "metrics collection has not completed within the allowed age while manager leases remain continuous",
+      "scope": "system",
+      "severity": "warn"
+    },
+    "VK0102": {
+      "code": "VK0102",
+      "kind": "metric",
+      "name": "vulkan.otel.source.read_success",
+      "metric_kind": "gauge",
+      "description": "whether the adapter read retained measurements successfully",
+      "scope": "system"
+    },
+    "VK0103": {
+      "code": "VK0103",
+      "kind": "metric",
+      "name": "vulkan.otel.measurements.rejected",
+      "metric_kind": "gauge",
+      "unit": "{measurement}",
+      "description": "retained measurements omitted from the current export",
+      "scope": "system"
+    },
+    "VK0104": {
+      "code": "VK0104",
+      "kind": "event",
+      "message": "measurements cannot be exported -- the current collection omits the rejected metric family; healthy families still export"
     }
   }
 }

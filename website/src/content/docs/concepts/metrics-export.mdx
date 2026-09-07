@@ -1,6 +1,6 @@
 ---
 title: 'Exporting retained measurements'
-description: OTel producer behavior and lifecycle ownership, with proposed source-read health and portable naming.
+description: OTel producer behavior, source-read health, portable naming, and lifecycle ownership.
 ---
 
 Vulkan derives alerts from recorded measurement history and exports
@@ -20,8 +20,9 @@ history from `__system.metrics`, with a 24-hour retention setting.
 `Measurement.At` records when a value was observed.
 
 The `otelvulkan` adapter reads retained measurements on each SDK collection.
-Source-read health and portable family validation below remain Proposed;
-a source-read error can still leave Vulkan metrics missing from HTTP 200.
+Collection-local health distinguishes a successful read from missing values
+in an HTTP 200 response. Portable validation omits conflicting families and
+reports which measurements were rejected.
 
 ## Export through an OTel producer
 
@@ -34,7 +35,8 @@ a discovery loop, or a retained measurement cache.
 ```text
 OTel reader requests collection
     -> producer reads latest retained measurements within its timeout
-    -> converts retained values to gauges and cumulative counters
+    -> validates families and converts supported values
+    -> adds source-read health and the current rejection count
     -> reader passes the data to its exporter
 ```
 
@@ -60,11 +62,11 @@ also bypasses SDK instrument Views and normal aggregation, so callers
 cannot rely on those to filter attributes or convert cumulative totals to
 deltas. See the SDK's [periodic reader](https://github.com/open-telemetry/opentelemetry-go/blob/v1.44.0/sdk/metric/periodic_reader.go).
 
-## Proposed: report reads and rejected measurements
+## Report reads and rejected measurements
 
-Keep the upstream OTel Prometheus exporter and expose source-read success.
-HTTP 200 alone would not establish that Postgres was read successfully.
-The proposed health signals are collection-local gauges with no attributes:
+The upstream OTel Prometheus exporter exposes source-read success.
+HTTP 200 alone does not establish that Postgres was read successfully.
+The health signals are collection-local gauges with no attributes:
 
 | OTel name | Unit | Prometheus name |
 | --- | --- | --- |
@@ -88,14 +90,14 @@ the error and skips that collection. Prometheus collection does not inherit
 the HTTP request context, so the producer's own timeout bounds its reads.
 An exporter-health signal is an established [Prometheus pattern](https://prometheus.io/docs/instrumenting/writing_exporters/#failed-scrapes).
 
-Both entry points would enforce one portable export contract. Use upstream
+Both entry points enforce one portable export contract. They use upstream
 `UnderscoreEscapingWithSuffixes` translation to check final metric and
 attribute names. Reject conflicting kind or unit within a metric family,
 ambiguous translated names or attribute keys, and custom names that enter
 the reserved `vulkan_` or exporter-owned namespace. Healthy families still
 export; a current-collection rejection count and diagnostic identify loss.
-Report rejection through the warning diagnostic `measurements cannot be
-exported`, naming the conflicting original names and reason, without payloads.
+The warning [measurements cannot be exported](/errors/VK0104/) names the
+rejected family and reason, without payloads.
 Partial rejection does not return a
 collection error: periodic readers must still export the healthy families.
 Reserve the two health names even against retained built-in measurements;
@@ -103,7 +105,9 @@ reserve upstream metadata names and `otel_scope_` attribute names as well.
 
 For example, custom `billing.queue_depth` and `billing_queue_depth` both
 translate to `billing_queue_depth`. Reject both families rather than choose
-by row order. This also restricts OTLP-only callers, but keeps both entry
+by row order. If one family already fails an export check, it cannot block
+the other: collisions are checked only among otherwise exportable families.
+Basic measurement validation stays in core constructors. This also restricts OTLP-only callers, but keeps both entry
 points consistent. It does not rewrite retained measurements or enforce
 metadata immutability across time.
 
@@ -177,7 +181,5 @@ replicas read the same deployment totals; summing those replicas duplicates
 the measurement. Provider resource identity belongs to the caller and must
 identify the installation; the adapter adds no replica coordination.
 
-Implementation must verify empty sources, read errors, partial rejection,
-new names, concurrent collections, cancellation, and shutdown against the
-pinned SDK. Diagnostic codes are allocated with their declarations and
-reference pages when implemented; this proposal does not reserve serials.
+Concurrent collection and shutdown verification remain at the lifecycle
+checkpoint. Health reports source reads, not provider or HTTP-server health.

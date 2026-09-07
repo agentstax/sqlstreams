@@ -5,6 +5,18 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-07 — Portable export validation and read health [0706]
+
+The OTel producer rejects conflicting or reserved metric families using the
+pinned upstream translator while exporting healthy families. Collection-local
+VK0102/VK0103 report source-read success and rejected measurement counts;
+VK0104 identifies rejected families without logging values or metadata.
+Review narrowed checks to export compatibility: core constructors own basic
+validity, and rejected families no longer block eligible families [0707].
+Targeted race and PostgreSQL tests passed for empty reads, partial rejection,
+source failure and recovery through ManualReader and Prometheus. Reader
+concurrency and shutdown checks remain in flight.
+
 ## 2026-09-07 — OTel SDK producer replacement [0705]
 
 Metrics.Produce reads current retained values through the core metrics

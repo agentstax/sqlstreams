@@ -199,13 +199,18 @@ rolled-back prototype are not implementation requirements.
   Metrics.Produce replaces registration/callbacks and cached topic identity.
   ManualReader and the convenience Prometheus exporter use WithProducer;
   the CLI startup check uses the existing core metrics read [0705].
-- [ ] Apply one portable family-validation policy using the upstream translator:
+- [x] Apply one portable family-validation policy using the upstream translator:
   conflicting name/kind/unit families, translated metric/attribute collisions,
   and reserved outputs. Export healthy families with current-collection rejection
   diagnostics; do not invent counter start times or freshness companions.
-- [ ] Return source-read health 1 for successful reads, including empty results;
+- [x] Return source-read health 1 for successful reads, including empty results;
   on failure return health 0 plus the error, without retained measurements or a
   rejection count. Keep collection bounded by context/timeout.
+  VK0102/VK0103 are collection-local gauges; VK0104 reports family rejection.
+  Targeted tests cover translation collisions among eligible families,
+  reserved outputs, empty reads, partial rejection, source failure and recovery
+  in ManualReader and Prometheus [0706] [0707]. Core constructors own basic
+  measurement validity. Lifecycle checks remain below.
 - [ ] Verify conversion, empty/error reads, naming conflicts, recovery after
   rejection, refreshed topic lookup, and concurrent collections in the nested
   OTel module. Update affected public references/examples with the API change.

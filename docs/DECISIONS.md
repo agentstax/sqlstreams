@@ -458,3 +458,5 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0703 2026-09-07 accepted (pre-v1) — Collector progress uses manager lease history
 - 0704 2026-09-07 accepted (pre-v1) — Alert snapshots expose existing evaluation
 - 0705 2026-09-07 accepted (pre-v1) — OTel readers collect from the producer
+- 0706 2026-09-07 superseded (pre-v1) — Portable export validation and read health
+- 0707 2026-09-07 accepted (pre-v1) — Export validation checks only export compatibility

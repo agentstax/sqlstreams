@@ -944,8 +944,9 @@ placeholder not in this table is a bug. (checked)
 | `error` | the error value itself (never `err`, never stringified first -- .Error() defeats diagnostic.DiagnosticError.LogValue) |
 | `code` | a declared log event's code (Event.GetCode()) |
 | `alert` | a built-in alert's name (Alert.Name) |
+| `metric_names` | original metric names omitted by an export collection |
 | `alert_message` | the alert's own message clause -- never `message`, which is the log record's own field |
-| `detail` | the alert's detail clause |
+| `detail` | the alert's detail clause or metric-family rejection reason |
 | `hint` | the alert's hint clause |
 | `severity` | the alert's severity |
 | `message` | a buffered record's own message, inside a `preceding` group attribute |

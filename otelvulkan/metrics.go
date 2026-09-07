@@ -6,17 +6,15 @@ package otelvulkan
 import (
 	"context"
 	"errors"
-	"time"
+	"maps"
+	"slices"
 
 	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/diagnostic"
 	"github.com/agentstax/vulkan/pkg/common/logging"
 	"github.com/agentstax/vulkan/pkg/datastore"
 	"github.com/agentstax/vulkan/pkg/metrics"
 	metricscontroller "github.com/agentstax/vulkan/pkg/metrics/controller"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/sdk/instrumentation"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 )
 
@@ -62,67 +60,40 @@ func NewMetrics(ctx context.Context, pool *pgxpool.Pool, cfg *MetricsConfig) (*M
 
 // Produce reads current retained measurements within CollectTimeout.
 // Readers own cadence and resources. Concurrent calls share no collection state.
-// Returns migrate.ErrNotRegistered before the system metrics topic exists.
+// Read errors accompany read-success 0, including migrate.ErrNotRegistered before setup.
+// Rejected families are reported without failing collection of healthy families.
 func (m *Metrics) Produce(ctx context.Context) ([]metricdata.ScopeMetrics, error) {
 	ctx, cancel := context.WithTimeout(ctx, m.Config.CollectTimeout)
 	defer cancel()
 
 	rows, err := m.measurements.ListMeasurements(ctx)
 	if err != nil {
-		return nil, err
+		return toCollection(nil, 0, false), err
 	}
-	return []metricdata.ScopeMetrics{{
-		Scope:   instrumentation.Scope{Name: meterScopeName},
-		Metrics: toMetrics(rows, time.Now()),
-	}}, nil
+
+	accepted := m.filterMeasurements(ctx, rows)
+	return toCollection(accepted, len(rows), true), nil
 }
 
-// ***************
-// *** HELPERS ***
-// ***************
-
-func toMetrics(rows []*common.StoredMessage[metrics.Measurement], current time.Time) []metricdata.Metrics {
-	positions := make(map[[3]string]int)
-	collected := make([]metricdata.Metrics, 0)
+func (m *Metrics) filterMeasurements(ctx context.Context, rows []*common.StoredMessage[metrics.Measurement]) []*common.StoredMessage[metrics.Measurement] {
+	// Group observations by the original name: validation accepts or rejects a whole family.
+	families := make(map[string][]*common.StoredMessage[metrics.Measurement])
 	for _, row := range rows {
-		measurement := row.Message
-		identity := [3]string{measurement.Name, string(measurement.Kind), string(measurement.Unit)}
-		position, found := positions[identity]
-		if !found {
-			position = len(collected)
-			positions[identity] = position
-			metric := metricdata.Metrics{Name: measurement.Name, Unit: string(measurement.Unit)}
-			if declared, found := diagnostic.GetMetric(measurement.Name); found {
-				metric.Description = declared.Description
-			}
-			collected = append(collected, metric)
-		}
-		point := metricdata.DataPoint[float64]{
-			Attributes: attribute.NewSet(toAttributes(measurement.Attributes)...),
-			Time:       current,
-			Value:      measurement.Value,
-		}
-		switch measurement.Kind {
-		case metrics.MetricKindCounter:
-			// Retained totals have no established start time; exporter startup is not a reset.
-			sum, _ := collected[position].Data.(metricdata.Sum[float64])
-			sum.Temporality = metricdata.CumulativeTemporality
-			sum.IsMonotonic = true
-			sum.DataPoints = append(sum.DataPoints, point)
-			collected[position].Data = sum
-		default:
-			gauge, _ := collected[position].Data.(metricdata.Gauge[float64])
-			gauge.DataPoints = append(gauge.DataPoints, point)
-			collected[position].Data = gauge
-		}
+		families[row.Message.Name] = append(families[row.Message.Name], row)
 	}
-	return collected
-}
+	rejected := rejectedFamilies(families)
 
-func toAttributes(attributes map[string]string) []attribute.KeyValue {
-	pairs := make([]attribute.KeyValue, 0, len(attributes))
-	for key, value := range attributes {
-		pairs = append(pairs, attribute.String(key, value))
+	// Keep valid families and report why the others were omitted.
+	accepted := make([]*common.StoredMessage[metrics.Measurement], 0, len(rows))
+	for _, name := range slices.Sorted(maps.Keys(families)) {
+		family := families[name]
+		if reason, found := rejected[name]; found {
+			m.Logger.WarnContext(ctx, metrics.EventMeasurementsCannotBeExported.Message(),
+				"code", metrics.EventMeasurementsCannotBeExported.GetCode(),
+				"metric_names", []string{name}, "detail", reason)
+			continue
+		}
+		accepted = append(accepted, family...)
 	}
-	return pairs
+	return accepted
 }

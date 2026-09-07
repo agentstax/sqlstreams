@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/prometheus/otlptranslator"
 	otelprometheus "go.opentelemetry.io/otel/exporters/prometheus"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 )
@@ -51,6 +52,7 @@ func NewExporter(ctx context.Context, pool *pgxpool.Pool, cfg *ExporterConfig) (
 		otelprometheus.WithRegisterer(registry),
 		otelprometheus.WithoutScopeInfo(),
 		otelprometheus.WithProducer(exporterMetrics),
+		otelprometheus.WithTranslationStrategy(otlptranslator.UnderscoreEscapingWithSuffixes),
 	)
 	if err != nil {
 		return nil, err
