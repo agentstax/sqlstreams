@@ -7,15 +7,15 @@ import (
 )
 
 // Report is String with each [expect] line extended by the columns in
-// beside, keyed by check -- "lost\t0\tactual 0\tPASS". A check with no
+// columns, keyed by check -- "lost\t0\tactual 0\tPASS". A check with no
 // entry prints as in String.
-func (s *Scenario) Report(beside map[Check]string) string {
+func (s *Scenario) Report(columns map[Check]string) string {
 	var out strings.Builder
 	fmt.Fprintf(&out, "# %s\n", s.Summary)
 	writeSection(&out, "[input]", s.inputLines())
 	writeSection(&out, "[shape]", s.producerLines())
 	writeSection(&out, "", s.consumerLines())
-	writeSection(&out, "[expect]", s.expectLines(beside))
+	writeSection(&out, "[expect]", s.expectLines(columns))
 	return out.String()
 }
 
@@ -43,12 +43,12 @@ func (s *Scenario) consumerLines() []string {
 	return lines
 }
 
-func (s *Scenario) expectLines(beside map[Check]string) []string {
+func (s *Scenario) expectLines(columns map[Check]string) []string {
 	lines := make([]string, 0, len(s.Expect))
 	for _, expectation := range s.Expect {
 		line := expectation.String()
-		if columns, ok := beside[expectation.Check]; ok {
-			line += "\t" + columns
+		if extra, ok := columns[expectation.Check]; ok {
+			line += "\t" + extra
 		}
 		lines = append(lines, line)
 	}

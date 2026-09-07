@@ -9,7 +9,7 @@ import (
 )
 
 // Scenario is one run's declaration: what is under test, what happens over
-// time, and what must be true at the end. The .scenario file beside each
+// time, and what must be true at the end. The .scenario file columns each
 // declaration is the same content for readers; String prints this exact
 // format and a test diffs the two, so the Go value is the one source.
 type Scenario struct {

@@ -13,9 +13,9 @@ import (
 type VerdictStatus string
 
 const (
-	VerdictPass    VerdictStatus = "pass"
-	VerdictFail    VerdictStatus = "fail"
-	VerdictUnknown VerdictStatus = "unknown"
+	VerdictStatusPass    VerdictStatus = "pass"
+	VerdictStatusFail    VerdictStatus = "fail"
+	VerdictStatusUnknown VerdictStatus = "unknown"
 )
 
 // Verdict is the record one checker run writes: what was judged, under what
@@ -32,7 +32,7 @@ type Verdict struct {
 	Produced          datastore.ProduceSummary `json:"produced"`
 	Handled           datastore.HandlerSummary `json:"handled"`
 	Checks            []CheckResult            `json:"checks"`
-	Phases            []record.Phase           `json:"phases"`
+	Phases            []record.PhaseRecord     `json:"phases"`
 }
 
 // RecordSummary counts the rows loaded from the record files, per kind.
@@ -46,9 +46,9 @@ type RecordSummary struct {
 // 2 unknown. The binary reserves 3 for a lab failure that left no verdict.
 func (v *Verdict) ExitCode() int {
 	switch v.Status {
-	case VerdictPass:
+	case VerdictStatusPass:
 		return 0
-	case VerdictFail:
+	case VerdictStatusFail:
 		return 1
 	}
 	return 2
@@ -59,29 +59,29 @@ func (v *Verdict) ExitCode() int {
 type CheckStatus string
 
 const (
-	CheckPassed   CheckStatus = "pass"
-	CheckFailed   CheckStatus = "fail"
-	CheckReported CheckStatus = "report"
+	CheckStatusPass   CheckStatus = "pass"
+	CheckStatusFail   CheckStatus = "fail"
+	CheckStatusReport CheckStatus = "report"
 )
 
 // CheckResult is one [expect] line judged: the expectation as declared, the
-// count the query returned, and up to witnessLimit examples of what it
-// counted -- Witness says whether they are keys or message ids.
+// count the query returned, and up to exampleLimit examples of what it
+// counted -- ExampleOf says whether they are keys or message ids.
 type CheckResult struct {
 	Check     scenario.Check `json:"check"`
 	Want      scenario.Want  `json:"want"`
 	Actual    int64          `json:"actual"`
 	Status    CheckStatus    `json:"status"`
-	Witness   string         `json:"witness"`
-	Witnesses []string       `json:"witnesses"`
+	ExampleOf string         `json:"example_of"`
+	Examples  []string       `json:"examples"`
 }
 
 func newCheckResult(expectation scenario.Expectation, measured datastore.Measurement) CheckResult {
-	status := CheckReported
+	status := CheckStatusReport
 	if expectation.Want == scenario.WantZero {
-		status = CheckPassed
+		status = CheckStatusPass
 		if measured.Count != 0 {
-			status = CheckFailed
+			status = CheckStatusFail
 		}
 	}
 	return CheckResult{
@@ -89,8 +89,8 @@ func newCheckResult(expectation scenario.Expectation, measured datastore.Measure
 		Want:      expectation.Want,
 		Actual:    measured.Count,
 		Status:    status,
-		Witness:   measured.Witness,
-		Witnesses: measured.Witnesses,
+		ExampleOf: measured.ExampleOf,
+		Examples:  measured.Examples,
 	}
 }
 
@@ -102,9 +102,9 @@ func newCheckResult(expectation scenario.Expectation, measured datastore.Measure
 // before the checks run.
 func statusOf(checks []CheckResult) VerdictStatus {
 	for _, check := range checks {
-		if check.Status == CheckFailed {
-			return VerdictFail
+		if check.Status == CheckStatusFail {
+			return VerdictStatusFail
 		}
 	}
-	return VerdictPass
+	return VerdictStatusPass
 }

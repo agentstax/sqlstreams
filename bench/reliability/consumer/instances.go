@@ -11,7 +11,7 @@ import (
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 )
 
-// Instances is the verifiable consumer instances one container runs, numbered
+// Instances is the consumer instances one container runs, numbered
 // c-1 upward. Each instance is its own Register and Consume session under its
 // own ctx, so a scale-down is a graceful stop of the highest-numbered ones.
 // The runner decides the count; Instances only moves to it.

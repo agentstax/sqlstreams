@@ -3,7 +3,7 @@ package checker
 // checker judges one finished run. The loaded records (package record) say
 // what the producers and handlers saw; vulkan's own tables say what the
 // library kept. Each declared expectation is one SQL join across the two,
-// returning a count and a few witnesses; the queries live in the datastore
+// returning a count and a few examples; the queries live in the datastore
 // subpackage, the judgment here. Design in decision record 0687.
 
 import (
@@ -64,10 +64,10 @@ func (c *Checker) Run(ctx context.Context) (*Verdict, error) {
 		StartedAt:     time.Now(),
 		VulkanVersion: common.BuildVersion(),
 		Checks:        []CheckResult{},
-		Phases:        []record.Phase{},
+		Phases:        []record.PhaseRecord{},
 	}
 	if err := c.judge(ctx, verdict); err != nil {
-		verdict.Status = VerdictUnknown
+		verdict.Status = VerdictStatusUnknown
 		verdict.Reason = err.Error()
 	}
 	verdict.Duration = time.Since(verdict.StartedAt)
@@ -79,7 +79,7 @@ func (c *Checker) judge(ctx context.Context, verdict *Verdict) error {
 	if err != nil {
 		return err
 	}
-	verdict.SynchronousCommit, err = c.ds.SynchronousCommit(ctx)
+	verdict.SynchronousCommit, err = c.ds.ReadSynchronousCommit(ctx)
 	if err != nil {
 		return err
 	}
@@ -95,7 +95,7 @@ func (c *Checker) judge(ctx context.Context, verdict *Verdict) error {
 	if err != nil {
 		return err
 	}
-	verdict.Produced, err = c.ds.ProduceSummary(ctx)
+	verdict.Produced, err = c.ds.ReadProduceSummary(ctx)
 	if err != nil {
 		return err
 	}
@@ -112,7 +112,7 @@ func (c *Checker) judge(ctx context.Context, verdict *Verdict) error {
 	if err != nil {
 		return err
 	}
-	verdict.Handled, err = c.ds.HandlerSummary(ctx)
+	verdict.Handled, err = c.ds.ReadHandlerSummary(ctx)
 	if err != nil {
 		return err
 	}
@@ -134,21 +134,21 @@ func (c *Checker) check(ctx context.Context, target datastore.Target, expectatio
 	var err error
 	switch expectation.Check {
 	case scenario.CheckLost:
-		measured, err = c.ds.Lost(ctx, target)
+		measured, err = c.ds.CountLost(ctx, target)
 	case scenario.CheckUnexpected:
-		measured, err = c.ds.Unexpected(ctx, target)
+		measured, err = c.ds.CountUnexpected(ctx, target)
 	case scenario.CheckRecovered:
-		measured, err = c.ds.Recovered(ctx, target)
+		measured, err = c.ds.CountRecovered(ctx, target)
 	case scenario.CheckUndelivered:
-		measured, err = c.ds.Undelivered(ctx, target)
+		measured, err = c.ds.CountUndelivered(ctx, target)
 	case scenario.CheckDuplicates:
-		measured, err = c.ds.Duplicates(ctx)
+		measured, err = c.ds.CountDuplicates(ctx)
 	case scenario.CheckUnbucketed:
-		measured, err = c.ds.Unbucketed(ctx, target)
+		measured, err = c.ds.CountUnbucketed(ctx, target)
 	case scenario.CheckReclaims:
-		measured, err = c.ds.Reclaims(ctx, target)
+		measured, err = c.ds.CountReclaims(ctx, target)
 	case scenario.CheckDead:
-		measured, err = c.ds.Dead(ctx, target)
+		measured, err = c.ds.CountDead(ctx, target)
 	}
 	if err != nil {
 		return CheckResult{}, err

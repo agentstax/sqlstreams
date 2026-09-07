@@ -11,15 +11,15 @@ import (
 
 func TestWriterAppendsOneLinePerRow(t *testing.T) {
 	dir := t.TempDir()
-	writer, err := NewWriter(dir, "p-1", FileProduce)
+	writer, err := NewWriter(dir, "p-1", FileKindProduce)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	at := time.Date(2026, 9, 6, 12, 0, 0, 0, time.UTC)
-	rows := []Produce{
-		{At: at, Kind: ProduceAttempted, Producer: "p-1", Seq: 1, Key: "p-1-1", ScheduledAt: at},
-		{At: at, Kind: ProduceCommitted, Producer: "p-1", Seq: 1, Key: "p-1-1", ScheduledAt: at, MessageId: 118402},
+	rows := []ProduceRecord{
+		{At: at, Kind: ProduceKindAttempted, Producer: "p-1", Sequence: 1, Key: "p-1-1", ScheduledAt: at},
+		{At: at, Kind: ProduceKindCommitted, Producer: "p-1", Sequence: 1, Key: "p-1-1", ScheduledAt: at, MessageId: 118402},
 	}
 	for _, row := range rows {
 		if err := writer.Write(row); err != nil {
@@ -40,7 +40,7 @@ func TestWriterAppendsOneLinePerRow(t *testing.T) {
 		if !lines.Scan() {
 			t.Fatalf("line %d is missing", i)
 		}
-		var got Produce
+		var got ProduceRecord
 		if err := json.Unmarshal(lines.Bytes(), &got); err != nil {
 			t.Fatalf("line %d: %v", i, err)
 		}
@@ -59,11 +59,11 @@ func TestWriterAppendsOneLinePerRow(t *testing.T) {
 func TestWriterReopensForAppend(t *testing.T) {
 	dir := t.TempDir()
 	for range 2 {
-		writer, err := NewWriter(dir, "c-1", FileHandler)
+		writer, err := NewWriter(dir, "c-1", FileKindHandler)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := writer.Write(Handler{Consumer: "c-1", Outcome: HandlerSuccess}); err != nil {
+		if err := writer.Write(HandlerRecord{Consumer: "c-1", Outcome: HandlerOutcomeSuccess}); err != nil {
 			t.Fatal(err)
 		}
 		if err := writer.Close(); err != nil {

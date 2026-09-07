@@ -6,8 +6,8 @@ import (
 )
 
 func TestLineSourceDecodesEveryLine(t *testing.T) {
-	lines := strings.NewReader(`{"at":"2026-09-06T12:00:00Z","kind":"attempted","producer":"p-1","seq":1,"key":"p-1-1","scheduled_at":"2026-09-06T12:00:00Z","message_id":0,"duplicate":false,"code":"","error":""}
-{"at":"2026-09-06T12:00:00Z","kind":"committed","producer":"p-1","seq":1,"key":"p-1-1","scheduled_at":"2026-09-06T12:00:00Z","message_id":7,"duplicate":false,"code":"","error":""}
+	lines := strings.NewReader(`{"at":"2026-09-06T12:00:00Z","kind":"attempted","producer":"p-1","sequence":1,"key":"p-1-1","scheduled_at":"2026-09-06T12:00:00Z","message_id":0,"duplicate":false,"code":"","error":""}
+{"at":"2026-09-06T12:00:00Z","kind":"committed","producer":"p-1","sequence":1,"key":"p-1-1","scheduled_at":"2026-09-06T12:00:00Z","message_id":7,"duplicate":false,"code":"","error":""}
 `)
 	source := newLineSource(lines, produceLayout.decode)
 

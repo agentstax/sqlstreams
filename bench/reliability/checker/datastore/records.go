@@ -19,15 +19,15 @@ import (
 const labSchema = "lab"
 
 const (
-	produceTable = "produce_ledger"
-	handlerTable = "handler_ledger"
+	produceTable = "produce_record"
+	handlerTable = "handler_record"
 	phaseTable   = "run_phase"
 )
 
 // the same tables, qualified for the check queries
 var (
-	produceLedger = labSchema + "." + produceTable
-	handlerLedger = labSchema + "." + handlerTable
+	produceRecord = labSchema + "." + produceTable
+	handlerRecord = labSchema + "." + handlerTable
 	runPhase      = labSchema + "." + phaseTable
 )
 
@@ -44,24 +44,24 @@ type tableLayout struct {
 }
 
 var produceLayout = tableLayout{
-	kind:    record.FileProduce,
+	kind:    record.FileKindProduce,
 	table:   produceTable,
-	columns: []string{"at", "kind", "producer", "seq", "key", "scheduled_at", "message_id", "duplicate", "code", "error"},
+	columns: []string{"at", "kind", "producer", "sequence", "key", "scheduled_at", "message_id", "duplicate", "code", "error"},
 	decode: func(line []byte) ([]any, error) {
-		var row record.Produce
+		var row record.ProduceRecord
 		if err := json.Unmarshal(line, &row); err != nil {
 			return nil, err
 		}
-		return []any{row.At, string(row.Kind), row.Producer, row.Seq, row.Key, row.ScheduledAt, row.MessageId, row.Duplicate, row.Code, row.Error}, nil
+		return []any{row.At, string(row.Kind), row.Producer, row.Sequence, row.Key, row.ScheduledAt, row.MessageId, row.Duplicate, row.Code, row.Error}, nil
 	},
 }
 
 var handlerLayout = tableLayout{
-	kind:    record.FileHandler,
+	kind:    record.FileKindHandler,
 	table:   handlerTable,
 	columns: []string{"at", "consumer", "group", "message_id", "key", "attempt", "outcome"},
 	decode: func(line []byte) ([]any, error) {
-		var row record.Handler
+		var row record.HandlerRecord
 		if err := json.Unmarshal(line, &row); err != nil {
 			return nil, err
 		}
@@ -70,11 +70,11 @@ var handlerLayout = tableLayout{
 }
 
 var phaseLayout = tableLayout{
-	kind:    record.FilePhase,
+	kind:    record.FileKindPhase,
 	table:   phaseTable,
 	columns: []string{"at", "process", "kind", "name", "status", "detail"},
 	decode: func(line []byte) ([]any, error) {
-		var row record.Phase
+		var row record.PhaseRecord
 		if err := json.Unmarshal(line, &row); err != nil {
 			return nil, err
 		}
@@ -137,8 +137,8 @@ func (d *CheckerDatastore) CreateTables(ctx context.Context) error {
 			at           TIMESTAMPTZ NOT NULL,
 			kind         TEXT NOT NULL,           -- 'attempted' | 'committed' | 'rejected' | 'unknown'
 			producer     TEXT NOT NULL,
-			seq          BIGINT NOT NULL,
-			key          TEXT NOT NULL,           -- '<producer>-<seq>', the idempotency key
+			sequence          BIGINT NOT NULL,
+			key          TEXT NOT NULL,           -- '<producer>-<sequence>', the idempotency key
 			scheduled_at TIMESTAMPTZ NOT NULL,
 			message_id   BIGINT NOT NULL,         -- 0 unless committed
 			duplicate    BOOLEAN NOT NULL,

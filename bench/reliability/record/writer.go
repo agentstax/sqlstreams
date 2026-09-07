@@ -14,9 +14,9 @@ import (
 type FileKind string
 
 const (
-	FileProduce FileKind = "produce"
-	FileHandler FileKind = "handler"
-	FilePhase   FileKind = "phase"
+	FileKindProduce FileKind = "produce"
+	FileKindHandler FileKind = "handler"
+	FileKindPhase   FileKind = "phase"
 )
 
 // Writer appends one JSON object per line to a role's record file and

@@ -17,7 +17,7 @@ const (
 	reportFile  = "report.scenario"
 )
 
-// WriteResults writes the verdict as JSON and the report beside it under
+// WriteResults writes the verdict as JSON and the report columns it under
 // <dir>/<scenario>/<started at>/ and returns that directory.
 func WriteResults(dir string, declared *scenario.Scenario, verdict *Verdict) (string, error) {
 	runDir := filepath.Join(dir, declared.Name, verdict.StartedAt.UTC().Format("20060102T150405Z"))
@@ -38,16 +38,16 @@ func WriteResults(dir string, declared *scenario.Scenario, verdict *Verdict) (st
 	return runDir, nil
 }
 
-// Report is the scenario printed back with each expectation's actual beside
+// Report is the scenario printed back with each expectation's actual columns
 // it, then the produce and handler totals and the verdict line.
 func Report(declared *scenario.Scenario, verdict *Verdict) string {
-	beside := map[scenario.Check]string{}
+	columns := map[scenario.Check]string{}
 	for _, check := range verdict.Checks {
-		beside[check.Check] = check.Beside()
+		columns[check.Check] = check.ReportColumns()
 	}
 
 	var out strings.Builder
-	out.WriteString(declared.Report(beside))
+	out.WriteString(declared.Report(columns))
 	out.WriteString("\n")
 	table := tabwriter.NewWriter(&out, 0, 0, 4, ' ', 0)
 	fmt.Fprintf(table, "records\t%d produce, %d handler, %d phase rows\n", verdict.Records.Produce, verdict.Records.Handler, verdict.Records.Phase)
@@ -59,19 +59,19 @@ func Report(declared *scenario.Scenario, verdict *Verdict) string {
 	return out.String()
 }
 
-// Beside is the report's columns after the declared line, tab-separated:
-// the actual, then PASS or FAIL for a want of 0, then the witnesses of a
+// ReportColumns is the report's columns after the declared line, tab-separated:
+// the actual, then PASS or FAIL for a want of 0, then the examples of a
 // non-zero count.
-func (r CheckResult) Beside() string {
+func (r CheckResult) ReportColumns() string {
 	columns := []string{fmt.Sprintf("actual %d", r.Actual)}
 	switch r.Status {
-	case CheckPassed:
+	case CheckStatusPass:
 		columns = append(columns, "PASS")
-	case CheckFailed:
+	case CheckStatusFail:
 		columns = append(columns, "FAIL")
 	}
-	if len(r.Witnesses) > 0 {
-		columns = append(columns, r.Witness+" "+strings.Join(r.Witnesses, ", "))
+	if len(r.Examples) > 0 {
+		columns = append(columns, r.ExampleOf+" "+strings.Join(r.Examples, ", "))
 	}
 	return strings.Join(columns, "\t")
 }

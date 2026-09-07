@@ -24,7 +24,7 @@ func NewCheckerDatastore(pool *pgxpool.Pool) (*CheckerDatastore, error) {
 
 // SynchronousCommit is the server setting the verdict records: a run with
 // it off proves less about durability than one with it on.
-func (d *CheckerDatastore) SynchronousCommit(ctx context.Context) (string, error) {
+func (d *CheckerDatastore) ReadSynchronousCommit(ctx context.Context) (string, error) {
 	var setting string
 	err := d.pool.QueryRow(ctx, "SHOW synchronous_commit;").Scan(&setting)
 	return setting, err

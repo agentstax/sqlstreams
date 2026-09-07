@@ -24,12 +24,12 @@ func (r *Runner) RunConsumer(ctx context.Context) error {
 		return err
 	}
 
-	handlerRecords, err := r.openWriter(record.FileHandler)
+	handlerRecords, err := r.openWriter(record.FileKindHandler)
 	if err != nil {
 		return err
 	}
 	defer handlerRecords.Close()
-	phaseRecords, err := r.openWriter(record.FilePhase)
+	phaseRecords, err := r.openWriter(record.FileKindPhase)
 	if err != nil {
 		return err
 	}
@@ -63,7 +63,7 @@ func (r *Runner) RunConsumer(ctx context.Context) error {
 func (r *Runner) writeConsumerPhase(phaseRecords *record.Writer, change scenario.ConsumerChange) error {
 	name := fmt.Sprintf("consumers %d", change.Instances)
 	detail := strings.Join(strings.Fields(change.String()), " ")
-	return r.writePhase(phaseRecords, record.PhaseConsumers, name, record.PhaseStarted, detail)
+	return r.writePhase(phaseRecords, record.PhaseKindConsumers, name, record.PhaseStatusStarted, detail)
 }
 
 // ***************

@@ -8,7 +8,7 @@ import (
 )
 
 // ReadPhases returns the run_phase rows in time order.
-func (d *CheckerDatastore) ReadPhases(ctx context.Context) ([]record.Phase, error) {
+func (d *CheckerDatastore) ReadPhases(ctx context.Context) ([]record.PhaseRecord, error) {
 	phasesSql := fmt.Sprintf(`
 		-- lab: datastore.ReadPhases
 		SELECT
@@ -27,9 +27,9 @@ func (d *CheckerDatastore) ReadPhases(ctx context.Context) ([]record.Phase, erro
 	}
 	defer rows.Close()
 
-	phases := []record.Phase{}
+	phases := []record.PhaseRecord{}
 	for rows.Next() {
-		var phase record.Phase
+		var phase record.PhaseRecord
 		if err := rows.Scan(&phase.At, &phase.Process, &phase.Kind, &phase.Name, &phase.Status, &phase.Detail); err != nil {
 			return nil, err
 		}

@@ -12,7 +12,7 @@ import (
 
 // Runner runs one role of one scenario: it registers what the scenario
 // declares, walks the scenario's timeline, writes the run_phase rows, and
-// drives the verifiable producer or consumer instances at the moments the
+// drives the recording producer or consumer instances at the moments the
 // timeline says. The producer and consumer packages never see the timeline.
 type Runner struct {
 	declared   *scenario.Scenario
@@ -42,7 +42,7 @@ func (r *Runner) openWriter(kind record.FileKind) (*record.Writer, error) {
 }
 
 func (r *Runner) writePhase(phaseRecords *record.Writer, kind record.PhaseKind, name string, status record.PhaseStatus, detail string) error {
-	return phaseRecords.Write(record.Phase{
+	return phaseRecords.Write(record.PhaseRecord{
 		At:      time.Now(),
 		Process: r.name,
 		Kind:    kind,

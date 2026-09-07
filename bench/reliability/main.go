@@ -24,7 +24,7 @@ import (
 )
 
 // exitLabFailure is the one exit code that is not a verdict: connection,
-// flags, or record files failed before or beside any judging.
+// flags, or record files failed before or columns any judging.
 const exitLabFailure = 3
 
 func main() {

@@ -2,28 +2,28 @@ package datastore
 
 import "context"
 
-// witnessLimit is how many example ids or keys a check keeps beside its
+// exampleLimit is how many example ids or keys a check keeps columns its
 // count: enough to look up, few enough to print on one line.
-const witnessLimit = 5
+const exampleLimit = 5
 
-// witness labels: what a check's example values are
+// example labels: what a check's example values are
 const (
-	witnessKey       = "key"
-	witnessMessageId = "message_id"
+	exampleKey       = "key"
+	exampleMessageId = "message_id"
 )
 
 // Measurement is what every check query returns: how many rows matched and
-// the first few, as text, so the report can name them -- Witness says
+// the first few, as text, so the report can name them -- ExampleOf says
 // whether they are keys or message ids.
 type Measurement struct {
 	Count     int64
-	Witness   string
-	Witnesses []string
+	ExampleOf string
+	Examples  []string
 }
 
-// measure runs a check query shaped `SELECT count(*), <array of witnesses>`.
-func (d *CheckerDatastore) measure(ctx context.Context, witness string, sql string, args ...any) (Measurement, error) {
-	measured := Measurement{Witness: witness}
-	err := d.pool.QueryRow(ctx, sql, args...).Scan(&measured.Count, &measured.Witnesses)
+// measure runs a check query shaped `SELECT count(*), <array of examples>`.
+func (d *CheckerDatastore) measure(ctx context.Context, exampleOf string, sql string, args ...any) (Measurement, error) {
+	measured := Measurement{ExampleOf: exampleOf}
+	err := d.pool.QueryRow(ctx, sql, args...).Scan(&measured.Count, &measured.Examples)
 	return measured, err
 }

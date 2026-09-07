@@ -7,20 +7,20 @@ import "time"
 type ProduceKind string
 
 const (
-	ProduceAttempted ProduceKind = "attempted"
-	ProduceCommitted ProduceKind = "committed"
-	ProduceRejected  ProduceKind = "rejected"
-	ProduceUnknown   ProduceKind = "unknown" // the reply was lost: the row may or may not exist
+	ProduceKindAttempted ProduceKind = "attempted"
+	ProduceKindCommitted ProduceKind = "committed"
+	ProduceKindRejected  ProduceKind = "rejected"
+	ProduceKindUnknown   ProduceKind = "unknown" // the reply was lost: the row may or may not exist
 )
 
-// Produce is one row of produce_ledger. Only committed rows carry a
+// ProduceRecord is one row of produce_record. Only committed rows carry a
 // MessageId; only rejected rows carry a Code; rejected and unknown rows carry
 // the Error text.
-type Produce struct {
+type ProduceRecord struct {
 	At          time.Time   `json:"at"`
 	Kind        ProduceKind `json:"kind"`
 	Producer    string      `json:"producer"`
-	Seq         int64       `json:"seq"`
+	Sequence    int64       `json:"sequence"`
 	Key         string      `json:"key"`
 	ScheduledAt time.Time   `json:"scheduled_at"`
 	MessageId   int64       `json:"message_id"` // 0 unless committed

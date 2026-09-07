@@ -1,7 +1,7 @@
 package scenarios
 
 // The declared scenarios, one file each (<name>_scenario.go); the .scenario
-// file beside each is its printed form, kept in step by the test here.
+// file columns each is its printed form, kept in step by the test here.
 
 import (
 	"strings"

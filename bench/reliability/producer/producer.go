@@ -11,14 +11,14 @@ import (
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 )
 
-// Producer is the verifiable producer: every Produce writes its attempt to
+// Producer is the producer that writes a record per call: every Produce writes its attempt to
 // the records, calls the library once, and writes what came back. It knows
 // nothing of phases or rates; the runner decides when it is called.
 type Producer struct {
 	instance *vulkan.ProducerInstance[common.Order]
 	writer   *record.Writer
 	name     string
-	seq      atomic.Int64
+	sequence atomic.Int64
 }
 
 func NewProducer(instance *vulkan.ProducerInstance[common.Order], writer *record.Writer, name string) (*Producer, error) {
@@ -38,12 +38,12 @@ func NewProducer(instance *vulkan.ProducerInstance[common.Order], writer *record
 // the outcome, so a process killed in between leaves the attempt on disk.
 // A record write failing is a lab failure, never a produce outcome.
 func (p *Producer) Produce(ctx context.Context, scheduled time.Time) error {
-	order := &common.Order{Producer: p.name, Seq: p.seq.Add(1)}
-	row := record.Produce{
+	order := &common.Order{Producer: p.name, Sequence: p.sequence.Add(1)}
+	row := record.ProduceRecord{
 		At:          time.Now(),
-		Kind:        record.ProduceAttempted,
+		Kind:        record.ProduceKindAttempted,
 		Producer:    order.Producer,
-		Seq:         order.Seq,
+		Sequence:    order.Sequence,
 		Key:         order.Key(),
 		ScheduledAt: scheduled,
 	}
@@ -54,7 +54,7 @@ func (p *Producer) Produce(ctx context.Context, scheduled time.Time) error {
 	result, err := p.instance.Produce(ctx, order, &vulkan.ProduceOptions{IdempotencyKey: order.Key()})
 	row.At = time.Now()
 	if err == nil {
-		row.Kind = record.ProduceCommitted
+		row.Kind = record.ProduceKindCommitted
 		row.MessageId = result.Id
 		row.Duplicate = result.Duplicate
 	} else {

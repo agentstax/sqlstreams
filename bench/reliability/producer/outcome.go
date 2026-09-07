@@ -15,10 +15,10 @@ import (
 // unknown: the row may or may not exist, and the checker finds out.
 func classify(err error) (record.ProduceKind, string) {
 	if errors.Is(err, common.ErrCommitConfirmationLost) {
-		return record.ProduceUnknown, ""
+		return record.ProduceKindUnknown, ""
 	}
 	if declared, ok := errors.AsType[*diagnostic.DiagnosticError](err); ok {
-		return record.ProduceRejected, declared.GetCode()
+		return record.ProduceKindRejected, declared.GetCode()
 	}
-	return record.ProduceUnknown, ""
+	return record.ProduceKindUnknown, ""
 }

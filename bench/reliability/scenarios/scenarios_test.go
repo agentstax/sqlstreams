@@ -6,7 +6,7 @@ import (
 )
 
 // Every declared scenario validates, and its printed form matches the
-// .scenario file beside it byte for byte. A stale file fails here; the fix is
+// .scenario file columns it byte for byte. A stale file fails here; the fix is
 // to regenerate it with `go run . -scenario <name> > scenarios/<name>.scenario`
 // from bench/reliability after reviewing the diff.
 func TestDeclarationsMatchTheirFiles(t *testing.T) {

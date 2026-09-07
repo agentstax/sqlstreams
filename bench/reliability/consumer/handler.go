@@ -48,11 +48,11 @@ func (h *Handler) Handle(ctx context.Context, order *common.Order) error {
 		return errors.New("message meta is missing from the handler ctx")
 	}
 
-	outcome := record.HandlerSuccess
+	outcome := record.HandlerOutcomeSuccess
 	if h.failRate > 0 && rand.Float64() < h.failRate {
-		outcome = record.HandlerError
+		outcome = record.HandlerOutcomeError
 	}
-	row := record.Handler{
+	row := record.HandlerRecord{
 		At:        time.Now(),
 		Consumer:  h.consumer,
 		Group:     h.group,
@@ -64,7 +64,7 @@ func (h *Handler) Handle(ctx context.Context, order *common.Order) error {
 	if err := h.writer.Write(row); err != nil {
 		return err
 	}
-	if outcome == record.HandlerError {
+	if outcome == record.HandlerOutcomeError {
 		return errInjectedFailure
 	}
 	return nil

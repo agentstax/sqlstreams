@@ -15,7 +15,7 @@ import (
 const inFlightLimit = 256
 
 // RunProducer registers, then walks the producer phases in order, pacing
-// the verifiable producer at each phase's rate. Returns when the last phase
+// the recording producer at each phase's rate. Returns when the last phase
 // ends, or nil early when ctx is cancelled -- produces still in flight then
 // land in the records as unknown.
 func (r *Runner) RunProducer(ctx context.Context) error {
@@ -28,44 +28,44 @@ func (r *Runner) RunProducer(ctx context.Context) error {
 		return err
 	}
 
-	produceRecords, err := r.openWriter(record.FileProduce)
+	produceRecords, err := r.openWriter(record.FileKindProduce)
 	if err != nil {
 		return err
 	}
 	defer produceRecords.Close()
-	phaseRecords, err := r.openWriter(record.FilePhase)
+	phaseRecords, err := r.openWriter(record.FileKindPhase)
 	if err != nil {
 		return err
 	}
 	defer phaseRecords.Close()
-	verifiable, err := producer.NewProducer(instance, produceRecords, r.name)
+	recordingProducer, err := producer.NewProducer(instance, produceRecords, r.name)
 	if err != nil {
 		return err
 	}
 
 	for _, phase := range r.declared.Producer {
-		if err := r.runProducerPhase(ctx, phase, verifiable, phaseRecords); err != nil {
+		if err := r.runProducerPhase(ctx, phase, recordingProducer, phaseRecords); err != nil {
 			return ignoreCancellation(err)
 		}
 	}
 	return nil
 }
 
-func (r *Runner) runProducerPhase(ctx context.Context, phase scenario.ProducerPhase, verifiable *producer.Producer, phaseRecords *record.Writer) error {
+func (r *Runner) runProducerPhase(ctx context.Context, phase scenario.ProducerPhase, recordingProducer *producer.Producer, phaseRecords *record.Writer) error {
 	pacer, err := NewPacer(phase.Rate, phase.Duration, inFlightLimit)
 	if err != nil {
 		return err
 	}
 
-	if err := r.writePhase(phaseRecords, record.PhaseProducer, phase.Name, record.PhaseStarted, phase.String()); err != nil {
+	if err := r.writePhase(phaseRecords, record.PhaseKindProducer, phase.Name, record.PhaseStatusStarted, phase.String()); err != nil {
 		return err
 	}
 	runErr := pacer.Run(ctx, func(ctx context.Context, scheduled time.Time) {
-		if err := verifiable.Produce(ctx, scheduled); err != nil {
+		if err := recordingProducer.Produce(ctx, scheduled); err != nil {
 			panic(fmt.Errorf("record write: %w", err))
 		}
 	})
-	if err := r.writePhase(phaseRecords, record.PhaseProducer, phase.Name, record.PhaseEnded, phase.String()); err != nil {
+	if err := r.writePhase(phaseRecords, record.PhaseKindProducer, phase.Name, record.PhaseStatusEnded, phase.String()); err != nil {
 		return err
 	}
 	return runErr

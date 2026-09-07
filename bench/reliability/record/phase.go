@@ -5,22 +5,22 @@ import "time"
 type PhaseKind string
 
 const (
-	PhaseProducer  PhaseKind = "producer"
-	PhaseConsumers PhaseKind = "consumers"
+	PhaseKindProducer  PhaseKind = "producer"
+	PhaseKindConsumers PhaseKind = "consumers"
 )
 
 type PhaseStatus string
 
 const (
-	PhaseStarted PhaseStatus = "started"
-	PhaseEnded   PhaseStatus = "ended"
+	PhaseStatusStarted PhaseStatus = "started"
+	PhaseStatusEnded   PhaseStatus = "ended"
 )
 
-// Phase is one row of run_phase: a timeline edge the checker uses to
+// PhaseRecord is one row of run_phase: a timeline edge the checker uses to
 // attribute what it counts to the window it happened in. Process is the
 // name of the process that wrote it; Detail is the phase's own line from
 // the scenario ("steady 200/s 10m", "consumers 3").
-type Phase struct {
+type PhaseRecord struct {
 	At      time.Time   `json:"at"`
 	Process string      `json:"process"`
 	Kind    PhaseKind   `json:"kind"`

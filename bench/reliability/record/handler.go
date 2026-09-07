@@ -5,13 +5,13 @@ import "time"
 type HandlerOutcome string
 
 const (
-	HandlerSuccess HandlerOutcome = "success"
-	HandlerError   HandlerOutcome = "error"
+	HandlerOutcomeSuccess HandlerOutcome = "success"
+	HandlerOutcomeError   HandlerOutcome = "error"
 )
 
-// Handler is one row of handler_ledger: one handler invocation, written
+// HandlerRecord is one row of handler_record: one handler invocation, written
 // before the handler returns so a crash after it still leaves the row.
-type Handler struct {
+type HandlerRecord struct {
 	At        time.Time      `json:"at"`
 	Consumer  string         `json:"consumer"`
 	Group     string         `json:"group"`
