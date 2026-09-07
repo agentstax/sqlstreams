@@ -123,8 +123,11 @@ framework or backlog alert.
 
 ## Proposed: observe collector progress independently
 
-The collector would record completion only after the whole pass succeeds.
-An independent scheduled check records which completion it can see, including
+The collector records completion only after the whole pass succeeds. Read it
+through `System().Metrics().CollectorCompletedTimestamp()`. This completion
+measurement is implemented; independent observations and alerting remain proposed.
+
+An independent scheduled check would record which completion it can see, including
 explicit absent evidence. Use attribute-free gauges in `__system.metrics`,
 with unit `s` and Unix-second values:
 
@@ -133,7 +136,7 @@ with unit `s` and Unix-second values:
 | `vulkan.metrics.collector.completed_timestamp` | Full-pass completion timestamp | When completion was recorded |
 | `vulkan.metrics.collector.observed_completion_timestamp` | Last completion seen, or 0 for no retained completion | When the independent read happened |
 
-Completion follows all reads and writes, including concurrent topic work;
+Completion follows all collection reads and writes, including concurrent topic work;
 partial passes and uncommitted completion writes cannot establish success.
 Startup never refreshes it. Completion timestamps must be positive; 0 in the
 observation series means absent evidence and is unhealthy, not a read error.

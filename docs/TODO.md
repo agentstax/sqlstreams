@@ -154,9 +154,12 @@ rolled-back prototype are not implementation requirements.
   topic/group ownership, healthy zero samples, and all three schedule configs.
   OTel's existing integration test now asserts metadata is not exported; it
   remains database-gated. No labs or compatibility runs during this change.
-- [ ] Record full-pass collector completion after all writes succeed; startup
-  and partial passes do not refresh it. Add independent scheduled progress
-  observations and use the same Record/classify path, with no extra runner.
+- [x] Record full-pass collector completion after all writes succeed; startup
+  and partial passes do not refresh it. The final measurement uses the existing
+  produce path and rank-zero compaction. VK0100 and the system metric selector
+  expose the completion timestamp. Database failure-path checks remain deferred.
+- [ ] Add independent scheduled progress observations and use the same
+  Record/classify path, with no extra runner.
 - [ ] Verify each adaptation's real worker, diagnostics, restart behavior, and
   repeat/recovery semantics with targeted checks and affected labs.
 - [ ] After all three existing alerts support pending, add the approved

@@ -40,7 +40,7 @@ func (k MetricKind) Validate() error {
 // label only. "" is no unit.
 type MetricUnit string
 
-const MetricUnitMilliseconds MetricUnit = "ms" // the one dimensioned unit the built-ins use
+const MetricUnitMilliseconds MetricUnit = "ms" // milliseconds in UCUM
 
 // MetricUnitCount is the UCUM annotation for a dimensionless count of noun.
 // Ex: MetricUnitCount("worker") -> "{worker}"

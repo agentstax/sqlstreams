@@ -48,6 +48,11 @@ func (s *SystemMetricsHandle) Metric(name string, attributes map[string]string) 
 	return newMetricHandle(s.client, declared, name, attributes)
 }
 
+// CollectorCompletedTimestamp selects the last full metrics collection's Unix timestamp in seconds.
+func (s *SystemMetricsHandle) CollectorCompletedTimestamp() *MetricHandle {
+	return s.metric(metrics.MetricCollectorCompletedTimestamp, nil)
+}
+
 // UnclaimedWorkers selects the system's unclaimed-worker series.
 func (s *SystemMetricsHandle) UnclaimedWorkers() *MetricHandle {
 	return s.metric(metrics.MetricUnclaimedWorkers, nil)

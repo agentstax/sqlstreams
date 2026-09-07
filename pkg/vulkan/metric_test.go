@@ -19,6 +19,7 @@ func TestMetricSelectorsCoverResourceScopedCatalog(t *testing.T) {
 		declared   *diagnostic.DiagnosticMetric
 		attributes map[string]string
 	}{
+		{"CollectorCompletedTimestamp", systemMetrics.CollectorCompletedTimestamp(), metrics.MetricCollectorCompletedTimestamp, nil},
 		{"UnclaimedWorkers", systemMetrics.UnclaimedWorkers(), metrics.MetricUnclaimedWorkers, nil},
 		{"OldestUnclaimedAge", systemMetrics.OldestUnclaimedAge(), metrics.MetricOldestUnclaimedAge, nil},
 		{"FailingWorkers", systemMetrics.FailingWorkers(), metrics.MetricFailingWorkers, nil},

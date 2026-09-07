@@ -100,7 +100,17 @@ func (i *MetricsCollectorInstance) collect(ctx context.Context) error {
 	if err := i.collectAlerts(ctx); err != nil {
 		return err
 	}
-	return i.collectTopics(ctx, workers)
+	if err := i.collectTopics(ctx, workers); err != nil {
+		return err
+	}
+
+	// Completion follows every collection write, including concurrent topic work.
+	at := time.Now()
+	measurement, err := metrics.NewBuiltInMeasurement(metrics.MetricCollectorCompletedTimestamp, float64(at.Unix()), nil, at)
+	if err != nil {
+		return err
+	}
+	return i.produceMeasurement(ctx, measurement)
 }
 
 func (i *MetricsCollectorInstance) collectWorkers(ctx context.Context, workers []metrics.WorkerSnapshot) error {

@@ -34,6 +34,8 @@ roadmap later item for review code for interesting design decisions to write art
 
 # Review
 
+cleanup any stray binaries and try to update gitignore for them
+
 ## Manual
 
 Probably should have one more table name and column review (this will be hard to change later)

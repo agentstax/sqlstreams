@@ -126,6 +126,23 @@ func TestNewBuiltInMeasurementUsesDeclaration(t *testing.T) {
 	}
 }
 
+func TestCollectorCompletionMeasurement(t *testing.T) {
+	at := time.Date(2026, 9, 7, 10, 2, 0, 0, time.UTC)
+	measurement, err := NewBuiltInMeasurement(MetricCollectorCompletedTimestamp, float64(at.Unix()), nil, at)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if measurement.Name != "vulkan.metrics.collector.completed_timestamp" || measurement.Kind != MetricKindGauge || measurement.Unit != "s" {
+		t.Fatalf("completion metric = %+v", measurement)
+	}
+	if measurement.Value != float64(at.Unix()) || measurement.At != at || len(measurement.Attributes) != 0 {
+		t.Fatalf("completion observation = %+v", measurement)
+	}
+	if MeasurementKey(measurement.Name, measurement.Attributes) != measurement.Name {
+		t.Fatal("completion must use one attribute-free series")
+	}
+}
+
 func TestNewBuiltInMeasurementRejectsWrongAttributeKeys(t *testing.T) {
 	at := time.Now()
 	tests := []struct {

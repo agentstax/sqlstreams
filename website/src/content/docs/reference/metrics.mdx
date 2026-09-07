@@ -58,6 +58,7 @@ The built-in selectors, one per declared metric:
 
 ```go
 // system levels
+systemMetrics.CollectorCompletedTimestamp()
 systemMetrics.UnclaimedWorkers()
 systemMetrics.OldestUnclaimedAge()
 systemMetrics.FailingWorkers()
@@ -113,6 +114,13 @@ seconds by default with jitter; the rate is
 `SystemConfig.MetricsCollector.PollRate` ([System](/reference/system/)).
 Consumer-session series have no typed handle yet and are read through
 `Metric(name, attributes)`.
+
+`CollectorCompletedTimestamp()` selects the Unix-second timestamp recorded
+after every read and measurement write in a collector pass succeeds.
+Startup and partial passes do not refresh it. No retained value means no
+retained completion evidence, not a timestamp of zero. The independent
+[collector-progress alert](/concepts/metrics-export/#proposed-observe-collector-progress-independently)
+remains proposed.
 
 ## Your own measurements
 
