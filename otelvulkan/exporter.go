@@ -72,7 +72,9 @@ func (e *Exporter) Handler() http.Handler {
 	return promhttp.HandlerFor(e.registry, promhttp.HandlerOpts{})
 }
 
-// Close shuts the meter provider down; the registry stops receiving updates.
+// Close shuts down the private meter provider, not the HTTP server or caller's pool.
+// In-flight scrapes can finish after Close returns. Drain the HTTP server first;
+// close the pool only after its users have stopped.
 func (e *Exporter) Close(ctx context.Context) error {
 	return e.provider.Shutdown(ctx)
 }

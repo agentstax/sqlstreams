@@ -25,6 +25,8 @@ import (
 	"github.com/agentstax/vulkan/pkg/alert/workerliveness"
 	"github.com/agentstax/vulkan/pkg/common"
 	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
+	"github.com/agentstax/vulkan/pkg/metrics"
+	"github.com/agentstax/vulkan/pkg/metrics/collector"
 	"github.com/agentstax/vulkan/pkg/schedule"
 	"github.com/agentstax/vulkan/pkg/topic"
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
@@ -99,7 +101,11 @@ func run() (err error) {
 	must(err)
 	ds, err = iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
-	must(client.System().Register(ctx, nil))
+	must(client.System().Register(ctx, &vulkan.SystemConfig{
+		WorkerLivenessAlert: &alert.WorkerLivenessAlertConfig{DisablePending: true},
+		MetricsCollector:    &metrics.MetricsCollectorWorkerConfig{PollRate: 200 * time.Millisecond},
+	}))
+	defer func() { must(client.System().Register(ctx, nil)) }()
 
 	capture = newCaptureLogger()
 	registerClient, err = vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{Logger: capture})
@@ -130,6 +136,9 @@ func run() (err error) {
 		must(client.Scheduler(jobName).Suspend(ctx))
 	}
 
+	stopCollector := startCollector(ctx)
+	defer stopCollector()
+	waitCollectedWorkers(ctx, false)
 	registerSection(ctx)
 	scheduledSection(ctx)
 
@@ -157,6 +166,7 @@ func registerSection(ctx context.Context) {
 	// the consumer's manager claims the topic's rows, its own included
 	stopConsumer := startConsumer(ctx)
 	waitUnclaimed(ctx, 0)
+	waitCollectedWorkers(ctx, true)
 
 	before := len(capture.find(eventCode, alert.AlertWorkerLiveness.Name, labTopic.Name))
 	_, err = registerClient.Topic[labMessage](labTopic.Name).Producer().Register(ctx, nil)
@@ -168,6 +178,7 @@ func registerSection(ctx context.Context) {
 
 	stopConsumer()
 	waitUnclaimed(ctx, 1)
+	waitCollectedWorkers(ctx, false)
 	fmt.Println("  ✓ stopping the consumer released its rows")
 }
 
@@ -199,6 +210,7 @@ func scheduledSection(ctx context.Context) {
 	stopConsumer := startConsumer(ctx)
 	defer stopConsumer()
 	waitUnclaimed(ctx, 0)
+	waitCollectedWorkers(ctx, true)
 
 	resolveRun, err := client.Scheduler(workerliveness.JobName).Run(ctx, nil)
 	must(err)
@@ -210,6 +222,51 @@ func scheduledSection(ctx context.Context) {
 }
 
 // --- harness ---
+
+// The collector runs independently so it can observe the lab topic without claiming its workers.
+func startCollector(ctx context.Context) func() {
+	system, err := client.System().Get(ctx)
+	must(err)
+	owner, err := common.NewSystemOwner(system.Id)
+	must(err)
+	workers, err := workercontroller.NewWorkerController(ds, ds.Logger)
+	must(err)
+	row, err := workers.GetWorker(ctx, collector.WorkerMetricsCollector, owner)
+	must(err)
+	provisioner, err := collector.NewMetricsCollectorProvisioner(ds, nil, ds.Logger)
+	must(err)
+	execution, err := provisioner.Provision(ctx, row)
+	must(err)
+	if execution == nil {
+		die("metrics collector is already claimed")
+	}
+	runCtx, cancel := context.WithCancel(ctx)
+	done := make(chan error, 1)
+	go func() { done <- execution.Run(runCtx) }()
+	return func() { cancel(); must(<-done) }
+}
+
+func waitCollectedWorkers(ctx context.Context, healthy bool) {
+	started := time.Now()
+	deadline := time.NewTimer(10 * time.Second)
+	defer deadline.Stop()
+	ticker := time.NewTicker(20 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			measurement, err := client.Topic[labMessage](labTopic.Name).Metrics().UnclaimedWorkers().Latest(ctx)
+			must(err)
+			if measurement != nil && measurement.At.After(started) && (measurement.Value == 0) == healthy {
+				return
+			}
+		case <-deadline.C:
+			die("collector did not observe the expected worker state within 10s")
+		case <-ctx.Done():
+			must(ctx.Err())
+		}
+	}
+}
 
 // startConsumer runs a consumer on the lab topic until the returned stop is
 // called; its manager claims every worker row the topic owns.

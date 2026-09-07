@@ -15,9 +15,25 @@ generic per-series freshness companion, or new backlog alert.
 During code iteration, defer alert-lab runs and repairs to the review checkpoint
 at the user's request. Use targeted compile and unit checks while editing.
 
-Current priority: complete the same pending capability for all three existing
-alerts before diagnostics or OTel work. Partition-count support alone is not
-this checkpoint's completion condition.
+Current checkpoint (2026-09-07): reader lifecycle verification and all 52 lab
+recipes have passed. The initial sweep passed 50; metrics-collector passed
+after updating its stale exclusion assertion, and destroy-system passed on a
+separate fresh database without another lab's live lease. Original development
+data is preserved. Logs: /private/tmp/vulkan-review-labs.JI6tLA.
+
+Remaining close-out work:
+
+- [ ] Resolve exporter-only health metrics being declared as system-scoped
+  stored metrics. `TestMetricSelectorsCoverResourceScopedCatalog` correctly
+  fails (30 selectors, 32 definitions). Proposed fix: exporter scope, awaiting
+  user approval; do not invent stored-value selectors or weaken the test.
+- [ ] Complete dedicated real-worker pending/restart checks for compaction
+  read cost and collector progress. Their evaluator unit tests pass; the
+  adapted partition-count and worker-liveness labs pass with pending disabled.
+- [ ] Complete the cadence cost checkpoint before changing hourly defaults.
+- [ ] Rerun the root verification after the catalog fix, then fold/remove
+  OTEL_REVIEW.md and completed TODO/ROADMAP entries. This is not a release;
+  the ordinary compat-lab passed, not a newly pinned prior-tag release check.
 
 ### 1. Settle the remaining implementation contract
 
@@ -211,32 +227,48 @@ rolled-back prototype are not implementation requirements.
   reserved outputs, empty reads, partial rejection, source failure and recovery
   in ManualReader and Prometheus [0706] [0707]. Core constructors own basic
   measurement validity. Lifecycle checks remain below.
-- [ ] Verify conversion, empty/error reads, naming conflicts, recovery after
+- [x] Verify conversion, empty/error reads, naming conflicts, recovery after
   rejection, refreshed topic lookup, and concurrent collections in the nested
   OTel module. Update affected public references/examples with the API change.
+  Isolated PostgreSQL checks pass under race detection for eight concurrent
+  collections/scrapes, rejection recovery, connection-wait timeouts, cancellation,
+  and replacement metrics-topic identity. Existing conversion and pool-ownership
+  tests pass. Docs distinguish pre-canceled reader calls (no producer invocation)
+  from producer read failures (health 0 alongside the error).
 
 ### 7. Wire readers, Prometheus, and lifecycle ownership
 
-- [ ] Attach the producer to supported SDK readers and retain the upstream
+- [x] Attach the producer to supported SDK readers and retain the upstream
   Prometheus exporter. Migrate callers and remove the obsolete registration
   path; keep provider shutdown and caller-owned database pool ownership explicit.
-- [ ] Verify ManualReader/Prometheus preserve health data alongside source errors
+- [x] Verify ManualReader/Prometheus preserve health data alongside source errors
   (a scrape may return HTTP 200). Verify PeriodicReader skips export on error;
   document a dedicated Vulkan periodic pipeline so application metrics remain
   independent of Vulkan source failures.
-- [ ] Test repeated/concurrent scrapes, cancellation/timeouts, in-flight shutdown,
+- [x] Test repeated/concurrent scrapes, cancellation/timeouts, in-flight shutdown,
   and recovery. Check existing deployment guidance for a single logical export
   target without adding a new coordination mechanism.
+  Pinned-reader race tests pass for periodic failure isolation and recovery,
+  canceled active collection plus bounded final shutdown collection, and
+  Prometheus scrapes finishing after provider Close. Guidance states the
+  HTTP server -> provider -> caller pool shutdown order.
 
 ### 8. Verify the complete behavior and close out
 
 - [ ] At each chunk, run targeted builds, `go test -race` for touched packages,
   and directly affected labs. At the review-ready checkpoint, run the full
   fresh-database lab suite; do not run it after every chunk.
-- [ ] Check the implemented behavior against the proposal and every finding in
+- [x] Check the implemented behavior against the proposal and every finding in
   `OTEL_REVIEW.md`, applying current conventions where the review is stale.
   Confirm existing alerts adopt only the reviewed timing/evidence changes,
   and metric callers retain their contracts.
+  Review findings 1/3/4: reader-owned producers remove registration/callback
+  locks and discovery/detach state [0705]. Findings 2/5: collection-local health
+  plus collector completion/progress distinguish reads from liveness [0703]
+  [0707]. Findings 6/7: export-family validation and core topic resolution own
+  identity [0705] [0707]. Finding 8: current conventions require resolved config
+  pointers, superseding the review's copy recommendation; docs prohibit mutation
+  while readers run. The new catalog-scope issue is tracked above.
 - [ ] Update site examples and diagnostic references as behavior ships; remove
   Proposed labels only for verified implementation. Run relevant docs checks
   and the site build, then record the shipped milestone in HISTORY.md.

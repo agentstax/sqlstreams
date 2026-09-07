@@ -5,6 +5,28 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-07 — Reader lifecycle and lab checkpoint [0693] [0698] [0705] [0707]
+
+Pinned-reader race checks verify periodic failure isolation/recovery, cancellation
+of active periodic collection, a bounded final shutdown collection, and
+Prometheus scrapes finishing after provider Close. Docs state HTTP server ->
+provider -> caller pool shutdown ordering. Alert and worker-liveness labs now
+read collector-owned evidence; the collector lab covers the new alert metrics.
+All 52 lab recipes passed: 50 on the first fresh-database sweep, two on fresh
+reruns after collector assertion repair and removal of cross-lab lease interference.
+The original development volume was preserved. Root verification found an open
+exporter-health catalog-scope mismatch; cadence and remaining real-worker
+pending checks remain in TODO. No release or prior-tag compatibility claim.
+
+## 2026-09-07 — OTel producer collection verification [0705] [0707]
+
+Isolated PostgreSQL tests pass in three repeated race-enabled runs for concurrent
+ManualReader collections and Prometheus scrapes, naming-conflict recovery,
+bounded connection waits, and replacement metrics-topic lookup. Existing
+conversion and caller-pool ownership tests pass. Docs clarify that a pre-canceled
+ManualReader call stops before invoking the producer and returns no health gauge.
+No production changes; periodic-reader and in-flight shutdown checks remain next.
+
 ## 2026-09-07 — Portable export validation and read health [0706]
 
 The OTel producer rejects conflicting or reserved metric families using the

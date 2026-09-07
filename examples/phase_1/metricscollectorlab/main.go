@@ -226,19 +226,20 @@ func run() (err error) {
 
 	step("wait for full head coverage: fleet + schedules + every lab topic and group")
 	expected := map[string]bool{
-		metrics.MeasurementKey(metrics.MetricUnclaimedWorkers.Name, nil):   false,
-		metrics.MeasurementKey(metrics.MetricOldestUnclaimedAge.Name, nil): false,
-		metrics.MeasurementKey(metrics.MetricFailingWorkers.Name, nil):     false,
-		metrics.MeasurementKey(metrics.MetricOverdueSchedules.Name, nil):   false,
-		metrics.MeasurementKey(metrics.MetricOldestDueAge.Name, nil):       false,
-		metrics.MeasurementKey(metrics.MetricSuspendedSchedules.Name, nil): false,
-		metrics.MeasurementKey(metrics.MetricActiveAlerts.Name, nil):       false,
-		metrics.MeasurementKey(metrics.MetricResolvedAlerts.Name, nil):     false,
+		metrics.MeasurementKey(metrics.MetricUnclaimedWorkers.Name, nil):            false,
+		metrics.MeasurementKey(metrics.MetricOldestUnclaimedAge.Name, nil):          false,
+		metrics.MeasurementKey(metrics.MetricFailingWorkers.Name, nil):              false,
+		metrics.MeasurementKey(metrics.MetricOverdueSchedules.Name, nil):            false,
+		metrics.MeasurementKey(metrics.MetricOldestDueAge.Name, nil):                false,
+		metrics.MeasurementKey(metrics.MetricSuspendedSchedules.Name, nil):          false,
+		metrics.MeasurementKey(metrics.MetricActiveAlerts.Name, nil):                false,
+		metrics.MeasurementKey(metrics.MetricResolvedAlerts.Name, nil):              false,
+		metrics.MeasurementKey(metrics.MetricCollectorCompletedTimestamp.Name, nil): false,
 	}
 	for _, topicName := range topicNames {
-		expected[metrics.MeasurementKey(metrics.MetricTopicCompacted.Name, map[string]string{
-			"topic": topicName,
-		})] = false
+		for _, name := range []string{metrics.MetricTopicCompacted.Name, metrics.MetricTopicPartitions.Name, metrics.MetricTopicUnclaimedWorkers.Name} {
+			expected[metrics.MeasurementKey(name, map[string]string{"topic": topicName})] = false
+		}
 		for _, group := range groupNames {
 			for _, name := range groupMetricNames {
 				expected[metrics.MeasurementKey(name, map[string]string{
@@ -274,11 +275,13 @@ func run() (err error) {
 	for _, measurement := range measurements {
 		messageKey := metrics.MeasurementKey(measurement.Name, measurement.Attributes)
 		byKey[messageKey] = measurement
-		if measurement.Attributes["topic"] == metrics.MetricsTopicName {
-			die(fmt.Sprintf("measurement %s measures __system.metrics -- exclusion broken", messageKey))
+		if measurement.Attributes["topic"] == metrics.MetricsTopicName &&
+			measurement.Name != metrics.MetricTopicPartitions.Name && measurement.Name != metrics.MetricTopicUnclaimedWorkers.Name {
+			die(fmt.Sprintf("measurement %s adds metrics-topic self-observation beyond alert evidence", messageKey))
 		}
 	}
 	for _, topicName := range topicNames {
+		assertValue(byKey, metrics.MetricTopicPartitions.Name, map[string]string{"topic": topicName}, 1)
 		assertValue(byKey, metrics.MetricTopicCompacted.Name, map[string]string{
 			"topic": topicName,
 		}, 0)

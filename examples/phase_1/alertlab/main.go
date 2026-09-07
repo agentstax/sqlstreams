@@ -23,7 +23,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strconv"
 	"sync"
 	"time"
 
@@ -224,7 +223,8 @@ func seedingSection(ctx context.Context) {
 // the same call a user changing it would make.
 func declareThreshold(ctx context.Context, threshold int64) {
 	must(client.System().Register(ctx, &vulkan.SystemConfig{
-		PartitionCountAlert: &alert.PartitionCountAlertConfig{Threshold: threshold},
+		PartitionCountAlert: &alert.PartitionCountAlertConfig{Threshold: threshold, DisablePending: true},
+		MetricsCollector:    &iMetrics.MetricsCollectorWorkerConfig{PollRate: 100 * time.Millisecond},
 	}))
 }
 
@@ -243,12 +243,10 @@ func classifySection(ctx context.Context) {
 	must(err)
 	instance, err := alertProducer.Register[alert.Alert](ctx, alert.AlertTopicName, nil)
 	must(err)
-	measurements, err := alertProducer.Register[iMetrics.Measurement](ctx, iMetrics.MetricsTopicName, nil)
-	must(err)
 	heads, err := compactioncontroller.NewCompactionController(ds, ds.Logger)
 	must(err)
 	capture := newCaptureLogger()
-	alerts, err := alertcontroller.NewAlertController(ctx, instance, measurements, ds, heads, classifyRepeat, capture)
+	alerts, err := alertcontroller.NewAlertController(ctx, instance, ds, heads, classifyRepeat, capture)
 	must(err)
 
 	key, err := alert.MessageKey(labCheckName, labTopicOwner)
@@ -257,7 +255,13 @@ func classifySection(ctx context.Context) {
 	must(err)
 
 	record := func(found *alert.Alert, want alert.RecordOutcome, arm string) {
-		outcome, err := alerts.Record(ctx, labCheckName, labTopicOwner, &alert.AlertEvaluation{Alert: found})
+		state := alert.AlertEvaluationStateHealthy
+		if found != nil {
+			state = alert.AlertEvaluationStateActive
+		}
+		evaluation, err := alert.NewAlertEvaluationSnapshot(state, found, nil)
+		must(err)
+		outcome, err := alerts.Record(ctx, labCheckName, labTopicOwner, evaluation)
 		must(err)
 		if outcome != want {
 			die(fmt.Sprintf("%s: want outcome %q, got %q", arm, want, outcome))
@@ -333,7 +337,7 @@ func classifySection(ctx context.Context) {
 	}
 	fmt.Println("  ✓ resolve edge INFOed once, resolved head stayed silent")
 
-	concurrentAlerts, err := alertcontroller.NewAlertController(ctx, instance, measurements, ds, heads, 4*time.Hour, capture)
+	concurrentAlerts, err := alertcontroller.NewAlertController(ctx, instance, ds, heads, 4*time.Hour, capture)
 	must(err)
 	for _, test := range []struct {
 		name    string
@@ -345,6 +349,12 @@ func classifySection(ctx context.Context) {
 		{"concurrent quiet checks", found, alert.RecordOutcomeActive, 0},
 		{"concurrent recovery", nil, alert.RecordOutcomeResolved, 1},
 	} {
+		state := alert.AlertEvaluationStateHealthy
+		if test.finding != nil {
+			state = alert.AlertEvaluationStateActive
+		}
+		evaluation, err := alert.NewAlertEvaluationSnapshot(state, test.finding, nil)
+		must(err)
 		before := alertMessageCount(ctx, key)
 		start := make(chan struct{})
 		outcomes := make(chan alert.RecordOutcome, 16)
@@ -352,7 +362,7 @@ func classifySection(ctx context.Context) {
 		for range 16 {
 			routines.Go(func() error {
 				<-start
-				outcome, err := concurrentAlerts.Record(ctx, labCheckName, labTopicOwner, &alert.AlertEvaluation{Alert: test.finding})
+				outcome, err := concurrentAlerts.Record(ctx, labCheckName, labTopicOwner, evaluation)
 				if err != nil {
 					return err
 				}
@@ -385,7 +395,9 @@ func classifySection(ctx context.Context) {
 	})
 	must(err)
 	before := alertMessageCount(ctx, key)
-	outcome, err := concurrentAlerts.Record(ctx, labCheckName, labTopicOwner, &alert.AlertEvaluation{Alert: unencodable})
+	evaluation, err := alert.NewAlertEvaluationSnapshot(alert.AlertEvaluationStateActive, unencodable, nil)
+	must(err)
+	outcome, err := concurrentAlerts.Record(ctx, labCheckName, labTopicOwner, evaluation)
 	if err == nil || outcome != "" || alertMessageCount(ctx, key) != before || headStatus(ctx, key) != string(alert.AlertStatusResolved) {
 		die("a rejected alert write must leave the resolved head and history unchanged")
 	}
@@ -411,12 +423,13 @@ func executorSection(ctx context.Context) {
 	bindinglessGroup := registerGroup(ctx, prefix+".bindingless")
 
 	declareThreshold(ctx, 1)
+	waitForCollector(ctx)
 
 	firstRun, err := client.Scheduler(partitioncount.JobName).Run(ctx, nil)
 	must(err)
 	waitDelivered(ctx, firstRun.Id, "success")
-	if observations := partitionObservations(ctx); len(observations) != 1 || observations[0].Message.Value != 1 {
-		die("first scheduled check must retain the observed partition count of 1")
+	if observations := partitionObservations(ctx); len(observations) == 0 || observations[0].Message.Value != 1 {
+		die("collector must retain the partition count of 1")
 	}
 
 	// the running executor's Register declared the group's set
@@ -463,8 +476,8 @@ func executorSection(ctx context.Context) {
 	secondRun, err := client.Scheduler(partitioncount.JobName).Run(ctx, nil)
 	must(err)
 	waitDelivered(ctx, secondRun.Id, "success")
-	if observations := partitionObservations(ctx); len(observations) != 2 || observations[0].Message.Value != 1 {
-		die("quiet scheduled check must retain another partition observation")
+	if observations := partitionObservations(ctx); len(observations) == 0 || observations[0].Message.Value != 1 {
+		die("quiet scheduled check must still have collector evidence")
 	}
 	if got := alertMessageCount(ctx, labKey); got != published {
 		die(fmt.Sprintf("repeat-interval run: want no republish, got %d messages after %d", got, published))
@@ -515,14 +528,13 @@ func isolationSection(ctx context.Context) {
 	exec(ctx, fmt.Sprintf(`UPDATE %s.%s SET payload = '"corrupt"'::jsonb WHERE id = $1;`, ds.Schema, topic.MessageLogTable(alertsTopic.Id)), corruptedHead)
 
 	declareThreshold(ctx, 0)
-	observedBeforeRecovery := len(partitionObservations(ctx))
 	resolveRun, err := client.Scheduler(partitioncount.JobName).Run(ctx, nil)
 	must(err)
 
 	// the attempt fails on the corrupted owner -- but the same attempt
 	// already resolved every healthy topic
 	waitDelivered(ctx, resolveRun.Id, "failure")
-	if observations := partitionObservations(ctx); len(observations) <= observedBeforeRecovery || observations[0].Message.Value != 1 {
+	if observations := partitionObservations(ctx); len(observations) == 0 || observations[0].Message.Value != 1 {
 		die("healthy partition evidence must survive failed alert recording")
 	}
 	if got := headStatus(ctx, schedulesKey); got != string(alert.AlertStatusResolved) {
@@ -566,15 +578,34 @@ func isolationSection(ctx context.Context) {
 
 // --- harness ---
 
+func waitForCollector(ctx context.Context) {
+	started := time.Now()
+	deadline := time.NewTimer(10 * time.Second)
+	defer deadline.Stop()
+	ticker := time.NewTicker(20 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			completion, err := client.System().Metrics().CollectorCompletedTimestamp().Latest(ctx)
+			must(err)
+			if completion != nil && completion.At.After(started) {
+				return
+			}
+		case <-deadline.C:
+			die("manager's collector did not complete a pass within 10s")
+		case <-ctx.Done():
+			must(ctx.Err())
+		}
+	}
+}
+
 func partitionObservations(ctx context.Context) []*common.StoredMessage[iMetrics.Measurement] {
 	metricsTopic, err := client.Topic[iMetrics.Measurement](iMetrics.MetricsTopicName).Get(ctx)
 	must(err)
 	heads, err := compactioncontroller.NewCompactionController(ds, ds.Logger)
 	must(err)
-	key := iMetrics.MeasurementKey(iMetrics.MetricObservedPartitions.Name, map[string]string{
-		"alert":    alert.AlertPartitionCount.Name,
-		"topic_id": strconv.FormatInt(labTopic.Id, 10),
-	})
+	key := iMetrics.MeasurementKey(iMetrics.MetricTopicPartitions.Name, map[string]string{"topic": labTopic.Name})
 	observations, err := heads.ListKeyMessages[iMetrics.Measurement](ctx, metricsTopic.Id, key, 100)
 	must(err)
 	for _, observation := range observations {
