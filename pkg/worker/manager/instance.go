@@ -103,5 +103,13 @@ func (i *ManagerInstance) refresh(ctx context.Context) error {
 	if swept > 0 {
 		i.Logger.InfoContext(ctx, "swept expired worker instances", "swept_count", swept)
 	}
+
+	swept, err = i.workers.SweepExpiredInstanceLogs(ctx, i.Config.InstanceLogTTL)
+	if err != nil {
+		return err
+	}
+	if swept > 0 {
+		i.Logger.InfoContext(ctx, "swept expired worker instance logs", "swept_count", swept)
+	}
 	return nil
 }

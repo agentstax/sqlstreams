@@ -17,6 +17,7 @@ import (
 // - worker_config
 // - worker_config_log
 // - worker_instance
+// - worker_instance_log
 // - schedule_config
 // - schedule_cursor
 // - migration_log

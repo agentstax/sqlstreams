@@ -65,6 +65,10 @@ func (d *WorkerDatastore) claimInstance(ctx context.Context, workerId int64, ttl
 		return nil, err
 	}
 
+	if err := d.appendWorkerInstanceLog(ctx, tx, claimed.Id); err != nil {
+		return nil, err
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
@@ -79,6 +83,12 @@ func (d *WorkerDatastore) RenewInstance(ctx context.Context, instanceId int64, t
 }
 
 func (d *WorkerDatastore) renewInstance(ctx context.Context, instanceId int64, token uuid.UUID, ttl time.Duration) error {
+	tx, err := d.Datastore.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
 	// an expired row may already be replaced -- renewing it past expiry
 	// would put live instances over target_instances
 	sql := fmt.Sprintf(`
@@ -89,14 +99,18 @@ func (d *WorkerDatastore) renewInstance(ctx context.Context, instanceId int64, t
 			AND token = $2
 			AND expires_at > now();
 	`, d.Datastore.Schema)
-	tag, err := d.Datastore.Pool.Exec(ctx, sql, instanceId, toTokenData(token), ttl.Seconds())
+	tag, err := tx.Exec(ctx, sql, instanceId, toTokenData(token), ttl.Seconds())
 	if err != nil {
 		return err
 	}
 	if tag.RowsAffected() == 0 {
 		return worker.ErrInstanceLost
 	}
-	return nil
+
+	if err := d.appendWorkerInstanceLog(ctx, tx, instanceId); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // RecordInstanceSuccess resets the instance's consecutive-failure count.

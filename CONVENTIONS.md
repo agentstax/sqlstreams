@@ -549,7 +549,7 @@ topic's family -- never both.
 
 - Shared: the catalog (system_config, topic_config, topic_config_log,
   consumer_group_config), the fleet (worker_config, worker_config_log,
-  worker_instance, schedule_config, schedule_cursor), and cross-scope
+  worker_instance, worker_instance_log, schedule_config, schedule_cursor), and cross-scope
   history (migration_log). Created by system createSystemTables.
 - Per-topic: everything else -- message_log, idempotency_key,
   exception_queue, delivery_log, consumer_group_cursor, claim_lease,

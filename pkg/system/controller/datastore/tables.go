@@ -182,7 +182,24 @@ func (d *SystemDatastore) createSystemTables(ctx context.Context, tx pgx.Tx) err
 		return err
 	}
 
-	// the two hot lookups: live instances per worker, expired rows
+	// Instance history outlives the live row; worker deletion still removes its history.
+	createWorkerInstanceLogSql := fmt.Sprintf(`
+		-- vulkan: system.createSystemTables
+		CREATE TABLE IF NOT EXISTS %[1]s.worker_instance_log (
+			id BIGSERIAL PRIMARY KEY,
+			worker_instance_id BIGINT NOT NULL,
+			worker_id BIGINT NOT NULL REFERENCES %[1]s.worker_config (id) ON DELETE CASCADE,
+			token UUID NOT NULL,
+			expires_at TIMESTAMPTZ NOT NULL,
+			attempts INT NOT NULL,
+			created_at TIMESTAMPTZ NOT NULL,                -- copied from worker_instance
+			attempted_at TIMESTAMPTZ NOT NULL DEFAULT NOW() -- this successful claim or renewal
+		);
+	`, d.Datastore.Schema)
+	if _, err := tx.Exec(ctx, createWorkerInstanceLogSql); err != nil {
+		return err
+	}
+
 	for _, indexSql := range []string{
 		fmt.Sprintf(`
 			-- vulkan: system.createSystemTables
@@ -191,6 +208,14 @@ func (d *SystemDatastore) createSystemTables(ctx context.Context, tx pgx.Tx) err
 		fmt.Sprintf(`
 			-- vulkan: system.createSystemTables
 			CREATE INDEX IF NOT EXISTS worker_instance_expires_at ON %[1]s.worker_instance (expires_at);
+		`, d.Datastore.Schema),
+		fmt.Sprintf(`
+			-- vulkan: system.createSystemTables
+			CREATE INDEX IF NOT EXISTS worker_instance_log_worker_id ON %[1]s.worker_instance_log (worker_id, id);
+		`, d.Datastore.Schema),
+		fmt.Sprintf(`
+			-- vulkan: system.createSystemTables
+			CREATE INDEX IF NOT EXISTS worker_instance_log_expires_at ON %[1]s.worker_instance_log (expires_at);
 		`, d.Datastore.Schema),
 	} {
 		if _, err := tx.Exec(ctx, indexSql); err != nil {

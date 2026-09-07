@@ -8,6 +8,9 @@ phase: "pre-v1"
 
 ## Context
 
+The independent observation series is replaced by worker instance history in
+[0700](0700-worker-instance-history-proves-lease-coverage.md).
+
 Superseded by [0686](0686-history-based-pending-belongs-to-the-shared-alert-framework.md),
 which expands adoption to existing alerts and reopens shared timing policy.
 

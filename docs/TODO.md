@@ -158,8 +158,19 @@ rolled-back prototype are not implementation requirements.
   and partial passes do not refresh it. The final measurement uses the existing
   produce path and rank-zero compaction. VK0100 and the system metric selector
   expose the completion timestamp. Database failure-path checks remain deferred.
-- [ ] Add independent scheduled progress observations and use the same
-  Record/classify path, with no extra runner.
+- [x] Add append-only worker_instance_log snapshots in the existing datastore
+  mutation transactions, with TTL cleanup [0700]. Preserve instance identity,
+  original creation time, and expiry without lifecycle-operation fields.
+  History survives live-instance deletion; release keeps last-expiry semantics.
+  Manager cleanup retains snapshots for 24h after recorded expiry by default.
+  Targeted PostgreSQL race test passed for snapshot writes, claim/renew rollback,
+  declined/lost claims, release/expiry survival, retention, and system deletion.
+  Build, vet, and conventions passed. No labs run.
+- [ ] Read manager lease coverage over the evaluation window, including boundary
+  evidence. Combine it with collector completion history for progress evaluation.
+  Preserve pending across continuous replacements and break it across gaps.
+  Use the existing scheduled check and Record/classify patterns; no independent
+  progress-observation series or separate observation worker.
 - [ ] Verify each adaptation's real worker, diagnostics, restart behavior, and
   repeat/recovery semantics with targeted checks and affected labs.
 - [ ] After all three existing alerts support pending, add the approved

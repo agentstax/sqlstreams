@@ -40,6 +40,7 @@ func (d *SystemDatastore) delete(ctx context.Context) error {
 		"migration_log",
 		"schedule_cursor",
 		"schedule_config",
+		"worker_instance_log",
 		"worker_instance",
 		"worker_config_log",
 		"worker_config",

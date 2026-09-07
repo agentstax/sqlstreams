@@ -15,9 +15,9 @@ are in `docs/DECISIONS.md`. A new record adds its number to its line.
 - synchronous_commit, crash lab, bench method, reliability lab, ledger and checker, scenario file, drain, safety checks: 0081-0086 0687 0696 0697
 - errors (VK codes, fix, diagnose), logging (levels, buffer, suppression, stop line), metrics declarations, collector poll rate, export freshness, otel, Prometheus, payload never logged: 0302-0305 0326 0522-0524 0550-0554 0558-0569 0589-0590 0647-0648 0661 0666 0670 0678 0682-0684 0686 0688 0689
 - migrations, schema versioning, advisory lock, MinCompatibleVersion, Postgres schema/search_path: 0341-0347 0501 0526-0527 0579-0580 0588 0629-0632 0650
-- workers, worker_instance, system manager, liveness, instance target, Run loop, fatal consumption errors: 0421-0431 0537 0545-0549 0627 0635-0642 0671
+- workers, worker_instance, system manager, liveness, instance target, Run loop, fatal consumption errors: 0421-0431 0537 0545-0549 0627 0635-0642 0671 0700 0701 0702
 - schedules, cron, missed runs, job status: 0461-0473 0621
-- alerts, checks, __system.alerts, repeat interval, history-derived pending, collector progress, restart gaps, bounded history, storage time: 0481-0490 0516 0520 0627 0649 0658 0683-0684 0686 0688 0689 0690 0692 0693 0694 0695 0698 0699
+- alerts, checks, __system.alerts, repeat interval, history-derived pending, collector progress, restart gaps, bounded history, storage time: 0481-0490 0516 0520 0627 0649 0658 0683-0684 0686 0688 0689 0690 0692 0693 0694 0695 0698 0699 0700 0701 0702
 - circuit breaker, error_class, reconciliation: 0502-0506
 - packages, layers, seams, naming, receivers, file layout, configs, constructors, admin, validation, consumer worker selection, health: 0441-0451 0507-0510 0528-0549 0555-0557 0643-0646 0657-0658 0670 0676 0677 0680
 - declarations: newest-wins, CLI never writes config, worker metadata: 0515-0521 0626 0670

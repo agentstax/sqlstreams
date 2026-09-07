@@ -124,36 +124,46 @@ framework or backlog alert.
 ## Proposed: observe collector progress independently
 
 The collector records completion only after the whole pass succeeds. Read it
-through `System().Metrics().CollectorCompletedTimestamp()`. This completion
-measurement is implemented; independent observations and alerting remain proposed.
+through `System().Metrics().CollectorCompletedTimestamp()`. The attribute-free
+`vulkan.metrics.collector.completed_timestamp` gauge stores Unix seconds with
+unit `s`. This measurement and worker instance logging are implemented;
+lease-coverage evaluation and the collector-progress alert remain proposed.
 
-An independent scheduled check would record which completion it can see, including
-explicit absent evidence. Use attribute-free gauges in `__system.metrics`,
-with unit `s` and Unix-second values:
+Completion follows all collection reads and writes, including concurrent topic
+work. Startup and partial passes do not refresh it. Rank-zero compaction and
+stored `CreatedAt` retain the [storage-time contract](/decisions/0690/).
 
-| Measurement | Value | Observation time |
-| --- | --- | --- |
-| `vulkan.metrics.collector.completed_timestamp` | Full-pass completion timestamp | When completion was recorded |
-| `vulkan.metrics.collector.observed_completion_timestamp` | Last completion seen, or 0 for no retained completion | When the independent read happened |
+`worker_instance_log` rows copy instance snapshots after claim
+creation and renewal, in the same datastore transaction. The log retains
+instance identity, original creation time, and expiry. It adds no operation
+field or calculated liveness state. Instance deletion does not delete history;
+The existing manager sweep removes snapshots 24 hours after their recorded
+lease expiry by default, controlled by `ManagerConfig.InstanceLogTTL`.
+Log writes are part of claim and renewal success: a failed append rolls back
+the instance change and returns through the existing error path.
 
-Completion follows all collection reads and writes, including concurrent topic work;
-partial passes and uncommitted completion writes cannot establish success.
-Startup never refreshes it. Completion timestamps must be positive; 0 in the
-observation series means absent evidence and is unhealthy, not a read error.
-A read error records no sample. Historical completion age uses that sample's
-stored `CreatedAt` time; future completion timestamps are unusable.
+The evaluator would combine collector completion history with manager lease
+coverage. Overlapping or touching intervals preserve pending across manager
+replacement. An uncovered gap breaks the span. Retained evidence must cover
+the requested window, including intervals crossing its start; missing history
+is insufficient evidence.
 
-Use rank zero for both series and stored `CreatedAt` for history windows
-and pending duration. A delayed write can make older evidence count as fresh;
-this is the accepted [storage-time contract](/decisions/0690/). Replayed schedules
-record actual reads, never backdated observations; write retries reuse the
-same sample time and idempotency key. Collector age defaults to
-max(2m, 3 live collector poll intervals), with an explicit positive override.
+Graceful shutdown does not shorten a logged lease. A released or crashed
+instance counts through its last recorded expiry. With the current manager
+defaults, this can overstate liveness by up to 30 seconds per instance. It
+proves lease coverage, not successful execution.
 
-Neither OTel nor a separate user-run server owns these observations. The
-[shared alert calculation](/concepts/alert-history/#proposed-calculate-state-in-the-shared-controller)
-handles duration and recovery. If all checking machinery stops, Vulkan cannot
-produce an outage report while it is stopped.
+For example, manager instance 101 last renews at 10:00:00 with expiry 10:00:30,
+then stops at 10:00:05. Replacement 102 starting at 10:00:20 preserves coverage;
+starting at 10:01:00 leaves a gap. An overnight restart cannot count the stopped
+hours toward pending. A short restart within the lease can preserve pending
+and allow an earlier alert. This is the accepted [lease-history tradeoff](/decisions/0700/).
+
+No separate progress-observation series or observation worker is proposed.
+Collector age defaults to max(2m, 3 live collector poll intervals), with an
+explicit positive override. The progress check uses existing scheduling and
+alert recording. If all checking machinery stops, Vulkan cannot produce an
+outage report while it is stopped.
 
 ## Proposed: deployment boundary
 

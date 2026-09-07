@@ -452,3 +452,6 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0697 2026-09-07 accepted (pre-v1) — The record tables are produce_record and handler_record
 - 0698 2026-09-07 superseded (pre-v1) — All existing alerts share retained history
 - 0699 2026-09-07 accepted (pre-v1) — Alert timing fields are inline
+- 0700 2026-09-07 accepted (pre-v1) — Worker instance history proves lease coverage
+- 0701 2026-09-07 superseded (pre-v1) — Worker instance log writes and retention
+- 0702 2026-09-07 accepted (pre-v1) — Instance log timestamps follow existing names

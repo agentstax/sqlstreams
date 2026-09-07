@@ -5,22 +5,28 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
-## 2026-09-06 — Reliability lab v1: a ledger, a checker, two scenarios [0687] [0696] [0697]
+## 2026-09-07 — Reliability lab v1: records, a checker, two scenarios [0687] [0696] [0697]
 
 `bench/reliability/` runs a scenario on its own compose stack (`just
-reliability-lab dev`): an open-loop producer and one container of consumer
-instances write JSON-lines ledgers of every produce and handler call; the
-checker COPYs them into a `lab` schema, drains on the group's cursor, joins
-them against `message_log`, `delivery_log`, and `exception_queue`, and exits
-with the verdict (0 pass, 1 fail, 2 unknown, 3 lab failure). Scenarios are
-hand-written Go (`quiet`, `dev`) printed as `.scenario` files a test diffs;
-every scenario must declare the six safety checks. The record lands under
-`results/<scenario>/<timestamp>/` with `synchronous_commit` and the build
-version. `dev` passed the full minute on compose (12000 attempted, committed,
-and handled); sabotage turned the verdict to fail on the right line (a
+reliability-lab dev`): an open-loop producer and one process of consumer
+instances write JSON-lines records of every produce and handler call; the
+checker COPYs them into a `lab` schema (`produce_record`, `handler_record`,
+`run_phase`), drains on the group's cursor, joins them against
+`message_log`, `delivery_log`, and `exception_queue`, and exits with the
+verdict (0 pass, 1 fail, 2 unknown, 3 lab failure). Packages: `runner` (one
+role per process), `record` (the row shapes and writer), `producer` and
+`consumer` (the recording sides), `checker` (the judgment) over
+`checker/datastore` (every query), `scenario` and `scenarios`, `common`.
+Scenarios are hand-written Go (`quiet`, `dev`) printed as `.scenario` files
+a test diffs; every scenario must declare the six safety checks. The record
+lands under `results/<scenario>/<timestamp>/` with `synchronous_commit` and
+the build version. `dev` passed the compose ladder at 15s, 1m, 5m, 20m, and
+1h (720000 attempted, committed, and handled, zero unknown, duplicates,
+reclaims, or dead); sabotage turned the verdict to fail on the right line (a
 deleted message_log row -> lost, a dropped handler line -> undelivered) and
-an empty ledger reads unknown. Proposal page relabeled to shipped behavior
-with the chaos run kept as Proposed.
+no records reads unknown. `just verify` vets and race-tests the lab.
+Proposal page relabeled to shipped behavior with the chaos run kept as
+Proposed.
 
 ## 2026-09-06 — Compaction options are constructed inline [0691]
 
