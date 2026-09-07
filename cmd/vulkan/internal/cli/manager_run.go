@@ -73,7 +73,7 @@ func newManagerRunCmd(g *globalFlags) *cobra.Command {
 					defer cancelShutdown()
 					_ = exporter.Close(shutdownCtx)
 				}()
-				if err := exporter.RegisterMetricInstruments(ctx); err != nil {
+				if _, err := client.System().Metrics().Latest(ctx); err != nil {
 					if errors.Is(err, migrate.ErrNotRegistered) {
 						return errSystemNotRegistered()
 					}

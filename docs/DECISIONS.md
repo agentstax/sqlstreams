@@ -457,3 +457,4 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0702 2026-09-07 accepted (pre-v1) — Instance log timestamps follow existing names
 - 0703 2026-09-07 accepted (pre-v1) — Collector progress uses manager lease history
 - 0704 2026-09-07 accepted (pre-v1) — Alert snapshots expose existing evaluation
+- 0705 2026-09-07 accepted (pre-v1) — OTel readers collect from the producer

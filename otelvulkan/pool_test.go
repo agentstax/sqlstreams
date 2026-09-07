@@ -134,16 +134,13 @@ func TestPoolIntegration(t *testing.T) {
 	if err := <-finished; err != nil {
 		t.Fatal(err)
 	}
-	reader := sdkmetric.NewManualReader()
-	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
-	defer provider.Shutdown(ctx)
-	observations, err := NewMetrics(ctx, pool, &MetricsConfig{Schema: schema, Meter: provider.Meter("test")})
+	observations, err := NewMetrics(ctx, pool, &MetricsConfig{Schema: schema})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := observations.RegisterMetricInstruments(ctx); err != nil {
-		t.Fatal(err)
-	}
+	reader := sdkmetric.NewManualReader(sdkmetric.WithProducer(observations))
+	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	defer provider.Shutdown(ctx)
 	var collected metricdata.ResourceMetrics
 	if err := reader.Collect(ctx, &collected); err != nil {
 		t.Fatal(err)
@@ -159,6 +156,32 @@ func TestPoolIntegration(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("custom-schema measurement missing from collection")
+	}
+	newMeasurement, err := vulkan.NewMeasurement("new_name_after_reader_creation", metrics.MetricKindGauge, 11, "", nil, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := instance.Produce(ctx, newMeasurement); err != nil {
+		t.Fatal(err)
+	}
+	if err := reader.Collect(ctx, &collected); err != nil {
+		t.Fatal(err)
+	}
+	found = false
+	for _, scope := range collected.ScopeMetrics {
+		for _, metric := range scope.Metrics {
+			if metric.Name == newMeasurement.Name {
+				found = true
+			}
+		}
+	}
+	if !found {
+		t.Fatal("new name required instrument discovery")
+	}
+	canceledCtx, cancelCollection := context.WithCancel(ctx)
+	cancelCollection()
+	if _, err := observations.Produce(canceledCtx); !errors.Is(err, context.Canceled) {
+		t.Fatalf("canceled collection = %v", err)
 	}
 	exporter, err := NewExporter(ctx, pool, &ExporterConfig{Schema: schema})
 	if err != nil {

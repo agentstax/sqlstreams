@@ -36,11 +36,7 @@ func (a *MessageAdmin) ConsumerGroupMetrics(ctx context.Context, topicName strin
 // series on __system.metrics.
 // Returns migrate.ErrNotRegistered until RegisterSystem has run.
 func (a *MessageAdmin) ListMeasurements(ctx context.Context) ([]*common.StoredMessage[metrics.Measurement], error) {
-	found, err := a.metricsTopic(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return a.heads.ListHeads[metrics.Measurement](ctx, found.Id)
+	return a.metricsController.ListMeasurements(ctx)
 }
 
 // GetMeasurement returns one series' current retained measurement, or nil if

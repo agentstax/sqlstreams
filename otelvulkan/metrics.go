@@ -1,49 +1,34 @@
-// Package otelvulkan exposes a Vulkan deployment's measurements over
-// OpenTelemetry: each series' newest measurement on __system.metrics becomes an
-// observable instrument. Metrics feeds any otel meter you own; Exporter
-// builds on it to serve a Prometheus /metrics endpoint. Produce and consume
-// measurements through the Vulkan client's system metrics handle.
 package otelvulkan
+
+// Package otelvulkan exports retained Vulkan measurements through an external
+// OpenTelemetry SDK producer. Exporter serves that producer through Prometheus.
 
 import (
 	"context"
 	"errors"
-	"maps"
-	"sync"
+	"time"
 
+	"github.com/agentstax/vulkan/pkg/common"
 	"github.com/agentstax/vulkan/pkg/common/diagnostic"
 	"github.com/agentstax/vulkan/pkg/common/logging"
-	compactioncontroller "github.com/agentstax/vulkan/pkg/compaction/controller"
 	"github.com/agentstax/vulkan/pkg/datastore"
 	"github.com/agentstax/vulkan/pkg/metrics"
-	"github.com/agentstax/vulkan/pkg/migrate"
-	topiccontroller "github.com/agentstax/vulkan/pkg/topic/controller"
+	metricscontroller "github.com/agentstax/vulkan/pkg/metrics/controller"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/sdk/instrumentation"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 )
 
 const meterScopeName = "github.com/agentstax/vulkan/otelvulkan"
 
-// Metrics registers the measurements on an otel meter: one observable instrument
-// per metric name, whose values are each series' newest measurement, read live
-// whenever the meter's reader collects. Pass your own meter through
-// MetricsConfig.Meter to feed your own pipeline.
+// Metrics is an external SDK producer of the newest retained measurements.
+// Attach it to a reader with sdkmetric.WithProducer; no registration pass is needed.
 type Metrics struct {
 	Config *MetricsConfig
 	Logger logging.Logger
 
-	topics *topiccontroller.TopicController
-	heads  *compactioncontroller.CompactionController
-	meter  metric.Meter
-
-	// instruments can only be created outside the observation callback, so
-	// RegisterMetricInstruments creates instruments for names it hasn't
-	// seen; the mutex orders concurrent callers doing that
-	mutex        sync.Mutex
-	topicId      int64
-	instruments  map[string]metric.Float64Observable
-	registration metric.Registration
+	measurements *metricscontroller.MetricsController
 }
 
 // NewMetrics pings pool using ctx and builds its own datastore.
@@ -68,149 +53,70 @@ func NewMetrics(ctx context.Context, pool *pgxpool.Pool, cfg *MetricsConfig) (*M
 	if err != nil {
 		return nil, err
 	}
-
-	topics, err := topiccontroller.NewTopicController(ds, ds.Logger)
+	measurements, err := metricscontroller.NewMetricsController(ds, ds.Logger)
 	if err != nil {
 		return nil, err
 	}
+	return &Metrics{Config: cfg, Logger: ds.Logger, measurements: measurements}, nil
+}
 
-	heads, err := compactioncontroller.NewCompactionController(ds, ds.Logger)
+// Produce reads current retained measurements within CollectTimeout.
+// Readers own cadence and resources. Concurrent calls share no collection state.
+// Returns migrate.ErrNotRegistered before the system metrics topic exists.
+func (m *Metrics) Produce(ctx context.Context) ([]metricdata.ScopeMetrics, error) {
+	ctx, cancel := context.WithTimeout(ctx, m.Config.CollectTimeout)
+	defer cancel()
+
+	rows, err := m.measurements.ListMeasurements(ctx)
 	if err != nil {
 		return nil, err
 	}
-
-	return &Metrics{
-		Config:      cfg,
-		Logger:      ds.Logger,
-		topics:      topics,
-		heads:       heads,
-		meter:       cfg.Meter,
-		instruments: map[string]metric.Float64Observable{},
-	}, nil
+	return []metricdata.ScopeMetrics{{
+		Scope:   instrumentation.Scope{Name: meterScopeName},
+		Metrics: toMetrics(rows, time.Now()),
+	}}, nil
 }
 
-// RegisterMetricInstruments creates one observable instrument per measurement
-// name currently on the topic, skipping names already registered. Run it
-// before the first collection, and again whenever new names may have
-// appeared -- the Exporter runs it per scrape.
-// Returns ErrTopicNotFound until RegisterSystem has run.
-func (m *Metrics) RegisterMetricInstruments(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, m.Config.CollectTimeout)
-	defer cancel()
+// ***************
+// *** HELPERS ***
+// ***************
 
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
-	topicId, err := m.resolveTopicId(ctx)
-	if err != nil {
-		return err
-	}
-
-	rows, err := m.heads.ListHeads[metrics.Measurement](ctx, topicId)
-	if err != nil {
-		return err
-	}
-
-	created := false
+func toMetrics(rows []*common.StoredMessage[metrics.Measurement], current time.Time) []metricdata.Metrics {
+	positions := make(map[[3]string]int)
+	collected := make([]metricdata.Metrics, 0)
 	for _, row := range rows {
-		if _, seen := m.instruments[row.Message.Name]; seen {
-			continue
+		measurement := row.Message
+		identity := [3]string{measurement.Name, string(measurement.Kind), string(measurement.Unit)}
+		position, found := positions[identity]
+		if !found {
+			position = len(collected)
+			positions[identity] = position
+			metric := metricdata.Metrics{Name: measurement.Name, Unit: string(measurement.Unit)}
+			if declared, found := diagnostic.GetMetric(measurement.Name); found {
+				metric.Description = declared.Description
+			}
+			collected = append(collected, metric)
 		}
-		instrument, err := m.newInstrument(row.Message)
-		if err != nil {
-			return err
+		point := metricdata.DataPoint[float64]{
+			Attributes: attribute.NewSet(toAttributes(measurement.Attributes)...),
+			Time:       current,
+			Value:      measurement.Value,
 		}
-		m.instruments[row.Message.Name] = instrument
-		created = true
-	}
-	if !created {
-		return nil
-	}
-
-	// the callback only fires for instruments it was registered against, so
-	// a new name replaces the whole registration
-	observed := make([]metric.Observable, 0, len(m.instruments))
-	for _, instrument := range m.instruments {
-		observed = append(observed, instrument)
-	}
-	if m.registration != nil {
-		if err := m.registration.Unregister(); err != nil {
-			return err
+		switch measurement.Kind {
+		case metrics.MetricKindCounter:
+			// Retained totals have no established start time; exporter startup is not a reset.
+			sum, _ := collected[position].Data.(metricdata.Sum[float64])
+			sum.Temporality = metricdata.CumulativeTemporality
+			sum.IsMonotonic = true
+			sum.DataPoints = append(sum.DataPoints, point)
+			collected[position].Data = sum
+		default:
+			gauge, _ := collected[position].Data.(metricdata.Gauge[float64])
+			gauge.DataPoints = append(gauge.DataPoints, point)
+			collected[position].Data = gauge
 		}
 	}
-	registration, err := m.meter.RegisterCallback(m.observe, observed...)
-	if err != nil {
-		return err
-	}
-	m.registration = registration
-	return nil
-}
-
-// a counter measurement carries a running total, so it maps to the monotonic
-// observable; everything else is a point-in-time gauge. A declared vulkan
-// metric's description becomes the instrument description -- Prometheus
-// renders it as # HELP.
-func (m *Metrics) newInstrument(measurement *metrics.Measurement) (metric.Float64Observable, error) {
-	unit := metric.WithUnit(string(measurement.Unit))
-	declared, ok := diagnostic.GetMetric(measurement.Name)
-
-	if measurement.Kind == metrics.MetricKindCounter {
-		if ok {
-			return m.meter.Float64ObservableCounter(measurement.Name, unit, metric.WithDescription(declared.Description))
-		}
-		return m.meter.Float64ObservableCounter(measurement.Name, unit)
-	}
-	if ok {
-		return m.meter.Float64ObservableGauge(measurement.Name, unit, metric.WithDescription(declared.Description))
-	}
-	return m.meter.Float64ObservableGauge(measurement.Name, unit)
-}
-
-// observe runs inside every collection the meter's reader drives. A
-// collection may carry no deadline of its own, so the head read gets an
-// explicit bound.
-func (m *Metrics) observe(ctx context.Context, observer metric.Observer) error {
-	ctx, cancel := context.WithTimeout(ctx, m.Config.CollectTimeout)
-	defer cancel()
-
-	m.mutex.Lock()
-	topicId := m.topicId
-	instruments := make(map[string]metric.Float64Observable, len(m.instruments))
-	maps.Copy(instruments, m.instruments)
-	m.mutex.Unlock()
-
-	rows, err := m.heads.ListHeads[metrics.Measurement](ctx, topicId)
-	if err != nil {
-		return err
-	}
-
-	for _, row := range rows {
-		instrument, seen := instruments[row.Message.Name]
-		if !seen {
-			// name first published mid-collection -- the next
-			// RegisterMetricInstruments creates its instrument
-			continue
-		}
-		observer.ObserveFloat64(instrument, row.Message.Value, metric.WithAttributes(toAttributes(row.Message.Attributes)...))
-	}
-	return nil
-}
-
-// resolveTopicId caches __system.metrics's id after the first success; the
-// caller holds the mutex.
-func (m *Metrics) resolveTopicId(ctx context.Context) (int64, error) {
-	if m.topicId != 0 {
-		return m.topicId, nil
-	}
-	found, err := m.topics.Get(ctx, metrics.MetricsTopicName)
-	if err != nil {
-		return 0, err
-	}
-	if found == nil {
-		return 0, migrate.ErrNotRegistered.With("topic", metrics.MetricsTopicName)
-	}
-	m.topicId = found.Id
-	return found.Id, nil
+	return collected
 }
 
 func toAttributes(attributes map[string]string) []attribute.KeyValue {

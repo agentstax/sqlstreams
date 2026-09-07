@@ -13,15 +13,12 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 )
 
-// Exporter serves the measurements as a Prometheus /metrics endpoint: its own
-// Metrics bound to a provider whose only reader is the otel Prometheus
-// reader -- every scrape drives the observation callback, so /metrics
-// serves values read at scrape time, never a cache.
+// Exporter serves retained measurements through its private OTel Prometheus reader.
+// Each scrape reads current retained values without an instrument registration pass.
 type Exporter struct {
 	Config *ExporterConfig
 	Logger logging.Logger
 
-	metrics  *Metrics
 	provider *sdkmetric.MeterProvider
 	registry *prometheus.Registry
 }
@@ -40,56 +37,37 @@ func NewExporter(ctx context.Context, pool *pgxpool.Pool, cfg *ExporterConfig) (
 		return nil, err
 	}
 
-	registry := prometheus.NewRegistry()
-	// one meter source feeds the registry, so per-series otel_scope_* labels
-	// carry no information -- dropped
-	reader, err := otelprometheus.New(otelprometheus.WithRegisterer(registry), otelprometheus.WithoutScopeInfo())
-	if err != nil {
-		return nil, err
-	}
-	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
-
 	exporterMetrics, err := NewMetrics(ctx, pool, &MetricsConfig{
 		Schema:         cfg.Schema,
-		Meter:          provider.Meter(meterScopeName),
 		CollectTimeout: cfg.CollectTimeout,
 		Logger:         cfg.Logger,
 		Retry:          cfg.Retry,
 	})
 	if err != nil {
-		_ = provider.Shutdown(ctx)
 		return nil, err
 	}
+	registry := prometheus.NewRegistry()
+	reader, err := otelprometheus.New(
+		otelprometheus.WithRegisterer(registry),
+		otelprometheus.WithoutScopeInfo(),
+		otelprometheus.WithProducer(exporterMetrics),
+	)
+	if err != nil {
+		return nil, err
+	}
+	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 
 	return &Exporter{
 		Config:   cfg,
 		Logger:   exporterMetrics.Logger,
-		metrics:  exporterMetrics,
 		provider: provider,
 		registry: registry,
 	}, nil
 }
 
-// Handler serves the Prometheus /metrics endpoint. Each request first
-// registers instruments for metric names that appeared since the last
-// scrape, then the reader's collection runs the observation callback.
-// A failed registration pass still serves the last instrument set.
+// Handler serves the Prometheus /metrics endpoint; its reader drives collection.
 func (e *Exporter) Handler() http.Handler {
-	serve := promhttp.HandlerFor(e.registry, promhttp.HandlerOpts{})
-	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if err := e.metrics.RegisterMetricInstruments(request.Context()); err != nil {
-			e.Logger.WarnContext(request.Context(), "could not register metric instrument", "error", err)
-		}
-		serve.ServeHTTP(writer, request)
-	})
-}
-
-// RegisterMetricInstruments runs the registration pass. Handler runs it per
-// scrape; call it directly to fail fast at startup instead of on the first
-// scrape.
-// Returns ErrTopicNotFound until RegisterSystem has run.
-func (e *Exporter) RegisterMetricInstruments(ctx context.Context) error {
-	return e.metrics.RegisterMetricInstruments(ctx)
+	return promhttp.HandlerFor(e.registry, promhttp.HandlerOpts{})
 }
 
 // Close shuts the meter provider down; the registry stops receiving updates.

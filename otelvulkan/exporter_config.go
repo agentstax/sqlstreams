@@ -13,9 +13,8 @@ type ExporterConfig struct {
 	// Schema selects the Vulkan installation. Default: "vulkan".
 	Schema string
 
-	// CollectTimeout bounds the Postgres reads a scrape drives -- the
-	// instrument registration pass and the observation callback. A scrape
-	// request may carry no deadline of its own.
+	// CollectTimeout bounds each collection's Postgres reads.
+	// Prometheus collection does not inherit the HTTP request context.
 	// Default: 5s.
 	CollectTimeout time.Duration
 

@@ -1,14 +1,13 @@
 ---
-title: 'Proposed: exporting retained measurements'
-description: Proposed OTel producer behavior, source-read health, portable naming, and lifecycle ownership.
+title: 'Exporting retained measurements'
+description: OTel producer behavior and lifecycle ownership, with proposed source-read health and portable naming.
 ---
 
-Vulkan would derive alerts from recorded measurement history and export
+Vulkan derives alerts from recorded measurement history and exports
 retained values through an OTel producer. Core owns alert timing and restart
 behavior; integrations consume actionable `active` and `resolved` alerts
 without maintaining pending timers or suppressing startup alerts themselves.
-The [shared alert direction](/decisions/0686/) is agreed and has not shipped;
-the [implementation plan](/decisions/0689/) starts in existing alert recording. Core runtime timing is proposed in
+Core timing and read-only diagnostics are described in
 [history-based alerts](/concepts/alert-history/).
 
 ## What exists today
@@ -20,35 +19,34 @@ applications choose when to produce custom measurements. The
 history from `__system.metrics`, with a 24-hour retention setting.
 `Measurement.At` records when a value was observed.
 
-The current `otelvulkan` adapter registers observable instruments and reads
-retained measurements during collection. Callers using their own meter must
-arrange discovery of new names. A source-read error can leave Vulkan metrics
-missing from an HTTP 200 response.
+The `otelvulkan` adapter reads retained measurements on each SDK collection.
+Source-read health and portable family validation below remain Proposed;
+a source-read error can still leave Vulkan metrics missing from HTTP 200.
 
-The current [alerts](/reference/alerts/) machinery evaluates live conditions
-and records active, repeated, and resolved alerts. It does not implement the
-history-based pending calculation below.
+## Export through an OTel producer
 
-## Proposed: export through an OTel producer
-
-`otelvulkan.NewMetrics` would build an external SDK producer. Each
-`Produce(ctx)` call would use core's existing retained-measurement read and
-convert the result to OTel data. The reader owns collection cadence. New
+`otelvulkan.NewMetrics` builds an external SDK producer. Each
+`Produce(ctx)` call uses core's retained-measurement read and
+converts the result to OTel data. The reader owns collection cadence. New
 metric names appear on the next collection without instrument registration,
 a discovery loop, or a retained measurement cache.
 
 ```text
 OTel reader requests collection
     -> producer reads latest retained measurements within its timeout
-    -> validates metric families
-    -> returns gauges, cumulative counters, and exporter health
+    -> converts retained values to gauges and cumulative counters
     -> reader passes the data to its exporter
 ```
+
+Attach it with `sdkmetric.NewManualReader(sdkmetric.WithProducer(measurements))`
+and register that reader on the caller's provider. `NewExporter` attaches the
+same producer to its private Prometheus reader. No instrument discovery is
+required, and collections share no retained state.
 
 Gauges retain their values and attributes. Counters retain their cumulative
 totals: reading a stored total of 120 twice still exports 120. The source
 does not establish counter start times, so the adapter must not invent a
-reset at exporter startup. This proposal adds no universal expiry or
+reset at exporter startup. The producer adds no universal expiry or
 per-series freshness companions; observation times remain available through
 the core API.
 

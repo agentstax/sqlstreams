@@ -193,9 +193,12 @@ rolled-back prototype are not implementation requirements.
 
 ### 6. Replace instrument registration with the OTel producer
 
-- [ ] Implement the external SDK producer over current core measurement reads,
+- [x] Implement the external SDK producer over current core measurement reads,
   removing registration/discovery and cached topic identity. Preserve supported
   gauge/counter meaning, units, attributes, and explicit resource ownership.
+  Metrics.Produce replaces registration/callbacks and cached topic identity.
+  ManualReader and the convenience Prometheus exporter use WithProducer;
+  the CLI startup check uses the existing core metrics read [0705].
 - [ ] Apply one portable family-validation policy using the upstream translator:
   conflicting name/kind/unit families, translated metric/attribute collisions,
   and reserved outputs. Export healthy families with current-collection rejection

@@ -5,6 +5,15 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-07 — OTel SDK producer replacement [0705]
+
+Metrics.Produce reads current retained values through the core metrics
+controller. ManualReader and the convenience Prometheus exporter use the
+producer directly; instrument registration, callbacks, and cached topic
+identity are removed. Targeted race and PostgreSQL tests cover conversion,
+new-name collection, cancellation, metadata exclusion, and caller pool
+ownership. Portable rejection and source-read health remain in flight.
+
 ## 2026-09-07 — Read-only alert evaluation snapshots [0704]
 
 All four built-in alert handles expose Snapshot using the existing evaluator

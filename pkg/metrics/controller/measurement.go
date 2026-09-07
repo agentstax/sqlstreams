@@ -11,6 +11,19 @@ import (
 	"github.com/agentstax/vulkan/pkg/migrate"
 )
 
+// ListMeasurements returns each series' newest retained measurement.
+// Returns migrate.ErrNotRegistered before the system metrics topic exists.
+func (c *MetricsController) ListMeasurements(ctx context.Context) ([]*common.StoredMessage[metrics.Measurement], error) {
+	found, err := c.topics.Get(ctx, metrics.MetricsTopicName)
+	if err != nil {
+		return nil, err
+	}
+	if found == nil {
+		return nil, migrate.ErrNotRegistered.With("topic", metrics.MetricsTopicName)
+	}
+	return c.heads.ListHeads[metrics.Measurement](ctx, found.Id)
+}
+
 // GetMeasurement returns the retained series head, or nil when absent.
 // Returns migrate.ErrNotRegistered until the metrics topic exists.
 func (c *MetricsController) GetMeasurement(ctx context.Context, messageKey string) (*common.StoredMessage[metrics.Measurement], error) {
