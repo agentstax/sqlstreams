@@ -37,6 +37,7 @@ export const boards: Board[] = [
 			'concepts/ordering',
 			'concepts/metrics-export',
 			'concepts/alert-history',
+			'concepts/reliability-lab',
 		],
 	},
 	{
