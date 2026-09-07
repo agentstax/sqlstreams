@@ -24,6 +24,7 @@ reliability-lab scenario="dev" time_scale="1":
     trap 'docker compose down -v' EXIT
     docker compose --profile checker build
     docker compose up --detach consumer
+    mkdir -p results && ./fingerprint.sh > results/fingerprint.json
     docker compose run --rm producer
     docker compose run --rm checker
 

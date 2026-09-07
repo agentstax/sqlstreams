@@ -22,14 +22,40 @@ func NewCheckerDatastore(pool *pgxpool.Pool) (*CheckerDatastore, error) {
 	return &CheckerDatastore{pool: pool}, nil
 }
 
-// ReadSynchronousCommit is the server setting the verdict records: a run with
-// it off proves less about durability than one with it on.
-func (d *CheckerDatastore) ReadSynchronousCommit(ctx context.Context) (string, error) {
-	settingSql := `
-		-- lab: datastore.ReadSynchronousCommit
-		SHOW synchronous_commit;
+// ReadServerVersion is the version the server reports, recorded in the
+// verdict beside the image tag compose asked for.
+func (d *CheckerDatastore) ReadServerVersion(ctx context.Context) (string, error) {
+	versionSql := `
+		-- lab: datastore.ReadServerVersion
+		SHOW server_version;
 	`
-	var setting string
-	err := d.pool.QueryRow(ctx, settingSql).Scan(&setting)
-	return setting, err
+	var version string
+	err := d.pool.QueryRow(ctx, versionSql).Scan(&version)
+	return version, err
+}
+
+// ReadSettings reads the named settings as the server reports them, in
+// SHOW's units, so the verdict carries what ran rather than what compose
+// asked for.
+func (d *CheckerDatastore) ReadSettings(ctx context.Context, names []string) (map[string]string, error) {
+	settingsSql := `
+		-- lab: datastore.ReadSettings
+		SELECT name, current_setting(name)
+		FROM unnest($1::text[]) AS name;
+	`
+	rows, err := d.pool.Query(ctx, settingsSql, names)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	settings := map[string]string{}
+	for rows.Next() {
+		var name, setting string
+		if err := rows.Scan(&name, &setting); err != nil {
+			return nil, err
+		}
+		settings[name] = setting
+	}
+	return settings, rows.Err()
 }

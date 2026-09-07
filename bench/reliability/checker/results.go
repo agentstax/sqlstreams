@@ -54,6 +54,7 @@ func Report(declared *scenario.Scenario, verdict *Verdict) string {
 	fmt.Fprintf(table, "produced\tattempted %d, committed %d, rejected %d, unknown %d\n",
 		verdict.Produced.Attempted, verdict.Produced.Committed, verdict.Produced.Rejected, verdict.Produced.Unknown)
 	fmt.Fprintf(table, "handled\tsuccess %d, error %d\n", verdict.Handled.Success, verdict.Handled.Error)
+	fmt.Fprintf(table, "environment\t%s\n", environmentLine(verdict.Fingerprint))
 	fmt.Fprintf(table, "verdict\t%s\t%s\n", verdict.Status, verdict.Reason)
 	table.Flush()
 	return out.String()
@@ -74,4 +75,22 @@ func (r CheckResult) ReportColumns() string {
 		columns = append(columns, r.ExampleOf+" "+strings.Join(r.Examples, ", "))
 	}
 	return strings.Join(columns, "\t")
+}
+
+// ***************
+// *** HELPERS ***
+// ***************
+
+// environmentLine is the fingerprint's one-line form: the server version and
+// durability posture the run had, and the library commit that ran.
+func environmentLine(fingerprint *Fingerprint) string {
+	library := fingerprint.LibrarySha
+	if len(library) > 12 {
+		library = library[:12]
+	}
+	if fingerprint.LibraryDirty {
+		library += " dirty"
+	}
+	return fmt.Sprintf("postgres %s, synchronous_commit %s, library %s",
+		fingerprint.PostgresVersion, fingerprint.Settings["synchronous_commit"], library)
 }

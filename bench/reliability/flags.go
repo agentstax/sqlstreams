@@ -16,8 +16,9 @@ type labFlags struct {
 	recordDir string
 	name      string
 
-	resultsDir  string
-	drainBudget time.Duration
+	resultsDir      string
+	fingerprintFile string
+	drainBudget     time.Duration
 }
 
 func parseFlags() (*labFlags, error) {
@@ -28,6 +29,7 @@ func parseFlags() (*labFlags, error) {
 	flag.StringVar(&flags.recordDir, "record-dir", "records", "directory the role's record files are appended under")
 	flag.StringVar(&flags.name, "name", "", "this process's name in the records; default the hostname")
 	flag.StringVar(&flags.resultsDir, "results-dir", "results", "checker: directory the verdict record is written under")
+	flag.StringVar(&flags.fingerprintFile, "fingerprint-file", "results/fingerprint.json", "checker: the environment record fingerprint.sh wrote before the run")
 	flag.DurationVar(&flags.drainBudget, "drain-budget", 2*time.Minute, "checker: how long to wait for the consumers to finish before the verdict is unknown")
 	flag.Parse()
 

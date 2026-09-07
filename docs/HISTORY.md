@@ -16,7 +16,9 @@ below 4 requires an explicit compatible BatchLimit.
 The starting log includes queue, concurrency, poll, and timing budgets.
 VK0105 identifies queued messages that cannot start with sufficient lease
 coverage, once per locally tracked range subject to existing suppression.
-The consumer reference documents sizing and replay costs; research and
+The consumer reference documents sizing and replay costs. The consumer-tuning
+guide adds profiles for local and quiet consumers, fast and long handlers,
+mixed runtimes, ordered keys, and large payloads. Research and
 measurements are preserved in bench/consumerdefaults/RESULTS.md.
 
 Affected builds and race tests, the concurrent warning-winner test, existing

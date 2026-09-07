@@ -463,3 +463,4 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0708 2026-09-07 accepted (pre-v1) — Exporter health has a collection scope
 - 0709 2026-09-07 accepted (pre-v1) — Topic alerts evaluate every minute
 - 0710 2026-09-07 accepted (pre-v1) — Consumer defaults use small batches and responsive polling
+- 0711 2026-09-07 accepted (pre-v1) — The reliability lab is the benchmark harness, and a benchmark is a scenario

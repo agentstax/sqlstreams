@@ -70,7 +70,7 @@ func run() (int, error) {
 	case "consumer":
 		return 0, role.RunConsumer(ctx)
 	case "checker":
-		verdict, err := role.RunChecker(ctx, flags.resultsDir, flags.drainBudget)
+		verdict, err := role.RunChecker(ctx, flags.resultsDir, flags.fingerprintFile, flags.drainBudget)
 		if err != nil {
 			return 0, err
 		}

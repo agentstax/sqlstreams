@@ -18,21 +18,20 @@ const (
 	VerdictStatusUnknown VerdictStatus = "unknown"
 )
 
-// Verdict is the record one checker run writes: what was judged, under what
-// server setting and library version, and how each expectation came out.
+// Verdict is the record one checker run writes: what was judged, in what
+// environment, and how each expectation came out.
 type Verdict struct {
-	Scenario          string                   `json:"scenario"`
-	Status            VerdictStatus            `json:"status"`
-	Reason            string                   `json:"reason"` // "" unless unknown
-	StartedAt         time.Time                `json:"started_at"`
-	Duration          time.Duration            `json:"duration_ns"`
-	VulkanVersion     string                   `json:"vulkan_version"`
-	SynchronousCommit string                   `json:"synchronous_commit"`
-	Records           RecordSummary            `json:"records"`
-	Produced          datastore.ProduceSummary `json:"produced"`
-	Handled           datastore.HandlerSummary `json:"handled"`
-	Checks            []CheckResult            `json:"checks"`
-	Phases            []record.PhaseRecord     `json:"phases"`
+	Scenario    string                   `json:"scenario"`
+	Status      VerdictStatus            `json:"status"`
+	Reason      string                   `json:"reason"` // "" unless unknown
+	StartedAt   time.Time                `json:"started_at"`
+	Duration    time.Duration            `json:"duration_ns"`
+	Fingerprint *Fingerprint             `json:"fingerprint"`
+	Records     RecordSummary            `json:"records"`
+	Produced    datastore.ProduceSummary `json:"produced"`
+	Handled     datastore.HandlerSummary `json:"handled"`
+	Checks      []CheckResult            `json:"checks"`
+	Phases      []record.PhaseRecord     `json:"phases"`
 }
 
 // RecordSummary counts the rows loaded from the record files, per kind.

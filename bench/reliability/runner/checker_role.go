@@ -8,12 +8,16 @@ import (
 	"github.com/agentstax/vulkan/bench/reliability/checker"
 )
 
-// RunChecker judges the run from the record files the other roles left,
-// writes the results under resultsDir, and prints the report. The verdict
-// is returned for its exit code; a returned error is a lab failure that
-// left no verdict.
-func (r *Runner) RunChecker(ctx context.Context, resultsDir string, drainBudget time.Duration) (*checker.Verdict, error) {
-	judge, err := checker.NewChecker(r.connection.Pool, r.declared, r.recordDir, drainBudget)
+// RunChecker judges the run from the record files the other roles left and
+// the fingerprint the recipe wrote, writes the results under resultsDir, and
+// prints the report. The verdict is returned for its exit code; a returned
+// error is a lab failure that left no verdict.
+func (r *Runner) RunChecker(ctx context.Context, resultsDir string, fingerprintFile string, drainBudget time.Duration) (*checker.Verdict, error) {
+	fingerprint, err := checker.ReadFingerprint(fingerprintFile)
+	if err != nil {
+		return nil, err
+	}
+	judge, err := checker.NewChecker(r.connection.Pool, r.declared, fingerprint, r.recordDir, drainBudget)
 	if err != nil {
 		return nil, err
 	}

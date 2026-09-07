@@ -17,22 +17,25 @@ import (
 	"github.com/agentstax/vulkan/bench/reliability/checker/datastore"
 	"github.com/agentstax/vulkan/bench/reliability/record"
 	"github.com/agentstax/vulkan/bench/reliability/scenario"
-	"github.com/agentstax/vulkan/pkg/common"
 )
 
 type Checker struct {
 	ds          *datastore.CheckerDatastore
 	declared    *scenario.Scenario
+	fingerprint *Fingerprint
 	recordDir   string
 	drainBudget time.Duration
 }
 
-func NewChecker(pool *pgxpool.Pool, declared *scenario.Scenario, recordDir string, drainBudget time.Duration) (*Checker, error) {
+func NewChecker(pool *pgxpool.Pool, declared *scenario.Scenario, fingerprint *Fingerprint, recordDir string, drainBudget time.Duration) (*Checker, error) {
 	if pool == nil {
 		return nil, errors.New("pool must not be nil")
 	}
 	if declared == nil {
 		return nil, errors.New("declared must not be nil")
+	}
+	if fingerprint == nil {
+		return nil, errors.New("fingerprint must not be nil")
 	}
 	if recordDir == "" {
 		return nil, errors.New("recordDir must not be empty")
@@ -45,7 +48,7 @@ func NewChecker(pool *pgxpool.Pool, declared *scenario.Scenario, recordDir strin
 	if err != nil {
 		return nil, err
 	}
-	return &Checker{ds: ds, declared: declared, recordDir: recordDir, drainBudget: drainBudget}, nil
+	return &Checker{ds: ds, declared: declared, fingerprint: fingerprint, recordDir: recordDir, drainBudget: drainBudget}, nil
 }
 
 // Run loads the producers' records, drains the group, loads the handlers'
@@ -60,11 +63,11 @@ func (c *Checker) Run(ctx context.Context) (*Verdict, error) {
 	}
 
 	verdict := &Verdict{
-		Scenario:      c.declared.Name,
-		StartedAt:     time.Now(),
-		VulkanVersion: common.BuildVersion(),
-		Checks:        []CheckResult{},
-		Phases:        []record.PhaseRecord{},
+		Scenario:    c.declared.Name,
+		StartedAt:   time.Now(),
+		Fingerprint: c.fingerprint,
+		Checks:      []CheckResult{},
+		Phases:      []record.PhaseRecord{},
 	}
 	if err := c.judge(ctx, verdict); err != nil {
 		verdict.Status = VerdictStatusUnknown
@@ -79,7 +82,11 @@ func (c *Checker) judge(ctx context.Context, verdict *Verdict) error {
 	if err != nil {
 		return err
 	}
-	verdict.SynchronousCommit, err = c.ds.ReadSynchronousCommit(ctx)
+	c.fingerprint.PostgresVersion, err = c.ds.ReadServerVersion(ctx)
+	if err != nil {
+		return err
+	}
+	c.fingerprint.Settings, err = c.ds.ReadSettings(ctx, recordedSettings)
 	if err != nil {
 		return err
 	}

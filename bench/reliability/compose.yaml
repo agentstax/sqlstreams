@@ -7,13 +7,38 @@
 # keys read `producer-<seq>`. No dependent carries `restart: true` -- a
 # Postgres restart during a chaos phase must not restart the roles under
 # test.
+#
+# The postgres service is the one pinned environment every published number
+# runs on: image, resource caps, and settings change here and nowhere else,
+# and the checker records what the server reports back. PGDATA sits on a
+# named volume (never the container's overlay filesystem); `down -v` drops it
+# so every run starts from an empty cluster.
 services:
   postgres:
-    image: postgres:17
+    image: postgres:18.4
+    command:
+      - -c
+      - shared_buffers=2560MB
+      - -c
+      - max_wal_size=4GB
+      - -c
+      - shared_preload_libraries=pg_stat_statements
+      - -c
+      - track_io_timing=on
+      - -c
+      - max_connections=200
+    shm_size: 1g
+    deploy:
+      resources:
+        limits:
+          cpus: '8'
+          memory: 8g
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-lab}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lab}
       POSTGRES_DB: ${POSTGRES_DB:-lab}
+    volumes:
+      - pgdata:/var/lib/postgresql
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-lab} -d ${POSTGRES_DB:-lab}']
       interval: 2s
@@ -60,7 +85,7 @@ services:
       context: ../..
       dockerfile: bench/reliability/Dockerfile
     profiles: [checker]
-    command: ['-role', 'checker', '-scenario', '${SCENARIO:-dev}', '-time-scale', '${TIME_SCALE:-1}', '-record-dir', '/records', '-results-dir', '/results']
+    command: ['-role', 'checker', '-scenario', '${SCENARIO:-dev}', '-time-scale', '${TIME_SCALE:-1}', '-record-dir', '/records', '-results-dir', '/results', '-fingerprint-file', '/results/fingerprint.json']
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_USER: ${POSTGRES_USER:-lab}
@@ -75,3 +100,4 @@ services:
 
 volumes:
   records:
+  pgdata:
