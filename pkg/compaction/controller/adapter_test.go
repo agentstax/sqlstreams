@@ -40,3 +40,23 @@ func TestToStoredMessageRejectsInvalidPayload(t *testing.T) {
 		t.Fatal("toStoredMessage() = nil error, want invalid JSON error")
 	}
 }
+
+func TestToStoredMessagesPreservesOrderAndRejectsPartialResults(t *testing.T) {
+	data := []datastore.MessageLogRow{
+		{Id: 902, Payload: json.RawMessage(`{"device_id":"dev-7"}`)},
+		{Id: 901, Payload: json.RawMessage(`{"device_id":"dev-8"}`)},
+	}
+	messages, err := toStoredMessages[adapterMessage](data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(messages) != 2 || messages[0].Id != 902 || messages[1].Id != 901 || messages[0].Message.DeviceId != "dev-7" || messages[1].Message.DeviceId != "dev-8" {
+		t.Fatalf("toStoredMessages() = %+v", messages)
+	}
+
+	data[1].Payload = json.RawMessage(`{"device_id":[]}`)
+	messages, err = toStoredMessages[adapterMessage](data)
+	if err == nil || messages != nil {
+		t.Fatalf("toStoredMessages() = %v, %v; want nil, decoding error", messages, err)
+	}
+}

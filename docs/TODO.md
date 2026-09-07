@@ -14,41 +14,52 @@ generic per-series freshness companion, or new backlog alert.
 
 ### 1. Settle the remaining implementation contract
 
-Proposed choices are drafted in `concepts/metrics-export.mdx` and
-`concepts/alert-history.mdx` under `website/src/content/docs/`. Awaiting user
-review before recording them as accepted or starting chunk 2.
+Contract approved in [0684], specified in `concepts/metrics-export.mdx` and
+`concepts/alert-history.mdx` under `website/src/content/docs/`. Runtime behavior
+remains Proposed until the implementation chunks ship.
 
 - [x] Check current collector, history reads, schedule resolution, alert
   classification, retention, and transaction/compaction-head seams.
 - [x] Draft concrete names, raw timestamp observations with explicit absence,
   one-minute checks, age/pending/gap defaults, sufficient history windows,
   and serialized alert production through the existing head.
-- [ ] Review public health/diagnostic names and the representation of collector
+- [x] Review public health/diagnostic names and the representation of collector
   completion and progress observations, including explicit absent evidence.
-- [ ] Set check cadence, progress thresholds, pending duration, allowed gaps,
+- [x] Set check cadence, progress thresholds, pending duration, allowed gaps,
   and freshness rules. Define sufficient history windows, boundary evidence,
   retention requirements, and deterministic ordering of late/tied observations.
-- [ ] Specify activation, recovery, repeats, and concurrent/repeated evaluation
+- [x] Specify activation, recovery, repeats, and concurrent/repeated evaluation
   guarantees separately from deterministic calculation. Identify which existing
   alert checks, if any, adopt history-based evaluation; preserve the others.
-- [ ] Update the Proposed page with these choices for review before affected
+- [x] Update the Proposed page with these choices for review before affected
   code; record newly settled decisions in the same session.
 
 ### 2. Read sufficient retained measurement history
 
-- [ ] Extend the existing core history-read path to supply the agreed bounded
+Implemented `CompactionController.ListKeyMessagesByRank`: the new built-ins'
+`At.UnixMicro()` ranks bound their history without measurement-aware SQL.
+Each history read owns its complete SQL; row scanning and payload decoding
+are shared. No supported public API or table changes; the evaluator supplies
+the policy's time bounds.
+
+- [x] Extend the existing core history-read path to supply the agreed bounded
   time window and boundary evidence. A fixed row limit is not proof of duration.
   Keep alert policy out of SQL and preserve existing public history behavior.
-- [ ] Make observation-time ordering and incomplete/expired evidence explicit.
-  Use the agreed retention policy rather than inventing missing observations.
-- [ ] Verify window boundaries, tied/late observations, retention gaps, and
+- [x] Make observation-time ordering and incomplete/expired evidence explicit.
+  Return retained rows only, preserving gaps and errors; policy validation
+  belongs with the evaluator in chunk 3.
+- [x] Verify window boundaries, tied/late observations, retention gaps, and
   existing history callers with targeted datastore/controller integration tests.
+  Build, vet, targeted race tests, the PostgreSQL retained-history integration
+  test, and `just metrics-collector-lab` passed. No full-suite checkpoint yet.
 
 ### 3. Calculate alert state from history
 
 - [ ] Implement the domain calculation over fixed history, evaluation time,
   and policy: healthy, pending, active, or insufficient evidence. Reuse one
   calculation for sustained conditions; do not persist a pending timer/cursor.
+- [ ] Resolve and validate the agreed time window and retention requirement
+  before reading; use the rank-bounded read only for timestamp-ranked built-ins.
 - [ ] Measure the consecutive unhealthy sample span, stopping at a healthy
   observation or excessive gap. An old sample cannot become active by waiting.
   Only fresh healthy evidence permits recovery.

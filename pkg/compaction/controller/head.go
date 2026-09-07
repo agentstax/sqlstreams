@@ -59,13 +59,5 @@ func (c *CompactionController) ListHeads[Message common.Versioned](ctx context.C
 		return nil, err
 	}
 
-	heads := make([]*common.StoredMessage[Message], 0, len(data))
-	for i := range data {
-		head, err := toStoredMessage[Message](&data[i])
-		if err != nil {
-			return nil, err
-		}
-		heads = append(heads, head)
-	}
-	return heads, nil
+	return toStoredMessages[Message](data)
 }

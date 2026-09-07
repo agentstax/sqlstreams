@@ -26,13 +26,25 @@ func (c *CompactionController) ListKeyMessages[Message common.Versioned](ctx con
 		return nil, err
 	}
 
-	messages := make([]*common.StoredMessage[Message], 0, len(data))
-	for i := range data {
-		message, err := toStoredMessage[Message](&data[i])
-		if err != nil {
-			return nil, err
-		}
-		messages = append(messages, message)
+	return toStoredMessages[Message](data)
+}
+
+// ListKeyMessagesByRank returns retained compacted messages within inclusive
+// rank bounds, including superseded rows, ordered by rank then id descending.
+func (c *CompactionController) ListKeyMessagesByRank[Message common.Versioned](ctx context.Context, topicId int64, messageKey string, minimumRank int64, maximumRank int64) ([]*common.StoredMessage[Message], error) {
+	if topicId <= 0 {
+		return nil, fmt.Errorf("topicId must be > 0, got %d", topicId)
 	}
-	return messages, nil
+	if messageKey == "" {
+		return nil, errors.New("messageKey must not be empty")
+	}
+	if maximumRank < minimumRank {
+		return nil, fmt.Errorf("maximumRank must be >= minimumRank %d, got %d", minimumRank, maximumRank)
+	}
+
+	data, err := c.datastore.ListKeyMessagesByRank(ctx, topicId, messageKey, minimumRank, maximumRank)
+	if err != nil {
+		return nil, err
+	}
+	return toStoredMessages[Message](data)
 }

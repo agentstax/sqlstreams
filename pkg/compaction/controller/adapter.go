@@ -21,3 +21,15 @@ func toStoredMessage[Message common.Versioned](data *datastore.MessageLogRow) (*
 		CompactionRank: data.CompactionRank,
 	}, nil
 }
+
+func toStoredMessages[Message common.Versioned](data []datastore.MessageLogRow) ([]*common.StoredMessage[Message], error) {
+	messages := make([]*common.StoredMessage[Message], 0, len(data))
+	for _, row := range data {
+		message, err := toStoredMessage[Message](&row)
+		if err != nil {
+			return nil, err
+		}
+		messages = append(messages, message)
+	}
+	return messages, nil
+}
