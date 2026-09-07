@@ -10,8 +10,7 @@ import (
 	"sync"
 )
 
-// FileKind names which ledger table a file feeds; the checker COPYs each
-// kind into its table.
+// FileKind names which table the checker COPYs a file into.
 type FileKind string
 
 const (

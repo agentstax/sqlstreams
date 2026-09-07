@@ -1,27 +1,27 @@
-package coordinator
+package runner
 
 import (
 	"context"
 	"errors"
 	"time"
 
-	"github.com/agentstax/vulkan/bench/reliability/lab"
+	"github.com/agentstax/vulkan/bench/reliability/common"
 	"github.com/agentstax/vulkan/bench/reliability/ledger"
 	"github.com/agentstax/vulkan/bench/reliability/scenario"
 )
 
-// Coordinator runs one role of one scenario: it registers what the scenario
+// Runner runs one role of one scenario: it registers what the scenario
 // declares, walks the scenario's timeline, writes the run_phase facts, and
 // drives the verifiable producer or consumer fleet at the moments the
 // timeline says. The producer and consumer packages never see the timeline.
-type Coordinator struct {
+type Runner struct {
 	declared   *scenario.Scenario
-	connection *lab.Connection
+	connection *common.Connection
 	ledgerDir  string
 	name       string
 }
 
-func NewCoordinator(declared *scenario.Scenario, connection *lab.Connection, ledgerDir string, name string) (*Coordinator, error) {
+func NewRunner(declared *scenario.Scenario, connection *common.Connection, ledgerDir string, name string) (*Runner, error) {
 	if declared == nil {
 		return nil, errors.New("declared must not be nil")
 	}
@@ -34,17 +34,17 @@ func NewCoordinator(declared *scenario.Scenario, connection *lab.Connection, led
 	if name == "" {
 		return nil, errors.New("name must not be empty")
 	}
-	return &Coordinator{declared: declared, connection: connection, ledgerDir: ledgerDir, name: name}, nil
+	return &Runner{declared: declared, connection: connection, ledgerDir: ledgerDir, name: name}, nil
 }
 
-func (c *Coordinator) openLedger(kind ledger.FileKind) (*ledger.Writer, error) {
-	return ledger.NewWriter(c.ledgerDir, c.name, kind)
+func (r *Runner) openLedger(kind ledger.FileKind) (*ledger.Writer, error) {
+	return ledger.NewWriter(r.ledgerDir, r.name, kind)
 }
 
-func (c *Coordinator) writePhase(phases *ledger.Writer, kind ledger.PhaseKind, name string, status ledger.PhaseStatus, detail string) error {
+func (r *Runner) writePhase(phases *ledger.Writer, kind ledger.PhaseKind, name string, status ledger.PhaseStatus, detail string) error {
 	return phases.Write(ledger.PhaseFact{
 		At:     time.Now(),
-		Role:   c.name,
+		Role:   r.name,
 		Kind:   kind,
 		Name:   name,
 		Status: status,

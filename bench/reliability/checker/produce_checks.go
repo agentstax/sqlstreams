@@ -24,7 +24,7 @@ func (c *Checker) lost(ctx context.Context, target *target) (measurement, error)
 
 // unexpected: message rows whose key the ledger never committed and never
 // lost track of -- a rejected produce that landed, or a row nobody attempted.
-// The key is rebuilt from the payload as lab.Order.Key builds it.
+// The key is rebuilt from the payload as common.Order.Key builds it.
 func (c *Checker) unexpected(ctx context.Context, target *target) (measurement, error) {
 	unexpectedSql := fmt.Sprintf(`
 		-- lab: checker.unexpected

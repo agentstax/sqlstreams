@@ -1,4 +1,4 @@
-package coordinator
+package runner
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/agentstax/vulkan/bench/reliability/lab"
+	"github.com/agentstax/vulkan/bench/reliability/common"
 )
 
 // Pacer runs an open loop: call i is due at start + i/rate whether or not
@@ -38,7 +38,7 @@ func (p *Pacer) Run(ctx context.Context, call func(ctx context.Context, schedule
 	start := time.Now()
 	end := start.Add(p.duration)
 	if p.rate == 0 {
-		return lab.WaitUntil(ctx, end)
+		return common.WaitUntil(ctx, end)
 	}
 
 	interval := time.Second / time.Duration(p.rate)
@@ -50,7 +50,7 @@ func (p *Pacer) Run(ctx context.Context, call func(ctx context.Context, schedule
 		if !scheduled.Before(end) {
 			return nil
 		}
-		if err := lab.WaitUntil(ctx, scheduled); err != nil {
+		if err := common.WaitUntil(ctx, scheduled); err != nil {
 			return err
 		}
 

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/bench/reliability/lab"
+	"github.com/agentstax/vulkan/bench/reliability/common"
 )
 
 const drainPoll = 500 * time.Millisecond
@@ -40,7 +40,7 @@ func (c *Checker) drain(ctx context.Context, target *target) error {
 		if time.Now().After(deadline) {
 			return fmt.Errorf("drain budget %v spent: cursor committed %d, highest message %d", c.drainBudget, position.CursorCommitted, position.HighestMessage)
 		}
-		if err := lab.WaitUntil(ctx, time.Now().Add(drainPoll)); err != nil {
+		if err := common.WaitUntil(ctx, time.Now().Add(drainPoll)); err != nil {
 			return err
 		}
 	}

@@ -6,22 +6,22 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/agentstax/vulkan/bench/reliability/lab"
+	"github.com/agentstax/vulkan/bench/reliability/common"
 	"github.com/agentstax/vulkan/bench/reliability/ledger"
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 )
 
 // Producer is the verifiable producer: every Produce writes its attempt to
 // the ledger, calls the library once, and writes what came back. It knows
-// nothing of phases or rates; the coordinator decides when it is called.
+// nothing of phases or rates; the runner decides when it is called.
 type Producer struct {
-	instance *vulkan.ProducerInstance[lab.Order]
+	instance *vulkan.ProducerInstance[common.Order]
 	produces *ledger.Writer
 	name     string
 	seq      atomic.Int64
 }
 
-func NewProducer(instance *vulkan.ProducerInstance[lab.Order], produces *ledger.Writer, name string) (*Producer, error) {
+func NewProducer(instance *vulkan.ProducerInstance[common.Order], produces *ledger.Writer, name string) (*Producer, error) {
 	if instance == nil {
 		return nil, errors.New("instance must not be nil")
 	}
@@ -38,7 +38,7 @@ func NewProducer(instance *vulkan.ProducerInstance[lab.Order], produces *ledger.
 // the outcome, so a process killed in between leaves the attempt on disk.
 // A ledger write failing is a lab failure, never a produce outcome.
 func (p *Producer) Produce(ctx context.Context, scheduled time.Time) error {
-	order := &lab.Order{Producer: p.name, Seq: p.seq.Add(1)}
+	order := &common.Order{Producer: p.name, Seq: p.seq.Add(1)}
 	fact := ledger.ProduceFact{
 		At:          time.Now(),
 		Kind:        ledger.ProduceAttempted,

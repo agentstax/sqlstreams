@@ -22,7 +22,7 @@ import (
 type Checker struct {
 	pool        *pgxpool.Pool
 	declared    *scenario.Scenario
-	tables      *ledger.Tables
+	tables      *tables
 	ledgerDir   string
 	drainBudget time.Duration
 }
@@ -41,7 +41,7 @@ func NewChecker(pool *pgxpool.Pool, declared *scenario.Scenario, ledgerDir strin
 		return nil, fmt.Errorf("drainBudget must be > 0, got %v", drainBudget)
 	}
 
-	tables, err := ledger.NewTables(pool)
+	tables, err := newTables(pool)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ func NewChecker(pool *pgxpool.Pool, declared *scenario.Scenario, ledgerDir strin
 // query failing -- is a verdict of unknown carrying the reason, so the
 // record always lands.
 func (c *Checker) Run(ctx context.Context) (*Verdict, error) {
-	if err := c.tables.Create(ctx); err != nil {
+	if err := c.tables.create(ctx); err != nil {
 		return nil, err
 	}
 	verdict := &Verdict{
@@ -66,11 +66,11 @@ func (c *Checker) Run(ctx context.Context) (*Verdict, error) {
 		Phases:        []ledger.PhaseFact{},
 	}
 	var err error
-	verdict.Ledger.Produce, err = c.tables.Load(ctx, c.ledgerDir, ledger.FileProduce)
+	verdict.Ledger.Produce, err = c.tables.load(ctx, c.ledgerDir, ledger.FileProduce)
 	if err != nil {
 		return nil, err
 	}
-	verdict.Ledger.Phase, err = c.tables.Load(ctx, c.ledgerDir, ledger.FilePhase)
+	verdict.Ledger.Phase, err = c.tables.load(ctx, c.ledgerDir, ledger.FilePhase)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +112,7 @@ func (c *Checker) judge(ctx context.Context, verdict *Verdict) error {
 	if err := c.drain(ctx, target); err != nil {
 		return err
 	}
-	verdict.Ledger.Handler, err = c.tables.Load(ctx, c.ledgerDir, ledger.FileHandler)
+	verdict.Ledger.Handler, err = c.tables.load(ctx, c.ledgerDir, ledger.FileHandler)
 	if err != nil {
 		return err
 	}

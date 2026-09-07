@@ -1,4 +1,4 @@
-package ledger
+package checker
 
 import (
 	"context"
@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/agentstax/vulkan/bench/reliability/ledger"
 )
 
 // tableLayout is how one file kind lands in its table: the columns in the
@@ -18,34 +20,34 @@ type tableLayout struct {
 	decode  func(line []byte) ([]any, error)
 }
 
-var layouts = map[FileKind]tableLayout{
-	FileProduce: {
-		table:   ProduceTable,
+var layouts = map[ledger.FileKind]tableLayout{
+	ledger.FileProduce: {
+		table:   produceTable,
 		columns: []string{"at", "kind", "producer", "seq", "key", "scheduled_at", "message_id", "duplicate", "code", "error"},
 		decode: func(line []byte) ([]any, error) {
-			var fact ProduceFact
+			var fact ledger.ProduceFact
 			if err := json.Unmarshal(line, &fact); err != nil {
 				return nil, err
 			}
 			return []any{fact.At, string(fact.Kind), fact.Producer, fact.Seq, fact.Key, fact.ScheduledAt, fact.MessageId, fact.Duplicate, fact.Code, fact.Error}, nil
 		},
 	},
-	FileHandler: {
-		table:   HandlerTable,
+	ledger.FileHandler: {
+		table:   handlerTable,
 		columns: []string{"at", "consumer", "group", "message_id", "key", "attempt", "outcome"},
 		decode: func(line []byte) ([]any, error) {
-			var fact HandlerFact
+			var fact ledger.HandlerFact
 			if err := json.Unmarshal(line, &fact); err != nil {
 				return nil, err
 			}
 			return []any{fact.At, fact.Consumer, fact.Group, fact.MessageId, fact.Key, fact.Attempt, string(fact.Outcome)}, nil
 		},
 	},
-	FilePhase: {
-		table:   PhaseTable,
+	ledger.FilePhase: {
+		table:   phaseTable,
 		columns: []string{"at", "role", "kind", "name", "status", "detail"},
 		decode: func(line []byte) ([]any, error) {
-			var fact PhaseFact
+			var fact ledger.PhaseFact
 			if err := json.Unmarshal(line, &fact); err != nil {
 				return nil, err
 			}
@@ -54,12 +56,12 @@ var layouts = map[FileKind]tableLayout{
 	},
 }
 
-// Load COPYs every <name>.<kind>.jsonl of one kind under dir into the
+// load COPYs every <name>.<kind>.jsonl of one kind under dir into the
 // kind's table, one streamed COPY per file, and returns the rows loaded. The
-// checker loads the produce files before it drains and the handler files
-// after, so each table is read once it is complete. A line that does not
-// decode is an error.
-func (t *Tables) Load(ctx context.Context, dir string, kind FileKind) (int64, error) {
+// produce files load before the drain and the handler files after, so each
+// table is read once it is complete. A line that does not decode is an
+// error.
+func (t *tables) load(ctx context.Context, dir string, kind ledger.FileKind) (int64, error) {
 	layout, ok := layouts[kind]
 	if !ok {
 		return 0, fmt.Errorf("unrecognized ledger file kind: %q", string(kind))
@@ -83,7 +85,7 @@ func (t *Tables) Load(ctx context.Context, dir string, kind FileKind) (int64, er
 	return loaded, nil
 }
 
-func (t *Tables) loadFile(ctx context.Context, path string, layout tableLayout) (int64, error) {
+func (t *tables) loadFile(ctx context.Context, path string, layout tableLayout) (int64, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return 0, err
@@ -91,7 +93,7 @@ func (t *Tables) loadFile(ctx context.Context, path string, layout tableLayout) 
 	defer file.Close()
 
 	source := newLineSource(file, layout.decode)
-	rows, err := t.pool.CopyFrom(ctx, pgx.Identifier{Schema, layout.table}, layout.columns, source)
+	rows, err := t.pool.CopyFrom(ctx, pgx.Identifier{labSchema, layout.table}, layout.columns, source)
 	if err != nil {
 		return 0, err
 	}

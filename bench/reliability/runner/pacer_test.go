@@ -1,4 +1,4 @@
-package coordinator
+package runner
 
 import (
 	"context"

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/agentstax/vulkan/bench/reliability/ledger"
 	"github.com/agentstax/vulkan/pkg/datastore"
 	"github.com/agentstax/vulkan/pkg/topic"
 )
@@ -15,9 +14,9 @@ const vulkanSchema = datastore.DefaultSchema
 
 // the loaded ledger's tables, qualified
 var (
-	produceLedger = ledger.Schema + "." + ledger.ProduceTable
-	handlerLedger = ledger.Schema + "." + ledger.HandlerTable
-	runPhase      = ledger.Schema + "." + ledger.PhaseTable
+	produceLedger = labSchema + "." + produceTable
+	handlerLedger = labSchema + "." + handlerTable
+	runPhase      = labSchema + "." + phaseTable
 )
 
 // target is the topic and consumer group the checks read, resolved from the

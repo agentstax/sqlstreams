@@ -18,8 +18,8 @@ import (
 	"os"
 
 	"github.com/agentstax/vulkan/bench/reliability/checker"
-	"github.com/agentstax/vulkan/bench/reliability/coordinator"
-	"github.com/agentstax/vulkan/bench/reliability/lab"
+	"github.com/agentstax/vulkan/bench/reliability/common"
+	"github.com/agentstax/vulkan/bench/reliability/runner"
 	"github.com/agentstax/vulkan/bench/reliability/scenarios"
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 )
@@ -51,23 +51,23 @@ func run() (int, error) {
 
 	ctx, stop := vulkan.LifecycleContext(nil)
 	defer stop()
-	connection, err := lab.NewConnection(ctx)
+	connection, err := common.NewConnection(ctx)
 	if err != nil {
 		return 0, err
 	}
 	defer connection.Close()
-	run, err := coordinator.NewCoordinator(declared.Scaled(flags.timeScale), connection, flags.ledgerDir, flags.name)
+	lab, err := runner.NewRunner(declared.Scaled(flags.timeScale), connection, flags.ledgerDir, flags.name)
 	if err != nil {
 		return 0, err
 	}
 
 	switch flags.role {
 	case "producer":
-		return 0, run.RunProducer(ctx)
+		return 0, lab.RunProducer(ctx)
 	case "consumer":
-		return 0, run.RunConsumer(ctx)
+		return 0, lab.RunConsumer(ctx)
 	case "checker":
-		verdict, err := run.RunChecker(ctx, flags.resultsDir, flags.drainBudget)
+		verdict, err := lab.RunChecker(ctx, flags.resultsDir, flags.drainBudget)
 		if err != nil {
 			return 0, err
 		}

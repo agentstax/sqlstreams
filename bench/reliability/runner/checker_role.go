@@ -1,4 +1,4 @@
-package coordinator
+package runner
 
 import (
 	"context"
@@ -12,8 +12,8 @@ import (
 // writes the record under resultsDir, and prints the report. The verdict
 // is returned for its exit code; a returned error is a lab failure that
 // left no verdict.
-func (c *Coordinator) RunChecker(ctx context.Context, resultsDir string, drainBudget time.Duration) (*checker.Verdict, error) {
-	judge, err := checker.NewChecker(c.connection.Pool, c.declared, c.ledgerDir, drainBudget)
+func (r *Runner) RunChecker(ctx context.Context, resultsDir string, drainBudget time.Duration) (*checker.Verdict, error) {
+	judge, err := checker.NewChecker(r.connection.Pool, r.declared, r.ledgerDir, drainBudget)
 	if err != nil {
 		return nil, err
 	}
@@ -21,11 +21,11 @@ func (c *Coordinator) RunChecker(ctx context.Context, resultsDir string, drainBu
 	if err != nil {
 		return nil, err
 	}
-	recordDir, err := checker.WriteRecord(resultsDir, c.declared, verdict)
+	recordDir, err := checker.WriteRecord(resultsDir, r.declared, verdict)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Print(checker.Report(c.declared, verdict))
+	fmt.Print(checker.Report(r.declared, verdict))
 	fmt.Printf("\nrecord %s\n", recordDir)
 	return verdict, nil
 }

@@ -7,7 +7,7 @@ import (
 	"math/rand/v2"
 	"time"
 
-	"github.com/agentstax/vulkan/bench/reliability/lab"
+	"github.com/agentstax/vulkan/bench/reliability/common"
 	"github.com/agentstax/vulkan/bench/reliability/ledger"
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 )
@@ -42,7 +42,7 @@ func NewHandler(consumer string, group string, failRate float64, handled *ledger
 	return &Handler{consumer: consumer, group: group, failRate: failRate, handled: handled}, nil
 }
 
-func (h *Handler) Handle(ctx context.Context, order *lab.Order) error {
+func (h *Handler) Handle(ctx context.Context, order *common.Order) error {
 	meta, ok := vulkan.MetaFromContext(ctx)
 	if !ok {
 		return errors.New("message meta is missing from the handler ctx")

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/agentstax/vulkan/bench/reliability/lab"
+	"github.com/agentstax/vulkan/bench/reliability/common"
 	"github.com/agentstax/vulkan/bench/reliability/ledger"
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 )
@@ -14,9 +14,9 @@ import (
 // Instances is the verifiable consumer fleet one container runs, numbered
 // c-1 upward. Each instance is its own Register and Consume session under its
 // own ctx, so a scale-down is a graceful stop of the highest-numbered ones.
-// The coordinator decides the count; Instances only moves to it.
+// The runner decides the count; Instances only moves to it.
 type Instances struct {
-	handle   *vulkan.ConsumerHandle[lab.Order]
+	handle   *vulkan.ConsumerHandle[common.Order]
 	cfg      *vulkan.ConsumerConfig
 	group    string
 	failRate float64
@@ -33,7 +33,7 @@ type runningInstance struct {
 	done chan struct{}
 }
 
-func NewInstances(handle *vulkan.ConsumerHandle[lab.Order], cfg *vulkan.ConsumerConfig, group string, failRate float64, handled *ledger.Writer, name string) (*Instances, error) {
+func NewInstances(handle *vulkan.ConsumerHandle[common.Order], cfg *vulkan.ConsumerConfig, group string, failRate float64, handled *ledger.Writer, name string) (*Instances, error) {
 	if handle == nil {
 		return nil, errors.New("handle must not be nil")
 	}

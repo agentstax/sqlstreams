@@ -1,4 +1,4 @@
-package ledger
+package checker
 
 import (
 	"context"
@@ -8,33 +8,33 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Schema is the Postgres namespace the checker loads the ledger into, on the
-// same database as vulkan's own schema so the checks are plain joins.
-const Schema = "lab"
+// labSchema is the Postgres namespace the checker loads the ledger into, on
+// the same database as vulkan's own schema so the checks are plain joins.
+const labSchema = "lab"
 
 const (
-	ProduceTable = "produce_ledger"
-	HandlerTable = "handler_ledger"
-	PhaseTable   = "run_phase"
+	produceTable = "produce_ledger"
+	handlerTable = "handler_ledger"
+	phaseTable   = "run_phase"
 )
 
-// Tables is the loaded ledger: one table per file kind in Schema, with the
-// JSON-lines field names as columns. Create drops and recreates the schema,
-// so a checker run reads only the files it loaded.
-type Tables struct {
+// tables is the loaded ledger: one table per file kind in labSchema, with
+// the JSON-lines field names as columns. create drops and recreates the
+// schema, so a checker run reads only the files it loaded.
+type tables struct {
 	pool *pgxpool.Pool
 }
 
-func NewTables(pool *pgxpool.Pool) (*Tables, error) {
+func newTables(pool *pgxpool.Pool) (*tables, error) {
 	if pool == nil {
 		return nil, errors.New("pool must not be nil")
 	}
-	return &Tables{pool: pool}, nil
+	return &tables{pool: pool}, nil
 }
 
-func (t *Tables) Create(ctx context.Context) error {
+func (t *tables) create(ctx context.Context) error {
 	createSql := fmt.Sprintf(`
-		-- lab: ledger.Create
+		-- lab: checker.create
 		DROP SCHEMA IF EXISTS %[1]s CASCADE;
 		CREATE SCHEMA %[1]s;
 
@@ -72,7 +72,7 @@ func (t *Tables) Create(ctx context.Context) error {
 			status TEXT NOT NULL,                 -- 'started' | 'ended'
 			detail TEXT NOT NULL
 		);
-	`, Schema, ProduceTable, HandlerTable, PhaseTable)
+	`, labSchema, produceTable, handlerTable, phaseTable)
 	_, err := t.pool.Exec(ctx, createSql)
 	return err
 }
