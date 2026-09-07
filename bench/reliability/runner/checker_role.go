@@ -9,8 +9,8 @@ import (
 )
 
 // RunChecker judges the run from the record files the other roles left and
-// the fingerprint the recipe wrote, writes the results under resultsDir, and
-// prints the report. The verdict is returned for its exit code; a returned
+// the fingerprint the recipe wrote, writes the results under resultsDir,
+// appends the run line, and prints the report. The verdict is returned for its exit code; a returned
 // error is a lab failure that left no verdict.
 func (r *Runner) RunChecker(ctx context.Context, resultsDir string, fingerprintFile string, statsFile string, drainBudget time.Duration) (*checker.Verdict, error) {
 	fingerprint, err := checker.ReadFingerprint(fingerprintFile)
@@ -27,6 +27,9 @@ func (r *Runner) RunChecker(ctx context.Context, resultsDir string, fingerprintF
 	}
 	written, err := checker.WriteResults(resultsDir, r.recordDir, statsFile, r.declared, verdict)
 	if err != nil {
+		return nil, err
+	}
+	if err := checker.AppendRun(resultsDir, r.declared, verdict); err != nil {
 		return nil, err
 	}
 	fmt.Print(checker.Report(r.declared, verdict))

@@ -134,13 +134,22 @@ since a duplicate produce reports id 0. Match duplicates by key.
 
 ### 4. Recording and reps
 
-- [ ] The checker appends the verdict, minus the `phases` array, as one
+Landed 2026-09-07: two reps of dev through the recipe wrote two lines of
+about 3KB each to `results/dev/runs.jsonl`, both pass; `just
+reliability-report dev` prints one identity with the medians. Sabotage on a
+scratch copy: a second library sha split into its own identity marked "no
+rep", and a p50 rewritten to 100ms moved the two-run median to 51ms. The
+run line also drops the throughput series, not only phases, since an hour
+of per-second samples is ~100KB per tracked line; it stays in the run
+directory's verdict.json.
+
+- [x] The checker appends the verdict, minus the `phases` array, as one
   line to `results/<scenario>/runs.jsonl`. Un-ignore that file; the
   timestamped directories stay ignored.
-- [ ] `just reliability-lab scenario time_scale reps`: the stack is rebuilt
+- [x] `just reliability-lab scenario time_scale reps`: the stack is rebuilt
   once, the scenario runs `reps` times fresh (compose down -v between), the
   exit code is the worst verdict.
-- [ ] `-role report -scenario <name>`: prints a table from `runs.jsonl`
+- [x] `-role report -scenario <name>`: prints a table from `runs.jsonl`
   grouped by fingerprint identity (library sha, image tag, GUCs), median
   of reps per number, and "no rep" where a scenario ran once. Summaries
   come from this, never by hand.

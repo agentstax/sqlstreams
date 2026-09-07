@@ -15,9 +15,9 @@ verify:
 compat-lab expect="round-trip":
     cd tools/compat && go run . -expect={{ expect }}
 
-# Run a reliability-lab scenario on its own compose stack and exit with the verdict: 0 pass, 1 fail, 2 unknown, 3 lab failure.
+# Run a reliability-lab scenario on its own compose stack, reps times from a fresh stack, and exit with the worst verdict: 0 pass, 1 fail, 2 unknown, 3 lab failure.
 # drain_budget bounds how long the checker waits for the consumers to catch up; a saturating scenario needs more than the default.
-reliability-lab scenario="dev" time_scale="1" drain_budget="2m":
+reliability-lab scenario="dev" time_scale="1" drain_budget="2m" reps="1":
     #!/usr/bin/env bash
     set -euo pipefail
     cd bench/reliability
@@ -27,13 +27,30 @@ reliability-lab scenario="dev" time_scale="1" drain_budget="2m":
     stats_pid=""
     trap 'kill "$stats_pid" 2>/dev/null || true; docker compose down -v' EXIT
     docker compose --profile checker build
-    docker compose up --detach consumer observer
-    mkdir -p results && ./fingerprint.sh > results/fingerprint.json
-    ./stats.sh > results/stats.jsonl &
-    stats_pid=$!
-    docker compose run --rm producer
-    kill "$stats_pid" && wait "$stats_pid" || true
-    docker compose run --rm checker
+    worst=0
+    for rep in $(seq 1 {{ reps }}); do
+        echo "rep $rep of {{ reps }}"
+        docker compose up --detach consumer observer
+        mkdir -p results && ./fingerprint.sh > results/fingerprint.json
+        ./stats.sh > results/stats.jsonl &
+        stats_pid=$!
+        docker compose run --rm producer
+        kill "$stats_pid" && wait "$stats_pid" || true
+        code=0
+        docker compose run --rm checker || code=$?
+        docker compose down -v
+        # a lab failure outranks a fail, which outranks an unknown
+        case "$code:$worst" in
+            3:*) worst=3 ;;
+            1:0|1:2) worst=1 ;;
+            2:0) worst=2 ;;
+        esac
+    done
+    exit "$worst"
+
+# Summarize a scenario's recorded runs from bench/reliability/results/<scenario>/runs.jsonl: medians per environment identity.
+reliability-report scenario="dev":
+    cd bench/reliability && go run . -role report -scenario {{ scenario }}
 
 ### DATABASE ###
 

@@ -11,13 +11,15 @@ package main
 // phases, -role consumer follows its consumer timeline until stopped, -role
 // observer samples the server once a second until stopped, -role checker
 // judges the run and exits with the verdict (0 pass, 1 fail, 2 unknown),
-// and -role print writes the scenario in its .scenario format.
+// -role report summarizes the scenario's recorded runs, and -role print
+// writes the scenario in its .scenario format.
 // Exit 3 is a lab failure (connection, flags, records), never a verdict.
 
 import (
 	"fmt"
 	"os"
 
+	"github.com/agentstax/vulkan/bench/reliability/checker"
 	"github.com/agentstax/vulkan/bench/reliability/common"
 	"github.com/agentstax/vulkan/bench/reliability/runner"
 	"github.com/agentstax/vulkan/bench/reliability/scenarios"
@@ -52,6 +54,14 @@ func run() (int, error) {
 		fmt.Print(declared.String())
 		return 0, nil
 	}
+	if flags.role == "report" {
+		runs, err := checker.ReadRuns(flags.resultsDir, declared.Name)
+		if err != nil {
+			return 0, err
+		}
+		fmt.Print(checker.RunsReport(declared.Name, runs))
+		return 0, nil
+	}
 
 	ctx, stop := vulkan.LifecycleContext(nil)
 	defer stop()
@@ -79,5 +89,5 @@ func run() (int, error) {
 		}
 		return verdict.ExitCode(), nil
 	}
-	return 0, fmt.Errorf("unrecognized role: %q -- one of producer, consumer, observer, checker, print", flags.role)
+	return 0, fmt.Errorf("unrecognized role: %q -- one of producer, consumer, observer, checker, report, print", flags.role)
 }

@@ -13,8 +13,11 @@ go.work.sum
 bench/idempotency/*
 !bench/idempotency/RESULTS.md
 
-# reliability-lab run records -- results/<scenario>/<timestamp>/
-bench/reliability/results/
+# reliability-lab runs: results/<scenario>/runs.jsonl is tracked, the
+# per-run directories and the recipe's scratch files are not
+bench/reliability/results/*/*/
+bench/reliability/results/fingerprint.json
+bench/reliability/results/stats.jsonl
 
 # go build run inside a main package drops a binary named for its directory;
 # go test -c and profiling flags drop *.test and *.prof beside the source
