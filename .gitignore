@@ -12,3 +12,6 @@ go.work.sum
 # bench scratch -- only the writeup is tracked
 bench/idempotency/*
 !bench/idempotency/RESULTS.md
+
+# reliability-lab run records -- results/<scenario>/<timestamp>/
+bench/reliability/results/

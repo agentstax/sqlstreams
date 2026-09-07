@@ -3,7 +3,6 @@ package producer
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -39,21 +38,20 @@ func NewProducer(instance *vulkan.ProducerInstance[lab.Order], produces *ledger.
 // the outcome, so a process killed in between leaves the attempt on disk.
 // A ledger write failing is a lab failure, never a produce outcome.
 func (p *Producer) Produce(ctx context.Context, scheduled time.Time) error {
-	seq := p.seq.Add(1)
-	key := fmt.Sprintf("%s-%d", p.name, seq)
+	order := &lab.Order{Producer: p.name, Seq: p.seq.Add(1)}
 	fact := ledger.ProduceFact{
 		At:          time.Now(),
 		Kind:        ledger.ProduceAttempted,
-		Producer:    p.name,
-		Seq:         seq,
-		Key:         key,
+		Producer:    order.Producer,
+		Seq:         order.Seq,
+		Key:         order.Key(),
 		ScheduledAt: scheduled,
 	}
 	if err := p.produces.Write(fact); err != nil {
 		return err
 	}
 
-	result, err := p.instance.Produce(ctx, &lab.Order{Producer: p.name, Seq: seq}, &vulkan.ProduceOptions{IdempotencyKey: key})
+	result, err := p.instance.Produce(ctx, order, &vulkan.ProduceOptions{IdempotencyKey: order.Key()})
 	fact.At = time.Now()
 	if err == nil {
 		fact.Kind = ledger.ProduceCommitted

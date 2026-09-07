@@ -8,14 +8,16 @@ package main
 // page is website/src/content/docs/concepts/reliability-lab.mdx.
 //
 // One binary, one role per process: -role producer walks the scenario's
-// phases, -role consumer follows its consumer timeline until stopped, and
-// -role print writes the scenario in its .scenario format. Exit 3 is a lab
-// failure (connection, flags, ledger), never a verdict.
+// phases, -role consumer follows its consumer timeline until stopped, -role
+// checker judges the run and exits with the verdict (0 pass, 1 fail, 2
+// unknown), and -role print writes the scenario in its .scenario format.
+// Exit 3 is a lab failure (connection, flags, ledger), never a verdict.
 
 import (
 	"fmt"
 	"os"
 
+	"github.com/agentstax/vulkan/bench/reliability/checker"
 	"github.com/agentstax/vulkan/bench/reliability/coordinator"
 	"github.com/agentstax/vulkan/bench/reliability/lab"
 	"github.com/agentstax/vulkan/bench/reliability/scenarios"
@@ -23,43 +25,53 @@ import (
 )
 
 func main() {
-	if err := run(); err != nil {
+	code, err := run()
+	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		os.Exit(3)
+		os.Exit(checker.ExitLabFailure)
 	}
+	os.Exit(code)
 }
 
-func run() error {
+// run returns the process exit code: the verdict's for the checker, 0 for
+// every other role that finished.
+func run() (int, error) {
 	flags, err := parseFlags()
 	if err != nil {
-		return err
+		return 0, err
 	}
 	declared, ok := scenarios.ByName(flags.scenario)
 	if !ok {
-		return fmt.Errorf("unrecognized scenario: %q -- one of %s", flags.scenario, scenarios.Names())
+		return 0, fmt.Errorf("unrecognized scenario: %q -- one of %s", flags.scenario, scenarios.Names())
 	}
 	if flags.role == "print" {
 		fmt.Print(declared.String())
-		return nil
+		return 0, nil
 	}
 
 	ctx, stop := vulkan.LifecycleContext(nil)
 	defer stop()
 	connection, err := lab.NewConnection(ctx)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer connection.Close()
 	run, err := coordinator.NewCoordinator(declared.Scaled(flags.timeScale), connection, flags.ledgerDir, flags.name)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	switch flags.role {
 	case "producer":
-		return run.RunProducer(ctx)
+		return 0, run.RunProducer(ctx)
 	case "consumer":
-		return run.RunConsumer(ctx)
+		return 0, run.RunConsumer(ctx)
+	case "checker":
+		verdict, err := run.RunChecker(ctx, flags.resultsDir, flags.drainBudget)
+		if err != nil {
+			return 0, err
+		}
+		return verdict.ExitCode(), nil
 	}
-	return fmt.Errorf("unrecognized role: %q -- one of producer, consumer, print", flags.role)
+	return 0, fmt.Errorf("unrecognized role: %q -- one of producer, consumer, checker, print", flags.role)
 }

@@ -1,35 +1,49 @@
 package scenario
 
-import (
-	"errors"
-	"fmt"
-)
+import "fmt"
 
 // Check names one check the checker knows how to run. The set is
 // closed: a new check is a checker change and a new const here.
+//
+//	lost         committed produces whose message_log row is missing
+//	unexpected   message_log rows the ledger never committed or lost track of
+//	recovered    unknown produces (reply lost) whose row is there after all
+//	undelivered  messages the handler never succeeded on and the library never dead-lettered
+//	duplicates   messages the handler succeeded on more than once
+//	unbucketed   by the library's tables, messages in no bucket or in two (success and dead)
+//	reclaims     deliveries logged expired -- a lease a consumer stopped renewing
+//	dead         exception_queue rows dead-lettered
 type Check string
 
 const (
 	CheckLost        Check = "lost"
+	CheckUnexpected  Check = "unexpected"
+	CheckRecovered   Check = "recovered"
 	CheckUndelivered Check = "undelivered"
-	CheckUnbucketed  Check = "unbucketed"
 	CheckDuplicates  Check = "duplicates"
+	CheckUnbucketed  Check = "unbucketed"
 	CheckReclaims    Check = "reclaims"
 	CheckDead        Check = "dead"
 )
 
 func (c Check) Validate() error {
 	switch c {
-	case CheckLost, CheckUndelivered, CheckUnbucketed,
-		CheckDuplicates, CheckReclaims, CheckDead:
+	case CheckLost, CheckUnexpected, CheckRecovered, CheckUndelivered,
+		CheckDuplicates, CheckUnbucketed, CheckReclaims, CheckDead:
 		return nil
 	}
 	return fmt.Errorf("unrecognized check: %q", string(c))
 }
 
+// WantZero and WantReport are the two values an Expectation can want: a
+// count that must be zero, or a count that is shown and never fails.
+const (
+	WantZero   = "0"
+	WantReport = "report"
+)
+
 // Expectation is one [expect] line: the check and the value the report prints
-// beside the actual. Want is "0" for a count that must be zero and "report"
-// for a count that is shown and never fails.
+// beside the actual.
 type Expectation struct {
 	Check Check
 	Want  string
@@ -39,8 +53,8 @@ func (e Expectation) Validate() error {
 	if err := e.Check.Validate(); err != nil {
 		return err
 	}
-	if e.Want == "" {
-		return errors.New("Want is required")
+	if e.Want != WantZero && e.Want != WantReport {
+		return fmt.Errorf("Want must be %q or %q, got %q", WantZero, WantReport, e.Want)
 	}
 	return nil
 }

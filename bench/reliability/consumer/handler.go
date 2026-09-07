@@ -57,7 +57,7 @@ func (h *Handler) Handle(ctx context.Context, order *lab.Order) error {
 		Consumer:  h.consumer,
 		Group:     h.group,
 		MessageId: meta.Id,
-		Key:       fmt.Sprintf("%s-%d", order.Producer, order.Seq),
+		Key:       order.Key(),
 		Attempt:   meta.Attempts,
 		Outcome:   outcome,
 	}

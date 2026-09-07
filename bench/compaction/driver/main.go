@@ -139,13 +139,8 @@ func main() {
 				if len(keys) > 0 {
 					// rotate the pool from a per-goroutine offset -- maximal
 					// reverse-order pressure at enqueue, the sort's job to absorb
-					compaction, err := vulkan.NewCompactionOptions(0)
-					if err != nil {
-						record(err)
-						return
-					}
 					options.MessageKey = keys[(offset+produced)%len(keys)]
-					options.Compaction = compaction
+					options.Compaction = &vulkan.CompactionOptions{Enable: true}
 				}
 
 				started := time.Now()

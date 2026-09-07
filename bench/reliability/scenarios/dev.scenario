@@ -12,8 +12,10 @@ at 0m    consumers 3
 
 [expect]
 lost           0
+unexpected     0
+recovered      report
 undelivered    0
-unbucketed     0
 duplicates     report
+unbucketed     0
 reclaims       0
 dead           0

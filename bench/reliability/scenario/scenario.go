@@ -89,13 +89,7 @@ func (s *Scenario) Validate() error {
 // String prints the .scenario format: a summary comment, then the [input],
 // [shape], and [expect] sections.
 func (s *Scenario) String() string {
-	var out strings.Builder
-	fmt.Fprintf(&out, "# %s\n", s.Summary)
-	writeSection(&out, "[input]", s.inputLines())
-	writeSection(&out, "[shape]", s.producerLines())
-	writeSection(&out, "", s.consumerLines())
-	writeSection(&out, "[expect]", s.expectLines())
-	return out.String()
+	return s.Report(nil)
 }
 
 func (s *Scenario) inputLines() []string {
@@ -122,10 +116,14 @@ func (s *Scenario) consumerLines() []string {
 	return lines
 }
 
-func (s *Scenario) expectLines() []string {
+func (s *Scenario) expectLines(beside map[Check]string) []string {
 	lines := make([]string, 0, len(s.Expect))
 	for _, expectation := range s.Expect {
-		lines = append(lines, expectation.String())
+		line := expectation.String()
+		if columns, ok := beside[expectation.Check]; ok {
+			line += "\t" + columns
+		}
+		lines = append(lines, line)
 	}
 	return lines
 }
