@@ -30,6 +30,7 @@ type Verdict struct {
 	Records     RecordSummary            `json:"records"`
 	Produced    datastore.ProduceSummary `json:"produced"`
 	Handled     datastore.HandlerSummary `json:"handled"`
+	Measure     *MeasureSummary          `json:"measure"` // nil when the run ended before it could be measured
 	Checks      []CheckResult            `json:"checks"`
 	Phases      []record.PhaseRecord     `json:"phases"`
 }

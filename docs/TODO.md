@@ -67,20 +67,29 @@ spec so parallel workers never hit the 64MB default.
 
 ### 2. Latency and throughput from the records
 
-- [ ] Produce latency is `at - scheduled_at` on the committed row;
+Landed 2026-09-07: dev shows produce p50 2.7ms / p99 7.8ms and end-to-end
+p50 264ms / p99 502ms at 200/s (the claim poll rate is visible in the
+end-to-end spread). Sabotage of 1 in 100 `scheduled_at` values by 5s moved
+p99.9 to 5.00s and failed `schedule_kept` on 61 seconds. Two departures
+from the plan below: the slip tolerance is a fixed 100ms rather than one
+pacer interval (at 200/s one interval is 5ms, inside timer jitter), and
+`schedule_kept` is declared per scenario, not an invariant, since a chaos
+scenario that pauses Postgres slips by design.
+
+- [x] Produce latency is `at - scheduled_at` on the committed row;
   end-to-end latency is the handler's first success `at` minus
   `scheduled_at`, joined on message id. Per-second throughput is committed
   rows bucketed by `at`. All three computed by the checker datastore in
   SQL over `lab.*`, p50 / p90 / p99 / p99.9 / max, per phase and whole run.
-- [ ] The verdict gains a `measure` block: the percentiles, the per-second
+- [x] The verdict gains a `measure` block: the percentiles, the per-second
   throughput series, and the achieved rate per phase against the declared
   rate. The report prints the percentiles beside each phase line.
-- [ ] `schedule_kept` check: seconds in which any attempted row's `at`
+- [x] `schedule_kept` check: seconds in which any attempted row's `at`
   trailed its `scheduled_at` by more than one pacer interval (the in-flight
   permit blocked, the run went closed-loop). Want `0`, joins `Invariants`
   only if every existing scenario can hold it; otherwise declared per
   scenario.
-- [ ] Sabotage: shift `scheduled_at` on a handful of rows in a record file;
+- [x] Sabotage: shift `scheduled_at` on a handful of rows in a record file;
   the percentiles and `schedule_kept` must move.
 
 ### 3. The observer role

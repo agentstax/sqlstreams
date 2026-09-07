@@ -123,6 +123,10 @@ func (c *Checker) judge(ctx context.Context, verdict *Verdict) error {
 	if err != nil {
 		return err
 	}
+	verdict.Measure, err = c.measure(ctx, verdict.Phases)
+	if err != nil {
+		return err
+	}
 
 	for _, expectation := range c.declared.Expect {
 		result, err := c.check(ctx, target, expectation)
@@ -156,6 +160,8 @@ func (c *Checker) check(ctx context.Context, target datastore.Target, expectatio
 		measured, err = c.ds.CountReclaims(ctx, target)
 	case scenario.CheckDead:
 		measured, err = c.ds.CountDead(ctx, target)
+	case scenario.CheckScheduleKept:
+		measured, err = c.ds.CountScheduleSlips(ctx, scheduleTolerance)
 	}
 	if err != nil {
 		return CheckResult{}, err

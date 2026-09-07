@@ -6,16 +6,17 @@ import (
 	"text/tabwriter"
 )
 
-// Report is String with each [expect] line extended by the columns in
-// columns, keyed by check -- "lost\t0\tactual 0\tPASS". A check with no
-// entry prints as in String.
-func (s *Scenario) Report(columns map[Check]string) string {
+// Report is String with each [shape] phase line extended by the columns in
+// phaseColumns, keyed by phase name, and each [expect] line by the columns
+// in expectColumns, keyed by check -- "lost\t0\tactual 0\tPASS". A line with
+// no entry prints as in String.
+func (s *Scenario) Report(phaseColumns map[string]string, expectColumns map[Check]string) string {
 	var out strings.Builder
 	fmt.Fprintf(&out, "# %s\n", s.Summary)
 	writeSection(&out, "[input]", s.inputLines())
-	writeSection(&out, "[shape]", s.producerLines())
+	writeSection(&out, "[shape]", s.producerLines(phaseColumns))
 	writeSection(&out, "", s.consumerLines())
-	writeSection(&out, "[expect]", s.expectLines(columns))
+	writeSection(&out, "[expect]", s.expectLines(expectColumns))
 	return out.String()
 }
 
@@ -27,10 +28,14 @@ func (s *Scenario) inputLines() []string {
 	}
 }
 
-func (s *Scenario) producerLines() []string {
+func (s *Scenario) producerLines(columns map[string]string) []string {
 	lines := make([]string, 0, len(s.Producer))
 	for _, phase := range s.Producer {
-		lines = append(lines, phase.Name+":\t"+phase.String())
+		line := phase.Name + ":\t" + phase.String()
+		if extra, ok := columns[phase.Name]; ok {
+			line += "\t" + extra
+		}
+		lines = append(lines, line)
 	}
 	return lines
 }

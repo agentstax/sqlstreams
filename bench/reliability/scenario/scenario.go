@@ -103,5 +103,5 @@ func (s *Scenario) Validate() error {
 // String prints the .scenario format: a summary comment, then the [input],
 // [shape], and [expect] sections.
 func (s *Scenario) String() string {
-	return s.Report(nil)
+	return s.Report(nil, nil)
 }
