@@ -16,59 +16,18 @@ the item is removed.
 
 ## Now
 
-- **Metrics export and history-based alerts** — direction [0682] [0683];
+- **Metrics export and history-based alerts** — direction [0682] [0683] [0686];
   proposed contract in `website/src/content/docs/concepts/metrics-export.mdx`.
   Working details live in TODO.md.
 
-- **Reliability lab -- the hour-long live run** (verdict, not a
-  measurement: the sibling of `just compat-lab`, housed under bench/ so
-  it shares the container / env / record plumbing, its record carrying a
-  verdict and counts instead of a latency histogram). Starts as plain Go
-  plus a compose file and folds into the benchmark-recording pipeline
-  when that lands, like the other legacy benches -- never blocked on it.
-  - The design center is a ledger plus a checker, not the load generator
-    (Kafka's system tests: verifiable producer + verifiable consumer +
-    validator; Jepsen: history + checker). Postgres is the thing under
-    test, so the ledger lives in a separate Postgres schema in the same
-    container and the report is a SQL join. Producer ledger: every
-    Produce records its idempotency key and outcome -- committed,
-    rejected with its VK code, or ambiguous (commit confirmation lost,
-    shutdown abandon); ambiguous rows resolve after the run by looking
-    the key up in message_log. Handler ledger: every handler invocation
-    records message id, key, group, outcome.
-  - Checker runs after a quiesce (producers stop; consumers drain until
-    the cursor reaches max id and no ready exception rows remain):
-    committed keys == message_log rows; every eligible message has >= 1
-    delivery_log row ending success or dead (DeliveryLogMode all); and
-    the partition holds -- produced = success + dead + compacted-away +
-    other-schema-version. Anything outside those buckets fails the run.
-    The report never has an acceptable "dropped" bucket: expected skips
-    carry their own names, dropped means failure.
-  - Duplicates are reported, never failed: a crash between the handler
-    returning and Commit re-delivers after lease expiry, so a success row
-    lands late and possibly twice (delivery_log's key is a BIGSERIAL, a
-    second attempt-0 success row inserts cleanly). At-least-once is the
-    contract the checker expects.
-  - Quiet-system check (settled 2026-09-05): with handler fail rate 0 and
-    no chaos, the run also asserts zero lease reclaims and zero
-    dead-lettered messages -- a reclaim under no chaos is itself a
-    finding.
-  - Edge cases it exists to probe: PartialCommit at shutdown returning
-    commit-confirmation-lost with outcomes already landed; ranges
-    quarantined after max reclaims (range-wide dead rows); reclaim of a
-    range whose old worker already ran the handler; produce ambiguity at
-    batch commit under saturating load.
-  - v1 scope, kept small: one image, one binary with a role flag
-    (producer | consumer), compose scales replicas; one plain topic with
-    DeliveryLogMode all; handler fail rate; four producer load levels --
-    idle, low, high, saturating; a duration flag (a minute for dev runs,
-    an hour for the real run); quiesce, checker, report.
-  - Build-on-later, in rough order: chaos kills (docker kill a consumer
-    mid-lease -- this lab is the host for the Later chaos/fixture item
-    and for Antithesis in the parking lot; the checker is the reusable
-    asset in both); a compacted topic with keys; a schema-version mix;
-    bindings / fan-out; schedules; metrics and alert assertions. TEST.md
-    stays the unit-scale complement.
+- **Reliability lab -- the hour-long live run** -- design settled in
+  [0687]; proposal page `website/src/content/docs/concepts/reliability-lab.mdx`;
+  research folded into the record. v1 working window lives in TODO.md.
+  Build-on-later, in order: chaos kills and Postgres pause (the host for
+  the Later chaos/fixture item and for Antithesis in the parking lot);
+  a compacted topic with keys; a schema-version mix; bindings / fan-out;
+  schedules; metrics and alert assertions. TEST.md stays the unit-scale
+  complement.
 
 ## Next
 

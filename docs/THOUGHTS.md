@@ -40,3 +40,5 @@ manual review of public user facing comments :(. I don't want to but its got to 
 review of most important website docs
 
 # Other
+
+This should be a parking lot roadmap item - An agent 'operator', collection of skills or agent or mcp server that acts as the operator for managing vulkan running.

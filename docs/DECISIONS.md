@@ -436,5 +436,7 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0681 2026-09-06 accepted (pre-v1) — The rule files carry no decision citations; the decision map is the index
 - 0682 2026-09-06 accepted (pre-v1) — Metrics export uses an OTel producer and source-read health
 - 0683 2026-09-06 accepted (pre-v1) — Alert pending duration is derived from measurement history
-- 0684 2026-09-06 accepted (pre-v1) — Collector progress contract and bounded history
+- 0684 2026-09-06 superseded (pre-v1) — Collector progress contract and bounded history
 - 0685 2026-09-06 accepted (pre-v1) — A claim poll reads its snapshot before any transaction and opens the reclaim transaction only on an expired lease
+- 0686 2026-09-06 accepted (pre-v1) — History-based pending belongs to the shared alert framework
+- 0687 2026-09-06 accepted (pre-v1) — The reliability lab is a ledger and a checker, with scenarios written as Go and printed, never parsed

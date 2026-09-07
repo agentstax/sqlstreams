@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded
 date: 2026-09-06
 phase: "pre-v1"
 ---
@@ -7,6 +7,9 @@ phase: "pre-v1"
 # Collector progress contract and bounded history
 
 ## Context
+
+Superseded by [0686](0686-history-based-pending-belongs-to-the-shared-alert-framework.md),
+which expands adoption to existing alerts and reopens shared timing policy.
 
 [0682](0682-metrics-export-uses-an-otel-producer-and-source-read-health.md) and
 [0683](0683-alert-pending-duration-is-derived-from-measurement-history.md)

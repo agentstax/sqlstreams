@@ -7,8 +7,8 @@ Vulkan would derive alerts from recorded measurement history and export
 retained values through an OTel producer. Core owns alert timing and restart
 behavior; integrations consume actionable `active` and `resolved` alerts
 without maintaining pending timers or suppressing startup alerts themselves.
-The [implementation contract](/decisions/0684/) is agreed and has not shipped.
-Core timing is specified in
+The [shared alert direction](/decisions/0686/) is agreed and has not shipped;
+the concrete step 3 policy and evidence proposal needs review. Core timing is proposed in
 [history-based alerts](/concepts/alert-history/).
 
 ## What exists today
@@ -112,20 +112,44 @@ metadata immutability across time.
 ## Proposed: derive alerts from history
 
 Core would calculate pending duration from consecutive recorded observations,
-with no pending-state table or user-managed timer. The proposed first use is
-the system-scoped `metrics_collector_progress` alert. Existing alerts retain
-their current conditions and schedules; this adds no custom alert framework
-or backlog alert. The [history contract](/concepts/alert-history/) covers the
-defaults, pseudocode, restart example, and repeat/concurrency boundaries.
+with no pending-state table or user-managed timer. Extend the existing alert
+framework, starting with partition count, then compaction read cost and worker
+liveness. Collector progress uses that same path afterward. Conditions stay
+check-specific; shared policy decides pending, recovery, and repeats. The
+[history proposal](/concepts/alert-history/) covers pseudocode, suggested timing,
+diagnostic visibility, and restart/concurrency boundaries. Existing hourly
+schedules need review alongside pending durations. This adds no custom alert
+framework or backlog alert.
 
 ## Proposed: observe collector progress independently
 
 The collector would record completion only after the whole pass succeeds.
 An independent scheduled check records which completion it can see, including
-explicit absent evidence. [Collector observations](/concepts/alert-history/#proposed-record-completion-and-progress)
-use the existing measurement shape; neither OTel nor a separate user-run
-server owns them. If all checking machinery stops, Vulkan cannot produce an
-outage report while it is stopped.
+explicit absent evidence. Use attribute-free gauges in `__system.metrics`,
+with unit `s` and Unix-second values:
+
+| Measurement | Value | Observation time |
+| --- | --- | --- |
+| `vulkan.metrics.collector.completed_timestamp` | Full-pass completion timestamp | When completion was recorded |
+| `vulkan.metrics.collector.observed_completion_timestamp` | Last completion seen, or 0 for no retained completion | When the independent read happened |
+
+Completion follows all reads and writes, including concurrent topic work;
+partial passes and uncommitted completion writes cannot establish success.
+Startup never refreshes it. Completion timestamps must be positive; 0 in the
+observation series means absent evidence and is unhealthy, not a read error.
+A read error records no sample. Historical completion age uses that sample's
+own observation time; future completion timestamps are unusable.
+
+Use Postgres observation times and `At.UnixMicro()` ranks for both series.
+Late writes retain history without replacing newer heads. Replayed schedules
+record actual reads, never backdated observations; write retries reuse the
+same sample time and idempotency key. Collector age defaults to
+max(2m, 3 live collector poll intervals), with an explicit positive override.
+
+Neither OTel nor a separate user-run server owns these observations. The
+[shared alert calculation](/concepts/alert-history/#proposed-calculate-state-in-the-shared-controller)
+handles duration and recovery. If all checking machinery stops, Vulkan cannot
+produce an outage report while it is stopped.
 
 ## Proposed: deployment boundary
 
