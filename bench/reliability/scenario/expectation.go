@@ -13,25 +13,30 @@ import "fmt"
 //	unbucketed   by the library's tables, messages in no bucket or in two (success and dead)
 //	reclaims     deliveries logged expired -- a lease a consumer stopped renewing
 //	dead         exception_queue rows dead-lettered
-//	schedule_kept  seconds a produce started more than 100ms behind its scheduled instant -- the generator, not the library, was the limiter
+//	schedule_kept       seconds a produce started more than 100ms behind its scheduled instant -- the generator, not the library, was the limiter
+//	backlog_bounded     producer phases in which the group's backlog trended up faster than 5% of the declared rate -- the consumers did not keep up
+//	generator_headroom  container samples in which the producer or consumer sat above 80% of its CPU cap -- the generator, not the server, was the limiter
 type Check string
 
 const (
-	CheckLost         Check = "lost"
-	CheckUnexpected   Check = "unexpected"
-	CheckRecovered    Check = "recovered"
-	CheckUndelivered  Check = "undelivered"
-	CheckDuplicates   Check = "duplicates"
-	CheckUnbucketed   Check = "unbucketed"
-	CheckReclaims     Check = "reclaims"
-	CheckDead         Check = "dead"
-	CheckScheduleKept Check = "schedule_kept"
+	CheckLost              Check = "lost"
+	CheckUnexpected        Check = "unexpected"
+	CheckRecovered         Check = "recovered"
+	CheckUndelivered       Check = "undelivered"
+	CheckDuplicates        Check = "duplicates"
+	CheckUnbucketed        Check = "unbucketed"
+	CheckReclaims          Check = "reclaims"
+	CheckDead              Check = "dead"
+	CheckScheduleKept      Check = "schedule_kept"
+	CheckBacklogBounded    Check = "backlog_bounded"
+	CheckGeneratorHeadroom Check = "generator_headroom"
 )
 
 func (c Check) Validate() error {
 	switch c {
 	case CheckLost, CheckUnexpected, CheckRecovered, CheckUndelivered,
-		CheckDuplicates, CheckUnbucketed, CheckReclaims, CheckDead, CheckScheduleKept:
+		CheckDuplicates, CheckUnbucketed, CheckReclaims, CheckDead,
+		CheckScheduleKept, CheckBacklogBounded, CheckGeneratorHeadroom:
 		return nil
 	}
 	return fmt.Errorf("unrecognized check: %q", string(c))

@@ -11,12 +11,14 @@ hold:    steady 200/s 60m
 at 0m    consumers 3
 
 [expect]
-lost             0
-unexpected       0
-recovered        report
-undelivered      0
-duplicates       report
-unbucketed       0
-reclaims         0
-dead             0
-schedule_kept    0
+lost                  0
+unexpected            0
+recovered             report
+undelivered           0
+duplicates            report
+unbucketed            0
+reclaims              0
+dead                  0
+schedule_kept         0
+backlog_bounded       0
+generator_headroom    0

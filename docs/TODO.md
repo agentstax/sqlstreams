@@ -94,24 +94,42 @@ scenario that pauses Postgres slips by design.
 
 ### 3. The observer role
 
-- [ ] `-role observer`: its own compose service, samples at 1 Hz into
+Landed 2026-09-07: dev reports wal 1171 B/msg, 13.8 records/msg, 3.0
+transactions/msg at 200/s with delivery log mode all (the consumer side is
+inside those numbers). Sabotages: backlog samples rewritten to grow failed
+`backlog_bounded` (+168/s); producer stats rewritten to 190% of a 2-CPU cap
+failed `generator_headroom` on 18 samples. A flood at 20000/s held its
+schedule with the producer at 44% of one core and ended unknown on the
+drain budget, so a saturating run cannot pass; `just reliability-lab` gained
+a `drain_budget` parameter for it. Departures from the plan: guards count
+phases (backlog slope over 5% of the declared rate) and container samples
+(about every 3s), not seconds. Recipe fixes found on the way: just's
+dotenv-load leaked the dev database's POSTGRES_* into compose (now unset in
+the recipe); the exit trap's failing `kill` skipped teardown under `set -e`
+(now `|| true`); the stats sampler must be waited for or its last line
+races the checker's load.
+
+Finding for chunk 8: `CountLost` counts an idempotent duplicate as lost,
+since a duplicate produce reports id 0. Match duplicates by key.
+
+- [x] `-role observer`: its own compose service, samples at 1 Hz into
   `observer.sample.jsonl`: `pg_stat_wal` (records, fpi, bytes),
   `pg_stat_checkpointer`, `pg_stat_database` (xact_commit, deadlocks,
   blks_hit/read), and per group the cursor lag
   (`max(message_log.id) - committed`). Read-only on the library's tables,
   through `pkg/topic`'s table-name funcs. Starts with the consumer, stops
   after the producer exits.
-- [ ] The checker loads `lab.observer_sample` and writes before/after
+- [x] The checker loads `lab.observer_sample` and writes before/after
   deltas into `measure`: WAL bytes, records, and FPI per committed message,
   checkpoints in the window, deadlocks. The raw series stays in the run
   directory.
-- [ ] `backlog_bounded` check: seconds in which cursor lag exceeded its
+- [x] `backlog_bounded` check: seconds in which cursor lag exceeded its
   value one phase earlier by more than the phase's declared rate (the
   scale bench's `diverging` verdict, standardized). Want `0`.
-- [ ] `generator_headroom` check: the recipe samples `docker stats` for the
+- [x] `generator_headroom` check: the recipe samples `docker stats` for the
   producer and consumer containers into the results directory; the checker
   counts seconds either container sat above 80% of its CPU cap. Want `0`.
-- [ ] Sabotage: a scenario whose declared rate exceeds what the container
+- [x] Sabotage: a scenario whose declared rate exceeds what the container
   can produce must fail `generator_headroom` or `schedule_kept`, never pass.
 
 ### 4. Recording and reps

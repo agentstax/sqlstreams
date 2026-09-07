@@ -16,16 +16,23 @@ compat-lab expect="round-trip":
     cd tools/compat && go run . -expect={{ expect }}
 
 # Run a reliability-lab scenario on its own compose stack and exit with the verdict: 0 pass, 1 fail, 2 unknown, 3 lab failure.
-reliability-lab scenario="dev" time_scale="1":
+# drain_budget bounds how long the checker waits for the consumers to catch up; a saturating scenario needs more than the default.
+reliability-lab scenario="dev" time_scale="1" drain_budget="2m":
     #!/usr/bin/env bash
     set -euo pipefail
     cd bench/reliability
-    export SCENARIO={{ scenario }} TIME_SCALE={{ time_scale }}
-    trap 'docker compose down -v' EXIT
+    export SCENARIO={{ scenario }} TIME_SCALE={{ time_scale }} DRAIN_BUDGET={{ drain_budget }}
+    # the repo .env just loads names the dev database; the lab's stack is its own
+    unset POSTGRES_HOST POSTGRES_PORT POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB
+    stats_pid=""
+    trap 'kill "$stats_pid" 2>/dev/null || true; docker compose down -v' EXIT
     docker compose --profile checker build
-    docker compose up --detach consumer
+    docker compose up --detach consumer observer
     mkdir -p results && ./fingerprint.sh > results/fingerprint.json
+    ./stats.sh > results/stats.jsonl &
+    stats_pid=$!
     docker compose run --rm producer
+    kill "$stats_pid" && wait "$stats_pid" || true
     docker compose run --rm checker
 
 ### DATABASE ###

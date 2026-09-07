@@ -35,11 +35,15 @@ type Verdict struct {
 	Phases      []record.PhaseRecord     `json:"phases"`
 }
 
-// RecordSummary counts the rows loaded from the record files, per kind.
+// RecordSummary counts the rows loaded from the record files, per kind, and
+// from the host's container samples.
 type RecordSummary struct {
-	Produce int64 `json:"produce"`
-	Handler int64 `json:"handler"`
-	Phase   int64 `json:"phase"`
+	Produce   int64 `json:"produce"`
+	Handler   int64 `json:"handler"`
+	Phase     int64 `json:"phase"`
+	Sample    int64 `json:"sample"`
+	Backlog   int64 `json:"backlog"`
+	Container int64 `json:"container"`
 }
 
 // ExitCode is the process exit code for the verdict: 0 pass, 1 fail,

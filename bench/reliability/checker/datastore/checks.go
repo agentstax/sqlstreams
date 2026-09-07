@@ -11,6 +11,8 @@ const (
 	exampleKey       = "key"
 	exampleMessageId = "message_id"
 	exampleSecond    = "second"
+	examplePhase     = "phase"
+	exampleSample    = "sample"
 )
 
 // Measurement is what every check query returns: how many rows matched and

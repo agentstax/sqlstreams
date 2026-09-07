@@ -24,10 +24,11 @@ type Checker struct {
 	declared    *scenario.Scenario
 	fingerprint *Fingerprint
 	recordDir   string
+	statsFile   string
 	drainBudget time.Duration
 }
 
-func NewChecker(pool *pgxpool.Pool, declared *scenario.Scenario, fingerprint *Fingerprint, recordDir string, drainBudget time.Duration) (*Checker, error) {
+func NewChecker(pool *pgxpool.Pool, declared *scenario.Scenario, fingerprint *Fingerprint, recordDir string, statsFile string, drainBudget time.Duration) (*Checker, error) {
 	if pool == nil {
 		return nil, errors.New("pool must not be nil")
 	}
@@ -40,6 +41,9 @@ func NewChecker(pool *pgxpool.Pool, declared *scenario.Scenario, fingerprint *Fi
 	if recordDir == "" {
 		return nil, errors.New("recordDir must not be empty")
 	}
+	if statsFile == "" {
+		return nil, errors.New("statsFile must not be empty")
+	}
 	if drainBudget <= 0 {
 		return nil, fmt.Errorf("drainBudget must be > 0, got %v", drainBudget)
 	}
@@ -48,7 +52,7 @@ func NewChecker(pool *pgxpool.Pool, declared *scenario.Scenario, fingerprint *Fi
 	if err != nil {
 		return nil, err
 	}
-	return &Checker{ds: ds, declared: declared, fingerprint: fingerprint, recordDir: recordDir, drainBudget: drainBudget}, nil
+	return &Checker{ds: ds, declared: declared, fingerprint: fingerprint, recordDir: recordDir, statsFile: statsFile, drainBudget: drainBudget}, nil
 }
 
 // Run loads the producers' records, drains the group, loads the handlers'
@@ -98,6 +102,18 @@ func (c *Checker) judge(ctx context.Context, verdict *Verdict) error {
 	if err != nil {
 		return err
 	}
+	verdict.Records.Sample, err = c.ds.LoadSample(ctx, c.recordDir)
+	if err != nil {
+		return err
+	}
+	verdict.Records.Backlog, err = c.ds.LoadBacklog(ctx, c.recordDir)
+	if err != nil {
+		return err
+	}
+	verdict.Records.Container, err = c.ds.LoadContainer(ctx, c.statsFile)
+	if err != nil {
+		return err
+	}
 	verdict.Phases, err = c.ds.ReadPhases(ctx)
 	if err != nil {
 		return err
@@ -129,7 +145,7 @@ func (c *Checker) judge(ctx context.Context, verdict *Verdict) error {
 	}
 
 	for _, expectation := range c.declared.Expect {
-		result, err := c.check(ctx, target, expectation)
+		result, err := c.check(ctx, target, verdict.Phases, expectation)
 		if err != nil {
 			return fmt.Errorf("%s: %w", expectation.Check, err)
 		}
@@ -140,7 +156,7 @@ func (c *Checker) judge(ctx context.Context, verdict *Verdict) error {
 }
 
 // check runs one expectation's query and judges the count against its Want.
-func (c *Checker) check(ctx context.Context, target datastore.Target, expectation scenario.Expectation) (CheckResult, error) {
+func (c *Checker) check(ctx context.Context, target datastore.Target, phases []record.PhaseRecord, expectation scenario.Expectation) (CheckResult, error) {
 	var measured datastore.Measurement
 	var err error
 	switch expectation.Check {
@@ -162,6 +178,10 @@ func (c *Checker) check(ctx context.Context, target datastore.Target, expectatio
 		measured, err = c.ds.CountDead(ctx, target)
 	case scenario.CheckScheduleKept:
 		measured, err = c.ds.CountScheduleSlips(ctx, scheduleTolerance)
+	case scenario.CheckBacklogBounded:
+		measured, err = c.countDivergingPhases(ctx, phases)
+	case scenario.CheckGeneratorHeadroom:
+		measured, err = c.countHeadroomBreaches(ctx, phases)
 	}
 	if err != nil {
 		return CheckResult{}, err

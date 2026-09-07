@@ -19,16 +19,22 @@ import (
 const labSchema = "lab"
 
 const (
-	produceTable = "produce_record"
-	handlerTable = "handler_record"
-	phaseTable   = "run_phase"
+	produceTable   = "produce_record"
+	handlerTable   = "handler_record"
+	phaseTable     = "run_phase"
+	sampleTable    = "observer_sample"
+	backlogTable   = "observer_backlog"
+	containerTable = "container_sample"
 )
 
 // the same tables, qualified for the check queries
 var (
-	produceRecord = labSchema + "." + produceTable
-	handlerRecord = labSchema + "." + handlerTable
-	runPhase      = labSchema + "." + phaseTable
+	produceRecord   = labSchema + "." + produceTable
+	handlerRecord   = labSchema + "." + handlerTable
+	runPhase        = labSchema + "." + phaseTable
+	observerSample  = labSchema + "." + sampleTable
+	observerBacklog = labSchema + "." + backlogTable
+	containerSample = labSchema + "." + containerTable
 )
 
 // lineByteLimit bounds one record line; the longest field is an error text.
@@ -79,6 +85,46 @@ var phaseLayout = tableLayout{
 			return nil, err
 		}
 		return []any{row.At, row.Process, string(row.Kind), row.Name, string(row.Status), row.Detail}, nil
+	},
+}
+
+var sampleLayout = tableLayout{
+	kind:    record.FileKindSample,
+	table:   sampleTable,
+	columns: []string{"at", "wal_records", "wal_fpi", "wal_bytes", "checkpoints", "xact_commit", "deadlocks", "blocks_hit", "blocks_read"},
+	decode: func(line []byte) ([]any, error) {
+		var row record.SampleRecord
+		if err := json.Unmarshal(line, &row); err != nil {
+			return nil, err
+		}
+		return []any{row.At, row.WalRecords, row.WalFpi, row.WalBytes, row.Checkpoints, row.XactCommit, row.Deadlocks, row.BlocksHit, row.BlocksRead}, nil
+	},
+}
+
+var backlogLayout = tableLayout{
+	kind:    record.FileKindBacklog,
+	table:   backlogTable,
+	columns: []string{"at", "topic", "group", "highest_message", "committed"},
+	decode: func(line []byte) ([]any, error) {
+		var row record.BacklogRecord
+		if err := json.Unmarshal(line, &row); err != nil {
+			return nil, err
+		}
+		return []any{row.At, row.Topic, row.Group, row.HighestMessage, row.Committed}, nil
+	},
+}
+
+// containerLayout has no file kind: stats.sh writes its file on the host,
+// outside the record directory, and the checker is handed its path.
+var containerLayout = tableLayout{
+	table:   containerTable,
+	columns: []string{"at", "name", "service", "cpu_percent", "cpus"},
+	decode: func(line []byte) ([]any, error) {
+		var row record.ContainerRecord
+		if err := json.Unmarshal(line, &row); err != nil {
+			return nil, err
+		}
+		return []any{row.At, row.Name, row.Service, row.CpuPercent, row.Cpus}, nil
 	},
 }
 
@@ -167,7 +213,37 @@ func (d *CheckerDatastore) CreateTables(ctx context.Context) error {
 			status  TEXT NOT NULL,                -- 'started' | 'ended'
 			detail  TEXT NOT NULL
 		);
-	`, labSchema, produceTable, handlerTable, phaseTable)
+
+		CREATE TABLE %[1]s.%[5]s (
+			at          TIMESTAMPTZ NOT NULL,
+			wal_records BIGINT NOT NULL,          -- cumulative, as the server reports them
+			wal_fpi     BIGINT NOT NULL,
+			wal_bytes   BIGINT NOT NULL,
+			checkpoints BIGINT NOT NULL,
+			xact_commit BIGINT NOT NULL,
+			deadlocks   BIGINT NOT NULL,
+			blocks_hit  BIGINT NOT NULL,
+			blocks_read BIGINT NOT NULL
+		);
+		CREATE INDEX %[5]s_at ON %[1]s.%[5]s (at);
+
+		CREATE TABLE %[1]s.%[6]s (
+			at              TIMESTAMPTZ NOT NULL,
+			topic           TEXT NOT NULL,
+			"group"         TEXT NOT NULL,
+			highest_message BIGINT NOT NULL,
+			committed       BIGINT NOT NULL
+		);
+		CREATE INDEX %[6]s_at ON %[1]s.%[6]s (at);
+
+		CREATE TABLE %[1]s.%[7]s (
+			at          TIMESTAMPTZ NOT NULL,
+			name        TEXT NOT NULL,
+			service     TEXT NOT NULL,           -- the compose service, 'none' for a container outside the stack
+			cpu_percent DOUBLE PRECISION NOT NULL, -- of one core
+			cpus        DOUBLE PRECISION NOT NULL  -- the compose cap, 0 when uncapped
+		);
+	`, labSchema, produceTable, handlerTable, phaseTable, sampleTable, backlogTable, containerTable)
 	_, err := d.pool.Exec(ctx, createSql)
 	return err
 }
@@ -185,6 +261,23 @@ func (d *CheckerDatastore) LoadHandler(ctx context.Context, dir string) (int64, 
 
 func (d *CheckerDatastore) LoadPhase(ctx context.Context, dir string) (int64, error) {
 	return d.load(ctx, dir, phaseLayout)
+}
+
+func (d *CheckerDatastore) LoadSample(ctx context.Context, dir string) (int64, error) {
+	return d.load(ctx, dir, sampleLayout)
+}
+
+func (d *CheckerDatastore) LoadBacklog(ctx context.Context, dir string) (int64, error) {
+	return d.load(ctx, dir, backlogLayout)
+}
+
+// LoadContainer COPYs the one file stats.sh wrote at path.
+func (d *CheckerDatastore) LoadContainer(ctx context.Context, path string) (int64, error) {
+	rows, err := d.loadFile(ctx, path, containerLayout)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", filepath.Base(path), err)
+	}
+	return rows, nil
 }
 
 func (d *CheckerDatastore) load(ctx context.Context, dir string, layout tableLayout) (int64, error) {

@@ -9,8 +9,9 @@ package main
 //
 // One binary, one role per process: -role producer walks the scenario's
 // phases, -role consumer follows its consumer timeline until stopped, -role
-// checker judges the run and exits with the verdict (0 pass, 1 fail, 2
-// unknown), and -role print writes the scenario in its .scenario format.
+// observer samples the server once a second until stopped, -role checker
+// judges the run and exits with the verdict (0 pass, 1 fail, 2 unknown),
+// and -role print writes the scenario in its .scenario format.
 // Exit 3 is a lab failure (connection, flags, records), never a verdict.
 
 import (
@@ -69,12 +70,14 @@ func run() (int, error) {
 		return 0, role.RunProducer(ctx)
 	case "consumer":
 		return 0, role.RunConsumer(ctx)
+	case "observer":
+		return 0, role.RunObserver(ctx)
 	case "checker":
-		verdict, err := role.RunChecker(ctx, flags.resultsDir, flags.fingerprintFile, flags.drainBudget)
+		verdict, err := role.RunChecker(ctx, flags.resultsDir, flags.fingerprintFile, flags.statsFile, flags.drainBudget)
 		if err != nil {
 			return 0, err
 		}
 		return verdict.ExitCode(), nil
 	}
-	return 0, fmt.Errorf("unrecognized role: %q -- one of producer, consumer, checker, print", flags.role)
+	return 0, fmt.Errorf("unrecognized role: %q -- one of producer, consumer, observer, checker, print", flags.role)
 }

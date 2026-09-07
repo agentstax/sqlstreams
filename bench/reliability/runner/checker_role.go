@@ -12,12 +12,12 @@ import (
 // the fingerprint the recipe wrote, writes the results under resultsDir, and
 // prints the report. The verdict is returned for its exit code; a returned
 // error is a lab failure that left no verdict.
-func (r *Runner) RunChecker(ctx context.Context, resultsDir string, fingerprintFile string, drainBudget time.Duration) (*checker.Verdict, error) {
+func (r *Runner) RunChecker(ctx context.Context, resultsDir string, fingerprintFile string, statsFile string, drainBudget time.Duration) (*checker.Verdict, error) {
 	fingerprint, err := checker.ReadFingerprint(fingerprintFile)
 	if err != nil {
 		return nil, err
 	}
-	judge, err := checker.NewChecker(r.connection.Pool, r.declared, fingerprint, r.recordDir, drainBudget)
+	judge, err := checker.NewChecker(r.connection.Pool, r.declared, fingerprint, r.recordDir, statsFile, drainBudget)
 	if err != nil {
 		return nil, err
 	}
@@ -25,7 +25,7 @@ func (r *Runner) RunChecker(ctx context.Context, resultsDir string, fingerprintF
 	if err != nil {
 		return nil, err
 	}
-	written, err := checker.WriteResults(resultsDir, r.declared, verdict)
+	written, err := checker.WriteResults(resultsDir, r.recordDir, statsFile, r.declared, verdict)
 	if err != nil {
 		return nil, err
 	}

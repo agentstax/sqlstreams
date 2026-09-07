@@ -1,8 +1,10 @@
 # The reliability lab's own stack: a fresh Postgres, one image, one process
-# per role. `just reliability-lab` brings the consumer up, runs the producer
-# to the end of its phases, then runs the checker: it loads the record files
-# from the shared `records` volume, drains the group, writes its results to
-# ./results, and exits with the verdict. The checker sits behind a profile so
+# per role. `just reliability-lab` brings the consumer and observer up, runs
+# the producer to the end of its phases, then runs the checker: it loads the
+# record files from the shared `records` volume, drains the group, writes its
+# results to ./results, and exits with the verdict. The producer and consumer
+# are capped at two CPUs each so the generator_headroom check has a cap to
+# judge against. The checker sits behind a profile so
 # a plain `up` never starts it. Each role's hostname is its record name, so
 # keys read `producer-<seq>`. No dependent carries `restart: true` -- a
 # Postgres restart during a chaos phase must not restart the roles under
@@ -13,6 +15,7 @@
 # and the checker records what the server reports back. PGDATA sits on a
 # named volume (never the container's overlay filesystem); `down -v` drops it
 # so every run starts from an empty cluster.
+name: reliability
 services:
   postgres:
     image: postgres:18.4
@@ -51,6 +54,10 @@ services:
       dockerfile: bench/reliability/Dockerfile
     hostname: producer
     command: ['-role', 'producer', '-scenario', '${SCENARIO:-dev}', '-time-scale', '${TIME_SCALE:-1}', '-record-dir', '/records']
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_USER: ${POSTGRES_USER:-lab}
@@ -68,6 +75,10 @@ services:
       dockerfile: bench/reliability/Dockerfile
     hostname: consumer
     command: ['-role', 'consumer', '-scenario', '${SCENARIO:-dev}', '-time-scale', '${TIME_SCALE:-1}', '-record-dir', '/records']
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_USER: ${POSTGRES_USER:-lab}
@@ -80,12 +91,29 @@ services:
         condition: service_healthy
     stop_grace_period: 60s
 
+  observer:
+    build:
+      context: ../..
+      dockerfile: bench/reliability/Dockerfile
+    hostname: observer
+    command: ['-role', 'observer', '-scenario', '${SCENARIO:-dev}', '-time-scale', '${TIME_SCALE:-1}', '-record-dir', '/records']
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER:-lab}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lab}
+      POSTGRES_DB: ${POSTGRES_DB:-lab}
+    volumes:
+      - records:/records
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   checker:
     build:
       context: ../..
       dockerfile: bench/reliability/Dockerfile
     profiles: [checker]
-    command: ['-role', 'checker', '-scenario', '${SCENARIO:-dev}', '-time-scale', '${TIME_SCALE:-1}', '-record-dir', '/records', '-results-dir', '/results', '-fingerprint-file', '/results/fingerprint.json']
+    command: ['-role', 'checker', '-scenario', '${SCENARIO:-dev}', '-time-scale', '${TIME_SCALE:-1}', '-record-dir', '/records', '-results-dir', '/results', '-fingerprint-file', '/results/fingerprint.json', '-stats-file', '/results/stats.jsonl', '-drain-budget', '${DRAIN_BUDGET:-2m}']
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_USER: ${POSTGRES_USER:-lab}

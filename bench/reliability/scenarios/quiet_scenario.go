@@ -23,8 +23,9 @@ var Quiet = &scenario.Scenario{
 		{At: 0, Instances: 3},
 	},
 	// under fail rate 0 and no chaos a reclaim or a dead row is a finding on
-	// its own, so both are expected at zero; a slipped schedule would mean
-	// the numbers measured the generator
+	// its own, so both are expected at zero; a slipped schedule, a growing
+	// backlog, or a starved container would mean the numbers measured the
+	// generator, not the library
 	Expect: []scenario.Expectation{
 		{Check: scenario.CheckLost, Want: scenario.WantZero},
 		{Check: scenario.CheckUnexpected, Want: scenario.WantZero},
@@ -35,5 +36,7 @@ var Quiet = &scenario.Scenario{
 		{Check: scenario.CheckReclaims, Want: scenario.WantZero},
 		{Check: scenario.CheckDead, Want: scenario.WantZero},
 		{Check: scenario.CheckScheduleKept, Want: scenario.WantZero},
+		{Check: scenario.CheckBacklogBounded, Want: scenario.WantZero},
+		{Check: scenario.CheckGeneratorHeadroom, Want: scenario.WantZero},
 	},
 }
