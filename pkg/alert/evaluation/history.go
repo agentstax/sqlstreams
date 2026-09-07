@@ -38,10 +38,7 @@ func EvaluateHistory(samples []*common.StoredMessage[alert.AlertEvaluationResult
 	}
 
 	// Only an active condition with pending enabled needs a history scan.
-	if newest.Message.State != alert.AlertEvaluationStateActive {
-		return newest.Message, nil
-	}
-	if policy.DisablePending {
+	if newest.Message.State != alert.AlertEvaluationStateActive || policy.DisablePending {
 		return newest.Message, nil
 	}
 
@@ -67,8 +64,8 @@ func EvaluateHistory(samples []*common.StoredMessage[alert.AlertEvaluationResult
 
 	// Pending duration comes from the observed span, not time spent waiting.
 	observedDuration := newest.CreatedAt.Sub(earliestAt)
-	if observedDuration < policy.PendingDuration {
-		return alert.NewAlertEvaluationResult(alert.AlertEvaluationStatePending, newest.Message.Finding)
+	if observedDuration >= policy.PendingDuration {
+		return newest.Message, nil
 	}
-	return newest.Message, nil
+	return alert.NewAlertEvaluationResult(alert.AlertEvaluationStatePending, newest.Message.Finding)
 }

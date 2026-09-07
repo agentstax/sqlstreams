@@ -19,6 +19,7 @@ func TestAlertSelectorsCoverResourceScopedCatalog(t *testing.T) {
 		{"PartitionCount", topicAlerts.PartitionCount(), alert.AlertPartitionCount},
 		{"CompactionReadCost", topicAlerts.CompactionReadCost(), alert.AlertCompactionReadCost},
 		{"WorkerLiveness", topicAlerts.WorkerLiveness(), alert.AlertWorkerLiveness},
+		{"MetricsCollectorProgress", client.System().Alerts().MetricsCollectorProgress(), alert.AlertMetricsCollectorProgress},
 	}
 
 	seen := make(map[*diagnostic.DiagnosticAlert]int, len(selectors))
@@ -26,8 +27,12 @@ func TestAlertSelectorsCoverResourceScopedCatalog(t *testing.T) {
 		if selector.handle.name != selector.declared.Name {
 			t.Errorf("%s resolved %q, want %q", selector.name, selector.handle.name, selector.declared.Name)
 		}
-		if selector.handle.topicName != "orders" || selector.handle.groupName != "" {
-			t.Errorf("%s bound owner %q/%q, want the topic alone", selector.name, selector.handle.topicName, selector.handle.groupName)
+		topicName := "orders"
+		if selector.declared.Scope == diagnostic.MetricScopeSystem {
+			topicName = ""
+		}
+		if selector.handle.topicName != topicName || selector.handle.groupName != "" {
+			t.Errorf("%s bound owner %q/%q, want topic %q", selector.name, selector.handle.topicName, selector.handle.groupName, topicName)
 		}
 		seen[selector.declared]++
 	}

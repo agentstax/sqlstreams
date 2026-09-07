@@ -2,7 +2,19 @@ package datastore
 
 import (
 	"github.com/jackc/pgx/v5/pgtype"
+	"time"
 )
+
+type WorkerInstanceSnapshotRow struct {
+	Id               int64       `db:"id"`
+	WorkerInstanceId int64       `db:"worker_instance_id"`
+	WorkerId         int64       `db:"worker_id"`
+	Token            pgtype.UUID `db:"token"`
+	ExpiresAt        time.Time   `db:"expires_at"`
+	Attempts         int         `db:"attempts"`
+	CreatedAt        time.Time   `db:"created_at"`
+	AttemptedAt      time.Time   `db:"attempted_at"`
+}
 
 // WorkerConfigRow models the worker_config table row exactly.
 type WorkerConfigRow struct {

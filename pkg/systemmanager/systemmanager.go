@@ -6,6 +6,7 @@ import (
 	"math/rand/v2"
 	"time"
 
+	"github.com/agentstax/vulkan/pkg/alert/collectorprogress"
 	"github.com/agentstax/vulkan/pkg/alert/compactionreadcost"
 	"github.com/agentstax/vulkan/pkg/alert/partitioncount"
 	"github.com/agentstax/vulkan/pkg/alert/workerliveness"
@@ -91,8 +92,22 @@ func NewSystemManager(ds *datastore.PostgresDatastore, cfg *SystemManagerConfig)
 	if err != nil {
 		return nil, err
 	}
+	collectorProgressProvisioner, err := collectorprogress.NewCollectorProgressProvisioner(ds, nil, logger)
+	if err != nil {
+		return nil, err
+	}
 
-	provisioners := []worker.Provisioner{topicJanitorProvisioner, consumerGroupJanitorProvisioner, scheduleProducerProvisioner, metricsCollectorProvisioner, cursorAdvancerProvisioner, partitionCountProvisioner, compactionReadCostProvisioner, workerLivenessProvisioner}
+	provisioners := []worker.Provisioner{
+		topicJanitorProvisioner,
+		consumerGroupJanitorProvisioner,
+		scheduleProducerProvisioner,
+		metricsCollectorProvisioner,
+		cursorAdvancerProvisioner,
+		partitionCountProvisioner,
+		compactionReadCostProvisioner,
+		workerLivenessProvisioner,
+		collectorProgressProvisioner,
+	}
 	managerProvisioner, err := manager.NewManagerProvisioner(ds, 1, nil, logger, provisioners...)
 	if err != nil {
 		return nil, err

@@ -6,6 +6,41 @@ import (
 	"time"
 )
 
+// MetricsCollectorProgressAlertConfig declares the installation's collector-progress check.
+type MetricsCollectorProgressAlertConfig struct {
+	// ScheduleExpression controls how often collector progress is checked. Default: @every 1m.
+	ScheduleExpression string
+
+	// MaximumAge is how old a completion may be. Default: 0, max(2m, three declared collector poll intervals).
+	MaximumAge time.Duration
+
+	// PendingDuration is the required unhealthy duration during continuous manager lease coverage. Default: 2m.
+	PendingDuration time.Duration
+
+	// DisablePending permits immediate activation with current manager lease coverage. Default: false.
+	DisablePending bool
+}
+
+func (c *MetricsCollectorProgressAlertConfig) WithDefaults() *MetricsCollectorProgressAlertConfig {
+	if c.ScheduleExpression == "" {
+		c.ScheduleExpression = "@every 1m"
+	}
+	if c.PendingDuration == 0 {
+		c.PendingDuration = 2 * time.Minute
+	}
+	return c
+}
+
+func (c *MetricsCollectorProgressAlertConfig) Validate() error {
+	if c.MaximumAge < 0 {
+		return fmt.Errorf("MaximumAge must be >= 0, got %v", c.MaximumAge)
+	}
+	if c.PendingDuration <= 0 {
+		return fmt.Errorf("PendingDuration must be > 0, got %v", c.PendingDuration)
+	}
+	return nil
+}
+
 // PartitionCountAlertConfig declares how the partition_count alert is
 // evaluated and the count it alerts at.
 type PartitionCountAlertConfig struct {

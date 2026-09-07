@@ -4,8 +4,17 @@ import (
 	"github.com/agentstax/vulkan/pkg/common"
 	"github.com/agentstax/vulkan/pkg/worker"
 	"github.com/agentstax/vulkan/pkg/worker/controller/datastore"
+	"time"
 	"uuid"
 )
+
+func toWorkerInstanceHistory(current time.Time, rows []datastore.WorkerInstanceSnapshotRow) *worker.WorkerInstanceHistory {
+	instances := make([]worker.WorkerInstanceSnapshot, 0, len(rows))
+	for _, row := range rows {
+		instances = append(instances, worker.WorkerInstanceSnapshot{CreatedAt: row.CreatedAt, ExpiresAt: row.ExpiresAt})
+	}
+	return &worker.WorkerInstanceHistory{EvaluatedAt: current, Instances: instances}
+}
 
 func toWorker(data datastore.ListWorkersRow) (*worker.Worker, error) {
 	var owner *common.Owner

@@ -42,10 +42,23 @@ if err != nil {
 | `PartitionCountAlert` | its own defaults | the `partition_count` check: `ScheduleExpression` (`@hourly`), `Threshold` (`0`, half the lock ceiling Postgres reports), `PendingDuration` and `MaximumGap` (two minutes each), and `DisablePending` (`false`) |
 | `CompactionReadCostAlert` | its own defaults | the `compaction_read_cost` check; `PendingDuration` and `MaximumGap` default to two minutes; `DisablePending` defaults to `false` |
 | `WorkerLivenessAlert` | its own defaults | the `worker_liveness` check; `PendingDuration` and `MaximumGap` default to two minutes; `DisablePending` defaults to `false` |
+| `MetricsCollectorProgressAlert` | its own defaults | the system-owned collector-progress check; fields below |
 | `MetricsCollector` | `PollRate: 30s` | how often the collector's measurement pass runs; zero is the default, negative is rejected |
 
 A running collector keeps its rate until its next claim; restart the
 manager to apply a new one immediately.
+
+### MetricsCollectorProgressAlertConfig
+
+| field | default | what it decides |
+| --- | --- | --- |
+| `ScheduleExpression` | `@every 1m` | how often collector progress is checked |
+| `MaximumAge` | `0` | zero uses max(two minutes, three declared collector poll intervals); a positive duration overrides it |
+| `PendingDuration` | `2m` | required unhealthy duration during continuous manager lease coverage |
+| `DisablePending` | `false` | permits immediate activation with current manager lease coverage |
+
+The default age follows the current collector declaration. An already-running
+collector keeps its previously claimed rate until its next claim.
 
 ## Gotchas
 

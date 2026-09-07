@@ -25,8 +25,8 @@ func TestDefinitionsFiltersScopes(t *testing.T) {
 	if got := len(Definitions(diagnostic.MetricScopeTopic)); got != 3 {
 		t.Fatalf("got %d topic definitions, want 3", got)
 	}
-	if got := len(Definitions(diagnostic.MetricScopeSystem, diagnostic.MetricScopeConsumerGroup)); got != 0 {
-		t.Fatalf("got %d system/group definitions, want 0", got)
+	if got := len(Definitions(diagnostic.MetricScopeSystem, diagnostic.MetricScopeConsumerGroup)); got != 1 {
+		t.Fatalf("got %d system/group definitions, want 1", got)
 	}
 }
 

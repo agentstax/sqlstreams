@@ -97,6 +97,38 @@ func TestWorkerInstanceLog(t *testing.T) {
 	if countLogs() != 2 {
 		t.Fatal("renewal did not append one snapshot")
 	}
+	current, err := workers.CurrentTime(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshots, err := workers.ListInstanceSnapshots(ctx, declared.Id, current, current)
+	if err != nil || len(snapshots) != 2 {
+		t.Fatalf("boundary-crossing snapshots = %+v, error = %v", snapshots, err)
+	}
+	if !snapshots[0].ExpiresAt.After(snapshots[1].ExpiresAt) {
+		t.Fatal("same-start snapshots must put the longest lease first")
+	}
+	for _, snapshot := range snapshots {
+		if snapshot.Id <= 0 || snapshot.WorkerInstanceId != claimed.Id || snapshot.WorkerId != declared.Id || snapshot.Token != claimed.Token || snapshot.AttemptedAt.IsZero() {
+			t.Fatalf("snapshot did not retain the full log row: %+v", snapshot)
+		}
+	}
+	if snapshots[0].Attempts != 1 || snapshots[1].Attempts != 0 {
+		t.Fatalf("snapshot attempts = %d, %d; want 1, 0", snapshots[0].Attempts, snapshots[1].Attempts)
+	}
+	firstCreatedAt := snapshots[0].CreatedAt
+	atClaim, err := workers.ListInstanceSnapshots(ctx, declared.Id, firstCreatedAt, firstCreatedAt)
+	if err != nil || len(atClaim) != 1 {
+		t.Fatalf("read included a later renewal: %+v, %v", atClaim, err)
+	}
+	atExpiry, err := workers.ListInstanceSnapshots(ctx, declared.Id, snapshots[0].ExpiresAt, snapshots[0].ExpiresAt)
+	if err != nil || len(atExpiry) != 1 {
+		t.Fatalf("read excluded the inclusive expiry boundary: %+v, %v", atExpiry, err)
+	}
+	otherWorker, err := workers.ListInstanceSnapshots(ctx, declared.Id+1, current, current)
+	if err != nil || len(otherWorker) != 0 {
+		t.Fatalf("read included another worker: %+v, %v", otherWorker, err)
+	}
 	var matches bool
 	err = pool.QueryRow(ctx, fmt.Sprintf(`
 		SELECT log.worker_id = live.worker_id

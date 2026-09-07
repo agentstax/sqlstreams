@@ -82,10 +82,11 @@ type (
 	SystemConfig       = system.SystemConfig
 	TopicVersionHealth = topic.TopicVersionHealth
 
-	PartitionCountAlertConfig     = alert.PartitionCountAlertConfig
-	CompactionReadCostAlertConfig = alert.CompactionReadCostAlertConfig
-	WorkerLivenessAlertConfig     = alert.WorkerLivenessAlertConfig
-	MetricsCollectorWorkerConfig  = metrics.MetricsCollectorWorkerConfig
+	PartitionCountAlertConfig           = alert.PartitionCountAlertConfig
+	CompactionReadCostAlertConfig       = alert.CompactionReadCostAlertConfig
+	WorkerLivenessAlertConfig           = alert.WorkerLivenessAlertConfig
+	MetricsCollectorProgressAlertConfig = alert.MetricsCollectorProgressAlertConfig
+	MetricsCollectorWorkerConfig        = metrics.MetricsCollectorWorkerConfig
 
 	TopicSnapshot                 = metrics.TopicSnapshot
 	ConsumerGroupSnapshot         = metrics.ConsumerGroupSnapshot

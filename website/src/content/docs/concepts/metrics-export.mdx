@@ -109,25 +109,24 @@ by row order. This also restricts OTLP-only callers, but keeps both entry
 points consistent. It does not rewrite retained measurements or enforce
 metadata immutability across time.
 
-## Proposed: derive alerts from history
+## Derive alerts from history
 
-Core would calculate pending duration from consecutive recorded observations,
-with no pending-state table or user-managed timer. Extend the existing alert
-framework, starting with partition count, then compaction read cost and worker
-liveness. Collector progress uses that same path afterward. Conditions stay
+Core calculates pending duration from consecutive recorded observations,
+with no pending-state table or user-managed timer. Partition count, compaction
+read cost, and worker liveness use the existing alert framework. Collector
+progress shares its duration decision and recording path. Conditions stay
 check-specific; shared policy decides pending, recovery, and repeats. The
-[history proposal](/concepts/alert-history/) covers pseudocode, suggested timing,
+[history page](/concepts/alert-history/) covers pseudocode, timing,
 diagnostic visibility, and restart/concurrency boundaries. Existing hourly
 schedules need review alongside pending durations. This adds no custom alert
 framework or backlog alert.
 
-## Proposed: observe collector progress independently
+## Observe collector progress independently
 
 The collector records completion only after the whole pass succeeds. Read it
 through `System().Metrics().CollectorCompletedTimestamp()`. The attribute-free
 `vulkan.metrics.collector.completed_timestamp` gauge stores Unix seconds with
-unit `s`. This measurement and worker instance logging are implemented;
-lease-coverage evaluation and the collector-progress alert remain proposed.
+unit `s`. `System().Alerts().MetricsCollectorProgress()` selects the alert.
 
 Completion follows all collection reads and writes, including concurrent topic
 work. Startup and partial passes do not refresh it. Rank-zero compaction and
@@ -142,11 +141,17 @@ lease expiry by default, controlled by `ManagerConfig.InstanceLogTTL`.
 Log writes are part of claim and renewal success: a failed append rolls back
 the instance change and returns through the existing error path.
 
-The evaluator would combine collector completion history with manager lease
+The evaluator combines the latest collector completion with manager lease
 coverage. Overlapping or touching intervals preserve pending across manager
 replacement. An uncovered gap breaks the span. Retained evidence must cover
-the requested window, including intervals crossing its start; missing history
-is insufficient evidence.
+the pending window, including intervals crossing its start. Recent completion
+is healthy. Otherwise, no current coverage is insufficient evidence; a shorter
+coverage span is pending. Neither resolves an existing alert.
+
+The overdue span starts at the later of current coverage start and completion
+plus `MaximumAge`. With no retained completion, it starts at coverage start.
+The check uses database time and the completion's Unix-second value. It reads
+no separate progress observations and writes only through normal alert recording.
 
 Graceful shutdown does not shorten a logged lease. A released or crashed
 instance counts through its last recorded expiry. With the current manager
@@ -159,11 +164,13 @@ starting at 10:01:00 leaves a gap. An overnight restart cannot count the stopped
 hours toward pending. A short restart within the lease can preserve pending
 and allow an earlier alert. This is the accepted [lease-history tradeoff](/decisions/0700/).
 
-No separate progress-observation series or observation worker is proposed.
-Collector age defaults to max(2m, 3 live collector poll intervals), with an
-explicit positive override. The progress check uses existing scheduling and
-alert recording. If all checking machinery stops, Vulkan cannot produce an
-outage report while it is stopped.
+Collector age defaults to max(2m, 3 declared collector poll intervals), with an
+explicit positive override. A running collector keeps its old rate until its
+next claim. This check runs every minute and requires two unhealthy minutes;
+configure it through [SystemConfig](/reference/system/#metricscollectorprogressalertconfig).
+Insufficient evidence logs a warning and leaves recorded alerts unchanged.
+If all checking machinery stops, Vulkan cannot produce an outage report while
+it is stopped.
 
 ## Proposed: deployment boundary
 

@@ -37,16 +37,17 @@ func newWorkerLivenessInstance(provisioner *WorkerLivenessProvisioner, owner *co
 		return nil, errors.New("owner must not be nil")
 	}
 
+	logger := logging.NewPipelineLogger(provisioner.Logger, &logging.PipelineLoggerConfig{Args: []any{"worker", JobName, "group", owner.Name}})
 	runner, err := workercontroller.NewInstanceRunner(provisioner.workers, claimed, &workercontroller.InstanceRunnerConfig{
 		InstanceTTL: provisioner.Config.InstanceTTL,
-	}, logging.NewPipelineLogger(provisioner.Logger, &logging.PipelineLoggerConfig{Args: []any{"worker", JobName, "group", owner.Name}}))
+	}, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	return &WorkerLivenessInstance{
 		Owner:          owner,
-		Logger:         provisioner.Logger,
+		Logger:         logger,
 		provisioner:    provisioner,
 		runner:         runner,
 		repeatInterval: repeatInterval,

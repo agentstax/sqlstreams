@@ -33,8 +33,12 @@ func (s *SystemAlertsHandle) Latest(ctx context.Context) ([]*Alert, error) {
 	return unwrapMessages(stored), nil
 }
 
-// Alert names one alert owned by the system. It performs no I/O. No
-// built-in is system-owned today, so this is the handle's only read.
+// Alert names one alert owned by the system. It performs no I/O.
 func (s *SystemAlertsHandle) Alert(name string) *AlertHandle {
 	return newAlertHandle(s.client, name, "", "")
+}
+
+// MetricsCollectorProgress selects the system's collector-progress alert.
+func (s *SystemAlertsHandle) MetricsCollectorProgress() *AlertHandle {
+	return s.Alert(alert.AlertMetricsCollectorProgress.Name)
 }

@@ -455,3 +455,4 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0700 2026-09-07 accepted (pre-v1) — Worker instance history proves lease coverage
 - 0701 2026-09-07 superseded (pre-v1) — Worker instance log writes and retention
 - 0702 2026-09-07 accepted (pre-v1) — Instance log timestamps follow existing names
+- 0703 2026-09-07 accepted (pre-v1) — Collector progress uses manager lease history

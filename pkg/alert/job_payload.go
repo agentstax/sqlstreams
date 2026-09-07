@@ -7,7 +7,8 @@ import (
 )
 
 type JobPayload struct {
-	Threshold       int64         `json:"threshold"` // 0 = Evaluate derives the alert's live default
+	Threshold       int64         `json:"threshold"`   // 0 = Evaluate derives the alert's live default
+	MaximumAge      time.Duration `json:"maximum_age"` // 0 = collector progress derives its live default
 	PendingDuration time.Duration `json:"pending_duration"`
 	MaximumGap      time.Duration `json:"maximum_gap"`
 	DisablePending  bool          `json:"disable_pending"`
@@ -36,6 +37,9 @@ func (d *JobPayload) WithDefaults() *JobPayload {
 func (d *JobPayload) Validate() error {
 	if d.Threshold < 0 {
 		return fmt.Errorf("threshold must be >= 0, got %d", d.Threshold)
+	}
+	if d.MaximumAge < 0 {
+		return fmt.Errorf("maximum_age must be >= 0, got %v", d.MaximumAge)
 	}
 	if d.PendingDuration <= 0 {
 		return fmt.Errorf("PendingDuration must be > 0, got %v", d.PendingDuration)

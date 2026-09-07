@@ -1,6 +1,6 @@
 ---
 title: Alerts
-description: The alert handles on the system, a topic, and a consumer group — Definitions, Latest, History, the three built-in selectors, and Alert(name).
+description: The alert handles on the system, a topic, and a consumer group — Definitions, Latest, History, built-in selectors, and Alert(name).
 ---
 
 `.Alerts()` on the [system](/reference/system/), a
@@ -38,6 +38,9 @@ On the topic handle, one selector per built-in: `PartitionCount()`,
 `CompactionReadCost()`, `WorkerLiveness()`. Each is `Alert(name)` with
 the name filled in.
 
+On the system handle, `MetricsCollectorProgress()` selects the installation's
+collector-progress alert.
+
 On an `AlertHandle`:
 
 | verb | returns | notes |
@@ -56,11 +59,12 @@ per finding and stay on the `Alert`.
 | `MetricScopeTopic` | the topic |
 | `MetricScopeConsumerGroup` | the topic and group |
 
-Three built-ins today, every one owned by a topic: `partition_count`,
-`compaction_read_cost`, `worker_liveness`. Each has a VK code, so
+Three built-ins are owned by a topic: `partition_count`,
+`compaction_read_cost`, `worker_liveness`. The system owns
+`metrics_collector_progress`. Each has a VK code, so
 `vulkan explain VK0094` and its page say what an active one means. The
-system and group handles carry no selector yet: their `Definitions()` is
-empty and `Alert(name)` is their whole read.
+group handle has no built-in selector: its `Definitions()` is empty and
+`Alert(name)` is its whole read.
 
 ## Consuming the alert topic
 
@@ -79,12 +83,16 @@ already active.
 
 ## Gotchas
 
-- All three built-in alerts require two minutes of consecutive unhealthy
+- The three topic alerts require two minutes of consecutive unhealthy
   measurements by default. Each alert config exposes the same direct fields:
   `PendingDuration` and `MaximumGap` default to two minutes; `DisablePending: true` allows
   immediate activation but still requires fresh evidence. Missing or stale
   evidence leaves recorded alerts unchanged and increments the check's failed
   topic count. See [measurement history](/concepts/alert-history/) for the rules.
+- Collector progress requires two minutes of overdue or absent completion
+  during continuous manager lease coverage. A coverage gap restarts pending;
+  insufficient evidence leaves the recorded alert unchanged and logs a warning.
+  See [collector progress](/concepts/metrics-export/#observe-collector-progress-independently).
 - An alert's key is its owner's id, so the read resolves the name first.
   Destroy the topic and `topic.Alerts().PartitionCount().Latest(ctx)`
   returns `ErrTopicNotFound` rather than the last alert; a missing group is

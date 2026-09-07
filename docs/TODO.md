@@ -166,11 +166,15 @@ rolled-back prototype are not implementation requirements.
   Targeted PostgreSQL race test passed for snapshot writes, claim/renew rollback,
   declined/lost claims, release/expiry survival, retention, and system deletion.
   Build, vet, and conventions passed. No labs run.
-- [ ] Read manager lease coverage over the evaluation window, including boundary
-  evidence. Combine it with collector completion history for progress evaluation.
+- [x] Read manager lease coverage over the evaluation window, including boundary
+  evidence. Combine it with latest collector completion for progress evaluation [0703].
   Preserve pending across continuous replacements and break it across gaps.
   Use the existing scheduled check and Record/classify patterns; no independent
   progress-observation series or separate observation worker.
+  The system-owned check uses consumed policy, shared duration evaluation, and
+  normal atomic recording. Targeted tests cover gaps/replacements, missing and
+  recent completion, activation/recovery, and repeated recording. Real-worker
+  lab verification remains at the deferred checkpoint.
 - [ ] Verify each adaptation's real worker, diagnostics, restart behavior, and
   repeat/recovery semantics with targeted checks and affected labs.
 - [ ] After all three existing alerts support pending, add the approved

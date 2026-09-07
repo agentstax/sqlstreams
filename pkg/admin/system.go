@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/agentstax/vulkan/pkg/alert"
+	"github.com/agentstax/vulkan/pkg/alert/collectorprogress"
 	"github.com/agentstax/vulkan/pkg/alert/compactionreadcost"
 	alertcontroller "github.com/agentstax/vulkan/pkg/alert/controller"
 	"github.com/agentstax/vulkan/pkg/alert/partitioncount"
@@ -50,6 +51,10 @@ func (a *MessageAdmin) RegisterSystem(ctx context.Context, cfg *system.SystemCon
 	if err != nil {
 		return err
 	}
+	collectorProgressJob, err := collectorprogress.NewJob(cfg.MetricsCollectorProgressAlert)
+	if err != nil {
+		return err
+	}
 	metricsCollectorProvisioner, err := collector.NewMetricsCollectorProvisioner(a.ds, &collector.MetricsCollectorConfig{
 		PollRate: cfg.MetricsCollector.PollRate,
 	}, a.Logger)
@@ -72,7 +77,7 @@ func (a *MessageAdmin) RegisterSystem(ctx context.Context, cfg *system.SystemCon
 		return err
 	}
 
-	for _, job := range []*alertcontroller.Job{partitionCountJob, compactionReadCostJob, workerLivenessJob} {
+	for _, job := range []*alertcontroller.Job{partitionCountJob, compactionReadCostJob, workerLivenessJob, collectorProgressJob} {
 		if _, err := a.scheduler.Register[alert.JobPayload](ctx, job.Name, schedule.ScheduleTopicName, job.Cron, job.Payload, &scheduler.SchedulerConfig{
 			Concurrency: common.ConcurrencyExclusive,
 		}); err != nil {

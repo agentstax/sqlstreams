@@ -3,7 +3,7 @@ title: 'Alerts from measurement history'
 description: Shared pending policy, retained evidence, restart gaps, and proposed evaluation diagnostics.
 ---
 
-All three built-in alerts calculate pending duration from collector-owned
+The three topic alerts calculate pending duration from collector-owned
 measurements. Each condition interprets its samples; one shared calculation
 applies duration, freshness, and gap rules. Every worker keeps
 `Evaluate -> Record`. Alerts do not produce their own evidence.
@@ -160,12 +160,11 @@ Disabled pending reports zero span from the newest sample. Latest and History
 remain recorded active/resolved messages: Snapshot could say insufficient
 while Latest stays active. No persisted status mirror is proposed.
 
-Collector-progress alerting follows the three existing checks. Proposed worker
-instance history would establish manager lease coverage independently of
-collector completions; see the
-[collector-progress proposal](/concepts/metrics-export/#proposed-observe-collector-progress-independently).
+The implemented system-owned collector-progress alert uses worker instance
+history to establish manager lease coverage independently of collector
+completions; see [collector progress](/concepts/metrics-export/#observe-collector-progress-independently).
 
-One-minute alert schedules remain Proposed until the cost checkpoint.
+One-minute schedules for the three topic alerts remain Proposed until the cost checkpoint.
 Evidence writes follow the collector's independent cadence. At one-minute
 collection cadence, one series produces 1,440 samples per topic per day before
 retries; this is a workload count, not a benchmark result. Measure query time,
