@@ -1,4 +1,4 @@
-package checker
+package datastore
 
 import (
 	"context"
@@ -8,10 +8,10 @@ import (
 // The produce side: the records' committed and unknown keys against the
 // message_log rows the library kept.
 
-// lost: committed produces whose message row is missing.
-func (c *Checker) lost(ctx context.Context, target *target) (measurement, error) {
+// Lost: committed produces whose message row is missing.
+func (d *CheckerDatastore) Lost(ctx context.Context, target Target) (Measurement, error) {
 	lostSql := fmt.Sprintf(`
-		-- lab: checker.lost
+		-- lab: datastore.Lost
 		SELECT
 			count(*),
 			COALESCE((array_agg(p.key ORDER BY p.message_id))[1:%[3]d], ARRAY[]::text[])
@@ -19,15 +19,15 @@ func (c *Checker) lost(ctx context.Context, target *target) (measurement, error)
 		WHERE p.kind = 'committed'
 			AND NOT EXISTS (SELECT 1 FROM %[2]s m WHERE m.id = p.message_id);
 	`, produceLedger, target.messageLog(), witnessLimit)
-	return c.measure(ctx, witnessKey, lostSql)
+	return d.measure(ctx, witnessKey, lostSql)
 }
 
-// unexpected: message rows whose key the records never committed and never
+// Unexpected: message rows whose key the records never committed and never
 // lost track of -- a rejected produce that landed, or a row nobody attempted.
 // The key is rebuilt from the payload as common.Order.Key builds it.
-func (c *Checker) unexpected(ctx context.Context, target *target) (measurement, error) {
+func (d *CheckerDatastore) Unexpected(ctx context.Context, target Target) (Measurement, error) {
 	unexpectedSql := fmt.Sprintf(`
-		-- lab: checker.unexpected
+		-- lab: datastore.Unexpected
 		WITH messages AS (
 			SELECT id, (payload->>'producer') || '-' || (payload->>'seq') AS key
 			FROM %[2]s
@@ -41,13 +41,13 @@ func (c *Checker) unexpected(ctx context.Context, target *target) (measurement, 
 			WHERE p.key = m.key AND p.kind IN ('committed', 'unknown')
 		);
 	`, produceLedger, target.messageLog(), witnessLimit)
-	return c.measure(ctx, witnessMessageId, unexpectedSql)
+	return d.measure(ctx, witnessMessageId, unexpectedSql)
 }
 
-// recovered: produces whose reply was lost but whose row is there.
-func (c *Checker) recovered(ctx context.Context, target *target) (measurement, error) {
+// Recovered: produces whose reply was lost but whose row is there.
+func (d *CheckerDatastore) Recovered(ctx context.Context, target Target) (Measurement, error) {
 	recoveredSql := fmt.Sprintf(`
-		-- lab: checker.recovered
+		-- lab: datastore.Recovered
 		WITH messages AS (
 			SELECT (payload->>'producer') || '-' || (payload->>'seq') AS key
 			FROM %[2]s
@@ -59,5 +59,5 @@ func (c *Checker) recovered(ctx context.Context, target *target) (measurement, e
 		WHERE p.kind = 'unknown'
 			AND EXISTS (SELECT 1 FROM messages m WHERE m.key = p.key);
 	`, produceLedger, target.messageLog(), witnessLimit)
-	return c.measure(ctx, witnessKey, recoveredSql)
+	return d.measure(ctx, witnessKey, recoveredSql)
 }

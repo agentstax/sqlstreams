@@ -1,16 +1,9 @@
-package checker
+package datastore
 
 import (
 	"context"
 	"fmt"
 )
-
-// RecordSummary counts the rows loaded from the record files, per kind.
-type RecordSummary struct {
-	Produce int64 `json:"produce"`
-	Handler int64 `json:"handler"`
-	Phase   int64 `json:"phase"`
-}
 
 // ProduceSummary counts the records' produce outcomes.
 type ProduceSummary struct {
@@ -26,9 +19,9 @@ type HandlerSummary struct {
 	Error   int64 `json:"error"`
 }
 
-func (c *Checker) produceSummary(ctx context.Context) (ProduceSummary, error) {
+func (d *CheckerDatastore) ProduceSummary(ctx context.Context) (ProduceSummary, error) {
 	summarySql := fmt.Sprintf(`
-		-- lab: checker.produceSummary
+		-- lab: datastore.ProduceSummary
 		SELECT
 			count(*) FILTER (WHERE kind = 'attempted'),
 			count(*) FILTER (WHERE kind = 'committed'),
@@ -37,19 +30,19 @@ func (c *Checker) produceSummary(ctx context.Context) (ProduceSummary, error) {
 		FROM %[1]s;
 	`, produceLedger)
 	var summary ProduceSummary
-	err := c.pool.QueryRow(ctx, summarySql).Scan(&summary.Attempted, &summary.Committed, &summary.Rejected, &summary.Unknown)
+	err := d.pool.QueryRow(ctx, summarySql).Scan(&summary.Attempted, &summary.Committed, &summary.Rejected, &summary.Unknown)
 	return summary, err
 }
 
-func (c *Checker) handlerSummary(ctx context.Context) (HandlerSummary, error) {
+func (d *CheckerDatastore) HandlerSummary(ctx context.Context) (HandlerSummary, error) {
 	summarySql := fmt.Sprintf(`
-		-- lab: checker.handlerSummary
+		-- lab: datastore.HandlerSummary
 		SELECT
 			count(*) FILTER (WHERE outcome = 'success'),
 			count(*) FILTER (WHERE outcome = 'error')
 		FROM %[1]s;
 	`, handlerLedger)
 	var summary HandlerSummary
-	err := c.pool.QueryRow(ctx, summarySql).Scan(&summary.Success, &summary.Error)
+	err := d.pool.QueryRow(ctx, summarySql).Scan(&summary.Success, &summary.Error)
 	return summary, err
 }

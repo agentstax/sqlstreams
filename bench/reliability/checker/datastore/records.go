@@ -1,4 +1,4 @@
-package checker
+package datastore
 
 import (
 	"bufio"
@@ -124,12 +124,12 @@ func (s *lineSource) Err() error {
 	return s.err
 }
 
-// createTables drops and recreates labSchema with one table per record file
+// CreateTables drops and recreates labSchema with one table per record file
 // kind, the JSON-lines field names as columns, so a checker run reads only
 // the files it loaded.
-func (c *Checker) createTables(ctx context.Context) error {
+func (d *CheckerDatastore) CreateTables(ctx context.Context) error {
 	createSql := fmt.Sprintf(`
-		-- lab: checker.createTables
+		-- lab: datastore.CreateTables
 		DROP SCHEMA IF EXISTS %[1]s CASCADE;
 		CREATE SCHEMA %[1]s;
 
@@ -168,22 +168,34 @@ func (c *Checker) createTables(ctx context.Context) error {
 			detail  TEXT NOT NULL
 		);
 	`, labSchema, produceTable, handlerTable, phaseTable)
-	_, err := c.pool.Exec(ctx, createSql)
+	_, err := d.pool.Exec(ctx, createSql)
 	return err
 }
 
-// load COPYs every <name>.<kind>.jsonl under recordDir into the layout's
-// table, one streamed COPY per file, and returns the rows loaded. A line
-// that does not decode is an error.
-func (c *Checker) load(ctx context.Context, layout tableLayout) (int64, error) {
-	paths, err := filepath.Glob(filepath.Join(c.recordDir, fmt.Sprintf("*.%s.jsonl", layout.kind)))
+// LoadProduce, LoadHandler, and LoadPhase COPY every <name>.<kind>.jsonl of
+// their kind under dir into the kind's table, one streamed COPY per file,
+// and return the rows loaded. A line that does not decode is an error.
+func (d *CheckerDatastore) LoadProduce(ctx context.Context, dir string) (int64, error) {
+	return d.load(ctx, dir, produceLayout)
+}
+
+func (d *CheckerDatastore) LoadHandler(ctx context.Context, dir string) (int64, error) {
+	return d.load(ctx, dir, handlerLayout)
+}
+
+func (d *CheckerDatastore) LoadPhase(ctx context.Context, dir string) (int64, error) {
+	return d.load(ctx, dir, phaseLayout)
+}
+
+func (d *CheckerDatastore) load(ctx context.Context, dir string, layout tableLayout) (int64, error) {
+	paths, err := filepath.Glob(filepath.Join(dir, fmt.Sprintf("*.%s.jsonl", layout.kind)))
 	if err != nil {
 		return 0, err
 	}
 
 	var loaded int64
 	for _, path := range paths {
-		rows, err := c.loadFile(ctx, path, layout)
+		rows, err := d.loadFile(ctx, path, layout)
 		if err != nil {
 			return 0, fmt.Errorf("%s: %w", filepath.Base(path), err)
 		}
@@ -192,7 +204,7 @@ func (c *Checker) load(ctx context.Context, layout tableLayout) (int64, error) {
 	return loaded, nil
 }
 
-func (c *Checker) loadFile(ctx context.Context, path string, layout tableLayout) (int64, error) {
+func (d *CheckerDatastore) loadFile(ctx context.Context, path string, layout tableLayout) (int64, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return 0, err
@@ -200,5 +212,5 @@ func (c *Checker) loadFile(ctx context.Context, path string, layout tableLayout)
 	defer file.Close()
 
 	source := newLineSource(file, layout.decode)
-	return c.pool.CopyFrom(ctx, pgx.Identifier{labSchema, layout.table}, layout.columns, source)
+	return d.pool.CopyFrom(ctx, pgx.Identifier{labSchema, layout.table}, layout.columns, source)
 }

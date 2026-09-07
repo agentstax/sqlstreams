@@ -1,4 +1,4 @@
-package checker
+package datastore
 
 import (
 	"context"
@@ -10,12 +10,12 @@ import (
 // handler, and the library's tables -- a 'success' delivery_log row (mode
 // 'all' writes one) or a 'dead' exception row.
 
-// undelivered: messages the lab's handler never succeeded on that the
+// Undelivered: messages the lab's handler never succeeded on that the
 // library did not dead-letter either. The handler records is the witness, so a
 // success the library recorded without the handler running counts here.
-func (c *Checker) undelivered(ctx context.Context, target *target) (measurement, error) {
+func (d *CheckerDatastore) Undelivered(ctx context.Context, target Target) (Measurement, error) {
 	undeliveredSql := fmt.Sprintf(`
-		-- lab: checker.undelivered
+		-- lab: datastore.Undelivered
 		SELECT
 			count(*),
 			COALESCE((array_agg(m.id::text ORDER BY m.id))[1:%[4]d], ARRAY[]::text[])
@@ -27,14 +27,14 @@ func (c *Checker) undelivered(ctx context.Context, target *target) (measurement,
 				SELECT 1 FROM %[3]s e
 				WHERE e.consumer_group_id = $1 AND e.message_id = m.id AND e.status = 'dead');
 	`, target.messageLog(), handlerLedger, target.exceptionQueue(), witnessLimit)
-	return c.measure(ctx, witnessMessageId, undeliveredSql, target.groupId)
+	return d.measure(ctx, witnessMessageId, undeliveredSql, target.GroupId)
 }
 
-// duplicates: messages the handler succeeded on more than once, by the
+// Duplicates: messages the handler succeeded on more than once, by the
 // records' own count -- the redelivery the lease contract allows.
-func (c *Checker) duplicates(ctx context.Context) (measurement, error) {
+func (d *CheckerDatastore) Duplicates(ctx context.Context) (Measurement, error) {
 	duplicatesSql := fmt.Sprintf(`
-		-- lab: checker.duplicates
+		-- lab: datastore.Duplicates
 		WITH repeated AS (
 			SELECT message_id
 			FROM %[1]s
@@ -47,14 +47,14 @@ func (c *Checker) duplicates(ctx context.Context) (measurement, error) {
 			COALESCE((array_agg(message_id::text ORDER BY message_id))[1:%[2]d], ARRAY[]::text[])
 		FROM repeated;
 	`, handlerLedger, witnessLimit)
-	return c.measure(ctx, witnessMessageId, duplicatesSql)
+	return d.measure(ctx, witnessMessageId, duplicatesSql)
 }
 
-// unbucketed: by the library's own tables, messages in no bucket or in both,
+// Unbucketed: by the library's own tables, messages in no bucket or in both,
 // so the sum produced = success + dead holds exactly when this is zero.
-func (c *Checker) unbucketed(ctx context.Context, target *target) (measurement, error) {
+func (d *CheckerDatastore) Unbucketed(ctx context.Context, target Target) (Measurement, error) {
 	unbucketedSql := fmt.Sprintf(`
-		-- lab: checker.unbucketed
+		-- lab: datastore.Unbucketed
 		WITH buckets AS (
 			SELECT
 				m.id,
@@ -72,5 +72,5 @@ func (c *Checker) unbucketed(ctx context.Context, target *target) (measurement, 
 		FROM buckets
 		WHERE (success AND dead) OR (NOT success AND NOT dead);
 	`, target.messageLog(), target.deliveryLog(), target.exceptionQueue(), witnessLimit)
-	return c.measure(ctx, witnessMessageId, unbucketedSql, target.groupId)
+	return d.measure(ctx, witnessMessageId, unbucketedSql, target.GroupId)
 }

@@ -3,7 +3,8 @@ package checker
 // checker judges one finished run. The loaded records (package record) say
 // what the producers and handlers saw; vulkan's own tables say what the
 // library kept. Each declared expectation is one SQL join across the two,
-// returning a count and a few witnesses. Design in decision record 0687.
+// returning a count and a few witnesses; the queries live in the datastore
+// subpackage, the judgment here. Design in decision record 0687.
 
 import (
 	"context"
@@ -13,13 +14,14 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/agentstax/vulkan/bench/reliability/checker/datastore"
 	"github.com/agentstax/vulkan/bench/reliability/record"
 	"github.com/agentstax/vulkan/bench/reliability/scenario"
 	"github.com/agentstax/vulkan/pkg/common"
 )
 
 type Checker struct {
-	pool        *pgxpool.Pool
+	ds          *datastore.CheckerDatastore
 	declared    *scenario.Scenario
 	recordDir   string
 	drainBudget time.Duration
@@ -38,7 +40,12 @@ func NewChecker(pool *pgxpool.Pool, declared *scenario.Scenario, recordDir strin
 	if drainBudget <= 0 {
 		return nil, fmt.Errorf("drainBudget must be > 0, got %v", drainBudget)
 	}
-	return &Checker{pool: pool, declared: declared, recordDir: recordDir, drainBudget: drainBudget}, nil
+
+	ds, err := datastore.NewCheckerDatastore(pool)
+	if err != nil {
+		return nil, err
+	}
+	return &Checker{ds: ds, declared: declared, recordDir: recordDir, drainBudget: drainBudget}, nil
 }
 
 // Run loads the producers' records, drains the group, loads the handlers'
@@ -48,7 +55,7 @@ func NewChecker(pool *pgxpool.Pool, declared *scenario.Scenario, recordDir strin
 // produced, the drain budget spent, a query failing -- is a verdict of
 // unknown carrying the reason, so the record always lands.
 func (c *Checker) Run(ctx context.Context) (*Verdict, error) {
-	if err := c.createTables(ctx); err != nil {
+	if err := c.ds.CreateTables(ctx); err != nil {
 		return nil, err
 	}
 
@@ -68,27 +75,27 @@ func (c *Checker) Run(ctx context.Context) (*Verdict, error) {
 }
 
 func (c *Checker) judge(ctx context.Context, verdict *Verdict) error {
-	target, err := c.resolveTarget(ctx)
+	target, err := c.ds.ResolveTarget(ctx, c.declared.Topic, c.declared.Group)
 	if err != nil {
 		return err
 	}
-	verdict.SynchronousCommit, err = c.synchronousCommit(ctx)
+	verdict.SynchronousCommit, err = c.ds.SynchronousCommit(ctx)
 	if err != nil {
 		return err
 	}
-	verdict.Records.Produce, err = c.load(ctx, produceLayout)
+	verdict.Records.Produce, err = c.ds.LoadProduce(ctx, c.recordDir)
 	if err != nil {
 		return err
 	}
-	verdict.Records.Phase, err = c.load(ctx, phaseLayout)
+	verdict.Records.Phase, err = c.ds.LoadPhase(ctx, c.recordDir)
 	if err != nil {
 		return err
 	}
-	verdict.Phases, err = c.readPhases(ctx)
+	verdict.Phases, err = c.ds.ReadPhases(ctx)
 	if err != nil {
 		return err
 	}
-	verdict.Produced, err = c.produceSummary(ctx)
+	verdict.Produced, err = c.ds.ProduceSummary(ctx)
 	if err != nil {
 		return err
 	}
@@ -101,11 +108,11 @@ func (c *Checker) judge(ctx context.Context, verdict *Verdict) error {
 	if err := c.drain(ctx, target); err != nil {
 		return err
 	}
-	verdict.Records.Handler, err = c.load(ctx, handlerLayout)
+	verdict.Records.Handler, err = c.ds.LoadHandler(ctx, c.recordDir)
 	if err != nil {
 		return err
 	}
-	verdict.Handled, err = c.handlerSummary(ctx)
+	verdict.Handled, err = c.ds.HandlerSummary(ctx)
 	if err != nil {
 		return err
 	}
@@ -121,41 +128,30 @@ func (c *Checker) judge(ctx context.Context, verdict *Verdict) error {
 	return nil
 }
 
-// synchronousCommit is the server setting the verdict records: a run with
-// it off proves less about durability than one with it on.
-func (c *Checker) synchronousCommit(ctx context.Context) (string, error) {
-	var setting string
-	err := c.pool.QueryRow(ctx, "SHOW synchronous_commit;").Scan(&setting)
-	return setting, err
-}
-
-// readPhases returns the run_phase rows in time order, for the results.
-func (c *Checker) readPhases(ctx context.Context) ([]record.Phase, error) {
-	phasesSql := fmt.Sprintf(`
-		-- lab: checker.readPhases
-		SELECT
-			at,
-			process,
-			kind,
-			name,
-			status,
-			detail
-		FROM %[1]s
-		ORDER BY at;
-	`, runPhase)
-	rows, err := c.pool.Query(ctx, phasesSql)
+// check runs one expectation's query and judges the count against its Want.
+func (c *Checker) check(ctx context.Context, target datastore.Target, expectation scenario.Expectation) (CheckResult, error) {
+	var measured datastore.Measurement
+	var err error
+	switch expectation.Check {
+	case scenario.CheckLost:
+		measured, err = c.ds.Lost(ctx, target)
+	case scenario.CheckUnexpected:
+		measured, err = c.ds.Unexpected(ctx, target)
+	case scenario.CheckRecovered:
+		measured, err = c.ds.Recovered(ctx, target)
+	case scenario.CheckUndelivered:
+		measured, err = c.ds.Undelivered(ctx, target)
+	case scenario.CheckDuplicates:
+		measured, err = c.ds.Duplicates(ctx)
+	case scenario.CheckUnbucketed:
+		measured, err = c.ds.Unbucketed(ctx, target)
+	case scenario.CheckReclaims:
+		measured, err = c.ds.Reclaims(ctx, target)
+	case scenario.CheckDead:
+		measured, err = c.ds.Dead(ctx, target)
+	}
 	if err != nil {
-		return nil, err
+		return CheckResult{}, err
 	}
-	defer rows.Close()
-
-	phases := []record.Phase{}
-	for rows.Next() {
-		var phase record.Phase
-		if err := rows.Scan(&phase.At, &phase.Process, &phase.Kind, &phase.Name, &phase.Status, &phase.Detail); err != nil {
-			return nil, err
-		}
-		phases = append(phases, phase)
-	}
-	return phases, rows.Err()
+	return newCheckResult(expectation, measured), nil
 }

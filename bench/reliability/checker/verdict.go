@@ -3,6 +3,7 @@ package checker
 import (
 	"time"
 
+	"github.com/agentstax/vulkan/bench/reliability/checker/datastore"
 	"github.com/agentstax/vulkan/bench/reliability/record"
 	"github.com/agentstax/vulkan/bench/reliability/scenario"
 )
@@ -20,18 +21,25 @@ const (
 // Verdict is the record one checker run writes: what was judged, under what
 // server setting and library version, and how each expectation came out.
 type Verdict struct {
-	Scenario          string         `json:"scenario"`
-	Status            VerdictStatus  `json:"status"`
-	Reason            string         `json:"reason"` // "" unless unknown
-	StartedAt         time.Time      `json:"started_at"`
-	Duration          time.Duration  `json:"duration_ns"`
-	VulkanVersion     string         `json:"vulkan_version"`
-	SynchronousCommit string         `json:"synchronous_commit"`
-	Records           RecordSummary  `json:"records"`
-	Produced          ProduceSummary `json:"produced"`
-	Handled           HandlerSummary `json:"handled"`
-	Checks            []CheckResult  `json:"checks"`
-	Phases            []record.Phase `json:"phases"`
+	Scenario          string                   `json:"scenario"`
+	Status            VerdictStatus            `json:"status"`
+	Reason            string                   `json:"reason"` // "" unless unknown
+	StartedAt         time.Time                `json:"started_at"`
+	Duration          time.Duration            `json:"duration_ns"`
+	VulkanVersion     string                   `json:"vulkan_version"`
+	SynchronousCommit string                   `json:"synchronous_commit"`
+	Records           RecordSummary            `json:"records"`
+	Produced          datastore.ProduceSummary `json:"produced"`
+	Handled           datastore.HandlerSummary `json:"handled"`
+	Checks            []CheckResult            `json:"checks"`
+	Phases            []record.Phase           `json:"phases"`
+}
+
+// RecordSummary counts the rows loaded from the record files, per kind.
+type RecordSummary struct {
+	Produce int64 `json:"produce"`
+	Handler int64 `json:"handler"`
+	Phase   int64 `json:"phase"`
 }
 
 // ExitCode is the process exit code for the verdict: 0 pass, 1 fail,
@@ -68,7 +76,7 @@ type CheckResult struct {
 	Witnesses []string       `json:"witnesses"`
 }
 
-func newCheckResult(expectation scenario.Expectation, measured measurement) CheckResult {
+func newCheckResult(expectation scenario.Expectation, measured datastore.Measurement) CheckResult {
 	status := CheckReported
 	if expectation.Want == scenario.WantZero {
 		status = CheckPassed
