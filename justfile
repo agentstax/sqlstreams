@@ -15,6 +15,13 @@ verify:
 compat-lab expect="round-trip":
     cd tools/compat && go run . -expect={{ expect }}
 
+# Run a reliability-lab scenario on its own compose stack: producer and
+# consumer roles against a fresh Postgres, stopping when the producer's
+# phases end. The checker and verdict are not built yet.
+reliability-lab scenario="dev" time_scale="1":
+    cd bench/reliability && SCENARIO={{ scenario }} TIME_SCALE={{ time_scale }} docker compose up --build --exit-code-from producer
+    cd bench/reliability && docker compose down -v
+
 ### DATABASE ###
 
 # Start the development PostgreSQL database in the foreground.

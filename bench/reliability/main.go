@@ -7,15 +7,19 @@ package main
 // message into a named bucket. Design in decision record 0687; the proposal
 // page is website/src/content/docs/concepts/reliability-lab.mdx.
 //
-// Step 1 ships the scenario declarations and their printer. `-scenario`
-// prints the named scenario in the .scenario format the report will echo.
+// One binary, one role per process: -role producer walks the scenario's
+// phases, -role consumer follows its consumer timeline until stopped, and
+// -role print writes the scenario in its .scenario format. Exit 3 is a lab
+// failure (connection, flags, ledger), never a verdict.
 
 import (
-	"flag"
 	"fmt"
 	"os"
 
+	"github.com/agentstax/vulkan/bench/reliability/coordinator"
+	"github.com/agentstax/vulkan/bench/reliability/lab"
 	"github.com/agentstax/vulkan/bench/reliability/scenarios"
+	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 )
 
 func main() {
@@ -26,13 +30,36 @@ func main() {
 }
 
 func run() error {
-	name := flag.String("scenario", "dev", "scenario to print: "+scenarios.Names())
-	flag.Parse()
-
-	scenario, ok := scenarios.ByName(*name)
-	if !ok {
-		return fmt.Errorf("unrecognized scenario: %q -- one of %s", *name, scenarios.Names())
+	flags, err := parseFlags()
+	if err != nil {
+		return err
 	}
-	fmt.Print(scenario.String())
-	return nil
+	declared, ok := scenarios.ByName(flags.scenario)
+	if !ok {
+		return fmt.Errorf("unrecognized scenario: %q -- one of %s", flags.scenario, scenarios.Names())
+	}
+	if flags.role == "print" {
+		fmt.Print(declared.String())
+		return nil
+	}
+
+	ctx, stop := vulkan.LifecycleContext(nil)
+	defer stop()
+	connection, err := lab.NewConnection(ctx)
+	if err != nil {
+		return err
+	}
+	defer connection.Close()
+	run, err := coordinator.NewCoordinator(declared.Scaled(flags.timeScale), connection, flags.ledgerDir, flags.name)
+	if err != nil {
+		return err
+	}
+
+	switch flags.role {
+	case "producer":
+		return run.RunProducer(ctx)
+	case "consumer":
+		return run.RunConsumer(ctx)
+	}
+	return fmt.Errorf("unrecognized role: %q -- one of producer, consumer, print", flags.role)
 }

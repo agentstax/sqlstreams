@@ -1,0 +1,52 @@
+# The reliability lab's own stack: a fresh Postgres, one image, one process
+# per role. Ledger files land on the shared `ledger` volume; the checker reads
+# them from there. No dependent carries `restart: true` -- a Postgres restart
+# during a chaos phase must not restart the roles under test.
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-lab}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lab}
+      POSTGRES_DB: ${POSTGRES_DB:-lab}
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-lab} -d ${POSTGRES_DB:-lab}']
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+  producer:
+    build:
+      context: ../..
+      dockerfile: bench/reliability/Dockerfile
+    command: ['-role', 'producer', '-scenario', '${SCENARIO:-dev}', '-time-scale', '${TIME_SCALE:-1}', '-ledger-dir', '/ledger']
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER:-lab}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lab}
+      POSTGRES_DB: ${POSTGRES_DB:-lab}
+    volumes:
+      - ledger:/ledger
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  consumer:
+    build:
+      context: ../..
+      dockerfile: bench/reliability/Dockerfile
+    command: ['-role', 'consumer', '-scenario', '${SCENARIO:-dev}', '-time-scale', '${TIME_SCALE:-1}', '-ledger-dir', '/ledger']
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER:-lab}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lab}
+      POSTGRES_DB: ${POSTGRES_DB:-lab}
+    volumes:
+      - ledger:/ledger
+    depends_on:
+      postgres:
+        condition: service_healthy
+    stop_grace_period: 60s
+
+volumes:
+  ledger:
