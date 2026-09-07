@@ -39,9 +39,9 @@ if err != nil {
 
 | field | default | what it decides |
 | --- | --- | --- |
-| `PartitionCountAlert` | its own defaults | the `partition_count` check: `ScheduleExpression` (`@hourly`), `Threshold` (`0`, half the lock ceiling Postgres reports), `PendingDuration` and `MaximumGap` (two minutes each), and `DisablePending` (`false`) |
-| `CompactionReadCostAlert` | its own defaults | the `compaction_read_cost` check; `PendingDuration` and `MaximumGap` default to two minutes; `DisablePending` defaults to `false` |
-| `WorkerLivenessAlert` | its own defaults | the `worker_liveness` check; `PendingDuration` and `MaximumGap` default to two minutes; `DisablePending` defaults to `false` |
+| `PartitionCountAlert` | its own defaults | the `partition_count` check: `ScheduleExpression` (`@every 1m`), `Threshold` (`0`, half the lock ceiling Postgres reports), `PendingDuration` and `MaximumGap` (two minutes each), and `DisablePending` (`false`) |
+| `CompactionReadCostAlert` | its own defaults | the `compaction_read_cost` check; `ScheduleExpression` defaults to `@every 1m`; `PendingDuration` and `MaximumGap` default to two minutes; `DisablePending` defaults to `false` |
+| `WorkerLivenessAlert` | its own defaults | the `worker_liveness` check; `ScheduleExpression` defaults to `@every 1m`; `PendingDuration` and `MaximumGap` default to two minutes; `DisablePending` defaults to `false` |
 | `MetricsCollectorProgressAlert` | its own defaults | the system-owned collector-progress check; fields below |
 | `MetricsCollector` | `PollRate: 30s` | how often the collector's measurement pass runs; zero is the default, negative is rejected |
 

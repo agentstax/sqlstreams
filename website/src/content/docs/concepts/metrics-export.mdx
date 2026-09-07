@@ -109,8 +109,8 @@ Partition count, compaction read cost, worker liveness, and collector progress
 use the existing alert framework. Conditions stay check-specific; shared
 policy decides pending, recovery, and repeats. The
 [history page](/concepts/alert-history/) covers pseudocode, timing,
-diagnostic visibility, and restart/concurrency boundaries. Existing hourly
-schedules need review alongside pending durations.
+diagnostic visibility, and restart/concurrency boundaries. Topic alerts check
+every minute by default; collection keeps its independent 30-second interval.
 
 ## Observe collector progress independently
 

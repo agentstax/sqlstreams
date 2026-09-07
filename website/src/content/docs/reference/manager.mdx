@@ -46,7 +46,7 @@ window when the holder stops. That column takes effect with no deploy:
   partitions.
 - Admin verbs run nothing and the producer runs nothing. A deployment that
   only produces accumulates partitions; `ProducerHandle.Register` logs
-  [VK0063](/errors/VK0063/) naming the unclaimed rows, and the hourly
+  [VK0063](/errors/VK0063/) naming the unclaimed rows, and the one-minute
   `worker_liveness` check keeps an alert active on `__system.alerts` until
   the rows are claimed again.
 - The topic janitor gives each of its five cleanup steps its own

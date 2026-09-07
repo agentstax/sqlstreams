@@ -15,14 +15,20 @@ applies duration, freshness, and gap rules. Every worker keeps
 
 | Field | Default | Meaning |
 | --- | --- | --- |
+| `ScheduleExpression` | `@every 1m` | How often the scheduled check evaluates retained evidence |
 | `PendingDuration` | `2m` | Required consecutive unhealthy sample span |
 | `MaximumGap` | `2m` | Largest sample gap and newest-sample age |
 | `DisablePending` | `false` | Permit immediate activation from fresh unhealthy evidence |
 
-Zero-valued timing fields resolve defaults. Durations must be positive after
-defaulting, even when disabled. Zero duration means default, not immediate.
-The existing hourly schedules and four-hour repeat default are unchanged.
-The collector's default interval is 30 seconds.
+Zero-valued timing fields resolve defaults; resolved durations must be positive,
+even when disabled.
+Unchanged alerts repeat every four hours. The collector's default interval
+is 30 seconds, independent of the one-minute check interval.
+
+For example, `orders` first has an unhealthy sample at 10:00. Checks at
+10:00:20 and 10:01:20 remain pending; a check at 10:02:20 can activate using
+the samples through 10:02. This assumes collection and check execution keep
+up; the schedule interval is not a delivery-time guarantee.
 
 Scheduled checks use the consumed message's payload. Changing a declaration
 affects subsequently produced messages; queued checks retain their settings.
@@ -207,13 +213,18 @@ condition, not whether automatic checks are running.
 could say insufficient while Latest stays active, or healthy before a
 scheduled check records recovery. The snapshot is not persisted.
 
-The implemented system-owned collector-progress alert uses worker instance
-history to establish manager lease coverage independently of collector
-completions; see [collector progress](/concepts/metrics-export/#observe-collector-progress-independently).
+Collector progress uses manager lease history independently of completion
+measurements; see [collector progress](/concepts/metrics-export/#observe-collector-progress-independently).
 
-One-minute schedules for the three topic alerts remain Proposed until the cost checkpoint.
-Evidence writes follow the collector's independent cadence. At one-minute
-collection cadence, one series produces 1,440 samples per topic per day before
-retries; this is a workload count, not a benchmark result. Measure query time,
-rows written, and check duration before changing defaults. The metrics topic
-retains its existing 24-hour setting.
+The [cadence cost checkpoint](https://github.com/agentstax/vulkan/blob/main/bench/alertcadence/RESULTS.md)
+measures the existing reads and recording path on Postgres 18. One-minute
+checks increase both history reads and alert-head updates, including for
+unchanged conditions. Larger installations can supply a longer
+`ScheduleExpression` without changing collection. The metrics topic retains
+its 24-hour setting.
+
+Existing declarations change when `System().Register` is called with the new
+defaults. Explicit schedule expressions remain explicit; registration preserves
+suspension. The schedule returned by
+`client.Scheduler("alert.partition_count").Get(ctx)` exposes the stored cadence
+in `Expression`; use the corresponding schedule name for the other checks.

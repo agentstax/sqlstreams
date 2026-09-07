@@ -45,7 +45,7 @@ func (c *MetricsCollectorProgressAlertConfig) Validate() error {
 // evaluated and the count it alerts at.
 type PartitionCountAlertConfig struct {
 	// ScheduleExpression - how often the alert is evaluated, a cron expression.
-	// Default: @hourly.
+	// Default: @every 1m.
 	ScheduleExpression string
 
 	// Threshold - the partition count on one topic at or above which the
@@ -66,7 +66,7 @@ type PartitionCountAlertConfig struct {
 
 func (c *PartitionCountAlertConfig) WithDefaults() *PartitionCountAlertConfig {
 	if c.ScheduleExpression == "" {
-		c.ScheduleExpression = "@hourly"
+		c.ScheduleExpression = "@every 1m"
 	}
 	if c.PendingDuration == 0 {
 		c.PendingDuration = 2 * time.Minute
@@ -98,7 +98,7 @@ func (c *PartitionCountAlertConfig) Validate() error {
 // evaluated and the cost it alerts at.
 type CompactionReadCostAlertConfig struct {
 	// ScheduleExpression - how often the alert is evaluated, a cron expression.
-	// Default: @hourly.
+	// Default: @every 1m.
 	ScheduleExpression string
 
 	// Threshold - the read cost at or above which the alert is published.
@@ -117,7 +117,7 @@ type CompactionReadCostAlertConfig struct {
 
 func (c *CompactionReadCostAlertConfig) WithDefaults() *CompactionReadCostAlertConfig {
 	if c.ScheduleExpression == "" {
-		c.ScheduleExpression = "@hourly"
+		c.ScheduleExpression = "@every 1m"
 	}
 	if c.PendingDuration == 0 {
 		c.PendingDuration = 2 * time.Minute
@@ -149,7 +149,7 @@ func (c *CompactionReadCostAlertConfig) Validate() error {
 // evaluated.
 type WorkerLivenessAlertConfig struct {
 	// ScheduleExpression - how often the alert is evaluated, a cron expression.
-	// Default: @hourly.
+	// Default: @every 1m.
 	ScheduleExpression string
 
 	// PendingDuration is the required consecutive unhealthy sample span. Default: 2m.
@@ -164,7 +164,7 @@ type WorkerLivenessAlertConfig struct {
 
 func (c *WorkerLivenessAlertConfig) WithDefaults() *WorkerLivenessAlertConfig {
 	if c.ScheduleExpression == "" {
-		c.ScheduleExpression = "@hourly"
+		c.ScheduleExpression = "@every 1m"
 	}
 	if c.PendingDuration == 0 {
 		c.PendingDuration = 2 * time.Minute

@@ -30,7 +30,7 @@ func TestJobCarriesPendingPolicy(t *testing.T) {
 	if decoded.Threshold != 100 || decoded.PendingDuration != 3*time.Minute || decoded.MaximumGap != time.Minute || !decoded.DisablePending {
 		t.Fatalf("consumed policy = %+v", decoded)
 	}
-	if job.Cron != "@hourly" {
+	if job.Cron != "@every 1m" {
 		t.Fatalf("cadence changed: %q", job.Cron)
 	}
 }
