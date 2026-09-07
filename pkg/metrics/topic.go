@@ -13,6 +13,7 @@ const MetricsTopicName = common.SystemTopicPrefix + "metrics"
 // moment of the call, with every consumer group's snapshot beside it.
 type TopicSnapshot struct {
 	TopicId                           int64                   `json:"topic_id"`
+	Partitions                        int64                   `json:"partitions"`
 	Compacted                         bool                    `json:"compacted"`                              // any compaction_head row points at a message
 	CompactionRowsWithoutHead         int64                   `json:"compaction_rows_without_head"`           // keys whose head row no longer points at a message
 	OldestCompactionRowWithoutHeadAge time.Duration           `json:"oldest_compaction_row_without_head_age"` // 0 when there are none

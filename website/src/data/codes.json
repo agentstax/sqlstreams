@@ -1234,14 +1234,13 @@
     "VK0098": {
       "code": "VK0098",
       "kind": "metric",
-      "name": "vulkan.alert.observed_partitions",
+      "name": "vulkan.topic.state.partitions",
       "metric_kind": "gauge",
       "unit": "{partition}",
-      "description": "partitions observed by the scheduled alert check",
+      "description": "partitions on the topic's message log",
       "scope": "topic",
       "attribute_keys": [
-        "alert",
-        "topic_id"
+        "topic"
       ]
     }
   }

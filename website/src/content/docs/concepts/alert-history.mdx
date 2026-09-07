@@ -9,10 +9,10 @@ recording path. History-based duration and the public snapshot read below
 have not shipped; standalone evaluator types are not an implementation mandate.
 [OTel export](/concepts/metrics-export/) remains independent.
 
-The scheduled partition-count check already retains
-[raw counts](/errors/VK0098/), including healthy and quiet checks. Alert
-activation and recovery still use the current count without a pending delay;
-the existing hourly schedule is unchanged.
+The metrics collector retains [partition counts](/errors/VK0098/).
+The partition-count alert reads the latest retained count; it does not
+produce measurements. Pending duration and freshness windows are not enabled;
+the existing hourly alert schedule is unchanged.
 
 ## Proposed: one policy for the existing checks
 
@@ -49,35 +49,27 @@ Vulkan would derive duration from retained observations rather than a timer.
 
 ## Proposed: retain the facts used by each condition
 
-Use `__system.metrics` and its existing measurement producers. Proposed
-names below are gauges; pending duration uses each stored message's
-`CreatedAt`. The series key includes `alert` and `topic_id`, keeping renamed or
-recreated topics distinct and independently scheduled checks separate.
+The metrics package owns collection and storage in `__system.metrics`.
+Alerts read those measurements. Pending duration would use each stored
+message's `CreatedAt`; series follow the metrics package's existing attributes.
 
 | Measurement | Unit | Value |
 | --- | --- | --- |
-| `vulkan.alert.observed_partitions` | `{partition}` | Actual partition count, including healthy counts |
-| `vulkan.alert.observed_compaction` | none | 1 when materialized compaction heads exist, otherwise 0 |
-| `vulkan.alert.observed_unclaimed_workers` | `{worker}` | Per-topic unclaimed-worker count, including 0 |
+| `vulkan.topic.state.partitions` | `{partition}` | Actual partition count |
+| `vulkan.topic.state.compacted` | none | 1 when materialized compaction heads exist, otherwise 0 |
 
-Partition count records one count from its existing controller. Reuse that
-controller's source read and condition comparison for registration warnings;
-do not add another SQL derivation. Resolve the live ceiling once and apply
-the resulting threshold to the entire history.
+Partition count comes from the collector's topic snapshot. Its alert and
+registration warnings read the same retained series. Missing evidence returns
+an error; it is not healthy. Renaming a topic changes its series key; a recreated
+topic with the same name shares that key under the existing metrics contract.
+Resolve the live ceiling once and apply the threshold to retained evidence.
 
-Compaction read cost records count and applicability together, at the same
-observation time, in one committed batch. Interpret only matching pairs from
-that check; a missing half is unusable evidence. Applicability 0 is healthy.
-Do not join a collector's latest compaction value to a differently timed count.
-Timestamp equality alone cannot distinguish two concurrent batches with the
-same time. Pair identity and tie selection remain a compaction adoption gate.
+Compaction read cost would use collected count and applicability. Their
+pairing remains an adoption gate; a missing half must not establish health.
 
-Worker liveness keeps independent `WorkerSnapshots` reads and topic-scoped
-continuity. If worker A recovers while B becomes unclaimed, the topic can
-remain unhealthy. **Open before worker adoption:** counts prove the condition
-but cannot reconstruct today's named-worker alert details after a concurrent
-observation. Do not quietly drop those details, substitute an unrelated live
-read, or add a snapshot store. The evidence/message contract needs review.
+Worker liveness still reads live snapshots today. Its collector-owned evidence
+needs topic scope and the named-worker details used in alert messages before
+history adoption. The existing system-wide unclaimed count alone is insufficient.
 
 Collector completion and independent observations retain their
 [timestamp contract](/concepts/metrics-export/#proposed-observe-collector-progress-independently).
@@ -131,31 +123,30 @@ Restarting only the evaluator preserves a qualifying span in retained history.
 
 ## Proposed: extend Record and expose the same calculation
 
-The scheduled partition-count check becomes:
+All three scheduled checks use `Evaluate -> Record`. Evaluate returns a finding;
+Record owns alert transitions, never measurement production. Registration
+warnings call Evaluate only. History-based evaluation remains Proposed:
 
 ```text
-read count through the existing partition-count controller
-record raw measurement, even when healthy
-call shared AlertController.Record for partition_count + topic 41
+metrics collector independently reads snapshots and stores measurements
+finding = condition.Evaluate(topic 41, threshold) using retained measurements
+    derive pending duration from history
+    pending or insufficient_evidence -> no alert transition
+    healthy or active -> continue to Record
+AlertController.Record(partition_count, topic 41, finding)
 
 inside Record:
     begin transaction
         LockHead(alert name + owner)
-        resolve current policy, read history and database time after locking
-        evaluate history using the shared calculation
-        healthy -> existing recovery classification
-        active -> existing activation / reminder classification
-        pending or insufficient_evidence -> produce nothing
-        build any alert from the selected evidence and resolved policy
+        classify the finding against the retained alert head
         ProduceInTx only when classification requires an alert
     commit
 ```
 
-Evidence survives an alert-write failure. Refreshing history after locking
-prevents an earlier candidate from overriding a competing check's result.
-Pending cannot enter today's no-alert-means-healthy branch. Reminders require
-sufficient active evidence and use database evaluation time. Ambiguous commit
-retries reread head and evidence; external notification consumption can retry.
+Metrics collection is independent of alert-write success. Pending cannot enter
+today's no-alert-means-healthy branch. Reminders require sufficient active
+evidence. The current head lock serializes alert transitions, not the evidence
+reads made before Record; external notification consumption can retry.
 
 Propose `AlertHandle.Snapshot(ctx)` alongside existing `Latest` and `History`.
 It performs the same calculation over retained evidence and current policy,

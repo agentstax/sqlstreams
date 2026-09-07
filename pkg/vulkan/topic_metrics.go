@@ -35,6 +35,11 @@ func (t *TopicMetricsHandle) Compacted() *MetricHandle {
 	return t.metric(metrics.MetricTopicCompacted)
 }
 
+// Partitions selects the topic's message-log partition-count series.
+func (t *TopicMetricsHandle) Partitions() *MetricHandle {
+	return t.metric(metrics.MetricTopicPartitions)
+}
+
 func (t *TopicMetricsHandle) metric(declared *diagnostic.DiagnosticMetric) *MetricHandle {
 	attributes := map[string]string{"topic": t.topicName}
 	return newMetricHandle(t.client, declared, declared.Name, attributes)

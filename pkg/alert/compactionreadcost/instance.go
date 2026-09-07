@@ -67,17 +67,17 @@ func (i *CompactionReadCostInstance) consume(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	alerts, err := alertcontroller.NewAlertController(ctx, registered, i.provisioner.ds, i.provisioner.alertHeads, i.repeatInterval, i.Logger)
-	if err != nil {
-		return err
-	}
-	i.alerts = alerts
-
 	measurements, err := i.provisioner.producer.Register[metrics.Measurement](ctx, metrics.MetricsTopicName, nil)
 	if err != nil {
 		return err
 	}
 	i.measurements = measurements
+
+	alerts, err := alertcontroller.NewAlertController(ctx, registered, i.provisioner.ds, i.provisioner.alertHeads, i.repeatInterval, i.Logger)
+	if err != nil {
+		return err
+	}
+	i.alerts = alerts
 
 	instance, err := i.provisioner.scheduleConsumer.Register[alert.JobPayload](ctx, JobName, schedule.ScheduleTopicName, &consumer.ConsumerConfig{
 		Bindings: []string{JobName},
@@ -89,7 +89,6 @@ func (i *CompactionReadCostInstance) consume(ctx context.Context) error {
 }
 
 func (i *CompactionReadCostInstance) evaluateTopics(ctx context.Context, jobPayload *alert.JobPayload) error {
-
 	topics, err := i.provisioner.topics.List(ctx)
 	if err != nil {
 		return err

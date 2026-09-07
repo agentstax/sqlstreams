@@ -4,15 +4,19 @@ import (
 	"errors"
 
 	"github.com/agentstax/vulkan/pkg/common/logging"
+	compactioncontroller "github.com/agentstax/vulkan/pkg/compaction/controller"
 	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
 	"github.com/agentstax/vulkan/pkg/metrics/controller/datastore"
+	topiccontroller "github.com/agentstax/vulkan/pkg/topic/controller"
 )
 
-// MetricsController is the single read surface for the DB-snapshot metrics.
+// MetricsController owns live snapshots and retained measurement reads.
 type MetricsController struct {
 	Logger logging.Logger
 
 	datastore *datastore.MetricsDatastore
+	heads     *compactioncontroller.CompactionController
+	topics    *topiccontroller.TopicController
 }
 
 func NewMetricsController(ds *iDatastore.PostgresDatastore, logger logging.Logger) (*MetricsController, error) {
@@ -27,9 +31,19 @@ func NewMetricsController(ds *iDatastore.PostgresDatastore, logger logging.Logge
 	if err != nil {
 		return nil, err
 	}
+	heads, err := compactioncontroller.NewCompactionController(ds, logger)
+	if err != nil {
+		return nil, err
+	}
+	topics, err := topiccontroller.NewTopicController(ds, logger)
+	if err != nil {
+		return nil, err
+	}
 
 	return &MetricsController{
 		Logger:    logger,
 		datastore: metricsDatastore,
+		heads:     heads,
+		topics:    topics,
 	}, nil
 }

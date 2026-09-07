@@ -6,12 +6,14 @@ import (
 	"github.com/agentstax/vulkan/pkg/alert/partitioncount/controller/datastore"
 	"github.com/agentstax/vulkan/pkg/common/logging"
 	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
+	metricscontroller "github.com/agentstax/vulkan/pkg/metrics/controller"
 )
 
 type PartitionCountController struct {
 	Logger logging.Logger
 
 	datastore *datastore.PartitionCountDatastore
+	metrics   *metricscontroller.MetricsController
 }
 
 func NewPartitionCountController(ds *iDatastore.PostgresDatastore, logger logging.Logger) (*PartitionCountController, error) {
@@ -26,9 +28,14 @@ func NewPartitionCountController(ds *iDatastore.PostgresDatastore, logger loggin
 	if err != nil {
 		return nil, err
 	}
+	metricsController, err := metricscontroller.NewMetricsController(ds, logger)
+	if err != nil {
+		return nil, err
+	}
 
 	return &PartitionCountController{
 		Logger:    logger,
 		datastore: partitionCountDatastore,
+		metrics:   metricsController,
 	}, nil
 }

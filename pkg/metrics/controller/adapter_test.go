@@ -11,6 +11,7 @@ import (
 func TestToTopicSnapshot(t *testing.T) {
 	groups := []metrics.ConsumerGroupSnapshot{{ConsumerGroup: "billing"}}
 	snapshot := toTopicSnapshot(41, &datastore.TopicSnapshotRow{
+		Partitions:                         7,
 		Compacted:                          true,
 		CompactionRowsWithoutHead:          3,
 		OldestCompactionRowWithoutHeadSecs: 1.5,
@@ -18,6 +19,9 @@ func TestToTopicSnapshot(t *testing.T) {
 
 	if snapshot.TopicId != 41 {
 		t.Fatalf("TopicId = %d, want 41", snapshot.TopicId)
+	}
+	if snapshot.Partitions != 7 {
+		t.Fatalf("Partitions = %d, want 7", snapshot.Partitions)
 	}
 	if !snapshot.Compacted {
 		t.Fatal("Compacted = false, want true")

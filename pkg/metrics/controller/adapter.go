@@ -107,6 +107,7 @@ func toConsumerGroupSnapshot(consumerGroup string, data *datastore.ConsumerGroup
 func toTopicSnapshot(topicId int64, data *datastore.TopicSnapshotRow, groups []metrics.ConsumerGroupSnapshot) *metrics.TopicSnapshot {
 	return &metrics.TopicSnapshot{
 		TopicId:                           topicId,
+		Partitions:                        data.Partitions,
 		Compacted:                         data.Compacted,
 		CompactionRowsWithoutHead:         data.CompactionRowsWithoutHead,
 		OldestCompactionRowWithoutHeadAge: time.Duration(data.OldestCompactionRowWithoutHeadSecs * float64(time.Second)),

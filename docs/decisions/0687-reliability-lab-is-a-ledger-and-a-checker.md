@@ -6,6 +6,8 @@ phase: "pre-v1"
 
 # The reliability lab is a ledger and a checker, with scenarios written as Go and printed, never parsed
 
+Superseded in part by [0693]: the drain clause.
+
 ## Context
 
 The failure-injection labs each prove one mechanism for a few minutes;

@@ -32,6 +32,7 @@ func TestMetricSelectorsCoverResourceScopedCatalog(t *testing.T) {
 		{"CheckPublishedAlerts", systemMetrics.CheckPublishedAlerts("partition_count"), metrics.MetricCheckPublishedAlerts, map[string]string{"alert": "partition_count"}},
 		{"CheckResolvedAlerts", systemMetrics.CheckResolvedAlerts("partition_count"), metrics.MetricCheckResolvedAlerts, map[string]string{"alert": "partition_count"}},
 		{"Compacted", topicMetrics.Compacted(), metrics.MetricTopicCompacted, map[string]string{"topic": "orders"}},
+		{"Partitions", topicMetrics.Partitions(), metrics.MetricTopicPartitions, map[string]string{"topic": "orders"}},
 		{"CursorHead", groupMetrics.CursorHead(), metrics.MetricCursorHead, map[string]string{"topic": "orders", "group": "billing"}},
 		{"CursorClaimed", groupMetrics.CursorClaimed(), metrics.MetricCursorClaimed, map[string]string{"topic": "orders", "group": "billing"}},
 		{"CursorCommitted", groupMetrics.CursorCommitted(), metrics.MetricCursorCommitted, map[string]string{"topic": "orders", "group": "billing"}},
@@ -87,7 +88,7 @@ func TestMetricHandleConstructorsPerformNoIO(t *testing.T) {
 	if len(systemMetrics.Definitions()) != len(metrics.Definitions()) {
 		t.Fatal("system definitions do not expose the complete catalog")
 	}
-	if len(client.Topic[RawPayload]("orders").Metrics().Definitions()) != 1 {
+	if len(client.Topic[RawPayload]("orders").Metrics().Definitions()) != 2 {
 		t.Fatal("topic definitions do not expose the topic catalog")
 	}
 	if len(client.Topic[RawPayload]("orders").Consumer("billing").Metrics().Definitions()) != 14 {

@@ -47,11 +47,7 @@ func (a *MessageAdmin) ListMeasurements(ctx context.Context) ([]*common.StoredMe
 // no retained measurement has its message key.
 // Returns migrate.ErrNotRegistered until RegisterSystem has run.
 func (a *MessageAdmin) GetMeasurement(ctx context.Context, messageKey string) (*common.StoredMessage[metrics.Measurement], error) {
-	found, err := a.metricsTopic(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return a.heads.GetHead[metrics.Measurement](ctx, found.Id, messageKey)
+	return a.metricsController.GetMeasurement(ctx, messageKey)
 }
 
 // ListMeasurementMessages returns one series' retained measurements, newest first.

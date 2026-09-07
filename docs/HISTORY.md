@@ -5,6 +5,32 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-06 — Reliability lab v1: a ledger, a checker, two scenarios [0687] [0693]
+
+`bench/reliability/` runs a scenario on its own compose stack (`just
+reliability-lab dev`): an open-loop producer and one container of consumer
+instances write JSON-lines ledgers of every produce and handler call; the
+checker COPYs them into a `lab` schema, drains on the group's cursor, joins
+them against `message_log`, `delivery_log`, and `exception_queue`, and exits
+with the verdict (0 pass, 1 fail, 2 unknown, 3 lab failure). Scenarios are
+hand-written Go (`quiet`, `dev`) printed as `.scenario` files a test diffs;
+every scenario must declare the six safety checks. The record lands under
+`results/<scenario>/<timestamp>/` with `synchronous_commit` and the build
+version. `dev` passed the full minute on compose (12000 attempted, committed,
+and handled); sabotage turned the verdict to fail on the right line (a
+deleted message_log row -> lost, a dropped handler line -> undelivered) and
+an empty ledger reads unknown. Proposal page relabeled to shipped behavior
+with the chaos run kept as Proposed.
+
+## 2026-09-06 — Compaction options are constructed inline [0691]
+
+Removed NewCompactionOptions and its Vulkan alias. Library callers, examples,
+benchmarks, and current docs use inline options; ranks and produce-time
+validation are unchanged. Builds, vet, conventions, docs lint, site build,
+and compaction-rank, schema-evolution, metrics-collector, and alert labs passed.
+Targeted race tests passed except two Vulkan metric-catalog assertions affected
+by the separate in-flight alert-metric addition. No full-suite checkpoint.
+
 ## 2026-09-06 — Claim poll round trips cut; the gate reads as one rule [0685]
 
 The cursor claim was measured before it was touched (`bench/claim`): its

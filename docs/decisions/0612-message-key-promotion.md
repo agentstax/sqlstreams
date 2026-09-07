@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded
 date: 2026-08-29
 phase: pre-v1
 ---
@@ -21,6 +21,8 @@ naming `key_lease` in [0611]: a lease named for compaction is a
 consume-side lock that has nothing to do with compaction.
 
 ## Decision
+
+Constructor choice superseded by [0691](0691-compaction-options-are-constructed-inline.md); other decisions are preserved there.
 
 - The key becomes a message-level concept named message key.
 - `ProduceOptions` gains a top-level `MessageKey string`;

@@ -12,6 +12,9 @@ checkpoint, not permission to expand scope. Use the smallest change to existing
 machinery. No separate pending-state table, registration/discovery cache,
 generic per-series freshness companion, or new backlog alert.
 
+During code iteration, defer alert-lab runs and repairs to the review checkpoint
+at the user's request. Use targeted compile and unit checks while editing.
+
 ### 1. Settle the remaining implementation contract
 
 Original collector-only contract approved in [0684], now superseded by [0686]
@@ -37,8 +40,9 @@ review; chunks 3–5 replace the rolled-back implementation plan. Runtime remain
 
 ### 2. Read sufficient retained measurement history
 
-Implemented `CompactionController.ListKeyMessagesByRank`: the new built-ins'
-`At.UnixMicro()` ranks bound their history without measurement-aware SQL.
+Implemented `CompactionController.ListKeyMessagesByRank` under the original
+observation-time design. [0690] replaces its use for alert evidence with a
+`StoredMessage.CreatedAt` window; that read remains to be implemented.
 Each history read owns its complete SQL; row scanning and payload decoding
 are shared. No supported public API or table changes; the evaluator supplies
 the policy's time bounds.
@@ -84,20 +88,26 @@ Deliver a working existing alert, not an unconnected general calculator.
 The site remains the behavior proposal; names or abstractions from the
 rolled-back prototype are not implementation requirements.
 
-- [ ] Separate measurement from condition comparison inside the existing
-  partition-count controller, only as needed by real callers. Keep one source
-  read and one comparison shared with immediate registration-time warnings.
-- [ ] Record healthy and unhealthy raw partition counts through the alert
-  worker's existing metrics producer; reuse the retained rank-window read.
-  Resolve policy once per check from the current schedule, preserving raw
-  evidence for later threshold changes.
-- [ ] Extend Record/classify to evaluate retained history after the alert-head
-  lock. Derive consecutive duration there; do not add a second classification
-  pipeline or manufacture an active Alert before deciding to record one.
+- [x] Metrics collection owns partition-count measurements. Add the count to
+  TopicSnapshot and the existing collector; expose the normal topic metric.
+  Remove alert-specific evidence production and AlertEvaluation [0693].
+- [x] Partition-count Evaluate reads the collector's retained measurement;
+  Record only records alerts. Missing measurements fail evaluation instead of
+  resolving an alert. Registration warnings use the same read-only evaluation.
+  Build, vet, and targeted unit/race checks passed; lab adaptation and execution
+  remain deferred. Pending and freshness-window evaluation are not enabled.
+- [ ] Add the retained CreatedAt-window read for evaluation, without a fixed row
+  limit. Remove the unused rank-window path if no other runtime caller needs
+  it. Resolve policy once per
+  check from the current schedule, preserving raw evidence for later
+  threshold changes.
+- [ ] Extend existing evaluation to derive consecutive duration from collected
+  history. Keep Record/classify responsible for serialized alert transitions.
   Healthy evidence may resolve; pending/insufficient evidence must not.
 - [ ] Add only the config/result fields consumed by this complete path. Keep
   pending off by explicit choice, freshness/gap/window validation, and no
-  pending timer or cursor. Use database observation/evaluation time.
+  pending timer or cursor. Use StoredMessage.CreatedAt for evidence timing
+  and database time for evaluation; accept delayed writes as fresh evidence.
 - [ ] Add the approved read-only diagnostic through the existing alert handle
   using the same evaluation path; retain Latest/History's recorded-message
   contracts. Do not add a persisted status mirror.
@@ -113,9 +123,9 @@ rolled-back prototype are not implementation requirements.
   Preserve current alert messages and topic-scoped worker meaning; do not
   invent a generic snapshot store or split condition facts across ambiguous
   samples to satisfy a preselected measurement shape.
-- [ ] Apply the partition-count recording path to compaction read cost and
-  worker liveness. Worker checks keep independent snapshot reads; their
-  ability to observe trouble cannot depend on the metrics collector.
+- [ ] Apply collected-history evaluation to compaction read cost and worker
+  liveness after the required evidence is collected by metrics. Collector
+  progress monitoring must remain independent of the collector it monitors.
 - [ ] Record full-pass collector completion after all writes succeed; startup
   and partial passes do not refresh it. Add independent scheduled progress
   observations and use the same Record/classify path, with no extra runner.
@@ -167,48 +177,3 @@ rolled-back prototype are not implementation requirements.
   removing `OTEL_REVIEW.md`; remove completed TODO/ROADMAP work at close-out.
   If this is a release checkpoint, also run prior-tag compatibility verification
   and update the migration table and release history with its outcome.
-
-## Reliability lab v1 [0687]
-
-Build the simple case under `bench/reliability/` against the Proposed page
-`website/src/content/docs/concepts/reliability-lab.mdx`. One plain topic, one
-group, fail rate 0, constant rate, fixed instance count. Smallest delta to the
-bench module (pgx only); no new dependency.
-
-### 1. Ledger shape and scenario declaration
-
-- [x] Settle the ledger row shapes: append-only facts, key `<producer>-<seq>`,
-  two produce rows (attempted, outcome) and one handler row per invocation;
-  `produce_ledger`, `handler_ledger`, `run_phase` share the JSON-lines names.
-- [x] `Scenario` struct with `quiet` and `dev` declarations; a String printer
-  emitting the `.scenario` format; a test diffing it against the checked-in
-  file.
-
-### 2. Roles and compose
-
-- [ ] One binary, `-role producer|consumer|checker`, `-scenario`, `-time-scale`.
-- [ ] Producer: open-loop constant-rate pacer, latency from scheduled time,
-  two ledger facts per produce, idempotency key per attempt.
-- [ ] Consumer: N in-process instances, handler writes one ledger fact per
-  invocation, `DeliveryLogModeAll`.
-- [ ] Compose: Postgres with healthcheck, one image, `--scale consumer=N`, a
-  volume for ledger files, no `restart: true` on dependents; `just
-  reliability-lab scenario=dev`.
-
-### 3. Checker and report
-
-- [ ] COPY ledger files into the `lab` schema; drain until each producer's
-  last committed key has a delivery outcome, budget-bounded.
-- [ ] Checks: committed == message_log rows; every message >= 1 delivery
-  ending success or dead; bucket sum; duplicates counted; reclaims == 0;
-  dead == 0. Verdict pass/fail/unknown, exit 0/1/2/3.
-- [ ] Record JSON to `results/<scenario>/<timestamp>/` plus the scenario
-  printed back with actuals; carries `synchronous_commit` and build version.
-
-### 4. Verify and close out
-
-- [ ] `dev` green for one minute; then sabotage: delete a message_log row and
-  drop a handler ledger line, confirm each fails; confirm a run with zero
-  produced reads unknown.
-- [ ] HISTORY.md entry citing [0687]; remove this section and the ROADMAP
-  pointer's v1 line; delete `reliability-lab-research.md` at repo root.

@@ -232,11 +232,6 @@ func (i *MetricsCollectorInstance) collectTopics(ctx context.Context) error {
 	group.SetLimit(i.Config.TopicConcurrency)
 
 	for _, current := range topics {
-		// measurements about __system.metrics would land on the topic they
-		// measure, so its own numbers would never settle -- skipped
-		if current.Name == metrics.MetricsTopicName {
-			continue
-		}
 		group.Go(func() error {
 			return i.collectTopic(groupCtx, current)
 		})
@@ -252,11 +247,27 @@ func (i *MetricsCollectorInstance) collectTopic(ctx context.Context, current *to
 
 	at := time.Now()
 
+	measurement, err := metrics.NewBuiltInMeasurement(metrics.MetricTopicPartitions, float64(snapshot.Partitions), map[string]string{
+		"topic": current.Name,
+	}, at)
+	if err != nil {
+		return err
+	}
+	if err := i.produceMeasurement(ctx, measurement); err != nil {
+		return err
+	}
+
+	// Collect partition counts for __system.metrics, but not measurements
+	// of its own message traffic: those writes would change what they measure.
+	if current.Name == metrics.MetricsTopicName {
+		return nil
+	}
+
 	compacted := float64(0)
 	if snapshot.Compacted {
 		compacted = 1
 	}
-	measurement, err := metrics.NewBuiltInMeasurement(metrics.MetricTopicCompacted, compacted, map[string]string{
+	measurement, err = metrics.NewBuiltInMeasurement(metrics.MetricTopicCompacted, compacted, map[string]string{
 		"topic": current.Name,
 	}, at)
 	if err != nil {

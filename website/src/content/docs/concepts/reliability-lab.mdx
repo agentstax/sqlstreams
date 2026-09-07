@@ -1,28 +1,28 @@
 ---
-title: 'Proposed: how Vulkan tests reliability'
-description: A proposed hour-long run that produces, consumes, kills things, and then proves with a SQL join that no committed message went missing.
+title: How Vulkan tests reliability
+description: An hour of real producers and consumers against a real Postgres, ending in one verdict. A SQL join proves no committed message went missing.
 ---
 
 import ThreadAside from '../../../components/thread-aside/thread-aside.svelte';
 
 Vulkan promises at-least-once delivery with no loss. The reliability lab
-is how that promise would be checked: an hour of real producers and
-consumers against a real Postgres, with consumers killed and the database
-paused along the way, and one verdict at the end. Pass means every committed
-message was delivered or dead-lettered and nothing else happened. This
-page is the proposal for that lab, written so you can judge what "pass"
-would actually prove.
+is how that promise is checked: an hour of real producers and consumers
+against a real Postgres, and one verdict at the end. Pass means every
+committed message was delivered or dead-lettered and nothing else
+happened. This page is the lab as it ships, written so you can judge what
+"pass" actually proves, and then the chaos run it grows into.
 
-<ThreadAside label="PROPOSED" title="The lab does not ship yet">
-Everything under a "Proposed" heading is the spec for work not yet built.
-[What exists today](#what-exists-today) is the shipped floor. The
-[demo page](/demo/) is the same idea packaged for you to run in five
-minutes; this page is the hour-long version the library would be
-developed against.
+<ThreadAside label="NOTE" title="What ships today">
+Two scenarios run today. `quiet` is the hour at a constant 200 messages a
+second with three consumer instances and no chaos; `dev` is the same run
+at one minute. `just reliability-lab dev` builds the stack, runs it, and
+exits with the verdict. Everything under the "Proposed" heading is the
+chaos run, not yet built. The [demo page](/demo/) is the same idea
+packaged for you to run in five minutes.
 
 </ThreadAside>
 
-## What exists today
+## The tests around it
 
 Vulkan is tested at unit scale and at mechanism scale. `go test -race`
 covers the packages. About twenty failure-injection labs each run one
@@ -31,12 +31,11 @@ lease, dead-lettering after the retry budget, shutdown that truncates a
 batch mid-commit, exclusive keys, partition drops. A compat lab runs the
 previous release against the current schema at every release checkpoint.
 
-What none of them do is run long, run everything at once, and account for
-every single message. A reclaim lab proves a reclaim works. It does not
-prove that after an hour of reclaims, kills, and load spikes the total
-still adds up.
+None of them run long, run everything at once, and account for every
+single message. That is the lab's job. A reclaim lab proves a reclaim
+works; the lab proves that after an hour the total still adds up.
 
-## Proposed: a ledger and a checker
+## A ledger and a checker
 
 The lab is mostly bookkeeping. Postgres is the thing under test, so the
 lab keeps its own books in a second schema on the same instance and the
@@ -72,9 +71,8 @@ Every handler invocation writes one row too: message id, consumer group,
 attempt, and whether the handler succeeded, failed, or the process died
 before it could say.
 
-After the producers stop, the consumers drain until the last committed
-message of every producer has a delivery outcome, and then the checker
-runs. It sorts every produced message into a named bucket, and the
+After the producers stop, the consumers drain until the group's cursor
+has passed the last message the topic holds, and then the checker runs. It sorts every produced message into a named bucket, and the
 buckets must add up:
 
 ```
@@ -88,6 +86,11 @@ buckets must add up:
 There is no acceptable "dropped" bucket. Every expected skip has a name,
 and a message that lands in none of them fails the run.
 
+Delivered has two witnesses. The lab's own handler ledger says the handler
+ran and returned; the library's tables say it recorded the outcome. A
+success the library records without the handler running fails the first
+check; a message it drops silently fails both.
+
 Duplicates are counted and reported, never failed. A consumer instance
 killed between the handler returning and the commit is redelivered after
 the lease expires, so a second success row for the same message is the
@@ -95,14 +98,85 @@ contract working. The [message lifecycle](/concepts/lifecycle/) page has
 the redelivery window; the lab shows the count and where in the run each
 one happened.
 
-## Proposed: a run reads like one file
+## A run reads like one file
 
 Each run is described by a scenario file with three sections: what is
 being tested, what happens over time, and what must be true at the end.
 It is meant to be read cold in under a minute. The file is a description,
-not a program. Each scenario is also plain Go in the lab, written by hand
-to match, and the report prints the scenario back from that Go in this
-same format, so a stale file shows up as a diff.
+not a program. Each scenario is plain Go in the lab, written by hand, and
+the report prints it back from that Go in this same format; a test diffs
+the two, so a stale file fails the build. This is `quiet`:
+
+```
+# the hour-long quiet run: constant load, fixed consumers, no chaos, nothing may move
+
+[input]
+topic        orders           DeliveryLogMode all
+consumers    fraud-scoring    handler fail rate 0, 3 retries then dead
+duration     60m
+
+[shape]
+hold:    steady 200/s 60m
+
+at 0m    consumers 3
+
+[expect]
+lost           0
+unexpected     0
+recovered      report
+undelivered    0
+duplicates     report
+unbucketed     0
+reclaims       0
+dead           0
+```
+
+The six lines above `reclaims` are the safety checks. Every scenario must
+declare them with these values, and the lab refuses one that drops a line.
+`reclaims` and `dead` are this scenario's own: with no chaos and a fail
+rate of zero, a reclaim or a dead-lettered message is a finding on its own.
+
+## What pass means
+
+The report is the scenario file printed back with the actual value beside
+every expectation. This is the `dev` run from its record:
+
+```
+[expect]
+lost           0         actual 0    PASS
+unexpected     0         actual 0    PASS
+recovered      report    actual 0
+undelivered    0         actual 0    PASS
+duplicates     report    actual 0
+unbucketed     0         actual 0    PASS
+reclaims       0         actual 0    PASS
+dead           0         actual 0    PASS
+
+ledger      24000 produce, 12000 handler, 3 phase rows
+produced    attempted 12000, committed 12000, rejected 0, unknown 0
+handled     success 12000, error 0
+verdict     pass
+```
+
+A verdict has three values, not two. Pass, fail, and unknown. Unknown is
+what a run reports when the checks could not be run to completion:
+nothing was produced, the drain budget was spent before the group's
+cursor caught up, a checker query errored. Later, it is also what a run
+reports when the fault it was meant to exercise never happened. This is
+the rule the lab borrows most deliberately from the suites that have
+lasted: a test that passes while checking nothing is worse than one that
+fails.
+
+A green run is trusted only after sabotage. Deleting one `message_log` row
+after the run turns `lost` into `actual 1  FAIL  key producer-1`. Deleting
+one handler ledger line turns `undelivered` into
+`actual 1  FAIL  message_id 2`. A run with an empty ledger reads
+`unknown  nothing was produced`.
+
+## Proposed: the chaos run
+
+The next stage is the same hour with load changes and faults. Nothing in
+this section is built; the scenario file is its spec.
 
 ```
 # steady load, a pause, a saturating spike, slow ramp back, one kill
@@ -126,6 +200,8 @@ at 45m      kill consumer 2
 
 [expect]
 lost          0
+unexpected    0
+recovered     report
 undelivered   0
 unbucketed    0
 duplicates    report
@@ -155,14 +231,13 @@ the backlog must grow and then drain with nothing lost. Eight consumers
 on a topic that needs three means oversubscription, and the checker still
 expects zero reclaims outside the kill.
 
-## Proposed: what pass means
-
-The report is the scenario file printed back with the actual value beside
-every expectation:
+The report would read:
 
 ```
 [expect]
 lost          0                   actual 0          PASS
+unexpected    0                   actual 0          PASS
+recovered     report              actual 0
 undelivered   0                   actual 0          PASS
 unbucketed    0                   actual 0          PASS
 duplicates    report              actual 3          message_id 118402, 118403, 391115
@@ -182,22 +257,15 @@ are listed, not failed. The one reclaim sits inside the kill window, so
 it passes. The same reclaim at 30m would fail the run: with no chaos, a
 reclaim means a consumer instance lost a lease it should have held.
 
-A verdict has three values, not two. Pass, fail, and unknown. Unknown is
-what a run reports when the fault it was meant to exercise never
-happened: a one-minute dev run whose lease never expired, a kill that
-landed on an idle instance, a checker that itself errored. This is the
-rule the lab borrows most deliberately from the suites that have lasted:
-a test that passes while checking nothing is worse than one that fails.
-
-Under a quiet scenario, no chaos and a fail rate of zero, the checker
-also expects zero reclaims and zero dead-lettered messages. A reclaim
-with nothing pushing on the system is a finding on its own.
+A kill that lands on an idle instance, or a dev-length run whose lease
+never expires, reads unknown: the fault the run was meant to exercise
+never happened.
 
 ## Where it goes from here
 
-The first version is deliberately small: one plain topic, one consumer
-group, a handler fail rate, four load levels, and the scenario file. Each
-later stage adds one axis and one named bucket:
+The shipped version is deliberately small: one plain topic, one consumer
+group, one load level, and the scenario file. Each stage adds one axis and
+one named bucket:
 
 1. Kills of consumers and producers mid-work, and pausing Postgres past
    the lease so every instance loses its lease at once.

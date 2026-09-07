@@ -67,17 +67,17 @@ func (i *WorkerLivenessInstance) consume(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	alerts, err := alertcontroller.NewAlertController(ctx, registered, i.provisioner.ds, i.provisioner.alertHeads, i.repeatInterval, i.Logger)
-	if err != nil {
-		return err
-	}
-	i.alerts = alerts
-
 	measurements, err := i.provisioner.producer.Register[metrics.Measurement](ctx, metrics.MetricsTopicName, nil)
 	if err != nil {
 		return err
 	}
 	i.measurements = measurements
+
+	alerts, err := alertcontroller.NewAlertController(ctx, registered, i.provisioner.ds, i.provisioner.alertHeads, i.repeatInterval, i.Logger)
+	if err != nil {
+		return err
+	}
+	i.alerts = alerts
 
 	instance, err := i.provisioner.scheduleConsumer.Register[alert.JobPayload](ctx, JobName, schedule.ScheduleTopicName, &consumer.ConsumerConfig{
 		Bindings: []string{JobName},
@@ -152,14 +152,10 @@ func (i *WorkerLivenessInstance) produceCheckSummary(ctx context.Context, evalua
 		if err != nil {
 			return err
 		}
-		compaction, err := produce.NewCompactionOptions(0)
-		if err != nil {
-			return err
-		}
 		item, err := producer.NewProduceItem(measurement, &produce.ProduceOptions{
 			RoutingKey: measurement.Name,
 			MessageKey: metrics.MeasurementKey(measurement.Name, measurement.Attributes),
-			Compaction: compaction,
+			Compaction: &produce.CompactionOptions{Enable: true},
 		})
 		if err != nil {
 			return err

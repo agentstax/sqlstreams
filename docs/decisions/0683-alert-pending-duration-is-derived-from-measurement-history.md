@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded
 date: 2026-09-06
 phase: "pre-v1"
 ---
@@ -15,6 +15,9 @@ Collector completion history alone cannot distinguish downtime from a
 collector that stopped progressing while other checks continued.
 
 ## Decision
+
+Superseded by [0690](0690-alert-history-uses-stored-message-time.md), which
+changes the evidence clock to storage time and retains history-derived pending.
 
 - Alongside [0682](0682-metrics-export-uses-an-otel-producer-and-source-read-health.md),
   supersede [0678](0678-metrics-export-distinguishes-read-success-and-observation-freshness.md).

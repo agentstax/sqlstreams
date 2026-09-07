@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded
 date: 2026-09-06
 phase: "pre-v1"
 ---
@@ -14,6 +14,9 @@ their first positive result through shared alert recording. The user approved
 making pending a shared capability and proving it on an existing check first.
 
 ## Decision
+
+Superseded by [0690](0690-alert-history-uses-stored-message-time.md), which
+replaces the rank-read choice and preserves the shared alert framework.
 
 - Supersede [0684](0684-collector-progress-contract-and-bounded-history.md)'s
   collector-only adoption scope. Keep its OTel export contract, collector

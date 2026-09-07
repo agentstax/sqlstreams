@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -242,10 +243,12 @@ func classifySection(ctx context.Context) {
 	must(err)
 	instance, err := alertProducer.Register[alert.Alert](ctx, alert.AlertTopicName, nil)
 	must(err)
+	measurements, err := alertProducer.Register[iMetrics.Measurement](ctx, iMetrics.MetricsTopicName, nil)
+	must(err)
 	heads, err := compactioncontroller.NewCompactionController(ds, ds.Logger)
 	must(err)
 	capture := newCaptureLogger()
-	alerts, err := alertcontroller.NewAlertController(ctx, instance, ds, heads, classifyRepeat, capture)
+	alerts, err := alertcontroller.NewAlertController(ctx, instance, measurements, ds, heads, classifyRepeat, capture)
 	must(err)
 
 	key, err := alert.MessageKey(labCheckName, labTopicOwner)
@@ -254,7 +257,7 @@ func classifySection(ctx context.Context) {
 	must(err)
 
 	record := func(found *alert.Alert, want alert.RecordOutcome, arm string) {
-		outcome, err := alerts.Record(ctx, labCheckName, labTopicOwner, found)
+		outcome, err := alerts.Record(ctx, labCheckName, labTopicOwner, &alert.AlertEvaluation{Alert: found})
 		must(err)
 		if outcome != want {
 			die(fmt.Sprintf("%s: want outcome %q, got %q", arm, want, outcome))
@@ -330,7 +333,7 @@ func classifySection(ctx context.Context) {
 	}
 	fmt.Println("  ✓ resolve edge INFOed once, resolved head stayed silent")
 
-	concurrentAlerts, err := alertcontroller.NewAlertController(ctx, instance, ds, heads, 4*time.Hour, capture)
+	concurrentAlerts, err := alertcontroller.NewAlertController(ctx, instance, measurements, ds, heads, 4*time.Hour, capture)
 	must(err)
 	for _, test := range []struct {
 		name    string
@@ -349,7 +352,7 @@ func classifySection(ctx context.Context) {
 		for range 16 {
 			routines.Go(func() error {
 				<-start
-				outcome, err := concurrentAlerts.Record(ctx, labCheckName, labTopicOwner, test.finding)
+				outcome, err := concurrentAlerts.Record(ctx, labCheckName, labTopicOwner, &alert.AlertEvaluation{Alert: test.finding})
 				if err != nil {
 					return err
 				}
@@ -382,7 +385,7 @@ func classifySection(ctx context.Context) {
 	})
 	must(err)
 	before := alertMessageCount(ctx, key)
-	outcome, err := concurrentAlerts.Record(ctx, labCheckName, labTopicOwner, unencodable)
+	outcome, err := concurrentAlerts.Record(ctx, labCheckName, labTopicOwner, &alert.AlertEvaluation{Alert: unencodable})
 	if err == nil || outcome != "" || alertMessageCount(ctx, key) != before || headStatus(ctx, key) != string(alert.AlertStatusResolved) {
 		die("a rejected alert write must leave the resolved head and history unchanged")
 	}
@@ -400,6 +403,9 @@ func executorSection(ctx context.Context) {
 	must(err)
 	_, err = labInstance.Produce(ctx, &labMessage{Value: "seed"}, nil)
 	must(err)
+	if observations := partitionObservations(ctx); len(observations) != 0 {
+		die("registration-time warnings must not store partition observations")
+	}
 
 	otherGroup := registerGroup(ctx, prefix+".other", "some.other.job")
 	bindinglessGroup := registerGroup(ctx, prefix+".bindingless")
@@ -409,6 +415,9 @@ func executorSection(ctx context.Context) {
 	firstRun, err := client.Scheduler(partitioncount.JobName).Run(ctx, nil)
 	must(err)
 	waitDelivered(ctx, firstRun.Id, "success")
+	if observations := partitionObservations(ctx); len(observations) != 1 || observations[0].Message.Value != 1 {
+		die("first scheduled check must retain the observed partition count of 1")
+	}
 
 	// the running executor's Register declared the group's set
 	declarations, err := client.System().Bindings(ctx)
@@ -454,6 +463,9 @@ func executorSection(ctx context.Context) {
 	secondRun, err := client.Scheduler(partitioncount.JobName).Run(ctx, nil)
 	must(err)
 	waitDelivered(ctx, secondRun.Id, "success")
+	if observations := partitionObservations(ctx); len(observations) != 2 || observations[0].Message.Value != 1 {
+		die("quiet scheduled check must retain another partition observation")
+	}
 	if got := alertMessageCount(ctx, labKey); got != published {
 		die(fmt.Sprintf("repeat-interval run: want no republish, got %d messages after %d", got, published))
 	}
@@ -503,12 +515,16 @@ func isolationSection(ctx context.Context) {
 	exec(ctx, fmt.Sprintf(`UPDATE %s.%s SET payload = '"corrupt"'::jsonb WHERE id = $1;`, ds.Schema, topic.MessageLogTable(alertsTopic.Id)), corruptedHead)
 
 	declareThreshold(ctx, 0)
+	observedBeforeRecovery := len(partitionObservations(ctx))
 	resolveRun, err := client.Scheduler(partitioncount.JobName).Run(ctx, nil)
 	must(err)
 
 	// the attempt fails on the corrupted owner -- but the same attempt
 	// already resolved every healthy topic
 	waitDelivered(ctx, resolveRun.Id, "failure")
+	if observations := partitionObservations(ctx); len(observations) <= observedBeforeRecovery || observations[0].Message.Value != 1 {
+		die("healthy partition evidence must survive failed alert recording")
+	}
 	if got := headStatus(ctx, schedulesKey); got != string(alert.AlertStatusResolved) {
 		die(fmt.Sprintf("isolation: healthy topics must resolve beside the failure, got %q", got))
 	}
@@ -549,6 +565,25 @@ func isolationSection(ctx context.Context) {
 }
 
 // --- harness ---
+
+func partitionObservations(ctx context.Context) []*common.StoredMessage[iMetrics.Measurement] {
+	metricsTopic, err := client.Topic[iMetrics.Measurement](iMetrics.MetricsTopicName).Get(ctx)
+	must(err)
+	heads, err := compactioncontroller.NewCompactionController(ds, ds.Logger)
+	must(err)
+	key := iMetrics.MeasurementKey(iMetrics.MetricObservedPartitions.Name, map[string]string{
+		"alert":    alert.AlertPartitionCount.Name,
+		"topic_id": strconv.FormatInt(labTopic.Id, 10),
+	})
+	observations, err := heads.ListKeyMessages[iMetrics.Measurement](ctx, metricsTopic.Id, key, 100)
+	must(err)
+	for _, observation := range observations {
+		if observation.CompactionRank != 0 || observation.CreatedAt.IsZero() {
+			die("partition observations must use default rank and retain their storage timestamp")
+		}
+	}
+	return observations
+}
 
 // startExecutor claims the partition_count worker row and runs its execution
 // until the returned stop is called.

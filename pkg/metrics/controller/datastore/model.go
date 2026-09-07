@@ -35,8 +35,9 @@ type ScheduleSnapshotRow struct {
 	DueForSecs      float64    `db:"due_for_secs"`
 }
 
-// TopicSnapshotRow is one topic's compaction-head state.
+// TopicSnapshotRow holds a topic's partition count and compaction-head state.
 type TopicSnapshotRow struct {
+	Partitions                         int64   `db:"partitions"`
 	Compacted                          bool    `db:"compacted"`
 	CompactionRowsWithoutHead          int64   `db:"compaction_rows_without_head"`
 	OldestCompactionRowWithoutHeadSecs float64 `db:"oldest_compaction_row_without_head_secs"`

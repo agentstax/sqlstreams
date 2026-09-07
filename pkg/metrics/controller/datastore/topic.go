@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// TopicSnapshot returns topicId's compaction-head state in one query.
+// TopicSnapshot returns the partition count and compaction-head state together.
 func (d *MetricsDatastore) TopicSnapshot(ctx context.Context, topicId int64) (*TopicSnapshotRow, error) {
 	var snapshot *TopicSnapshotRow
 	err := d.DatastoreRetry.Wrap(ctx, func() error {
@@ -23,6 +23,7 @@ func (d *MetricsDatastore) topicSnapshot(ctx context.Context, topicId int64) (*T
 	sql := fmt.Sprintf(`
 		-- vulkan: metrics.topicSnapshot
 		SELECT
+			(SELECT count(*) FROM pg_inherits WHERE inhparent = to_regclass($1)) AS partitions,
 			COUNT(message_id) > 0 AS compacted,
 			COUNT(*) FILTER (WHERE message_id IS NULL) AS compaction_rows_without_head,
 			COALESCE(
@@ -32,7 +33,9 @@ func (d *MetricsDatastore) topicSnapshot(ctx context.Context, topicId int64) (*T
 		FROM %[1]s.%[2]s;
 	`, d.Datastore.Schema, topic.CompactionHeadTable(topicId))
 	var snapshot TopicSnapshotRow
-	err := d.Datastore.Pool.QueryRow(ctx, sql).Scan(
+	parentTableName := fmt.Sprintf("%s.%s", d.Datastore.Schema, topic.MessageLogTable(topicId))
+	err := d.Datastore.Pool.QueryRow(ctx, sql, parentTableName).Scan(
+		&snapshot.Partitions,
 		&snapshot.Compacted,
 		&snapshot.CompactionRowsWithoutHead,
 		&snapshot.OldestCompactionRowWithoutHeadSecs,

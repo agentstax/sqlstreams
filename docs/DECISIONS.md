@@ -364,7 +364,7 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0609 2026-08-28 accepted (pre-v1) — website/VOICE.md: the doc site's prose voice file
 - 0610 2026-08-28 accepted (pre-v1) — example attribute values on code threads
 - 0611 2026-08-29 accepted (pre-v1) — table names are `<root>_<kind>`
-- 0612 2026-08-29 accepted (pre-v1) — the message key is promoted out of compaction
+- 0612 2026-08-29 superseded (pre-v1) — the message key is promoted out of compaction
 - 0613 2026-08-29 accepted (pre-v1) — column naming rules
 - 0614 2026-08-29 accepted (pre-v1) — handler outcomes by error classification
 - 0615 2026-08-29 accepted (pre-v1) — delivery_log is keyed by its own id, not by attempt
@@ -435,10 +435,15 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0680 2026-09-06 accepted (pre-v1) — pkg/concurrency is infrastructure and lives under common
 - 0681 2026-09-06 accepted (pre-v1) — The rule files carry no decision citations; the decision map is the index
 - 0682 2026-09-06 accepted (pre-v1) — Metrics export uses an OTel producer and source-read health
-- 0683 2026-09-06 accepted (pre-v1) — Alert pending duration is derived from measurement history
+- 0683 2026-09-06 superseded (pre-v1) — Alert pending duration is derived from measurement history
 - 0684 2026-09-06 superseded (pre-v1) — Collector progress contract and bounded history
 - 0685 2026-09-06 accepted (pre-v1) — A claim poll reads its snapshot before any transaction and opens the reclaim transaction only on an expired lease
-- 0686 2026-09-06 accepted (pre-v1) — History-based pending belongs to the shared alert framework
+- 0686 2026-09-06 superseded (pre-v1) — History-based pending belongs to the shared alert framework
 - 0687 2026-09-06 accepted (pre-v1) — The reliability lab is a ledger and a checker, with scenarios written as Go and printed, never parsed
 - 0688 2026-09-06 superseded (pre-v1) — Shared alert history evaluation contract
 - 0689 2026-09-06 accepted (pre-v1) — Alert implementation starts in existing recording
+- 0690 2026-09-06 accepted (pre-v1) — Alert history uses stored message time
+- 0691 2026-09-06 accepted (pre-v1) — Compaction options are constructed inline
+- 0692 2026-09-06 superseded (pre-v1) — Alert evaluations carry findings and evidence
+- 0693 2026-09-06 accepted (pre-v1) — Metrics collection owns alert evidence
+- 0693 2026-09-06 accepted (pre-v1) — The checker drains on the consumer group cursor, and every scenario declares the safety checks
