@@ -16,9 +16,6 @@ the item is removed.
 
 ## Now
 
-- **Metrics export and history-based alerts** — direction [0682] [0683] [0686] [0688];
-  proposed contract in `website/src/content/docs/concepts/metrics-export.mdx`.
-  Working details live in TODO.md.
 
 ## Next
 
@@ -57,6 +54,8 @@ the item is removed.
   by the producer's partition self-heal; (3) LISTEN/NOTIFY-woken workers —
   real complexity, only if (2) measurably fails. Prior: rung 1 carries to
   ~1k rows, rung 2 well past 10k, rung 3 never earns it.
+  - bench mark tests should be done on at least postgres 18 as there 
+    could be performance gains, specifically with uuidv7
 
 - **Benchmark-recording pipeline** (14c) — decide where lab throughput
   numbers get saved so regressions are visible over time. First real
@@ -86,6 +85,8 @@ the item is removed.
     Buffer on/off, BufferLogger no longer exists.
   - Documentation drives this work: the methodology page becomes a doc-site
     page and the user-facing spec is written before the harness is built.
+  - bench mark tests should be done on at least postgres 18 as there 
+    could be performance gains, specifically with uuidv7
 
 - **docs/TEST.md expand and refine** (14c) — the shutdown/interruption scenarios
   recorded there are Setup/Action/Assert prose from a scratch harness;
@@ -93,6 +94,12 @@ the item is removed.
   stops moving.
 
 ## Later
+
+- **Topic-alert evaluation cadence** — keep the shipped hourly defaults;
+  one-minute checks remain Proposed in `concepts/alert-history.mdx`. Measure
+  the existing history queries, whole-check duration, and writes at representative
+  topic counts on Postgres 18 before changing defaults. Collector evidence
+  cadence is independent; do not increase its writes to shorten evaluation cadence.
 
 Pre-v1 — the 14b public-API pass, then measurement, evaluation, and
 documentation; the latter want a surface that has stopped moving.
@@ -855,3 +862,20 @@ prerequisite if quorum-as-a-fraction wins.
   of potentially our custom goroutine tracking - might simplify things / make it
   easier for users as well
 - should make more use of vale for standardized writing style its an interesting idea
+
+- **Agent operator** -- a skill set that lets a coding agent (Claude Code
+  or similar) diagnose a running deployment through the existing CLI.
+  Delivery is skill files over `vulkan --output json` and `vulkan explain`,
+  not an MCP server: users drop MCP servers for CLI-plus-skills on token
+  cost and keep MCP only for auth brokering or a hard allowlist, and the
+  allowlist here is a read-only Postgres role. Read-only by construction:
+  the operator runs read verbs, prints the write command (suspend, run,
+  migrate) for a human to paste, never runs it. Every read carries a scope
+  (topic, consumer, limit). A diagnosis ends by naming the alert or metric
+  that should clear and re-reading it. Rung 0 before building: point an
+  agent at a broken lab deployment with only the CLI and record where it
+  goes wrong; VK codes, fix text, and alert hints may already be enough.
+  Evidence 2026-09-07: Supabase MCP exfiltration and Kiro prod delete
+  (credential scope, not prompts); kubectl-ai #628 (no-execute mode);
+  HolmesGPT #2438 (unscoped reads); Confluent MCP hands-on (fell back to
+  the CLI); Palark k8sgpt eval (generic fixes).

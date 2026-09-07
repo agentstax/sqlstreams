@@ -5,6 +5,35 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-07 — Metrics export and history-based alerts close-out [0693] [0698] [0703] [0704] [0705] [0707] [0708]
+
+Exporter health now has collection scope in the existing diagnostic catalog,
+public vocabulary, and generated site data. Resource selectors remain complete;
+no stored-value selectors or second registry were added. Alerts reject the new
+non-resource scope.
+
+Real scheduled compaction-read-cost and collector-progress workers, under a
+claimed manager with controlled measurement inputs, verify pending without
+publication, stop/restart gaps, sustained activation, quiet repeated checks,
+and one recovery message. The collector is suspended in this fixture; the
+earlier full lab sweep verified real collector production separately.
+The worker/snapshot/database-history and affected alert/metrics tests pass twice
+under race detection. Diagnostic tests pass in a fresh process; repeating their
+whole suite in one process re-registers an existing test metric and panics.
+
+Whole-repository Go verification, OTel race tests, targeted site prose checks,
+and the site build pass. The preceding checkpoint's 52 passing labs remain the
+full-suite result; no release or newly pinned prior-tag compatibility claim.
+Hourly topic-alert defaults are unchanged. The proposed one-minute cadence and
+its cost measurement move to ROADMAP as follow-up work.
+
+The original OTel review is folded into decisions [0703] [0705] [0707]: reader
+ownership removes callback registration/discovery state, collection health and
+collector progress distinguish source reads from liveness, and per-collection
+validation isolates rejected families. Current conventions retain resolved config
+pointers; the site states their no-mutation contract. The completed review and
+implementation checklist are removed.
+
 ## 2026-09-07 — Reader lifecycle and lab checkpoint [0693] [0698] [0705] [0707]
 
 Pinned-reader race checks verify periodic failure isolation/recovery, cancellation

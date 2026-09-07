@@ -156,6 +156,7 @@ const (
 	MetricScopeTopic           = diagnostic.MetricScopeTopic
 	MetricScopeConsumerGroup   = diagnostic.MetricScopeConsumerGroup
 	MetricScopeConsumerSession = diagnostic.MetricScopeConsumerSession
+	MetricScopeExporter        = diagnostic.MetricScopeExporter
 	MetricUnitMilliseconds     = metrics.MetricUnitMilliseconds
 	AlertStatusActive          = alert.AlertStatusActive
 	AlertStatusResolved        = alert.AlertStatusResolved

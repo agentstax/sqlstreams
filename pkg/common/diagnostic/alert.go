@@ -16,7 +16,7 @@ type DiagnosticAlert struct {
 // NewDiagnosticAlert declares an alert and registers its code. The name must
 // be unique too -- an alert on the wire carries only its name, and GetAlert
 // resolves the declaration by that handle. An alert is always about a
-// resource, so the consumer-session scope is refused.
+// resource, so consumer-session and exporter scopes are refused.
 func NewDiagnosticAlert(code string, name string, description string, scope MetricScope, severity string) *DiagnosticAlert {
 	if name == "" {
 		panic("name must not be empty: " + code)
@@ -27,7 +27,7 @@ func NewDiagnosticAlert(code string, name string, description string, scope Metr
 	if err := scope.Validate(); err != nil {
 		panic(err.Error() + ": " + code)
 	}
-	if scope == MetricScopeConsumerSession {
+	if scope == MetricScopeConsumerSession || scope == MetricScopeExporter {
 		panic(fmt.Sprintf("scope must be a resource scope, got %q: %s", scope, code))
 	}
 	if severity == "" {

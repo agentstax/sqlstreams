@@ -14,7 +14,7 @@ type MetricDefinition struct {
 	Kind          MetricKind             `json:"kind"`
 	Unit          MetricUnit             `json:"unit"`
 	Description   string                 `json:"description"`
-	Scope         diagnostic.MetricScope `json:"scope"`          // which resource kind a series is about
+	Scope         diagnostic.MetricScope `json:"scope"`          // which resource or collection a series describes
 	AttributeKeys []string               `json:"attribute_keys"` // the attribute names every measurement of it carries
 }
 

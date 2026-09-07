@@ -55,7 +55,8 @@ deltas. See the SDK's [periodic reader](https://github.com/open-telemetry/opente
 
 The upstream OTel Prometheus exporter exposes source-read success.
 HTTP 200 alone does not establish that Postgres was read successfully.
-The health signals are collection-local gauges with no attributes:
+The health signals are collection-local gauges with no attributes. Their catalog
+scope is `exporter`; they have no stored `Latest` or `History` values:
 
 | OTel name | Unit | Prometheus name |
 | --- | --- | --- |

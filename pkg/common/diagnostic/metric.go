@@ -5,7 +5,7 @@ import (
 	"slices"
 )
 
-// MetricScope names the resource identity carried by a built-in metric.
+// MetricScope names the resource or collection described by a built-in metric.
 type MetricScope string
 
 const (
@@ -13,12 +13,13 @@ const (
 	MetricScopeTopic           MetricScope = "topic"            // one series per topic
 	MetricScopeConsumerGroup   MetricScope = "consumer_group"   // one series per consumer group
 	MetricScopeConsumerSession MetricScope = "consumer_session" // one series per Consume call
+	MetricScopeExporter        MetricScope = "exporter"         // one series per export collection, not stored
 )
 
-// Validate rejects a scope outside Vulkan's built-in resource scopes.
+// Validate rejects a scope outside Vulkan's built-in metric scopes.
 func (s MetricScope) Validate() error {
 	switch s {
-	case MetricScopeSystem, MetricScopeTopic, MetricScopeConsumerGroup, MetricScopeConsumerSession:
+	case MetricScopeSystem, MetricScopeTopic, MetricScopeConsumerGroup, MetricScopeConsumerSession, MetricScopeExporter:
 		return nil
 	default:
 		return fmt.Errorf("scope must be a Vulkan metric scope, got %q", s)

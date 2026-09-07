@@ -34,8 +34,6 @@ roadmap later item for review code for interesting design decisions to write art
 
 # Review
 
-cleanup any stray binaries and try to update gitignore for them
-
 ## Manual
 
 Probably should have one more table name and column review (this will be hard to change later)
@@ -47,7 +45,5 @@ manual review of public user facing comments :(. I don't want to but its got to 
 review of most important website docs
 
 # Other
-
-bench mark tests should be done on at least postgres 18 as there could be performance gains, specifically with uuidv7
 
 This should be a parking lot roadmap item - An agent 'operator', collection of skills or agent or mcp server that acts as the operator for managing vulkan running.

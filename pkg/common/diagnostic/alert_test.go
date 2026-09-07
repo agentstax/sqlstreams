@@ -43,6 +43,7 @@ func TestNewAlertRejectsInvalidMetadata(t *testing.T) {
 		{name: "empty scope", code: "VK9933", alertName: "test_empty_scope", description: "test condition", severity: "warn"},
 		{name: "unknown scope", code: "VK9934", alertName: "test_unknown_scope", description: "test condition", scope: MetricScope("worker"), severity: "warn"},
 		{name: "session scope", code: "VK9935", alertName: "test_session_scope", description: "test condition", scope: MetricScopeConsumerSession, severity: "warn"},
+		{name: "exporter scope", code: "VK9938", alertName: "test_exporter_scope", description: "test condition", scope: MetricScopeExporter, severity: "warn"},
 		{name: "empty severity", code: "VK9936", alertName: "test_empty_severity", description: "test condition", scope: MetricScopeTopic},
 		{name: "duplicate name", code: "VK9937", alertName: "test_partition_count", description: "test condition", scope: MetricScopeTopic, severity: "warn"},
 	}

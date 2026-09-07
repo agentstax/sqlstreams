@@ -33,6 +33,20 @@ func TestDefinitionsFiltersScopes(t *testing.T) {
 	}
 }
 
+func TestDefinitionsSeparatesExporterHealth(t *testing.T) {
+	definitions := Definitions(diagnostic.MetricScopeExporter)
+	if len(definitions) != 2 {
+		t.Fatalf("got %d exporter definitions, want 2", len(definitions))
+	}
+	for _, metric := range []*diagnostic.DiagnosticMetric{MetricOTelSourceReadSuccess, MetricOTelMeasurementsRejected} {
+		definition := definitionByName(t, definitions, metric.Name)
+		if definition.Scope != diagnostic.MetricScopeExporter || len(definition.AttributeKeys) != 0 {
+			t.Fatalf("exporter definition = %+v", definition)
+		}
+		definitionByName(t, Definitions(), metric.Name)
+	}
+}
+
 func TestDefinitionsReturnsDefensiveAttributeKeys(t *testing.T) {
 	first := Definitions(diagnostic.MetricScopeConsumerGroup)
 	backlog := definitionByName(t, first, MetricCursorBacklog.Name)

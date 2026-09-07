@@ -108,6 +108,7 @@ attributes are fixed:
 | `MetricScopeTopic` | `topic` |
 | `MetricScopeConsumerGroup` | `topic`, `group` |
 | `MetricScopeConsumerSession` | `topic`, `group`, `version`, `session` |
+| `MetricScopeExporter` | none; collection-local OTel health, never stored |
 
 Built-in observations come from the manager's metrics collector, every 30
 seconds by default with jitter; the rate is
