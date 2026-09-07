@@ -1,11 +1,32 @@
 package metrics
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/agentstax/vulkan/pkg/common/diagnostic"
 )
+
+func TestMeasurementMetadataRoundTrip(t *testing.T) {
+	measurement, err := NewMeasurement("custom", MetricKindGauge, 1, "", map[string]string{"topic": "orders"}, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := MeasurementKey(measurement.Name, measurement.Attributes)
+	measurement.Metadata = json.RawMessage(`{"workers":["janitor"]}`)
+	encoded, err := json.Marshal(measurement)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded Measurement
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if string(decoded.Metadata) != string(measurement.Metadata) || MeasurementKey(decoded.Name, decoded.Attributes) != key {
+		t.Fatal("metadata must round trip without changing series identity")
+	}
+}
 
 func TestMeasurementKeyDeterministic(t *testing.T) {
 	attributes := map[string]string{

@@ -1,6 +1,10 @@
 package alert
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+	"time"
+)
 
 // PartitionCountAlertConfig declares how the partition_count alert is
 // evaluated and the count it alerts at.
@@ -14,11 +18,26 @@ type PartitionCountAlertConfig struct {
 	// Default: 0, which measures against half the lock ceiling Postgres
 	// reports.
 	Threshold int64
+
+	// PendingDuration is the required consecutive unhealthy sample span. Default: 2m.
+	PendingDuration time.Duration
+
+	// MaximumGap limits sample gaps and the newest sample's age. Default: 2m.
+	MaximumGap time.Duration
+
+	// DisablePending permits immediate activation from fresh unhealthy evidence. Default: false.
+	DisablePending bool
 }
 
 func (c *PartitionCountAlertConfig) WithDefaults() *PartitionCountAlertConfig {
 	if c.ScheduleExpression == "" {
 		c.ScheduleExpression = "@hourly"
+	}
+	if c.PendingDuration == 0 {
+		c.PendingDuration = 2 * time.Minute
+	}
+	if c.MaximumGap == 0 {
+		c.MaximumGap = 2 * time.Minute
 	}
 	return c
 }
@@ -27,6 +46,15 @@ func (c *PartitionCountAlertConfig) WithDefaults() *PartitionCountAlertConfig {
 func (c *PartitionCountAlertConfig) Validate() error {
 	if c.Threshold < 0 {
 		return fmt.Errorf("Threshold must be >= 0, got %d", c.Threshold)
+	}
+	if c.PendingDuration <= 0 {
+		return fmt.Errorf("PendingDuration must be > 0, got %v", c.PendingDuration)
+	}
+	if c.MaximumGap <= 0 {
+		return fmt.Errorf("MaximumGap must be > 0, got %v", c.MaximumGap)
+	}
+	if !c.DisablePending && c.MaximumGap > (math.MaxInt64-c.PendingDuration)/2 {
+		return fmt.Errorf("MaximumGap must be <= %v for PendingDuration %v, got %v", (time.Duration(math.MaxInt64)-c.PendingDuration)/2, c.PendingDuration, c.MaximumGap)
 	}
 	return nil
 }
@@ -41,11 +69,26 @@ type CompactionReadCostAlertConfig struct {
 	// Threshold - the read cost at or above which the alert is published.
 	// Default: 0, the check's own ceiling.
 	Threshold int64
+
+	// PendingDuration is the required consecutive unhealthy sample span. Default: 2m.
+	PendingDuration time.Duration
+
+	// MaximumGap limits sample gaps and the newest sample's age. Default: 2m.
+	MaximumGap time.Duration
+
+	// DisablePending permits immediate activation from fresh unhealthy evidence. Default: false.
+	DisablePending bool
 }
 
 func (c *CompactionReadCostAlertConfig) WithDefaults() *CompactionReadCostAlertConfig {
 	if c.ScheduleExpression == "" {
 		c.ScheduleExpression = "@hourly"
+	}
+	if c.PendingDuration == 0 {
+		c.PendingDuration = 2 * time.Minute
+	}
+	if c.MaximumGap == 0 {
+		c.MaximumGap = 2 * time.Minute
 	}
 	return c
 }
@@ -54,6 +97,15 @@ func (c *CompactionReadCostAlertConfig) WithDefaults() *CompactionReadCostAlertC
 func (c *CompactionReadCostAlertConfig) Validate() error {
 	if c.Threshold < 0 {
 		return fmt.Errorf("Threshold must be >= 0, got %d", c.Threshold)
+	}
+	if c.PendingDuration <= 0 {
+		return fmt.Errorf("PendingDuration must be > 0, got %v", c.PendingDuration)
+	}
+	if c.MaximumGap <= 0 {
+		return fmt.Errorf("MaximumGap must be > 0, got %v", c.MaximumGap)
+	}
+	if !c.DisablePending && c.MaximumGap > (math.MaxInt64-c.PendingDuration)/2 {
+		return fmt.Errorf("MaximumGap must be <= %v for PendingDuration %v, got %v", (time.Duration(math.MaxInt64)-c.PendingDuration)/2, c.PendingDuration, c.MaximumGap)
 	}
 	return nil
 }
@@ -64,16 +116,40 @@ type WorkerLivenessAlertConfig struct {
 	// ScheduleExpression - how often the alert is evaluated, a cron expression.
 	// Default: @hourly.
 	ScheduleExpression string
+
+	// PendingDuration is the required consecutive unhealthy sample span. Default: 2m.
+	PendingDuration time.Duration
+
+	// MaximumGap limits sample gaps and the newest sample's age. Default: 2m.
+	MaximumGap time.Duration
+
+	// DisablePending permits immediate activation from fresh unhealthy evidence. Default: false.
+	DisablePending bool
 }
 
 func (c *WorkerLivenessAlertConfig) WithDefaults() *WorkerLivenessAlertConfig {
 	if c.ScheduleExpression == "" {
 		c.ScheduleExpression = "@hourly"
 	}
+	if c.PendingDuration == 0 {
+		c.PendingDuration = 2 * time.Minute
+	}
+	if c.MaximumGap == 0 {
+		c.MaximumGap = 2 * time.Minute
+	}
 	return c
 }
 
 // The schedule expression is parsed where the schedule is declared, not here.
 func (c *WorkerLivenessAlertConfig) Validate() error {
+	if c.PendingDuration <= 0 {
+		return fmt.Errorf("PendingDuration must be > 0, got %v", c.PendingDuration)
+	}
+	if c.MaximumGap <= 0 {
+		return fmt.Errorf("MaximumGap must be > 0, got %v", c.MaximumGap)
+	}
+	if !c.DisablePending && c.MaximumGap > (math.MaxInt64-c.PendingDuration)/2 {
+		return fmt.Errorf("MaximumGap must be <= %v for PendingDuration %v, got %v", (time.Duration(math.MaxInt64)-c.PendingDuration)/2, c.PendingDuration, c.MaximumGap)
+	}
 	return nil
 }

@@ -80,8 +80,8 @@ already active.
 ## Gotchas
 
 - All three built-in alerts require two minutes of consecutive unhealthy
-  measurements by default. Each alert config's `Pending` accepts `AlertPendingConfig`:
-  `Duration` and `MaximumGap` default to two minutes; `Disabled: true` allows
+  measurements by default. Each alert config exposes the same direct fields:
+  `PendingDuration` and `MaximumGap` default to two minutes; `DisablePending: true` allows
   immediate activation but still requires fresh evidence. Missing or stale
   evidence leaves recorded alerts unchanged and increments the check's failed
   topic count. See [measurement history](/concepts/alert-history/) for the rules.

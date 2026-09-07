@@ -2,6 +2,7 @@ package collector
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -85,7 +86,12 @@ func (i *MetricsCollectorInstance) Run(ctx context.Context) error {
 // collect is one collection pass. A failed produce fails the whole pass --
 // the next tick reproduces every measurement, so nothing is salvaged per measurement.
 func (i *MetricsCollectorInstance) collect(ctx context.Context) error {
-	if err := i.collectWorkers(ctx); err != nil {
+	workers, err := i.metrics.WorkerSnapshots(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := i.collectWorkers(ctx, workers); err != nil {
 		return err
 	}
 	if err := i.collectSchedules(ctx); err != nil {
@@ -94,15 +100,10 @@ func (i *MetricsCollectorInstance) collect(ctx context.Context) error {
 	if err := i.collectAlerts(ctx); err != nil {
 		return err
 	}
-	return i.collectTopics(ctx)
+	return i.collectTopics(ctx, workers)
 }
 
-func (i *MetricsCollectorInstance) collectWorkers(ctx context.Context) error {
-	workers, err := i.metrics.WorkerSnapshots(ctx)
-	if err != nil {
-		return err
-	}
-
+func (i *MetricsCollectorInstance) collectWorkers(ctx context.Context, workers []metrics.WorkerSnapshot) error {
 	var unclaimed, failing int64
 	var oldest time.Duration
 	for _, snapshot := range workers {
@@ -222,7 +223,7 @@ func (i *MetricsCollectorInstance) collectAlerts(ctx context.Context) error {
 	return i.produceMeasurement(ctx, measurement)
 }
 
-func (i *MetricsCollectorInstance) collectTopics(ctx context.Context) error {
+func (i *MetricsCollectorInstance) collectTopics(ctx context.Context, workers []metrics.WorkerSnapshot) error {
 	topics, err := i.topics.List(ctx)
 	if err != nil {
 		return err
@@ -233,13 +234,15 @@ func (i *MetricsCollectorInstance) collectTopics(ctx context.Context) error {
 
 	for _, current := range topics {
 		group.Go(func() error {
-			return i.collectTopic(groupCtx, current)
+			topicWorkers := filterWorkersByTopic(workers, current.Id)
+			return i.collectTopic(groupCtx, current, topicWorkers)
 		})
 	}
 	return group.Wait()
 }
 
-func (i *MetricsCollectorInstance) collectTopic(ctx context.Context, current *topic.Topic) error {
+func (i *MetricsCollectorInstance) collectTopic(ctx context.Context, current *topic.Topic, workers []metrics.WorkerSnapshot) error {
+	// Read the topic state and consumer-group measurements.
 	snapshot, err := i.metrics.TopicSnapshot(ctx, current.Id)
 	if err != nil {
 		return err
@@ -247,36 +250,85 @@ func (i *MetricsCollectorInstance) collectTopic(ctx context.Context, current *to
 
 	at := time.Now()
 
+	// Record partition count with compaction applicability for alert evaluation.
+	partitionMetadata, err := metrics.NewPartitionMeasurementMetadata(snapshot.Compacted)
+	if err != nil {
+		return err
+	}
+
 	measurement, err := metrics.NewBuiltInMeasurement(metrics.MetricTopicPartitions, float64(snapshot.Partitions), map[string]string{
 		"topic": current.Name,
 	}, at)
 	if err != nil {
 		return err
 	}
+
+	measurement.Metadata, err = json.Marshal(partitionMetadata)
+	if err != nil {
+		return err
+	}
+
 	if err := i.produceMeasurement(ctx, measurement); err != nil {
 		return err
 	}
 
-	// Collect partition counts for __system.metrics, but not measurements
-	// of its own message traffic: those writes would change what they measure.
+	// Record unclaimed worker count and identities, including consumer-group workers.
+	unclaimedWorkers := make([]*metrics.UnclaimedWorkerMetadata, 0)
+	for _, worker := range workers {
+		if worker.Status != metrics.WorkerUnclaimed {
+			continue
+		}
+		metadata, err := metrics.NewUnclaimedWorkerMetadata(worker.Name, worker.Owner, worker.TargetInstances)
+		if err != nil {
+			return err
+		}
+		unclaimedWorkers = append(unclaimedWorkers, metadata)
+	}
+	workerMetadata, err := metrics.NewWorkerMeasurementMetadata(unclaimedWorkers)
+	if err != nil {
+		return err
+	}
+
+	measurement, err = metrics.NewBuiltInMeasurement(metrics.MetricTopicUnclaimedWorkers, float64(len(unclaimedWorkers)), map[string]string{
+		"topic": current.Name,
+	}, at)
+	if err != nil {
+		return err
+	}
+
+	measurement.Metadata, err = json.Marshal(workerMetadata)
+	if err != nil {
+		return err
+	}
+
+	if err := i.produceMeasurement(ctx, measurement); err != nil {
+		return err
+	}
+
+	// Do not collect __system.metrics' own message traffic:
+	// those writes would change what they measure.
 	if current.Name == metrics.MetricsTopicName {
 		return nil
 	}
 
+	// Record compaction status as a scalar metric.
 	compacted := float64(0)
 	if snapshot.Compacted {
 		compacted = 1
 	}
+
 	measurement, err = metrics.NewBuiltInMeasurement(metrics.MetricTopicCompacted, compacted, map[string]string{
 		"topic": current.Name,
 	}, at)
 	if err != nil {
 		return err
 	}
+
 	if err := i.produceMeasurement(ctx, measurement); err != nil {
 		return err
 	}
 
+	// Record each consumer group's cursor, exception, and lease measurements.
 	for _, group := range snapshot.Groups {
 		attributes := map[string]string{
 			"group": group.ConsumerGroup,
@@ -338,4 +390,18 @@ func (i *MetricsCollectorInstance) produceMeasurement(ctx context.Context, measu
 		Compaction: &produce.CompactionOptions{Enable: true},
 	})
 	return err
+}
+
+// ***************
+// *** HELPERS ***
+// ***************
+
+func filterWorkersByTopic(workers []metrics.WorkerSnapshot, topicId int64) []metrics.WorkerSnapshot {
+	topicWorkers := make([]metrics.WorkerSnapshot, 0)
+	for _, snapshot := range workers {
+		if snapshot.Owner.TopicId == topicId {
+			topicWorkers = append(topicWorkers, snapshot)
+		}
+	}
+	return topicWorkers
 }

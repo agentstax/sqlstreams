@@ -106,7 +106,7 @@ func (i *PartitionCountInstance) evaluateTopics(ctx context.Context, jobPayload 
 			continue
 		}
 
-		result, err := i.provisioner.controller.Evaluate(ctx, owner, jobPayload.Threshold)
+		result, err := i.provisioner.controller.Evaluate(ctx, owner, jobPayload)
 		if err != nil {
 			failed++
 			errs = errors.Join(errs, err)
@@ -120,6 +120,10 @@ func (i *PartitionCountInstance) evaluateTopics(ctx context.Context, jobPayload 
 			continue
 		}
 		switch outcome {
+		case alert.RecordOutcomeNothing:
+			if result.State == alert.AlertEvaluationStateInsufficientEvidence {
+				failed++
+			}
 		case alert.RecordOutcomeActive:
 			published++
 		case alert.RecordOutcomeResolved:

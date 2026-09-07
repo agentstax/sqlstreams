@@ -121,7 +121,7 @@ rolled-back prototype are not implementation requirements.
   pending off by explicit choice, freshness/gap/window validation, and no
   pending timer or cursor. Use StoredMessage.CreatedAt for evidence timing
   and database time for evaluation; accept delayed writes as fresh evidence.
-  Partition count uses the consumed Pending policy; all evaluators accept the
+  Partition count uses the consumed timing policy; all evaluators accept the
   same payload. Other conditions retain live reads until chunk 5. Insufficient
   evidence increments failed-topic counts; registration warnings remain immediate
   with fresh evidence. Targeted race tests cover duration, gaps, ties, stale and
@@ -144,12 +144,12 @@ rolled-back prototype are not implementation requirements.
   carry the matching worker identities. No compatibility machinery or size limits.
 - [x] Move the duration calculation into the shared alert domain;
   all three conditions interpret their evidence for that same calculation.
-  Keep Evaluate -> Record and expose Pending consistently on their configs.
+  Keep Evaluate -> Record and expose PendingDuration, MaximumGap, and DisablePending consistently on their configs.
 - [x] Apply collected-history evaluation to compaction read cost and worker
   liveness after the required evidence is collected by metrics. Collector
   progress monitoring must remain independent of the collector it monitors.
-  All three now read retained measurements, share EvaluateHistory, and carry
-  Pending in their consumed policy. Old compaction live-read SQL is removed.
+  All three now read retained measurements, share evaluation.EvaluateHistory, and carry
+  the same timing fields in their consumed policy. Old compaction live-read SQL is removed.
   Targeted race tests cover shared timing, each condition, metadata, collector
   topic/group ownership, healthy zero samples, and all three schedule configs.
   OTel's existing integration test now asserts metadata is not exported; it

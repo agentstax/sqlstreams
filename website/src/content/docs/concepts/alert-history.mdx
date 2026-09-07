@@ -11,15 +11,15 @@ applies duration, freshness, and gap rules. Every worker keeps
 ## One policy for all three checks
 
 `PartitionCountAlertConfig`, `CompactionReadCostAlertConfig`, and
-`WorkerLivenessAlertConfig` expose `Pending *AlertPendingConfig`:
+`WorkerLivenessAlertConfig` expose the same direct fields:
 
 | Field | Default | Meaning |
 | --- | --- | --- |
-| `Duration` | `2m` | Required consecutive unhealthy sample span |
+| `PendingDuration` | `2m` | Required consecutive unhealthy sample span |
 | `MaximumGap` | `2m` | Largest sample gap and newest-sample age |
-| `Disabled` | `false` | Permit immediate activation from fresh unhealthy evidence |
+| `DisablePending` | `false` | Permit immediate activation from fresh unhealthy evidence |
 
-Nil or sparse config resolves defaults. Durations must be positive after
+Zero-valued timing fields resolve defaults. Durations must be positive after
 defaulting, even when disabled. Zero duration means default, not immediate.
 The existing hourly schedules and four-hour repeat default are unchanged.
 The collector's default interval is 30 seconds.
@@ -83,7 +83,7 @@ shared calculation:
     walk backward through consecutive unhealthy samples
     stop at healthy/unusable evidence or a gap larger than MaximumGap
     span = newest.CreatedAt - earliest.CreatedAt
-    return active if span >= Duration else pending
+    return active if span >= PendingDuration else pending
 ```
 
 An exact threshold crossing is unhealthy. An exact maximum gap is allowed.
@@ -152,7 +152,7 @@ Propose `AlertHandle.Snapshot(ctx)` alongside existing `Latest` and `History`.
 It would use the same calculation, with no measurement or alert writes,
 returning `AlertEvaluationSnapshot`: `Status`, `EvaluatedAt`, `ObservedAt`,
 `UnhealthySince`, `ObservedDuration`, resolved `PendingDuration`, `MaximumGap`,
-`PendingDisabled`, and an insufficient-evidence reason. Absent times are zero.
+`DisablePending`, and an insufficient-evidence reason. Absent times are zero.
 
 Observed duration is an established sample span, not elapsed time since a
 remembered start. For active alerts it is a lower bound within the window.

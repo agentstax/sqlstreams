@@ -27,6 +27,10 @@ roadmap later item for review code for interesting design decisions to write art
   - conventions easy and work well with workflows but easily accumlate drift overtime (if large enough project)
 - Hitting a flow state with two sessions. The new heads down coding joy. Thought I lost the joyouse moment but it still does feel good.
 - If you are not cursing out your llms I am concerned about your coding capabilities
+- the evolution and stages of testing
+  - should you start out with unit tests and increase token costs or wait till code is closer to finalization
+  - what are valuable tests in the agent era
+  - is testing validation logic valuable, setting up integration test that you don't understand?
 
 # Review
 

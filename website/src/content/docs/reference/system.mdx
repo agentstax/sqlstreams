@@ -39,9 +39,9 @@ if err != nil {
 
 | field | default | what it decides |
 | --- | --- | --- |
-| `PartitionCountAlert` | its own defaults | the `partition_count` check: `ScheduleExpression` (`@hourly`), `Threshold` (`0`, half the lock ceiling Postgres reports), and `Pending` (two-minute duration and maximum gap) |
-| `CompactionReadCostAlert` | its own defaults | the `compaction_read_cost` check; `Pending` defaults to two-minute duration and maximum gap |
-| `WorkerLivenessAlert` | its own defaults | the `worker_liveness` check; `Pending` defaults to two-minute duration and maximum gap |
+| `PartitionCountAlert` | its own defaults | the `partition_count` check: `ScheduleExpression` (`@hourly`), `Threshold` (`0`, half the lock ceiling Postgres reports), `PendingDuration` and `MaximumGap` (two minutes each), and `DisablePending` (`false`) |
+| `CompactionReadCostAlert` | its own defaults | the `compaction_read_cost` check; `PendingDuration` and `MaximumGap` default to two minutes; `DisablePending` defaults to `false` |
+| `WorkerLivenessAlert` | its own defaults | the `worker_liveness` check; `PendingDuration` and `MaximumGap` default to two minutes; `DisablePending` defaults to `false` |
 | `MetricsCollector` | `PollRate: 30s` | how often the collector's measurement pass runs; zero is the default, negative is rejected |
 
 A running collector keeps its rate until its next claim; restart the

@@ -3,15 +3,15 @@ package controller
 import (
 	"errors"
 
-	"github.com/agentstax/vulkan/pkg/alert/compactionreadcost/controller/datastore"
 	"github.com/agentstax/vulkan/pkg/common/logging"
 	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
+	metricscontroller "github.com/agentstax/vulkan/pkg/metrics/controller"
 )
 
 type CompactionReadCostController struct {
 	Logger logging.Logger
 
-	datastore *datastore.CompactionReadCostDatastore
+	metrics *metricscontroller.MetricsController
 }
 
 func NewCompactionReadCostController(ds *iDatastore.PostgresDatastore, logger logging.Logger) (*CompactionReadCostController, error) {
@@ -22,13 +22,13 @@ func NewCompactionReadCostController(ds *iDatastore.PostgresDatastore, logger lo
 		return nil, errors.New("logger must not be nil")
 	}
 
-	compactionReadCostDatastore, err := datastore.NewCompactionReadCostDatastore(ds, logger)
+	metrics, err := metricscontroller.NewMetricsController(ds, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	return &CompactionReadCostController{
-		Logger:    logger,
-		datastore: compactionReadCostDatastore,
+		Logger:  logger,
+		metrics: metrics,
 	}, nil
 }

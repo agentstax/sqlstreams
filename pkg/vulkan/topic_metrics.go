@@ -40,6 +40,11 @@ func (t *TopicMetricsHandle) Partitions() *MetricHandle {
 	return t.metric(metrics.MetricTopicPartitions)
 }
 
+// UnclaimedWorkers selects the unclaimed workers owned by the topic and its groups.
+func (t *TopicMetricsHandle) UnclaimedWorkers() *MetricHandle {
+	return t.metric(metrics.MetricTopicUnclaimedWorkers)
+}
+
 func (t *TopicMetricsHandle) metric(declared *diagnostic.DiagnosticMetric) *MetricHandle {
 	attributes := map[string]string{"topic": t.topicName}
 	return newMetricHandle(t.client, declared, declared.Name, attributes)

@@ -12,6 +12,10 @@ import (
 // counts as overdue.
 const overdueThreshold = 10 * time.Minute
 
+func toMeasurementHistory(current time.Time, messages []*common.StoredMessage[metrics.Measurement]) *metrics.MeasurementHistory {
+	return &metrics.MeasurementHistory{EvaluatedAt: current, Messages: messages}
+}
+
 func toOwner(systemId int64, topicId int64, consumerGroupId int64, topicName string, groupName string) (*common.Owner, error) {
 	switch {
 	case consumerGroupId > 0:

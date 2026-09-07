@@ -2,6 +2,16 @@ package metrics
 
 import "github.com/agentstax/vulkan/pkg/common/diagnostic"
 
+var MetricTopicUnclaimedWorkers = diagnostic.NewDiagnosticMetric(
+	"VK0099",
+	"vulkan.topic.workers.unclaimed",
+	string(MetricKindGauge),
+	string(MetricUnitCount("worker")),
+	"unclaimed workers owned by the topic or its consumer groups",
+	diagnostic.MetricScopeTopic,
+	"topic",
+)
+
 var MetricTopicPartitions = diagnostic.NewDiagnosticMetric(
 	"VK0098",
 	"vulkan.topic.state.partitions",

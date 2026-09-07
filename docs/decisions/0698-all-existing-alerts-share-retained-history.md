@@ -1,10 +1,13 @@
 ---
-status: accepted
+status: superseded
 date: 2026-09-07
 phase: "pre-v1"
 ---
 
 # All existing alerts share retained history
+
+Superseded by [0699](0699-alert-timing-fields-are-inline.md) for configuration
+shape; collector ownership and shared history behavior remain in effect.
 
 ## Context
 

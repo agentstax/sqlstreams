@@ -76,6 +76,7 @@ systemMetrics.CheckResolvedAlerts("partition_count")
 // topic level
 topicMetrics.Compacted()
 topicMetrics.Partitions()
+topicMetrics.UnclaimedWorkers()
 
 // consumer-group levels
 groupMetrics.CursorHead()
@@ -138,6 +139,11 @@ series. Names starting with `vulkan.` are reserved and rejected. A user
 series appears in `Latest` and never in `Definitions`.
 
 ## Gotchas
+
+- `Measurement.Metadata` is optional JSON attached to the observation. Latest,
+  History, metrics consumers, and CLI JSON expose it. It does not change the
+  series key or become OTel labels. Built-in partition measurements carry
+  compaction status; topic unclaimed-worker measurements carry the named workers.
 
 - `Latest` means newest retained, not fresh. The collector writes backlog
   `27` at 10:03, work finishes, and at 10:07 `Snapshot` says `19` while

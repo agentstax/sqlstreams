@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -85,6 +86,8 @@ type Measurement struct {
 	Unit       MetricUnit        `json:"unit"`
 	Attributes map[string]string `json:"attributes"` // the series' identity beside Name; nil for none
 	At         time.Time         `json:"at"`         // when the value was observed
+	// Metadata holds observation details; it is not part of series identity or exported labels.
+	Metadata json.RawMessage `json:"metadata,omitempty"`
 }
 
 func (Measurement) SchemaVersion() int { return 1 }
@@ -118,7 +121,7 @@ func NewMeasurement(name string, kind MetricKind, value float64, unit MetricUnit
 
 // NewBuiltInMeasurement constructs a measurement from its Vulkan declaration.
 // The observed value, attributes, and time are the only facts a producer
-// supplies; identity and metadata stay owned by the declaration.
+// supplies; name, kind, and unit stay owned by the declaration.
 func NewBuiltInMeasurement(declared *diagnostic.DiagnosticMetric, value float64, attributes map[string]string, at time.Time) (*Measurement, error) {
 	if declared == nil {
 		return nil, errors.New("declared metric must not be nil")

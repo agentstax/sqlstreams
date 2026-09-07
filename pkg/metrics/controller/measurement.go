@@ -24,20 +24,14 @@ func (c *MetricsController) GetMeasurement(ctx context.Context, messageKey strin
 	return c.heads.GetHead[metrics.Measurement](ctx, found.Id, messageKey)
 }
 
-// ListMeasurementMessagesByCreatedAt returns all retained series messages in the
-// inclusive window, newest first. Returns migrate.ErrNotRegistered before setup.
-func (c *MetricsController) ListMeasurementMessagesByCreatedAt(ctx context.Context, messageKey string, start time.Time, end time.Time) ([]*common.StoredMessage[metrics.Measurement], error) {
+// GetMeasurementHistory reads an inclusive window ending at database time.
+// Retention must exceed the window; returns migrate.ErrNotRegistered before setup.
+func (c *MetricsController) GetMeasurementHistory(ctx context.Context, messageKey string, window time.Duration) (*metrics.MeasurementHistory, error) {
 	if messageKey == "" {
 		return nil, errors.New("messageKey must not be empty")
 	}
-	if start.IsZero() {
-		return nil, errors.New("start must not be zero")
-	}
-	if end.IsZero() {
-		return nil, errors.New("end must not be zero")
-	}
-	if end.Before(start) {
-		return nil, fmt.Errorf("end must be >= start %v, got %v", start, end)
+	if window <= 0 {
+		return nil, fmt.Errorf("window must be > 0, got %v", window)
 	}
 
 	found, err := c.topics.Get(ctx, metrics.MetricsTopicName)
@@ -47,5 +41,17 @@ func (c *MetricsController) ListMeasurementMessagesByCreatedAt(ctx context.Conte
 	if found == nil {
 		return nil, migrate.ErrNotRegistered.With("topic", metrics.MetricsTopicName)
 	}
-	return c.heads.ListKeyMessagesByCreatedAt[metrics.Measurement](ctx, found.Id, messageKey, start, end)
+	if found.RetentionTTL > 0 && found.RetentionTTL <= window {
+		return nil, fmt.Errorf("retention must be > window %v or disabled, got %v", window, found.RetentionTTL)
+	}
+
+	current, err := c.datastore.CurrentTime(ctx)
+	if err != nil {
+		return nil, err
+	}
+	messages, err := c.heads.ListKeyMessagesByCreatedAt[metrics.Measurement](ctx, found.Id, messageKey, current.Add(-window), current)
+	if err != nil {
+		return nil, err
+	}
+	return toMeasurementHistory(current, messages), nil
 }

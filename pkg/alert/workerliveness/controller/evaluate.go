@@ -2,41 +2,90 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
-	"fmt"
+	"math"
 	"time"
 
 	"github.com/agentstax/vulkan/pkg/alert"
+	"github.com/agentstax/vulkan/pkg/alert/evaluation"
 	"github.com/agentstax/vulkan/pkg/common"
 	"github.com/agentstax/vulkan/pkg/metrics"
 )
 
-// Evaluate returns healthy when every owned worker is claimed or suspended.
-// Threshold is unused; expired instance rows do not retain unclaimed duration.
-func (c *WorkerLivenessController) Evaluate(ctx context.Context, owner *common.Owner, threshold int64) (*alert.AlertEvaluationResult, error) {
+// Evaluate reads the retained topic-level unclaimed count and worker details.
+// Threshold is unused; any unclaimed worker makes the condition unhealthy.
+func (c *WorkerLivenessController) Evaluate(ctx context.Context, owner *common.Owner, policy *alert.JobPayload) (*alert.AlertEvaluationResult, error) {
 	if owner == nil {
 		return nil, errors.New("owner must not be nil")
 	}
-	if threshold < 0 {
-		return nil, fmt.Errorf("threshold must be >= 0, got %d", threshold)
+	if policy == nil {
+		return nil, errors.New("policy must not be nil")
+	}
+	if err := policy.WithDefaults().Validate(); err != nil {
+		return nil, err
 	}
 
-	snapshots, err := c.metrics.WorkerSnapshots(ctx)
+	key := metrics.MeasurementKey(metrics.MetricTopicUnclaimedWorkers.Name, map[string]string{"topic": owner.Name})
+	history, err := c.metrics.GetMeasurementHistory(ctx, key, policy.Window())
 	if err != nil {
 		return nil, err
 	}
 
-	// a group's rows carry the group as owner and resolve to its topic
-	var unclaimed []metrics.WorkerSnapshot
-	for _, snapshot := range snapshots {
-		if snapshot.Owner.TopicId == owner.TopicId && snapshot.Status == metrics.WorkerUnclaimed {
-			unclaimed = append(unclaimed, snapshot)
+	return c.evaluateHistory(owner, policy, history)
+}
+
+func (c *WorkerLivenessController) evaluateHistory(owner *common.Owner, policy *alert.JobPayload, history *metrics.MeasurementHistory) (*alert.AlertEvaluationResult, error) {
+	samples := make([]*common.StoredMessage[alert.AlertEvaluationResult], 0, len(history.Messages))
+	for _, stored := range history.Messages {
+		result, err := c.evaluateMeasurement(owner, stored.Message, stored.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		samples = append(samples, &common.StoredMessage[alert.AlertEvaluationResult]{Id: stored.Id, CreatedAt: stored.CreatedAt, Message: result})
+	}
+	return evaluation.EvaluateHistory(samples, history.EvaluatedAt, policy)
+}
+
+func (c *WorkerLivenessController) evaluateMeasurement(owner *common.Owner, measurement *metrics.Measurement, at time.Time) (*alert.AlertEvaluationResult, error) {
+	// Check measurement identity and value.
+	if measurement.Name != metrics.MetricTopicUnclaimedWorkers.Name ||
+		measurement.Kind != metrics.MetricKindGauge ||
+		measurement.Unit != metrics.MetricUnit(metrics.MetricTopicUnclaimedWorkers.Unit) {
+		return alert.NewAlertEvaluationResult(alert.AlertEvaluationStateInsufficientEvidence, nil)
+	}
+	value := measurement.Value
+	if math.IsNaN(value) || value < 0 || math.Trunc(value) != value {
+		return alert.NewAlertEvaluationResult(alert.AlertEvaluationStateInsufficientEvidence, nil)
+	}
+
+	// Check that worker details account for the observed count.
+	if len(measurement.Metadata) == 0 {
+		return alert.NewAlertEvaluationResult(alert.AlertEvaluationStateInsufficientEvidence, nil)
+	}
+	var metadata metrics.WorkerMeasurementMetadata
+	if err := json.Unmarshal(measurement.Metadata, &metadata); err != nil {
+		return nil, err
+	}
+	if metadata.Workers == nil || float64(len(metadata.Workers)) != value {
+		return alert.NewAlertEvaluationResult(alert.AlertEvaluationStateInsufficientEvidence, nil)
+	}
+	for _, worker := range metadata.Workers {
+		if worker == nil || worker.Name == "" || worker.Owner == nil {
+			return alert.NewAlertEvaluationResult(alert.AlertEvaluationStateInsufficientEvidence, nil)
+		}
+		if worker.Owner.TopicId != owner.TopicId || worker.TargetInstances == 0 {
+			return alert.NewAlertEvaluationResult(alert.AlertEvaluationStateInsufficientEvidence, nil)
 		}
 	}
-	if len(unclaimed) == 0 {
+
+	// No unclaimed workers means the topic is healthy.
+	if value == 0 {
 		return alert.NewAlertEvaluationResult(alert.AlertEvaluationStateHealthy, nil)
 	}
-	finding, err := newWorkerLivenessAlert(owner, unclaimed, time.Now())
+
+	// Construct the active finding.
+	finding, err := newWorkerLivenessAlert(owner, metadata.Workers, at)
 	if err != nil {
 		return nil, err
 	}

@@ -19,7 +19,7 @@ func NewJob(cfg *alert.WorkerLivenessAlertConfig) (*alertcontroller.Job, error) 
 	}
 
 	// the payload's threshold is the shared job shape; Evaluate ignores it
-	data, err := alert.NewJobPayload(0)
+	data, err := alert.NewJobPayload(0, cfg.PendingDuration, cfg.MaximumGap, cfg.DisablePending)
 	if err != nil {
 		return nil, err
 	}

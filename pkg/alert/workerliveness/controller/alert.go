@@ -13,7 +13,7 @@ import (
 
 // The crossing decision is the caller's -- an alert built from no unclaimed
 // rows is a bug.
-func newWorkerLivenessAlert(owner *common.Owner, unclaimed []metrics.WorkerSnapshot, at time.Time) (*alert.Alert, error) {
+func newWorkerLivenessAlert(owner *common.Owner, unclaimed []*metrics.UnclaimedWorkerMetadata, at time.Time) (*alert.Alert, error) {
 	if len(unclaimed) == 0 {
 		return nil, errors.New("unclaimed must not be empty")
 	}
@@ -44,7 +44,7 @@ func newWorkerLivenessAlert(owner *common.Owner, unclaimed []metrics.WorkerSnaps
 
 // unclaimedByOwner renders the rows as "<owner> (<worker>, <worker>)" so one
 // dark consumer group reads as one entry, not four.
-func unclaimedByOwner(unclaimed []metrics.WorkerSnapshot) string {
+func unclaimedByOwner(unclaimed []*metrics.UnclaimedWorkerMetadata) string {
 	owners := make([]string, 0, len(unclaimed))
 	workers := map[string][]string{}
 	for _, snapshot := range unclaimed {

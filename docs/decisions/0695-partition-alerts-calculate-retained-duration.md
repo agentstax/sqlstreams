@@ -1,10 +1,13 @@
 ---
-status: accepted
+status: superseded
 date: 2026-09-07
 phase: "pre-v1"
 ---
 
 # Partition alerts calculate retained duration
+
+Superseded by [0699](0699-alert-timing-fields-are-inline.md) for configuration
+shape; the retained-history behavior below remains in effect.
 
 ## Context
 

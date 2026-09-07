@@ -2,6 +2,7 @@ package otelvulkan
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http/httptest"
@@ -90,6 +91,7 @@ func TestPoolIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	measurement.Metadata = json.RawMessage(`{"workers":["metadata_probe_worker"]}`)
 	if _, err := instance.Produce(ctx, measurement); err != nil {
 		t.Fatal(err)
 	}
@@ -151,7 +153,7 @@ func TestPoolIntegration(t *testing.T) {
 		for _, metric := range scope.Metrics {
 			if metric.Name == "otel_pool_probe" {
 				gauge, ok := metric.Data.(metricdata.Gauge[float64])
-				found = ok && len(gauge.DataPoints) == 1 && gauge.DataPoints[0].Value == 7
+				found = ok && len(gauge.DataPoints) == 1 && gauge.DataPoints[0].Value == 7 && gauge.DataPoints[0].Attributes.Len() == 0
 			}
 		}
 	}
@@ -167,6 +169,9 @@ func TestPoolIntegration(t *testing.T) {
 	exporter.Handler().ServeHTTP(response, httptest.NewRequest("GET", "/metrics", nil).WithContext(ctx))
 	if response.Code != 200 || !strings.Contains(response.Body.String(), "otel_pool_probe 7") {
 		t.Fatalf("scrape: status %d, body %s", response.Code, response.Body.String())
+	}
+	if strings.Contains(response.Body.String(), "metadata_probe_worker") {
+		t.Fatal("measurement metadata must not become scrape labels")
 	}
 	if err := exporter.Close(ctx); err != nil {
 		t.Fatal(err)

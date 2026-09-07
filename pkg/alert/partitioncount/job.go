@@ -18,7 +18,7 @@ func NewJob(cfg *alert.PartitionCountAlertConfig) (*alertcontroller.Job, error) 
 		return nil, err
 	}
 
-	data, err := alert.NewJobPayload(cfg.Threshold)
+	data, err := alert.NewJobPayload(cfg.Threshold, cfg.PendingDuration, cfg.MaximumGap, cfg.DisablePending)
 	if err != nil {
 		return nil, err
 	}

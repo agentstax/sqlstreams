@@ -2,6 +2,7 @@ package producer
 
 import (
 	"context"
+	"errors"
 
 	"github.com/agentstax/vulkan/pkg/alert"
 	"github.com/agentstax/vulkan/pkg/common"
@@ -21,9 +22,18 @@ func (p *Producer) logAlerts(ctx context.Context, current *topic.Topic, logger l
 	}
 
 	for _, evaluator := range evaluators {
-		result, err := evaluator.Evaluate(ctx, owner, 0)
+		policy, err := alert.NewJobPayload(0, 0, 0, true)
 		if err != nil {
 			logger.WarnContext(ctx, "could not run register-time alert pass", "topic", current.Name, "error", err)
+			continue
+		}
+		result, err := evaluator.Evaluate(ctx, owner, policy)
+		if err != nil {
+			logger.WarnContext(ctx, "could not run register-time alert pass", "topic", current.Name, "error", err)
+			continue
+		}
+		if result.State == alert.AlertEvaluationStateInsufficientEvidence {
+			logger.WarnContext(ctx, "could not run register-time alert pass", "topic", current.Name, "error", errors.New("alert evidence is insufficient"))
 			continue
 		}
 		if result.State != alert.AlertEvaluationStateActive && result.State != alert.AlertEvaluationStatePending {
