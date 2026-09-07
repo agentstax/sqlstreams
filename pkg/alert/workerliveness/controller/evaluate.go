@@ -11,11 +11,9 @@ import (
 	"github.com/agentstax/vulkan/pkg/metrics"
 )
 
-// Evaluate returns the owner topic's alert, nil when every worker row it owns
-// is claimed or suspended. threshold is unused: the manager deletes expired
-// instance rows on every tick, so how long a row has been unclaimed is not
-// readable once one runs.
-func (c *WorkerLivenessController) Evaluate(ctx context.Context, owner *common.Owner, threshold int64) (*alert.Alert, error) {
+// Evaluate returns healthy when every owned worker is claimed or suspended.
+// Threshold is unused; expired instance rows do not retain unclaimed duration.
+func (c *WorkerLivenessController) Evaluate(ctx context.Context, owner *common.Owner, threshold int64) (*alert.AlertEvaluationResult, error) {
 	if owner == nil {
 		return nil, errors.New("owner must not be nil")
 	}
@@ -36,7 +34,11 @@ func (c *WorkerLivenessController) Evaluate(ctx context.Context, owner *common.O
 		}
 	}
 	if len(unclaimed) == 0 {
-		return nil, nil
+		return alert.NewAlertEvaluationResult(alert.AlertEvaluationStateHealthy, nil)
 	}
-	return newWorkerLivenessAlert(owner, unclaimed, time.Now())
+	finding, err := newWorkerLivenessAlert(owner, unclaimed, time.Now())
+	if err != nil {
+		return nil, err
+	}
+	return alert.NewAlertEvaluationResult(alert.AlertEvaluationStateActive, finding)
 }

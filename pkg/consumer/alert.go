@@ -21,14 +21,15 @@ func (c *Consumer) logAlerts(ctx context.Context, current *topic.Topic, logger l
 	}
 
 	for _, evaluator := range evaluators {
-		found, err := evaluator.Evaluate(ctx, owner, 0)
+		result, err := evaluator.Evaluate(ctx, owner, 0)
 		if err != nil {
 			logger.WarnContext(ctx, "could not run register-time alert pass", "topic", current.Name, "error", err)
 			continue
 		}
-		if found == nil {
+		if result.State != alert.AlertEvaluationStateActive && result.State != alert.AlertEvaluationStatePending {
 			continue
 		}
+		found := result.Finding
 		logger.WarnContext(ctx, alert.EventAlertConditionHolds.Message(),
 			"code", alert.EventAlertConditionHolds.GetCode(),
 			"alert", found.Name, "alert_message", found.Message,

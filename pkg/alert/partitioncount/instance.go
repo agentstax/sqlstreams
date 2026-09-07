@@ -106,14 +106,14 @@ func (i *PartitionCountInstance) evaluateTopics(ctx context.Context, jobPayload 
 			continue
 		}
 
-		found, err := i.provisioner.controller.Evaluate(ctx, owner, jobPayload.Threshold)
+		result, err := i.provisioner.controller.Evaluate(ctx, owner, jobPayload.Threshold)
 		if err != nil {
 			failed++
 			errs = errors.Join(errs, err)
 			continue
 		}
 
-		outcome, err := i.alerts.Record(ctx, alert.AlertPartitionCount.Name, owner, found)
+		outcome, err := i.alerts.Record(ctx, alert.AlertPartitionCount.Name, owner, result)
 		if err != nil {
 			failed++
 			errs = errors.Join(errs, err)

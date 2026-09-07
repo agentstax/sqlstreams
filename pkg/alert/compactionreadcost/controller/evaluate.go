@@ -14,9 +14,9 @@ import (
 // partition, crosses ~100ms.
 const warnPartitions = 10_000
 
-// Evaluate measures the owner's topic and returns its alert, nil when none
-// applies. threshold 0 uses the default warnPartitions.
-func (c *CompactionReadCostController) Evaluate(ctx context.Context, owner *common.Owner, threshold int64) (*alert.Alert, error) {
+// Evaluate returns healthy when compaction is absent or below the threshold.
+// Threshold 0 uses the default warnPartitions.
+func (c *CompactionReadCostController) Evaluate(ctx context.Context, owner *common.Owner, threshold int64) (*alert.AlertEvaluationResult, error) {
 	if owner == nil {
 		return nil, errors.New("owner must not be nil")
 	}
@@ -34,7 +34,7 @@ func (c *CompactionReadCostController) Evaluate(ctx context.Context, owner *comm
 
 	// only compacted topics carry a read cost
 	if !compacted {
-		return nil, nil
+		return alert.NewAlertEvaluationResult(alert.AlertEvaluationStateHealthy, nil)
 	}
 
 	count, err := c.datastore.PartitionCount(ctx, owner.TopicId)
@@ -42,7 +42,11 @@ func (c *CompactionReadCostController) Evaluate(ctx context.Context, owner *comm
 		return nil, err
 	}
 	if count < threshold {
-		return nil, nil
+		return alert.NewAlertEvaluationResult(alert.AlertEvaluationStateHealthy, nil)
 	}
-	return newCompactionReadCostAlert(owner, count, threshold, time.Now())
+	finding, err := newCompactionReadCostAlert(owner, count, threshold, time.Now())
+	if err != nil {
+		return nil, err
+	}
+	return alert.NewAlertEvaluationResult(alert.AlertEvaluationStateActive, finding)
 }

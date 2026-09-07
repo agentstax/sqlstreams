@@ -447,3 +447,4 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0692 2026-09-06 superseded (pre-v1) — Alert evaluations carry findings and evidence
 - 0693 2026-09-06 accepted (pre-v1) — Metrics collection owns alert evidence
 - 0693 2026-09-06 accepted (pre-v1) — The checker drains on the consumer group cursor, and every scenario declares the safety checks
+- 0694 2026-09-07 accepted (pre-v1) — Alert evaluations return explicit states

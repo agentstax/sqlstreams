@@ -41,9 +41,10 @@ any unclaimed worker on the topic. Collector `MaximumAge` defaults to
 max(2m, 3 live collector poll intervals), with a positive explicit override.
 The existing four-hour repeat default and its retention bound stay.
 
-Resolve current policy from the existing registered schedule, once per
-calculation. Queued schedule messages request a check; an old payload must
-not reinstate old thresholds. Startup warnings keep their existing defaults.
+Scheduled checks use the consumed message's payload. Changing the registered
+schedule affects subsequently produced messages; queued checks retain their
+original settings. Startup warnings keep their existing defaults. Pending
+policy remains Proposed.
 [Prometheus separates conditions from pending duration](https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/);
 Vulkan would derive duration from retained observations rather than a timer.
 
@@ -123,25 +124,46 @@ Restarting only the evaluator preserves a qualifying span in retained history.
 
 ## Proposed: extend Record and expose the same calculation
 
-All three scheduled checks use `Evaluate -> Record`. Evaluate returns a finding;
-Record owns alert transitions, never measurement production. Registration
-warnings call Evaluate only. History-based evaluation remains Proposed:
+All three scheduled checks use `Evaluate -> Record`. Evaluate returns
+`AlertEvaluationResult`: `State` (`healthy`, `pending`, `active`, or
+`insufficient_evidence`) and `Finding`, present only for pending and active
+conditions. These are evaluation states, not new statuses produced to the
+alerts topic. Record leaves pending and insufficient results unchanged;
+only healthy results can resolve an active alert. Every existing check uses
+this result [0694](/decisions/0694/).
+
+Current evaluations return healthy or active, with missing partition evidence
+still reported as an error. History-derived pending and freshness remain
+Proposed. Registration warnings read the same result and log pending or active
+findings without producing alerts.
+
+A missing finding alone cannot distinguish health from insufficient evidence.
+[Kubernetes node conditions](https://kubernetes.io/docs/reference/node/node-status/#conditions)
+likewise distinguish an unknown condition from a false condition. The proposed
+history calculation supplies these states without persisting evaluation state:
 
 ```text
 metrics collector independently reads snapshots and stores measurements
-finding = condition.Evaluate(topic 41, threshold) using retained measurements
-    derive pending duration from history
-    pending or insufficient_evidence -> no alert transition
-    healthy or active -> continue to Record
-AlertController.Record(partition_count, topic 41, finding)
+result = condition.Evaluate(topic 41, consumed policy)
+AlertController.Record(partition_count, topic 41, result)
 
 inside Record:
+    pending or insufficient_evidence -> leave the recorded alert unchanged
     begin transaction
         LockHead(alert name + owner)
-        classify the finding against the retained alert head
+        healthy -> classify recovery against the retained alert head
+        active -> classify the finding against the retained alert head
         ProduceInTx only when classification requires an alert
     commit
 ```
+
+For `orders` topic 41 with an active alert, a one-minute unhealthy span under
+a two-minute policy returns pending: Record writes nothing. A fresh count
+below the threshold returns healthy: Record may produce the resolution.
+Missing or stale evidence stays visible through check-failure reporting; it
+cannot silently resolve the alert. Registration warnings use the same condition
+with pending disabled and remain log-only. The other checks retain their live
+condition reads until metrics collects the evidence needed for their history.
 
 Metrics collection is independent of alert-write success. Pending cannot enter
 today's no-alert-means-healthy branch. Reminders require sufficient active

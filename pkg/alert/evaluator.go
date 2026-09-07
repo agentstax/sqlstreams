@@ -6,9 +6,8 @@ import (
 	"github.com/agentstax/vulkan/pkg/common"
 )
 
-// Evaluator is one alert's condition, measured per owner topic.
-//   - nil alert -> the condition doesn't hold
-//   - threshold 0 -> the alert derives its live default
+// Evaluator returns an explicit condition result per owner topic.
+// Threshold 0 uses the alert's live default; read failures return errors.
 type Evaluator interface {
-	Evaluate(ctx context.Context, owner *common.Owner, threshold int64) (*Alert, error)
+	Evaluate(ctx context.Context, owner *common.Owner, threshold int64) (*AlertEvaluationResult, error)
 }

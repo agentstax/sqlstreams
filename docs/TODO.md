@@ -101,8 +101,15 @@ rolled-back prototype are not implementation requirements.
   superseded messages. Remove the unused rank-window path. Existing count-limited
   History behavior is unchanged. Database boundary/order checks remain deferred
   to the lab checkpoint; unit checks cover invalid bounds before I/O.
-- [ ] Resolve policy once per check from the current schedule, preserving raw
-  evidence for later threshold changes.
+- [x] Use the consumed schedule payload as the policy for that run. Schedule
+  changes affect subsequently produced messages, not queued checks. Preserve
+  raw evidence for evaluation under the supplied threshold. Pending fields
+  remain to be implemented.
+- [x] Apply AlertEvaluationResult consistently to every evaluator, scheduled
+  worker, and registration warning [0694]. Record accepts explicit healthy,
+  pending, active, or insufficient evidence; only healthy can resolve. Pending
+  and insufficient results never access the alert head. Targeted race tests,
+  vet, and conventions pass; history calculation remains unfinished.
 - [ ] Extend existing evaluation to derive consecutive duration from collected
   history. Keep Record/classify responsible for serialized alert transitions.
   Healthy evidence may resolve; pending/insufficient evidence must not.

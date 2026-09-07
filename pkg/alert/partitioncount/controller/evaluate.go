@@ -17,7 +17,7 @@ const warnDivisor = 2
 
 // Evaluate reads the collector's retained partition count. Missing evidence
 // returns an error; threshold 0 uses half the live lock ceiling.
-func (c *PartitionCountController) Evaluate(ctx context.Context, owner *common.Owner, threshold int64) (*alert.Alert, error) {
+func (c *PartitionCountController) Evaluate(ctx context.Context, owner *common.Owner, threshold int64) (*alert.AlertEvaluationResult, error) {
 	if owner == nil {
 		return nil, errors.New("owner must not be nil")
 	}
@@ -47,7 +47,11 @@ func (c *PartitionCountController) Evaluate(ctx context.Context, owner *common.O
 	}
 	count := int64(value)
 	if count < threshold {
-		return nil, nil
+		return alert.NewAlertEvaluationResult(alert.AlertEvaluationStateHealthy, nil)
 	}
-	return newPartitionCountAlert(owner, count, ceiling, threshold, stored.CreatedAt)
+	finding, err := newPartitionCountAlert(owner, count, ceiling, threshold, stored.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return alert.NewAlertEvaluationResult(alert.AlertEvaluationStateActive, finding)
 }

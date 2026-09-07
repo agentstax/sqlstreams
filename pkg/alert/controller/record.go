@@ -12,10 +12,19 @@ import (
 )
 
 // Record serializes classification and production on the owner's alert head.
-// A nil finding resolves an active head; transition logs follow commit.
-func (c *AlertController) Record(ctx context.Context, name string, owner *common.Owner, found *alert.Alert) (alert.RecordOutcome, error) {
+// Only healthy results resolve an active head; transition logs follow commit.
+func (c *AlertController) Record(ctx context.Context, name string, owner *common.Owner, result *alert.AlertEvaluationResult) (alert.RecordOutcome, error) {
 	if owner == nil {
 		return "", errors.New("owner must not be nil")
+	}
+	if result == nil {
+		return "", errors.New("result must not be nil")
+	}
+	if err := result.Validate(); err != nil {
+		return "", err
+	}
+	if result.State == alert.AlertEvaluationStatePending || result.State == alert.AlertEvaluationStateInsufficientEvidence {
+		return alert.RecordOutcomeNothing, nil
 	}
 
 	messageKey, err := alert.MessageKey(name, owner)
@@ -32,7 +41,7 @@ func (c *AlertController) Record(ctx context.Context, name string, owner *common
 			return err
 		}
 
-		published, err = classify(found, head, c.repeat, time.Now())
+		published, err = classify(result.Finding, head, c.repeat, time.Now())
 		if err != nil || published == nil {
 			return err
 		}
