@@ -12,6 +12,7 @@ export type SnapshotRow = {
 	claimed: number;
 	settled_head: number;
 	pending_head: number;
+	reclaimable: boolean;
 };
 
 export type CursorRow = { low: number; high: number };

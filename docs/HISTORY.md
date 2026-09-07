@@ -5,6 +5,27 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-06 — Claim poll round trips cut; the gate reads as one rule [0685]
+
+The cursor claim was measured before it was touched (`bench/claim`): its
+SQL runs in ~150µs server-side, the CTE gate in 29µs, and the rest of a
+claim is round trips, one WAL fsync, and payload transfer. So the change
+is fewer round trips, not different SQL. `readClaimSnapshot` now runs
+first as one autocommit statement carrying an `EXISTS (expired lease)`
+flag; the reclaim transaction opens only when that flag is true, the
+caught-up short-circuit runs outside any transaction, and the fresh
+claim's transaction begins straight into the cursor statement. Idle poll
+6 -> 1 round trips, fresh claim 9 -> 6 [0685]. The gate CTE lists its
+three candidate (head, xmax) pairs as a VALUES table under one fence
+predicate. `protectedInsertSQL` states the precondition the fence rests
+on: the idempotency claim CTE assigns the produce's txid before nextval
+issues the message id. The doc-site sandbox mirrors regenerated from the
+Go literals. Collapsing the fresh claim to one pipelined batch is parked
+in ROADMAP with its prototype and numbers.
+
+Build, vet, gofmt, tools/conventions, reclaim-lab, exception-lab, and
+the website sandbox tests pass.
+
 ## 2026-09-06 — Rule files reorganized; pkg/concurrency under common [0680] [0681]
 
 CONVENTIONS.md was reorganized into five parts (where code lives, how it

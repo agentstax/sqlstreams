@@ -147,8 +147,9 @@ export class VulkanDatabase {
 
 	// ClaimMessagesWithCursor's fresh-claim path: the snapshot pair, the gate
 	// that proves it, the lease over the range it opens, and the rows inside it.
-	// The reclaim path the library tries first is skipped -- commit frees the
-	// lease in the same tick that took it, so none is ever left to expire.
+	// The reclaim transaction the library opens on an expired lease never runs
+	// here -- commit frees the lease in the same tick that took it, so
+	// reclaimable is always false.
 	async claim(groupName: string): Promise<ClaimedRange | null> {
 		const group = await this.getGroup(this.db, groupName);
 		if (group === null) {
@@ -157,23 +158,24 @@ export class VulkanDatabase {
 			);
 		}
 
+		// read outside the transaction, as the library does: the gate below
+		// proves this pair against a later snapshot, and a pure SELECT holds
+		// no txid of its own
+		const snapshot = await this.db.query<SnapshotRow>(claimSnapshotSql(demoTopicId), [group.id]);
+		const pair = snapshot.rows[0];
+		if (pair === undefined) throw noCursor(group.id);
+
+		// this snapshot saw the head already proven and fully claimed: the gate
+		// never runs, so the tick writes nothing at all
+		if (
+			pair.head === pair.pending_head &&
+			pair.pending_head === pair.settled_head &&
+			pair.claimed === pair.settled_head
+		) {
+			return null;
+		}
+
 		return this.db.transaction(async (tx) => {
-			// a pure SELECT, so this transaction still holds no txid when it reads
-			// xmax -- the whole gate below depends on that
-			const snapshot = await tx.query<SnapshotRow>(claimSnapshotSql(demoTopicId), [group.id]);
-			const pair = snapshot.rows[0];
-			if (pair === undefined) throw noCursor(group.id);
-
-			// this snapshot saw the head already proven and fully claimed: the gate
-			// never runs, so the tick writes nothing at all
-			if (
-				pair.head === pair.pending_head &&
-				pair.pending_head === pair.settled_head &&
-				pair.claimed === pair.settled_head
-			) {
-				return null;
-			}
-
 			const advanced = await tx.query<CursorRow>(claimCursorSql(demoTopicId), [
 				group.id,
 				batchLimit,

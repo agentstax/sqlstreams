@@ -416,6 +416,75 @@ prerequisite if quorum-as-a-fraction wins.
   24h default (restored 2026-09-05 to [0283]'s value from an unrecorded
   1h) costing measurable WAL or sweep time past the 10M-row bench floor.
 
+- **Fresh claim as one pipelined batch** (parked 2026-09-06) -- collapse
+  the fresh-claim transaction from five round trips (BEGIN, cursorSql,
+  lease INSERT, readMessages, COMMIT) to one. Measured 2026-09-06 on a
+  local docker Postgres (RTT ~65µs, 41 partitions, BatchLimit 100): the
+  claim's SQL executes in ~150µs server-side across all statements; the
+  rest of a 1120µs claim is round trips, one WAL fsync, and payload
+  transfer. A prototype of this shape measured 788µs per claim and
+  981 -> 1345 claims/s with 8 instances on one group. On a 1ms network
+  the same shape is ~6ms -> ~2ms. Pick up only when a networked
+  benchmark shows claim latency or the cursor-row lock as the limiter;
+  the idle poll is already one round trip.
+  - The shape: the caller mints the lease token (the key lease already
+    does this), the cursor UPDATE and the lease INSERT fuse into one
+    statement, and the read finds its bounds through that token. The
+    two statements go out as one `pool.SendBatch`, which is one implicit
+    transaction (pgx's documented contract; partition.go's SET LOCAL +
+    advisory xact lock batch already depends on it). The cursor-row lock
+    is then held for server execution only, not across client round
+    trips -- that is the fleet-wide claim ceiling for one group.
+
+    ```go
+    token := uuid.NewV7()
+    batch := &pgx.Batch{}
+    batch.Queue(claimSql, groupId, limit, snapshot.Head, snapshot.Xmax, leaseSeconds, token)
+    batch.Queue(readSql, token, groupId, schemaVersion)
+    results := pool.SendBatch(ctx, batch)      // one round trip, one implicit transaction
+    low, high, leased := results.QueryRow()    // claimSql; zero rows = no cursor row
+    messages := results.Query()                // readSql; empty when nothing was leased
+    results.Close()                            // implicit COMMIT
+    ```
+
+    `claimSql` is today's cursorSql plus one CTE; the caught-up case
+    inserts nothing, which replaces the Go `low >= high` guard:
+
+    ```sql
+    lease AS (
+        INSERT INTO claim_lease (consumer_group_id, token, low, high, expires_at)
+        SELECT $1, $6, u.low, u.high, now() + make_interval(secs => $5)
+        FROM updated u
+        WHERE u.low < u.high
+        RETURNING token
+    )
+    SELECT u.low, u.high, EXISTS (SELECT 1 FROM lease) AS leased FROM updated u;
+    ```
+
+    `readSql` is today's readMessages with its bounds read from the lease
+    row. Scalar subqueries, never a join -- a join plans the bound as a
+    filter over the whole index ([0391]):
+
+    ```sql
+    WHERE m.id > (SELECT low  FROM claim_lease WHERE consumer_group_id = $2 AND token = $1)
+      AND m.id <= (SELECT high FROM claim_lease WHERE consumer_group_id = $2 AND token = $1)
+    ```
+  - Extent: `freshClaimMessagesWithCursor` and `claimMessages` merge into
+    one method (~60 lines net); `ConsumerGroupCursorRow` gains `Leased`;
+    the reclaim path keeps the (low, high) read, so readMessages either
+    stays as a second literal or the reclaim also reads by token. No
+    schema change. The missing-cursor error still comes from zero rows on
+    the first result ([0387]).
+  - Lab shape to add: the caught-up branch inside the batch (no lease
+    row, empty read), and a peer's claim blocked on the cursor row still
+    reading the bounds its own lease carries.
+  - Rejected on the way: bounding MAX(id) by settled_head for partition
+    pruning (turns the InitPlan into a correlated SubPlan, measured
+    slower; the probe already stops at the first partition with a row),
+    and reading the sequence's last_value as head (the sequence read
+    happens after the statement's snapshot, so an id issued in between by
+    a transaction with xid >= xmax escapes the fence).
+
 - **Custom user metric definitions** — let applications declare the name,
   kind, unit, description, and attribute keys of their own metrics so
   `System().Metrics().Definitions()` can discover them before the first

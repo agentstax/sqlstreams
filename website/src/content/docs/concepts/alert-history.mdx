@@ -4,8 +4,8 @@ description: Collector progress, sampled pending duration, restart gaps, and ale
 ---
 
 Vulkan would own pending duration and produce actionable `active` and
-`resolved` alerts. These implementation choices are proposed for review;
-the history-based direction is agreed, but none of this behavior has shipped.
+`resolved` alerts. The implementation contract is
+[accepted](/decisions/0684/), but the alert behavior has not shipped.
 [OTel export](/concepts/metrics-export/) is independent of alert evaluation.
 
 ## Proposed: start with collector progress

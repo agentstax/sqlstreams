@@ -1,17 +1,22 @@
-// verbatim from pkg/consume/messageconsumer/controller/datastore/fresh_claim.go
-// freshClaimMessagesWithCursor -- the template is drift-checked byte-exact; the
+// verbatim from pkg/consume/messageconsumer/controller/datastore/claim.go
+// readClaimSnapshot -- the template is drift-checked byte-exact; the
 // function mirrors the fmt.Sprintf call
 import { interpolate } from './interpolate';
-import { consumerGroupCursorTable, messageLogTable } from './table-names';
+import { claimLeaseTable, consumerGroupCursorTable, messageLogTable } from './table-names';
 
 export const claimSnapshotSqlTemplate = `
-		-- vulkan: messageconsumer.freshClaimMessagesWithCursor
+		-- vulkan: messageconsumer.readClaimSnapshot
 		SELECT
 			(SELECT COALESCE(MAX(id), 0) FROM %[1]s.%[2]s) AS head,
 			pg_snapshot_xmax(pg_current_snapshot())::text AS xmax,
 			c.claimed,
 			c.settled_head,
-			c.pending_head
+			c.pending_head,
+			EXISTS (
+				SELECT 1 FROM %[1]s.%[4]s l
+				WHERE l.consumer_group_id = $1
+					AND l.expires_at < now()
+			) AS reclaimable
 		FROM %[1]s.%[3]s c
 		WHERE c.consumer_group_id = $1;
 	`;
@@ -21,5 +26,6 @@ export function claimSnapshotSql(topicId: number): string {
 		claimSnapshotSqlTemplate,
 		messageLogTable(topicId),
 		consumerGroupCursorTable(topicId),
+		claimLeaseTable(topicId),
 	);
 }

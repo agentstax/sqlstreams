@@ -25,10 +25,9 @@ roadmap later item for review code for interesting design decisions to write art
 - rules vs conventions and the tradeoffs of each
   - rules are enforced via code, scripts etc. Have maintainenance and overly aggressive rules can be annoying and brittle
   - conventions easy and work well with workflows but easily accumlate drift overtime (if large enough project)
+- Hitting a flow state with two sessions. The new heads down coding joy. Thought I lost the joyouse moment but it still does feel good.
 
 # Review
-
-should probably look to see if we could speed up claim query its gotten unruly with ctes and conditionals
 
 ## Manual
 

@@ -7,8 +7,8 @@ Vulkan would derive alerts from recorded measurement history and export
 retained values through an OTel producer. Core owns alert timing and restart
 behavior; integrations consume actionable `active` and `resolved` alerts
 without maintaining pending timers or suppressing startup alerts themselves.
-The direction is agreed and has not shipped. The concrete names below are
-proposed for review; core timing is specified in
+The [implementation contract](/decisions/0684/) is agreed and has not shipped.
+Core timing is specified in
 [history-based alerts](/concepts/alert-history/).
 
 ## What exists today
