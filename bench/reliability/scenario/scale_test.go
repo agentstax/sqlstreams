@@ -12,7 +12,7 @@ func TestScaledShortensEveryDurationAndOffset(t *testing.T) {
 		{Name: "warm", Rate: 200, Duration: 20 * time.Minute},
 		{Name: "hold", Rate: 200, Duration: 40 * time.Minute},
 	}
-	declared.Consumers = []ConsumerChange{{At: 0, Instances: 3}, {At: 30 * time.Minute, Instances: 0}}
+	declared.Consumers = []ConsumerChange{{At: 0, Instances: 3}, {At: 30 * time.Minute, Instances: 8}}
 
 	scaled := declared.Scaled(1.0 / 60)
 	if scaled.Duration != time.Minute {

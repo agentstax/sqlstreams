@@ -69,19 +69,30 @@ func (s *Scenario) Validate() error {
 			return fmt.Errorf("Consumers[%d]: %w", i, err)
 		}
 	}
-
-	if len(s.Expect) == 0 {
-		return errors.New("Expect must not be empty")
+	// the checker drains on the group's cursor, which only a running
+	// consumer advances
+	if s.Consumers[len(s.Consumers)-1].Instances == 0 {
+		return errors.New("Consumers must end with at least one instance running")
 	}
-	declared := map[Check]bool{}
+
+	declared := map[Check]string{}
 	for i, expectation := range s.Expect {
 		if err := expectation.Validate(); err != nil {
 			return fmt.Errorf("Expect[%d]: %w", i, err)
 		}
-		if declared[expectation.Check] {
+		if _, ok := declared[expectation.Check]; ok {
 			return fmt.Errorf("Expect[%d].Check already declared: %q", i, string(expectation.Check))
 		}
-		declared[expectation.Check] = true
+		declared[expectation.Check] = expectation.Want
+	}
+	for _, invariant := range Invariants {
+		want, ok := declared[invariant.Check]
+		if !ok {
+			return fmt.Errorf("Expect must declare %s %s", invariant.Check, invariant.Want)
+		}
+		if want != invariant.Want {
+			return fmt.Errorf("Expect must declare %s %s, got %q", invariant.Check, invariant.Want, want)
+		}
 	}
 	return nil
 }

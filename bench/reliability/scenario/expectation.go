@@ -42,6 +42,18 @@ const (
 	WantReport = "report"
 )
 
+// Invariants are the expectations every scenario must declare, with these
+// wants: the safety checks hold for any run, so a scenario cannot drop one
+// and pass while checking less. The rest of [expect] is the scenario's own.
+var Invariants = []Expectation{
+	{Check: CheckLost, Want: WantZero},
+	{Check: CheckUnexpected, Want: WantZero},
+	{Check: CheckRecovered, Want: WantReport},
+	{Check: CheckUndelivered, Want: WantZero},
+	{Check: CheckDuplicates, Want: WantReport},
+	{Check: CheckUnbucketed, Want: WantZero},
+}
+
 // Expectation is one [expect] line: the check and the value the report prints
 // beside the actual.
 type Expectation struct {

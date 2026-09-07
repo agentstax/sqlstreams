@@ -11,21 +11,22 @@ import (
 const drainPoll = 500 * time.Millisecond
 
 // drainPosition is the two ids drain compares: the highest message id the
-// ledger saw committed, and the group's cursor -- every id at or below
-// `committed` is done or dead.
+// topic holds, and the group's cursor -- every id at or below `committed`
+// is done or dead.
 type drainPosition struct {
-	LastCommitted   int64
+	HighestMessage  int64
 	CursorCommitted int64
 }
 
 func (p drainPosition) drained() bool {
-	return p.CursorCommitted >= p.LastCommitted
+	return p.CursorCommitted >= p.HighestMessage
 }
 
-// drain waits until the group's cursor has passed the last committed
-// message, so the checks read finished work and not work in flight. The
-// budget spent is a verdict of unknown: the checker cannot tell a slow
-// consumer from a stuck one.
+// drain waits until the group's cursor has passed the highest message the
+// topic holds -- not the ledger's last committed id, so a recovered or
+// unexpected row above it is settled too -- and the checks read finished
+// work, not work in flight. The budget spent is a verdict of unknown: the
+// checker cannot tell a slow consumer from a stuck one.
 func (c *Checker) drain(ctx context.Context, target *target) error {
 	deadline := time.Now().Add(c.drainBudget)
 	for {
@@ -37,7 +38,7 @@ func (c *Checker) drain(ctx context.Context, target *target) error {
 			return nil
 		}
 		if time.Now().After(deadline) {
-			return fmt.Errorf("drain budget %v spent: cursor committed %d, last committed message %d", c.drainBudget, position.CursorCommitted, position.LastCommitted)
+			return fmt.Errorf("drain budget %v spent: cursor committed %d, highest message %d", c.drainBudget, position.CursorCommitted, position.HighestMessage)
 		}
 		if err := lab.WaitUntil(ctx, time.Now().Add(drainPoll)); err != nil {
 			return err
@@ -49,10 +50,10 @@ func (c *Checker) readDrainPosition(ctx context.Context, target *target) (drainP
 	positionSql := fmt.Sprintf(`
 		-- lab: checker.readDrainPosition
 		SELECT
-			(SELECT COALESCE(max(message_id), 0) FROM %[1]s WHERE kind = 'committed'),
+			(SELECT COALESCE(max(id), 0) FROM %[1]s),
 			(SELECT COALESCE(max(committed), 0) FROM %[2]s WHERE consumer_group_id = $1);
-	`, produceLedger, target.consumerGroupCursor())
+	`, target.messageLog(), target.consumerGroupCursor())
 	var position drainPosition
-	err := c.pool.QueryRow(ctx, positionSql, target.groupId).Scan(&position.LastCommitted, &position.CursorCommitted)
+	err := c.pool.QueryRow(ctx, positionSql, target.groupId).Scan(&position.HighestMessage, &position.CursorCommitted)
 	return position, err
 }
