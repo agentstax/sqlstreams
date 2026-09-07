@@ -25,6 +25,7 @@ var (
 	EventMessagesDeadLettered         = consume.EventMessagesDeadLettered
 	EventRangeQuarantined             = consume.EventRangeQuarantined
 	EventSlowDispatch                 = consume.EventSlowDispatch
+	EventQueuedRangeStale             = consume.EventQueuedRangeStale
 	EventStoredOptionsClamped         = consume.EventStoredOptionsClamped
 	EventGoRoutineEventsDropped       = metrics.EventGoRoutineEventsDropped
 	EventMeasurementsCannotBeExported = metrics.EventMeasurementsCannotBeExported

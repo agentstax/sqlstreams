@@ -103,7 +103,7 @@ key against stored patterns ([routing →](/concepts/routing/)).
 
 <ThreadAside label="NOTE" title="Consumers poll — by design, for now">
 There is no `LISTEN/NOTIFY` anywhere in the library. Claims poll
-(`ClaimPollRate`, default 5s), which keeps the mechanism to one moving
+(`ClaimPollRate`, default 500ms), which keeps the mechanism to one moving
 part and covers backoff-delayed work for free. Produce-triggered
 wake-ups with a fallback poll are a designed proposal, deliberately
 deferred until polling latency is a *measured* problem.

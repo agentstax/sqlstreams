@@ -214,3 +214,8 @@ ORDER BY worker_config.name;`),
 // every exit.
 var EventConsumerStopped = diagnostic.NewDiagnosticEvent("VK0041",
 	"consumer stopped", "")
+
+// EventQueuedRangeStale means a queued message cannot start within its range's lease budget.
+var EventQueuedRangeStale = diagnostic.NewDiagnosticEvent("VK0105",
+	"queued message has insufficient lease time",
+	"range waits for reclaim; successful handlers in the range can repeat")

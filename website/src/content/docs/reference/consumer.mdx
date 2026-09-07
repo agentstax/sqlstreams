@@ -88,11 +88,11 @@ Passed to `Consume`, one session's own.
 
 | field | default | what it decides |
 | --- | --- | --- |
-| `BatchLimit` | `1` | messages claimed per poll |
+| `BatchLimit` | `4` | messages claimed per poll |
 | `QueueSize` | `BatchLimit` | claimed messages buffered ahead of processing; at least `BatchLimit` |
 | `MessageConcurrency` | `1` | messages this instance processes at once |
-| `ClaimPollRate` | `5s` | how often an idle instance polls |
-| `QueueMargin` | `5s` | lease padding for time a claim sits queued |
+| `ClaimPollRate` | `500ms` | how often an idle instance polls |
+| `QueueMargin` | `15s` | lease padding for time a claim sits queued |
 | `RecordMargin` | `2s` | lease padding for recording the outcome |
 | `TimeoutGrace` | `100ms` | slack for a handler that respected `ctx.Done()` to unwind before the hard cutoff abandons it |
 | `SlowDispatchThreshold` | `0` (off) | a dispatch running longer logs [VK0039](/errors/VK0039/) |
@@ -101,6 +101,36 @@ Passed to `Consume`, one session's own.
 | `ConfigRefreshInterval` | `30s` | how often the stored group config is re-read: the staleness window for a redeclaration |
 | `ShutdownTimeout` | `MessageMax.Timeout + TimeoutGrace + RecordMargin` | how long the drain waits for in-flight handlers before the rest is released |
 | `DisableGracefulShutdown` | `false` | accept a context that can never be cancelled, leaving process exit as the only stop |
+
+## Queue and lease budgets
+
+The default consumer claims four messages at a time and buffers up to four
+ordinary messages ahead of processing. Handlers remain serial unless
+`MessageConcurrency` is raised. Idle claim and exception polling share
+`ClaimPollRate`; a shorter interval also increases database query traffic.
+
+The default range lease is `30s + 100ms + 15s + 2s = 47.1s`. A crash can
+leave claimed messages waiting that long before a later poll reclaims them.
+`ShutdownTimeout` remains `32.1s`: it covers in-flight processing, while
+`QueueMargin` covers waiting before processing.
+
+For example, `charge-cards` processing ids 1–8 with a three-second handler
+can leave the next four messages waiting roughly twelve seconds. The
+fifteen-second margin covers that wait with some room for database work.
+Longer handlers need a smaller batch and queue or a larger `QueueMargin`.
+`QueueSize` must stay at least `BatchLimit`. An explicit queue below `4`
+requires an explicit compatible batch limit; set both to `1` for shallow
+prefetch. Choose the handler timeout from legitimate runtime; raising it
+and `MessageMax.Timeout` together does not increase queue allowance.
+
+Ordered messages on one key remain serial and can wait for the committed
+cursor between ranges. `ClaimPollRate` is not a delivery-latency guarantee.
+
+The Info-level starting log includes resolved session settings and the
+registration-time timeout budgets. Stored group settings are read when
+consumer workers start and on config refresh. [VK0105](/errors/VK0105/) warns when a queued
+message has insufficient lease time to start. Existing warning suppression
+collapses repeated warnings within the instance's one-minute window.
 
 ## Gotchas
 

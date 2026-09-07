@@ -9,12 +9,12 @@ import (
 // runs, free to differ per instance. What the group means lives on
 // ConsumerConfig at Register. Sparse: zero fields take the defaults.
 type ConsumeOptions struct {
-	BatchLimit         int // messages claimed per poll. Default: 1.
+	BatchLimit         int // messages claimed per poll. Default: 4.
 	QueueSize          int // claimed messages buffered ahead of processing -- must be >= BatchLimit or the prefetcher can never claim a full batch. Default: BatchLimit.
 	MessageConcurrency int // messages processed concurrently. Default: 1.
 
-	ClaimPollRate time.Duration // how often an idle instance polls for claimable messages. Default: 5s.
-	QueueMargin   time.Duration // lease padding for time a claimed item sits queued before a worker starts on it. Default: 5s.
+	ClaimPollRate time.Duration // how often an idle instance polls for claimable messages. Default: 500ms.
+	QueueMargin   time.Duration // lease padding for time a claimed item sits queued before a worker starts on it. Default: 15s.
 	RecordMargin  time.Duration // lease padding for recording success/failure after consumerFunc returns. Default: 2s.
 	// TimeoutGrace is scheduling slack for a consumerFunc that DID respect
 	// ctx.Done() to actually unwind and send on the result channel before the
@@ -46,7 +46,7 @@ type ConsumeOptions struct {
 // it at drain, so the budget follows the group's current ceiling.
 func (o *ConsumeOptions) WithDefaults() *ConsumeOptions {
 	if o.BatchLimit == 0 {
-		o.BatchLimit = 1 // no batching by default
+		o.BatchLimit = 4
 	}
 
 	if o.QueueSize == 0 {
@@ -58,11 +58,11 @@ func (o *ConsumeOptions) WithDefaults() *ConsumeOptions {
 	}
 
 	if o.ClaimPollRate == 0 {
-		o.ClaimPollRate = 5 * time.Second
+		o.ClaimPollRate = 500 * time.Millisecond
 	}
 
 	if o.QueueMargin == 0 {
-		o.QueueMargin = 5 * time.Second
+		o.QueueMargin = 15 * time.Second
 	}
 
 	if o.RecordMargin == 0 {

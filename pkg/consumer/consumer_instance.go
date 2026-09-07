@@ -145,7 +145,7 @@ func (i *ConsumerInstance[Message]) Consume(ctx context.Context, consumerFunc Co
 	session := uuid.NewV7()
 	i.metrics.ResetCounters()
 
-	i.Logger.InfoContext(ctx, "consumer starting", "group", i.Owner.Name, "topic_id", i.Owner.TopicId, "vulkan_version", common.BuildVersion(), "message_timeout", i.Config.Message.Timeout, "shutdown_timeout", shutdownTimeout, "batch_limit", resolved.BatchLimit)
+	i.Logger.InfoContext(ctx, "consumer starting", "group", i.Owner.Name, "topic_id", i.Owner.TopicId, "vulkan_version", common.BuildVersion(), "message_timeout", i.Config.Message.Timeout, "shutdown_timeout", shutdownTimeout, "batch_limit", resolved.BatchLimit, "queue_size", resolved.QueueSize, "message_concurrency", resolved.MessageConcurrency, "claim_poll_rate", resolved.ClaimPollRate, "queue_margin", resolved.QueueMargin, "message_max_timeout", i.Config.MessageMax.Timeout, "timeout_grace", resolved.TimeoutGrace, "record_margin", resolved.RecordMargin)
 	started := time.Now()
 
 	group, runCtx := errgroup.WithContext(ctx)

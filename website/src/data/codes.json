@@ -1293,6 +1293,11 @@
       "code": "VK0104",
       "kind": "event",
       "message": "measurements cannot be exported -- the current collection omits the rejected metric family; healthy families still export"
+    },
+    "VK0105": {
+      "code": "VK0105",
+      "kind": "event",
+      "message": "queued message has insufficient lease time -- range waits for reclaim; successful handlers in the range can repeat"
     }
   }
 }

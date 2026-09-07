@@ -5,6 +5,28 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-07 — Responsive consumer defaults [0710]
+
+ConsumeOptions now defaults to BatchLimit 4, ClaimPollRate 500ms, and
+QueueMargin 15s. QueueSize still follows BatchLimit; concurrency remains 1.
+The default range lease is 47.1s and the derived shutdown budget stays 32.1s.
+New sessions adopt these defaults without a migration. An explicit QueueSize
+below 4 requires an explicit compatible BatchLimit.
+
+The starting log includes queue, concurrency, poll, and timing budgets.
+VK0105 identifies queued messages that cannot start with sufficient lease
+coverage, once per locally tracked range subject to existing suppression.
+The consumer reference documents sizing and replay costs; research and
+measurements are preserved in bench/consumerdefaults/RESULTS.md.
+
+Affected builds and race tests, the concurrent warning-winner test, existing
+conventions checks, targeted prose checks, and the site build passed.
+Group-config, ordered, and shutdown-truncation labs passed in isolated schemas.
+An eight-message, three-second-handler smoke test with zero session options
+completed in 24.08s with no repeats, exceptions, or open leases. All isolated
+schemas were removed. Initial development-schema labs could not run because
+worker_instance_log was absent; the development schema was not reset.
+
 ## 2026-09-07 — One-minute topic-alert cadence [0709]
 
 Partition count, compaction read cost, and worker liveness now default to

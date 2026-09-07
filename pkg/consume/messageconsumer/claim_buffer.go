@@ -191,10 +191,9 @@ func (b *claimBuffer) tryGetRangeSnapshot(token uuid.UUID) (*rangeSnapshot, erro
 	return state.tryGetSnapshot()
 }
 
-func (b *claimBuffer) markStale(token uuid.UUID) {
-	if state := b.lookup(token); state != nil {
-		state.stale.Store(true)
-	}
+func (b *claimBuffer) markStale(token uuid.UUID) bool {
+	state := b.lookup(token)
+	return state != nil && state.stale.CompareAndSwap(false, true)
 }
 
 func (b *claimBuffer) remove(token uuid.UUID) {

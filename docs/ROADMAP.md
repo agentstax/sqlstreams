@@ -16,47 +16,6 @@ the item is removed.
 
 ## Now
 
-
-## Next
-
-- **Move the public entry package out of pkg/** — follow through on [0665]
-  and [0670] once its destination is selected. Update imports and path-aware
-  tooling separately from semantic API changes; no module split is selected.
-
-- **Potential project rename away from "vulkan".** No candidate yet; decide
-  before v1 -- after v1 the name is public API. A rename ripples through the
-  module path, the CLI binary, the docs site (docsBaseURL const in
-  pkg/common/error.go), and the VK error-code prefix (isErrorCode validation
-  plus every declared code -- codes never renumber after v1, so the prefix
-  must be final first).
-  - need to make sure we build out new logo sheet as well
-
-- **Contributor documentation** — write the guide for setting up a development
-  environment, making and verifying a change, and submitting it for review.
-
-- **Search-engine submission** -- after the doc-site sitemap is deployed,
-  verify the canonical site property in Google Search Console and Bing
-  Webmaster Tools, submit the sitemap in each service (or import the verified
-  Google property into Bing), and record the exact operator steps and initial
-  indexing result so a future domain move or deployment can repeat them.
-
-- **Idle-fleet worker-load benchmark** (14c; measure BEFORE building any
-  fix). An idle deployment pays per worker row per poll: winner's claim
-  UPDATE + no-op work each tick, and — the growing term — every replica's
-  LOSING claim attempt (R replicas x W rows x 1/poll_rate no-op UPDATEs).
-  Bench an idle fleet at 100 / 1k / 10k worker rows x 1-3 replicas:
-  Postgres CPU, QPS, where the curve hurts. Result picks a rung on the
-  settled fix ladder (cheapest first, don't skip rungs): (1) per-row
-  poll_rate already exists in worker metadata — coarsen quiet topics' rows,
-  document; (2) idle backoff inside the instance tick runner only — no
-  progress backs off toward a cap (~10x poll_rate), any progress snaps
-  back; cost is a committed-staleness spike on wake, janitor side covered
-  by the producer's partition self-heal; (3) LISTEN/NOTIFY-woken workers —
-  real complexity, only if (2) measurably fails. Prior: rung 1 carries to
-  ~1k rows, rung 2 well past 10k, rung 3 never earns it.
-  - bench mark tests should be done on at least postgres 18 as there 
-    could be performance gains, specifically with uuidv7
-
 - **Benchmark-recording pipeline** (14c) — decide where lab throughput
   numbers get saved so regressions are visible over time. First real
   workload: a thorough multi-topic throughput/latency benchmark under high
@@ -88,10 +47,52 @@ the item is removed.
   - bench mark tests should be done on at least postgres 18 as there 
     could be performance gains, specifically with uuidv7
 
+- **Potential project rename away from "vulkan".** No candidate yet; decide
+  before v1 -- after v1 the name is public API. A rename ripples through the
+  module path, the CLI binary, the docs site (docsBaseURL const in
+  pkg/common/error.go), and the VK error-code prefix (isErrorCode validation
+  plus every declared code -- codes never renumber after v1, so the prefix
+  must be final first).
+  - need to make sure we build out new logo sheet as well
+
 - **docs/TEST.md expand and refine** (14c) — the shutdown/interruption scenarios
   recorded there are Setup/Action/Assert prose from a scratch harness;
   implement as a real pkg/producer/pkg/consumer test suite once the API
   stops moving.
+
+- **Move the public entry package out of pkg/** — follow through on [0665]
+  and [0670] once its destination is selected. Update imports and path-aware
+  tooling separately from semantic API changes; no module split is selected.
+- **cleanup and refactor files** - move files to final locations, cleanup files
+  that shouldn't exist in repo and or .gitignore
+
+## Next
+
+- **Idle-fleet worker-load benchmark** (14c; measure BEFORE building any
+  fix). An idle deployment pays per worker row per poll: winner's claim
+  UPDATE + no-op work each tick, and — the growing term — every replica's
+  LOSING claim attempt (R replicas x W rows x 1/poll_rate no-op UPDATEs).
+  Bench an idle fleet at 100 / 1k / 10k worker rows x 1-3 replicas:
+  Postgres CPU, QPS, where the curve hurts. Result picks a rung on the
+  settled fix ladder (cheapest first, don't skip rungs): (1) per-row
+  poll_rate already exists in worker metadata — coarsen quiet topics' rows,
+  document; (2) idle backoff inside the instance tick runner only — no
+  progress backs off toward a cap (~10x poll_rate), any progress snaps
+  back; cost is a committed-staleness spike on wake, janitor side covered
+  by the producer's partition self-heal; (3) LISTEN/NOTIFY-woken workers —
+  real complexity, only if (2) measurably fails. Prior: rung 1 carries to
+  ~1k rows, rung 2 well past 10k, rung 3 never earns it.
+  - bench mark tests should be done on at least postgres 18 as there 
+    could be performance gains, specifically with uuidv7
+
+- **Contributor documentation** — write the guide for setting up a development
+  environment, making and verifying a change, and submitting it for review.
+
+- **Search-engine submission** -- after the doc-site sitemap is deployed,
+  verify the canonical site property in Google Search Console and Bing
+  Webmaster Tools, submit the sitemap in each service (or import the verified
+  Google property into Bing), and record the exact operator steps and initial
+  indexing result so a future domain move or deployment can repeat them.
 
 ## Later
 
@@ -165,18 +166,6 @@ documentation; the latter want a surface that has stopped moving.
   `AtMessageId` / `AtTime` positions, which is the only way to move an
   existing group. The guide is the spec; this line is its owner. Surfaced
   by playground scenario 07.
-
-- **Revisit the `ConsumeOptions.BatchLimit` default of 1** -- with
-  `QueueSize` defaulting to `BatchLimit`, a default consumer makes one
-  claim round trip per message and prefetches nothing, and an idle instance
-  waits the 5s `ClaimPollRate` before looking again. No record argues the
-  value: 0046 settles who owns the knob, 0505 only notes that a debounce
-  derived from it would be neutered. Decide whether "no batching by
-  default" is the right posture for a Postgres-backed log, or whether a
-  small default (a handful of rows, with `QueueSize` following) is the
-  better first experience; the lease arithmetic in `ConsumeOptions`
-  (QueueMargin, ShutdownTimeout) scales with the answer. Surfaced by
-  playground scenario 06.
 
 - **Doc-site breadcrumb structured data** -- emit `BreadcrumbList` JSON-LD
   from the same trail each page already renders, so the machine-readable and

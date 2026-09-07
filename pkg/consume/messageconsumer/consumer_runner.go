@@ -293,11 +293,12 @@ func (r *messageRunner[Message]) processChain(ctx context.Context, item *buffere
 }
 
 func (r *messageRunner[Message]) processClaim(ctx context.Context, item *buffered) {
-	// sat in the queue too long to safely start -- surrendering the whole
-	// range beats risking a lease overrun (another worker reclaiming the
-	// same range while this message is still being worked).
-	if item.lease.ExpiresAt.Before(time.Now().Add(item.options.Timeout + r.Config.TimeoutGrace + r.Config.RecordMargin)) {
-		r.buffer.markStale(item.lease.Token)
+	// Leave insufficiently covered messages unresolved for range reclaim.
+	remaining := time.Until(item.lease.ExpiresAt)
+	if remaining < item.options.Timeout+r.Config.TimeoutGrace+r.Config.RecordMargin {
+		if r.buffer.markStale(item.lease.Token) {
+			r.Logger.WarnContext(ctx, consume.EventQueuedRangeStale.Message(), "code", consume.EventQueuedRangeStale.GetCode(), "group", r.Owner.Name, "topic_id", r.Topic.Id, "low", item.lease.Low, "high", item.lease.High, "message_id", item.row.Id, "lease_remaining", remaining, "message_timeout", item.options.Timeout, "timeout_grace", r.Config.TimeoutGrace, "record_margin", r.Config.RecordMargin)
+		}
 		return
 	}
 

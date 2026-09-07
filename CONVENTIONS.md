@@ -981,6 +981,7 @@ placeholder not in this table is a bug. (checked)
 | `delay` | backoff delay |
 | `rate` | worker poll rate |
 | `duration` | elapsed wall time of the operation the line reports |
+| `lease_remaining` | time until a queued message's range lease expires; negative after expiry |
 | `threshold` | the configured duration ceiling the line compares against |
 | `vulkan_version` | module version (common.BuildVersion) -- start lines |
 | `help` | plain words ending in the verbatim command that explains the line ("metrics explained: vulkan explain VK0041") -- summary lines only |
