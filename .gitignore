@@ -33,3 +33,6 @@ bench/reliability/results/stats.jsonl
 *.prof
 *.pprof
 __debug_bin*
+
+# Native scratch benchmark evidence is retained locally.
+bench/scratchnative/results/evidence/

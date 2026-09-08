@@ -1,6 +1,6 @@
-package otelvulkan
+package otel
 
-// Package otelvulkan exports retained Vulkan measurements through an external
+// Package otel exports retained Vulkan measurements through an external
 // OpenTelemetry SDK producer. Exporter serves that producer through Prometheus.
 
 import (
@@ -18,7 +18,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 )
 
-const meterScopeName = "github.com/agentstax/vulkan/otelvulkan"
+const meterScopeName = "github.com/agentstax/vulkan/otel"
 
 // Metrics is an external SDK producer of the newest retained measurements.
 // Attach it to a reader with sdkmetric.WithProducer; no registration pass is needed.

@@ -6,7 +6,7 @@ set dotenv-required := true
 verify:
     go build ./... && go vet ./... && go test -race ./...
     cd cmd/vulkan && go build ./... && go vet ./...
-    cd otelvulkan && go build ./... && go vet ./...
+    cd otel && go build ./... && go vet ./...
     cd examples && go build ./...
     cd bench && go build ./... && go vet ./... && go test -race -count=1 ./reliability/...
     cd tools && go test -race -count=1 ./...
@@ -61,15 +61,15 @@ reliability-report scenario="dev":
 
 # Start the development PostgreSQL database in the foreground.
 database-up:
-    docker-compose -f scripts/database/docker-compose.yaml up
+    docker-compose -f tools/database/docker-compose.yaml up
 
 # Stop the development PostgreSQL database without deleting its volume.
 database-down:
-    docker-compose -f scripts/database/docker-compose.yaml down
+    docker-compose -f tools/database/docker-compose.yaml down
 
 # Stop the development database and delete all of its data.
 database-delete:
-    docker-compose -f scripts/database/docker-compose.yaml down -v
+    docker-compose -f tools/database/docker-compose.yaml down -v
 
 # Register the system in the development database. Safe to run repeatedly.
 system-register:
@@ -79,8 +79,8 @@ system-register:
 
 # Generate a gitignored ER diagram from a registered development database.
 schema-diagram:
-    tbls doc -c scripts/database/tbls.yml --force
-    tbls out -c scripts/database/tbls.yml -t json -o bin/schema/schema.json
+    tbls doc -c tools/database/tbls.yml --force
+    tbls out -c tools/database/tbls.yml -t json -o bin/schema/schema.json
     npx --yes @liam-hq/cli erd build --format tbls --input bin/schema/schema.json
     rm -rf bin/schema/erd && mv dist bin/schema/erd
     @echo "open with: just schema-diagram-serve"
@@ -91,8 +91,8 @@ schema-diagram-serve:
 
 # Recreate the development database, register the system, then generate its ER diagram.
 schema-diagram-fresh:
-    docker-compose -f scripts/database/docker-compose.yaml down -v
-    docker-compose -f scripts/database/docker-compose.yaml up -d --wait postgres
+    docker-compose -f tools/database/docker-compose.yaml down -v
+    docker-compose -f tools/database/docker-compose.yaml up -d --wait postgres
     just system-register
     just schema-diagram
 

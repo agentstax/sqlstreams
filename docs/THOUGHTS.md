@@ -29,6 +29,7 @@ roadmap later item for review code for interesting design decisions to write art
   - should you start out with unit tests and increase token costs or wait till code is closer to finalization
   - what are valuable tests in the agent era
   - is testing validation logic valuable, setting up integration test that you don't understand?
+- A new world and the case of low dependencies
 
 # Review
 
@@ -43,3 +44,5 @@ manual review of public user facing comments :(. I don't want to but its got to 
 review of most important website docs
 
 # Other
+
+Need to publish cli to homebrew and maybe choco

@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/agentstax/vulkan/otelvulkan"
+	"github.com/agentstax/vulkan/otel"
 	"github.com/agentstax/vulkan/pkg/common/logging"
 	"github.com/agentstax/vulkan/pkg/migrate"
 	"github.com/spf13/cobra"
@@ -60,7 +60,7 @@ func newManagerRunCmd(g *globalFlags) *cobra.Command {
 			defer cancelRun()
 			serverFailed := make(chan error, 1)
 			if metricsAddress != "" {
-				exporter, err := otelvulkan.NewExporter(ctx, connection.pool, &otelvulkan.ExporterConfig{
+				exporter, err := otel.NewExporter(ctx, connection.pool, &otel.ExporterConfig{
 					Schema: connection.config.Schema,
 					Logger: connection.config.Logger,
 					Retry:  connection.config.Retry,

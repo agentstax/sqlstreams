@@ -39,6 +39,8 @@ Built with speed in mind toping out at around ~100k req/s.
 
 And bundling togeather ease of use features look automatic retry and dead letter queues.
 
+2 dependencies?? because vuln patching is the worst
+
 ## Usage
 
 ### Go Library

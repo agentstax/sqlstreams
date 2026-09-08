@@ -6,7 +6,7 @@ go 1.27.0
 // repo-root go.work (use .) and deliberately has NO require line here: it's
 // unpublished, so any placeholder version poisons the whole workspace graph.
 // Release is a three-module story: the root module tags first, then each
-// nested module (cmd/vulkan, otelvulkan) adds its require pinned to that
+// nested module (cmd/vulkan, otel) adds its require pinned to that
 // real tag and tags itself.
 
 require (

@@ -1,4 +1,4 @@
-module github.com/agentstax/vulkan/otelvulkan
+module github.com/agentstax/vulkan/otel
 
 go 1.27.0
 

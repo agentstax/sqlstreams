@@ -1,4 +1,4 @@
-package otelvulkan
+package otel
 
 import (
 	"fmt"
@@ -9,12 +9,11 @@ import (
 	"github.com/agentstax/vulkan/pkg/datastore"
 )
 
-type ExporterConfig struct {
+type MetricsConfig struct {
 	// Schema selects the Vulkan installation. Default: "vulkan".
 	Schema string
 
 	// CollectTimeout bounds each collection's Postgres reads.
-	// Prometheus collection does not inherit the HTTP request context.
 	// Default: 5s.
 	CollectTimeout time.Duration
 
@@ -24,7 +23,7 @@ type ExporterConfig struct {
 	Retry  *common.RetryPolicy
 }
 
-func (c *ExporterConfig) WithDefaults() *ExporterConfig {
+func (c *MetricsConfig) WithDefaults() *MetricsConfig {
 	if c.Schema == "" {
 		c.Schema = datastore.DefaultSchema
 	}
@@ -36,7 +35,7 @@ func (c *ExporterConfig) WithDefaults() *ExporterConfig {
 
 // Validate runs after WithDefaults -- anything still out of range here was
 // set by the caller, not left unset.
-func (c *ExporterConfig) Validate() error {
+func (c *MetricsConfig) Validate() error {
 	if c.CollectTimeout <= 0 {
 		return fmt.Errorf("CollectTimeout must be > 0, got %v", c.CollectTimeout)
 	}

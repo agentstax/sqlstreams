@@ -1,4 +1,4 @@
-package otelvulkan
+package otel
 
 import (
 	"context"

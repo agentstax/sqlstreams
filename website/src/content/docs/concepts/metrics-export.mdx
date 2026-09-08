@@ -21,7 +21,7 @@ history from `__system.metrics`, with a 24-hour retention setting.
 
 ## Export through an OTel producer
 
-`otelvulkan.NewMetrics` builds an external SDK producer. Each
+`otel.NewMetrics` builds an external SDK producer. Each
 `Produce(ctx)` call uses core's retained-measurement read and
 converts the result to OTel data. The reader owns collection cadence. New
 metric names appear on the next collection without instrument registration,

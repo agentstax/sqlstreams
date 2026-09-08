@@ -87,6 +87,18 @@ the item is removed.
 
 - **Contributor documentation** — write the guide for setting up a development
   environment, making and verifying a change, and submitting it for review.
+  - Settled 2026-09-08: CONTRIBUTING.md and .github/pull_request_template.md
+    drafted (uncommitted); DEVELOPING.md is the remaining file. A GitHub
+    issue is the contributor's only door into the docs/ lifecycle, which
+    stays maintainer-owned. Bug path: issue -> `accepted` label -> PR with a
+    failing test or lab. Feature path: issue -> triage to rejected / parked
+    (`roadmap` label, item in Later or the parking lot) / accepted (`accepted`,
+    item in Now) -> for a public API change the CONTRIBUTOR writes the
+    Proposed doc-site page as the first PR and the maintainer reviews it as
+    the spec -> maintainer writes the decision record -> implementation PR.
+    Needs two issue-form templates (bug, feature) and four labels with fixed
+    meanings: `bug`, `roadmap`, `accepted`, `help wanted`. CONTRIBUTING's
+    Changes section becomes these two numbered paths.
 
 - **Search-engine submission** -- after the doc-site sitemap is deployed,
   verify the canonical site property in Google Search Console and Bing
@@ -190,6 +202,20 @@ documentation; the latter want a surface that has stopped moving.
   ordered source of truth; issues are public discussion and interest signals,
   not commitments. Settle selection criteria, labels, issue status when work
   ships or is dropped, and how issue discussion feeds back into the roadmap.
+  - The contributor workflow settled under Contributor documentation (Next)
+    answers most of this: an item gets an issue when it has a decision record
+    or sits in Now (`accepted`, `help wanted`), otherwise `roadmap`; the
+    issue closes with its HISTORY.md entry linked; discussion feeds back as
+    sub-bullets on the item.
+
+- **Worked contribution examples** — after the contributor workflow has run
+  on real changes, pick two or three shipped ones (one bug fix, one public
+  API change that went issue -> Proposed page -> decision record ->
+  implementation) and write each up as a follow-along: the issue as filed,
+  the triage reply, the Proposed page diff, the record, the PRs, in order,
+  with what a reviewer pushed back on. Lives on the doc site beside the
+  contributing guide, not in docs/. Depends on the issues item above having
+  produced at least one contributed change to point at.
 
 - **BindingHandle verbs beyond Get** — the handle shipped [0645]; these
   are bare nouns like every handle verb: `Waiting(ctx)` the

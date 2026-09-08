@@ -20,14 +20,16 @@ this file states only the rule.
   package with provenance headers, take only the parts needed, keep local diffs
   to marked one-liners. Hand-roll only when nothing battle-tested fits.
 - The nested modules are the sanctioned exception -- separate modules, not
-  the library: cmd/vulkan (cobra/fang/lipgloss) and otelvulkan
+  the library: cmd/vulkan (cobra/fang/lipgloss) and otel
   (otel/prometheus).
 
 ## Tooling
 
-- Developer tooling lives in dev-only modules under `tools/` (own go.mod,
+- Repository-only developer tooling lives under `tools/`: programs,
+  convention checks, local service configuration, and the scripts those
+  tools invoke. Go tooling lives in dev-only modules there (own go.mod,
   never tagged, outside the root test surface). Production code never
-  imports anything under tools/.
+  imports, embeds, or invokes anything under tools/.
 - `tools/conventions` runs the machine-checkable rules of this file as
   tests, via `just verify`. It reads library source as data, so its
   tests run with `-count=1` or a pass caches across library edits.
@@ -328,7 +330,7 @@ surfaces it.
 ### Logger and Retry
 
 - `Logger` and `Retry` are held once, on `PostgresDatastore`, filled from
-  entry-point configs (`ClientConfig` and otelvulkan's pool-taking
+  entry-point configs (`ClientConfig` and otel's pool-taking
   constructor configs) through `PostgresDatastoreConfig` -- configs below
   those entry points carry neither. `Retry` is read from `ds` everywhere.
 - A constructor takes a trailing `logger logging.Logger` only when what it

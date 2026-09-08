@@ -7,7 +7,7 @@ go 1.27.0
 // github.com/agentstax/vulkan is resolved locally via the repo-root go.work
 // (use ./examples) and deliberately has NO require line here: it's
 // unpublished, so any placeholder version poisons the whole workspace graph.
-// Unlike cmd/vulkan and otelvulkan, this module is never tagged or published,
+// Unlike cmd/vulkan and otel, this module is never tagged or published,
 // so it never takes a pinned require at release.
 
 require (
