@@ -23,7 +23,11 @@ func (s *Scenario) Report(phaseColumns map[string]string, expectColumns map[Chec
 func (s *Scenario) inputLines() []string {
 	lines := []string{}
 	for _, declared := range s.Topics {
-		lines = append(lines, fmt.Sprintf("topic\t%s\tDeliveryLogMode %s", declared.Name, declared.DeliveryLogMode))
+		line := fmt.Sprintf("topic\t%s\tDeliveryLogMode %s", declared.Name, declared.DeliveryLogMode)
+		if declared.PartitionSize > 0 {
+			line += fmt.Sprintf(", partition size %d", declared.PartitionSize)
+		}
+		lines = append(lines, line)
 		for _, group := range declared.Groups {
 			lines = append(lines, fmt.Sprintf("consumers\t%s\t%s", group.Name, group.String()))
 		}

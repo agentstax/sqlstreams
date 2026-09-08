@@ -131,9 +131,8 @@ finished. PostgreSQL's snapshot `xmax` does not provide this bound: an
 already-running producer can have an id at or above it.
 
 An empty claim saves its observation for the next poll. Caught-up polls
-remain read-only; active polls allocate a transaction id. The same rule
-applies when fan-out creates delivery rows. Existing skipped deliveries
-need reconciliation; changing the claim rule does not replay them.
+remain read-only; active polls allocate a transaction id. Existing skipped
+deliveries need reconciliation; changing the claim rule does not replay them.
 
 ## The deliberate absences
 

@@ -5,16 +5,17 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
-## 2026-09-07 — Consumer transaction visibility and empty-claim persistence [0714]
+## 2026-09-07 — Consumer transaction visibility and empty-claim persistence [0714] [0715]
 
-Active claim and fan-out observations now allocate their own transaction id,
+Active cursor-claim observations now allocate their own transaction id,
 so a producer still running at or above snapshot xmax cannot be skipped.
 Empty claims commit their pending observation for later polls. Caught-up
 polls remain read-only. No public API or table-layout change.
 
-Two deterministic claim regressions failed before the fixes. Four regressions
-pass with race detection on PostgreSQL 17.10 and 18.4; reclaim and routing labs
-pass on an isolated PostgreSQL 17.10. Root build, targeted consumer vet/race
+Two deterministic claim regressions failed before the fixes. Database
+regressions passed with race detection on PostgreSQL 17.10 and 18.4, and
+the reclaim lab passed on PostgreSQL 17.10. Delivery-consumer changes and
+tests were removed after the user clarified that path is archived. Root build, targeted consumer vet/race
 checks, and the documentation build pass. Two repeated 32k/s, 30s reliability
 runs handled all 1.92 million messages with no missing/duplicate deliveries,
 but still failed backlog/latency limits. A corrected 16k/s, 30s baseline

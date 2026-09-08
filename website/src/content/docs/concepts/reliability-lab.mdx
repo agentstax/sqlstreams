@@ -306,3 +306,9 @@ On the development Mac, all benchmark storage is limited to 20 GiB with
 40 GiB left free on the host. Database files, WAL, records, checker imports,
 and temporary files count. Retention is chosen from measured growth before
 long runs. Durable commits, fsync, full-page writes, and autovacuum stay on.
+
+Scenario-file topic declarations also accept `PartitionSize`, using the
+library's existing topic setting. Zero keeps the default; an explicit value
+appears in the run's declaration. Larger partitions reduce how often new
+partitions are created. A short run that never crosses a partition boundary
+cannot establish throughput during rollover.

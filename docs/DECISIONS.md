@@ -185,7 +185,7 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0386 2026-08-01 accepted (phase 14) — The abandoned-routine Add/Remove race is fixed structurally with a reaper goroutine
 - 0387 2026-08-01 accepted (phase 14) — A missing cursor row errors loudly, detected by restructuring the claim query instead of adding an existence check
 - 0388 2026-08-01 accepted (phase 14) — The cursor-claim query locks the cursor row with FOR UPDATE in the old_values read
-- 0389 2026-08-01 superseded (phase 14) — FanOut tracks a per-group high-water mark on the cursor table; LIFECYCLE groups register cursor rows and pin retention
+- 0389 2026-08-01 accepted (phase 14) — FanOut tracks a per-group high-water mark on the cursor table; LIFECYCLE groups register cursor rows and pin retention
 - 0390 2026-08-01 accepted (phase 14) — FanOut delivers eagerly past the proven head; only the mark waits for proof
 - 0391 2026-08-01 accepted (phase 14) — FanOut's scan bound is a scalar subquery, not a join on old_values
 - 0392 2026-08-01 accepted (phase 14) — cursor claimed advances via GREATEST so a group running both paths cannot regress its frontier
@@ -466,4 +466,5 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0711 2026-09-07 accepted (pre-v1) — The reliability lab is the benchmark harness, and a benchmark is a scenario
 - 0712 2026-09-07 accepted (pre-v1) — Documentation starts with a runnable example and separates progress from delivery outcomes
 - 0713 2026-09-07 accepted (pre-v1) — Sustainable throughput keeps both producer and consumer queues bounded
-- 0714 2026-09-07 accepted (pre-v1) — Consumer observations allocate transaction ids before advancing cursors
+- 0714 2026-09-07 superseded (pre-v1) — Consumer observations allocate transaction ids before advancing cursors
+- 0715 2026-09-07 accepted (pre-v1) — Throughput work excludes the archived delivery consumer

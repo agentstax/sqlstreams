@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded
 date: 2026-09-07
 phase: "pre-v1"
 ---
@@ -52,3 +52,6 @@ Do not move claimed or committed backward blindly: already skipped messages
 need separate reconciliation, and replay may repeat handler side effects.
 Benchmark validation uses fresh databases. Archived claim microbenchmarks
 using snapshot xmax cannot establish correctness or current throughput.
+
+Superseded in scope by [0715](0715-throughput-excludes-archived-delivery-consumer.md):
+keep the cursor fix; exclude the archived delivery consumer.

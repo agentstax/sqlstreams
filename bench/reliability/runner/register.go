@@ -26,7 +26,7 @@ func (r *Runner) registerTopics(ctx context.Context) ([]registeredTopic, error) 
 	registered := make([]registeredTopic, 0, len(r.declared.Topics))
 	for _, declared := range r.declared.Topics {
 		handle := r.connection.Client.Topic[common.Order](declared.Name)
-		if _, err := handle.Register(ctx, &vulkan.TopicConfig{DeliveryLogMode: declared.DeliveryLogMode}); err != nil {
+		if _, err := handle.Register(ctx, &vulkan.TopicConfig{DeliveryLogMode: declared.DeliveryLogMode, PartitionSize: declared.PartitionSize}); err != nil {
 			return nil, err
 		}
 		registered = append(registered, registeredTopic{declared: declared, handle: handle})

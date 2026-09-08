@@ -14,6 +14,7 @@ import (
 type TopicDeclaration struct {
 	Name            string
 	DeliveryLogMode topic.DeliveryLogMode
+	PartitionSize   int64
 	Groups          []GroupDeclaration
 }
 
@@ -27,6 +28,9 @@ func (t TopicDeclaration) Validate() error {
 	}
 	if len(t.Groups) == 0 {
 		return errors.New("Groups must not be empty")
+	}
+	if err := (&topic.TopicConfig{PartitionSize: t.PartitionSize, DeliveryLogMode: t.DeliveryLogMode}).WithDefaults().Validate(); err != nil {
+		return err
 	}
 	names := map[string]bool{}
 	for i, group := range t.Groups {

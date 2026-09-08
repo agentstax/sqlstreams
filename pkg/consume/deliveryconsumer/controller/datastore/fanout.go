@@ -19,18 +19,16 @@ func (d *DeliveryConsumerGroupDatastore) FanOut(ctx context.Context, topicId int
 }
 
 func (d *DeliveryConsumerGroupDatastore) fanOut(ctx context.Context, topicId int64, groupId int64, schemaVersion int64, limit int) error {
-	// An active observation allocates an xid after taking its snapshot, then
-	// finishes before the scan waits for every older producer to finish.
+	// take the (head, xmax) pair the scan statement's gate below proves
+	// against.
 	snapshotSql := fmt.Sprintf(`
 		-- vulkan: deliveryconsumer.fanOut
 		SELECT
-			h.head,
-			CASE WHEN h.head <= c.committed AND h.head <= c.pending_head
-				THEN '0' ELSE pg_current_xact_id()::text END AS xmax,
+			(SELECT COALESCE(MAX(id), 0) FROM %[1]s.%[2]s) AS head,
+			pg_snapshot_xmax(pg_current_snapshot())::text AS xmax,
 			c.committed,
 			c.pending_head
 		FROM %[1]s.%[3]s c
-		CROSS JOIN (SELECT COALESCE(MAX(id), 0) AS head FROM %[1]s.%[2]s) h
 		WHERE c.consumer_group_id = $1;
 	`, d.Datastore.Schema, topic.MessageLogTable(topicId), topic.ConsumerGroupCursorTable(topicId))
 

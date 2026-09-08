@@ -213,7 +213,8 @@ untracked-so-far `runs.jsonl` files before they are first committed.
   automatic producer batching, default failure-only delivery logging.
 - Keep durable commits, fsync, full-page writes, and autovacuum enabled.
   Tune configuration first; propose library/SQL changes after profiling.
-- Total benchmark storage budget 20 GiB; preserve 40 GiB host free space.
+- Total benchmark storage budget raised by the user to 100 GB (2026-09-08);
+  preserve 40 GiB host free space.
   Include records, checker imports, WAL, and temporary files. Measure
   growth in short probes before choosing retention and longer windows.
 - Start with 10–30s probes, then 1–2m candidates, then three 15m windows
@@ -232,15 +233,84 @@ untracked-so-far `runs.jsonl` files before they are first committed.
   Full second-run evidence is retained under
   bench/reliability/results/throughput/evidence/20260908T020110Z/.
   Serial producer batches avoided missing calls in two diagnostics, but
-  still failed latency/backlog at 32k. [0714] fixes a deterministic
-  reproduction of skipped ids on both consumer paths and commits empty
+  still failed latency/backlog at 32k. [0714]/[0715] fix a deterministic
+  reproduction of skipped ids on the active cursor-consumer path and commits empty
   claims so later polls can use their observations. Two repeated 32k/s
   runs handled all 1.92m messages without missing/duplicate deliveries,
-  but backlog still grew. Diagnose remaining stalls before resuming
-  configuration sweeps.
+  but backlog still grew. Configuration sweeps resumed: producer/consumer
+  batches, queue size, polling, process counts, CPU allowances, Go GC and
+  thread settings, partition size, PostgreSQL JIT, and record storage.
+  All exception consumers are suspended; the archived delivery consumer
+  is excluded. Two producers at an aggregate 64k/s produced and consumed
+  all 1.92m messages in a 30s probe. Reducing batch concurrency to one
+  per producer yielded a 63,629/s hold, p99 411ms and no growing hold
+  backlog or schedule slips (startup still failed backlog). The one-minute
+  48k/s repeat had p99 985ms but backlog +398/s: not sustainable despite
+  the harness PASS. A 96k/s probe overloaded. No maximum established.
   See bench/reliability/results/throughput/RESULTS.md.
   Long runs also need bounded recording/import storage; the current
   all-records/all-messages method exceeds 20 GiB before 15m at high rates.
+- Native scratch exploration (2026-09-08): reliability suite paused at the
+  user's request. Code: bench/scratchnative/main.go; runner: run.py there.
+  Native PostgreSQL 17.9 on 127.0.0.1:55439; session path is in
+  /private/tmp/vulkan-native-session-path.txt. Separate producer/consumer
+  processes keep counters, duplicate bitsets and 1ms latency histograms
+  in memory, plus CPU profiles and one-second resource/pool samples.
+  Runtime consumer settings are logged at Info; actual producer batches
+  are counted by transaction id after production. All exception workers
+  are suspended before measured production; native durability remains on.
+  Initial 20s runs reached 54.4k/s (64 callers) and 63.5k/s (256 callers),
+  end-to-end p99 <=43ms / <=53ms. With 4096 callers and four batch
+  transactions, 2m messages completed production in 14.41s (~138.8k/s),
+  end-to-end p99 <=124ms, zero errors/duplicates; actual batch average
+  974.66 and maximum 1000. These are short scratch probes, not a
+  sustainable maximum or a controlled Docker/native comparison.
+  A further 20s run with 8192 callers / eight batch transactions handled
+  all 2,738,475 messages (~136.5k/s), p99 <=744ms, zero errors/duplicates.
+  The four-transaction setup is the better initial candidate. Disposable
+  databases were dropped; native cluster and profiles remain available.
+  PostgreSQL 18.6 (latest stable checked against postgresql.org) is now
+  installed and active at the same scratch port. PostgreSQL 17.9 is stopped;
+  its scratch cluster remains available with page checksums enabled to
+  match 18.6. Two alternating 2m-message runs per version, identical
+  scratch executable / 4096 callers / four batch transactions / durable
+  settings: 17.9 130,119 and 126,082/s (p99 <=161/234ms), 18.6 128,992
+  and 135,419/s (p99 <=202/164ms). All 8m handled once, zero errors.
+  18.6 averaged ~3.2% higher but ranges overlap; no decisive improvement
+  or sustainable maximum established. Evidence and comparison.json:
+  /private/tmp/vulkan-native18.D1I5CE/; 17 evidence remains under the
+  earlier session directory. Runner now defaults to PostgreSQL 18 tools.
+  Bottleneck investigation: storage budget is now 100 GB. Scratch runs
+  capture 10Hz PostgreSQL session waits, I/O/WAL/checkpoint deltas, actual
+  connection-pool waits, allocation profiles and optional mutex/block
+  profiles. One-minute automatic baseline: 7,861,095 messages (~131k/s),
+  p99 <=198ms. Explicit four-batch callers: 7,797,000 (~130k/s), p99
+  <=441ms; kept four database sessions busy instead of ~three and used
+  less application CPU, but did not increase throughput. Pool waits and
+  GC were small. work_mem=32MB eliminated 2.37GB of consumer-query spills
+  but did not improve throughput (~128.5k/s). Raising max_wal_size to 8GB
+  and min_wal_size to 2GB regressed to ~94.8k/s, p99 <=4.232s: foreground
+  relation writes increased to 4.52GB / 88s cumulative across backends.
+  Faster background flushing only recovered ~100.2k/s with p99 <=8.056s;
+  reverted WAL limits and background-writer settings, retaining work_mem.
+  Eight explicit batch callers reached ~149.2k/s over 30 seconds, but
+  p99 rose to <=2.640s; this is not a validated sustainable maximum.
+  With the same eight callers and GOMAXPROCS=2 for both application
+  processes, the next 30-second run reached ~124.4k/s, p99 <=2.998s.
+  This suggests application-parallelism sensitivity, but needs repeated
+  comparisons because storage waits also differed between the runs.
+  Broaden the investigation beyond database settings: attribute consumer
+  cursor/range-lock waits to their blocking transactions; compare multiple
+  producer and consumer processes at equal total concurrency; measure Go
+  scheduling and per-thread CPU; correlate loopback traffic and socket
+  waits with device transfers, throughput and write latency. A single
+  consumer cannot rule out contention between same-group consumers.
+  Whole-device samples showed ~6.8k–16.6k transfers/s and ~570–1150MB/s;
+  these include other host activity and do not prove device saturation.
+  All completed runs
+  handled every message once with zero application errors; no library
+  code changes were made in this investigation. Evidence remains in the
+  native18 scratch session directory, with analysis.txt for analyzed runs.
 - [ ] Choose retention from measured storage, then validate finalists.
 - [ ] Record comparison and sustainable result with evidence.
 
