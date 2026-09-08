@@ -4,6 +4,7 @@
   <br>
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset=".website/public/sqlstreams-dark.svg">
+    <br />
     <img alt="SQLStreams" src=".website/public/sqlstreams-light.svg" height="56">
   </picture>
 </p>
@@ -25,23 +26,28 @@
 
 ## About
 
-<!-- This is the "marketing" bullshit, I don't like it but its gotta be done -->
+I use Kafka, you use Kafka, your mom uses Kafka. *Kafka is great.*
 
-I love using kafka and you should to. There is a reason it is so widely used in the industry.
+**Buuuuuut....** running and maintaing a Kafka cluster is **not fun.**
 
-But you know what I hate about kafka. Running kafka. Maintaining kafka.
+I'd love to use Kafka for my [agentic powered TODO app](https://github.com/agentstax/tomorrows-todo-today) but if I see one more `"no brokers available"` error I will **crash out.**
 
-Well no more! Get yourself the kafka functionality you love with the ease of just running your friendly neighborhood Postgres database.
+<p align="center">
+  <strong>INTRODUCING</strong>
+  <br />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".website/public/sqlstreams-dark.svg">
+    <img alt="SQLStreams" src=".website/public/sqlstreams-light.svg" height="44">
+  </picture>
+  <br />
+  <em>for when you barely know what a Topic is but know Kafka is good... for some reason or another.</em>
+</p>
 
-<!-- This is the juicy bit, the meat and potatoes if you will -->
+**SQLStreams is a pure SQL library that uses Postgres as its broker.**
 
-SQLStreams is a pure SQL library which uses Postgres as its data broker.
-
-Built with speed in mind toping out at around ~100k req/s.
-
-And bundling togeather ease of use features look automatic retry and dead letter queues.
-
-2 dependencies?? because vuln patching is the worst
+- **Fast.** Built with speed in mind, topping out at around ~100k req/s.
+- **Batteries included.** Automatic retries and dead-letter handling come bundled, not bolted on.
+- **2 dependencies.** Because vuln patching is the worst.
 
 ## Usage
 
