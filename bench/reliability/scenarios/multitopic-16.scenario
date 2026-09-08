@@ -1,0 +1,74 @@
+# the saturation ladder over 16 topics: the same total rate stepped up per rung until a guard gives, two groups on every topic
+
+[input]
+topic        orders-1         DeliveryLogMode all
+consumers    fraud-scoring    handler fail rate 0, 3 retries then dead, batch 100
+consumers    analytics        handler fail rate 0, 3 retries then dead, batch 100
+topic        orders-2         DeliveryLogMode all
+consumers    fraud-scoring    handler fail rate 0, 3 retries then dead, batch 100
+consumers    analytics        handler fail rate 0, 3 retries then dead, batch 100
+topic        orders-3         DeliveryLogMode all
+consumers    fraud-scoring    handler fail rate 0, 3 retries then dead, batch 100
+consumers    analytics        handler fail rate 0, 3 retries then dead, batch 100
+topic        orders-4         DeliveryLogMode all
+consumers    fraud-scoring    handler fail rate 0, 3 retries then dead, batch 100
+consumers    analytics        handler fail rate 0, 3 retries then dead, batch 100
+topic        orders-5         DeliveryLogMode all
+consumers    fraud-scoring    handler fail rate 0, 3 retries then dead, batch 100
+consumers    analytics        handler fail rate 0, 3 retries then dead, batch 100
+topic        orders-6         DeliveryLogMode all
+consumers    fraud-scoring    handler fail rate 0, 3 retries then dead, batch 100
+consumers    analytics        handler fail rate 0, 3 retries then dead, batch 100
+topic        orders-7         DeliveryLogMode all
+consumers    fraud-scoring    handler fail rate 0, 3 retries then dead, batch 100
+consumers    analytics        handler fail rate 0, 3 retries then dead, batch 100
+topic        orders-8         DeliveryLogMode all
+consumers    fraud-scoring    handler fail rate 0, 3 retries then dead, batch 100
+consumers    analytics        handler fail rate 0, 3 retries then dead, batch 100
+topic        orders-9         DeliveryLogMode all
+consumers    fraud-scoring    handler fail rate 0, 3 retries then dead, batch 100
+consumers    analytics        handler fail rate 0, 3 retries then dead, batch 100
+topic        orders-10        DeliveryLogMode all
+consumers    fraud-scoring    handler fail rate 0, 3 retries then dead, batch 100
+consumers    analytics        handler fail rate 0, 3 retries then dead, batch 100
+topic        orders-11        DeliveryLogMode all
+consumers    fraud-scoring    handler fail rate 0, 3 retries then dead, batch 100
+consumers    analytics        handler fail rate 0, 3 retries then dead, batch 100
+topic        orders-12        DeliveryLogMode all
+consumers    fraud-scoring    handler fail rate 0, 3 retries then dead, batch 100
+consumers    analytics        handler fail rate 0, 3 retries then dead, batch 100
+topic        orders-13        DeliveryLogMode all
+consumers    fraud-scoring    handler fail rate 0, 3 retries then dead, batch 100
+consumers    analytics        handler fail rate 0, 3 retries then dead, batch 100
+topic        orders-14        DeliveryLogMode all
+consumers    fraud-scoring    handler fail rate 0, 3 retries then dead, batch 100
+consumers    analytics        handler fail rate 0, 3 retries then dead, batch 100
+topic        orders-15        DeliveryLogMode all
+consumers    fraud-scoring    handler fail rate 0, 3 retries then dead, batch 100
+consumers    analytics        handler fail rate 0, 3 retries then dead, batch 100
+topic        orders-16        DeliveryLogMode all
+consumers    fraud-scoring    handler fail rate 0, 3 retries then dead, batch 100
+consumers    analytics        handler fail rate 0, 3 retries then dead, batch 100
+producer     batch concurrency 16 per topic
+duration     8m
+
+[shape]
+rung-2000:     steady 125/s per topic 2m
+rung-4000:     steady 250/s per topic 2m
+rung-8000:     steady 500/s per topic 2m
+rung-16000:    steady 1000/s per topic 2m
+
+at 0m    consumers 2
+
+[expect]
+lost                  0
+unexpected            0
+recovered             report
+undelivered           0
+duplicates            report
+unbucketed            0
+reclaims              report
+dead                  0
+schedule_kept         report
+backlog_bounded       report
+generator_headroom    report

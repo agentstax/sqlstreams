@@ -9,7 +9,7 @@ import (
 	"github.com/agentstax/vulkan/bench/reliability/scenario"
 )
 
-var All = []*scenario.Scenario{Quiet, Dev}
+var All = []*scenario.Scenario{Quiet, Dev, Multitopic1, Multitopic4, Multitopic16}
 
 func ByName(name string) (*scenario.Scenario, bool) {
 	for _, declared := range All {

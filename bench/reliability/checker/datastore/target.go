@@ -12,9 +12,12 @@ import (
 // a nil ClientConfig, so the default.
 const vulkanSchema = vulkandatastore.DefaultSchema
 
-// Target is the topic and consumer group the checks read, resolved from the
-// catalog by the names the scenario declares.
+// Target is one topic and consumer group the checks read: the names the
+// scenario declares, which the records carry, and the ids the catalog
+// resolved them to, which name the library's tables.
 type Target struct {
+	Topic   string
+	Group   string
 	TopicId int64
 	GroupId int64
 }
@@ -27,7 +30,7 @@ func (d *CheckerDatastore) ResolveTarget(ctx context.Context, topicName string, 
 		JOIN %[1]s.consumer_group_config g ON g.topic_id = t.id AND g.name = $2
 		WHERE t.name = $1;
 	`, vulkanSchema)
-	var resolved Target
+	resolved := Target{Topic: topicName, Group: groupName}
 	if err := d.pool.QueryRow(ctx, resolveSql, topicName, groupName).Scan(&resolved.TopicId, &resolved.GroupId); err != nil {
 		return Target{}, fmt.Errorf("consumer group %q on topic %q: %w", groupName, topicName, err)
 	}

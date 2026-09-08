@@ -11,21 +11,25 @@ import (
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 )
 
-// Instances is the consumer instances one process runs, numbered
-// c-1 upward. Each instance is its own Register and Consume session under its
-// own ctx, so a scale-down is a graceful stop of the highest-numbered ones.
-// The runner decides the count; Instances only moves to it.
+// Instances is the consumer instances one process runs on one group,
+// numbered c-1 upward. Each instance is its own Register and Consume
+// session under its own ctx, so a scale-down is a graceful stop of the
+// highest-numbered ones. The runner decides the count; Instances only
+// moves to it. Every group's Instances in a process share one failed
+// channel, so the runner has one place to wait.
 type Instances struct {
 	handle   *vulkan.ConsumerHandle[common.Order]
 	cfg      *vulkan.ConsumerConfig
+	consume  *vulkan.ConsumeOptions
+	topic    string
 	group    string
 	failRate float64
 	writer   *record.Writer
 	name     string
+	failed   chan error
 
 	mutex   sync.Mutex
 	running []*runningInstance
-	failed  chan error
 }
 
 type runningInstance struct {
@@ -33,12 +37,18 @@ type runningInstance struct {
 	done chan struct{}
 }
 
-func NewInstances(handle *vulkan.ConsumerHandle[common.Order], cfg *vulkan.ConsumerConfig, group string, failRate float64, writer *record.Writer, name string) (*Instances, error) {
+func NewInstances(handle *vulkan.ConsumerHandle[common.Order], cfg *vulkan.ConsumerConfig, consume *vulkan.ConsumeOptions, topic string, group string, failRate float64, writer *record.Writer, name string, failed chan error) (*Instances, error) {
 	if handle == nil {
 		return nil, errors.New("handle must not be nil")
 	}
 	if cfg == nil {
 		return nil, errors.New("cfg must not be nil")
+	}
+	if consume == nil {
+		return nil, errors.New("consume must not be nil")
+	}
+	if topic == "" {
+		return nil, errors.New("topic must not be empty")
 	}
 	if group == "" {
 		return nil, errors.New("group must not be empty")
@@ -52,7 +62,10 @@ func NewInstances(handle *vulkan.ConsumerHandle[common.Order], cfg *vulkan.Consu
 	if name == "" {
 		return nil, errors.New("name must not be empty")
 	}
-	return &Instances{handle: handle, cfg: cfg, group: group, failRate: failRate, writer: writer, name: name, failed: make(chan error, 1)}, nil
+	if failed == nil {
+		return nil, errors.New("failed must not be nil")
+	}
+	return &Instances{handle: handle, cfg: cfg, consume: consume, topic: topic, group: group, failRate: failRate, writer: writer, name: name, failed: failed}, nil
 }
 
 // SetCount starts or stops instances until count are running. Stopping
@@ -77,16 +90,9 @@ func (i *Instances) SetCount(ctx context.Context, count int) error {
 	return nil
 }
 
-// Failed reports the first lab failure among the instances: a Consume
-// session that returned an error other than its own cancellation, or a
-// handler whose record write failed. Healthy instances never send.
-func (i *Instances) Failed() <-chan error {
-	return i.failed
-}
-
 func (i *Instances) start(ctx context.Context, number int) (*runningInstance, error) {
-	consumerName := fmt.Sprintf("%s/c-%d", i.name, number)
-	handler, err := NewHandler(consumerName, i.group, i.failRate, i.writer, i.failed)
+	consumerName := fmt.Sprintf("%s/%s/%s/c-%d", i.name, i.topic, i.group, number)
+	handler, err := NewHandler(consumerName, i.topic, i.group, i.failRate, i.writer, i.failed)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +105,7 @@ func (i *Instances) start(ctx context.Context, number int) (*runningInstance, er
 	instance := &runningInstance{stop: stop, done: make(chan struct{})}
 	go func() {
 		defer close(instance.done)
-		err := session.Consume(sessionCtx, handler.Handle, nil)
+		err := session.Consume(sessionCtx, handler.Handle, i.consume)
 		if err != nil && !errors.Is(err, context.Canceled) {
 			select {
 			case i.failed <- fmt.Errorf("%s: %w", consumerName, err):

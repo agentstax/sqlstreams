@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/agentstax/vulkan/bench/reliability/common"
+	"github.com/agentstax/vulkan/bench/reliability/scenario"
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 )
 
@@ -11,26 +12,47 @@ import (
 // declarations. Every role registers: registration is idempotent and
 // newest-wins, so whichever role starts first bootstraps and the rest agree.
 
-func (r *Runner) registerTopic(ctx context.Context) (*vulkan.TopicHandle[common.Order], error) {
+// registeredTopic is one declared topic and its handle, in declaration
+// order.
+type registeredTopic struct {
+	declared scenario.TopicDeclaration
+	handle   *vulkan.TopicHandle[common.Order]
+}
+
+func (r *Runner) registerTopics(ctx context.Context) ([]registeredTopic, error) {
 	if err := r.connection.Client.System().Register(ctx, nil); err != nil {
 		return nil, err
 	}
-	orders := r.connection.Client.Topic[common.Order](r.declared.Topic)
-	if _, err := orders.Register(ctx, r.topicConfig()); err != nil {
-		return nil, err
+	registered := make([]registeredTopic, 0, len(r.declared.Topics))
+	for _, declared := range r.declared.Topics {
+		handle := r.connection.Client.Topic[common.Order](declared.Name)
+		if _, err := handle.Register(ctx, &vulkan.TopicConfig{DeliveryLogMode: declared.DeliveryLogMode}); err != nil {
+			return nil, err
+		}
+		registered = append(registered, registeredTopic{declared: declared, handle: handle})
 	}
-	return orders, nil
+	return registered, nil
 }
 
-func (r *Runner) topicConfig() *vulkan.TopicConfig {
-	return &vulkan.TopicConfig{DeliveryLogMode: r.declared.DeliveryLogMode}
+// producerConfig is the producer line; a zero batch concurrency is the
+// library's own default.
+func producerConfig(declared *scenario.Scenario) *vulkan.ProducerConfig {
+	cfg := &vulkan.ProducerConfig{}
+	cfg.Batch.ConcurrencyLimit = declared.ProducerBatchConcurrency
+	return cfg
 }
 
-// consumerConfig is the "N retries then dead" half of the consumers line.
-func (r *Runner) consumerConfig() *vulkan.ConsumerConfig {
+// consumerConfig is the "N retries then dead" half of a consumers line.
+func consumerConfig(group scenario.GroupDeclaration) *vulkan.ConsumerConfig {
 	return &vulkan.ConsumerConfig{
 		Message: &vulkan.MessageOptions{
-			Retry: &vulkan.RetryPolicy{MaxRetries: r.declared.MaxRetries},
+			Retry: &vulkan.RetryPolicy{MaxRetries: group.MaxRetries},
 		},
 	}
+}
+
+// consumeOptions is the "batch N" half; a zero BatchLimit is the library's
+// own default.
+func consumeOptions(group scenario.GroupDeclaration) *vulkan.ConsumeOptions {
+	return &vulkan.ConsumeOptions{BatchLimit: group.BatchLimit}
 }

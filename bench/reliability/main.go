@@ -70,7 +70,7 @@ func run() (int, error) {
 		return 0, err
 	}
 	defer connection.Close()
-	role, err := runner.NewRunner(declared.Scaled(flags.timeScale), connection, flags.recordDir, flags.name)
+	role, err := runner.NewRunner(declared, flags.timeScale, connection, flags.recordDir, flags.name)
 	if err != nil {
 		return 0, err
 	}

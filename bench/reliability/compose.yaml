@@ -4,7 +4,8 @@
 # record files from the shared `records` volume, drains the group, writes its
 # results to ./results, and exits with the verdict. The producer and consumer
 # are capped at two CPUs each so the generator_headroom check has a cap to
-# judge against. The checker sits behind a profile so
+# judge against. The consumer carries no fixed hostname: `--scale consumer=N`
+# runs replicas, and each names its records by its container id. The checker sits behind a profile so
 # a plain `up` never starts it. Each role's hostname is its record name, so
 # keys read `producer-<seq>`. No dependent carries `restart: true` -- a
 # Postgres restart during a chaos phase must not restart the roles under
@@ -73,7 +74,6 @@ services:
     build:
       context: ../..
       dockerfile: bench/reliability/Dockerfile
-    hostname: consumer
     command: ['-role', 'consumer', '-scenario', '${SCENARIO:-dev}', '-time-scale', '${TIME_SCALE:-1}', '-record-dir', '/records']
     deploy:
       resources:

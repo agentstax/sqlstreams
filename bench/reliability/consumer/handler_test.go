@@ -19,7 +19,7 @@ func TestHandleReportsARecordWriteFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	failed := make(chan error, 1)
-	handler, err := NewHandler("c/c-1", "g", 0, writer, failed)
+	handler, err := NewHandler("c/c-1", "t", "g", 0, writer, failed)
 	if err != nil {
 		t.Fatal(err)
 	}

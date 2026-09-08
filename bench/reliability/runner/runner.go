@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/agentstax/vulkan/bench/reliability/common"
@@ -16,14 +17,21 @@ import (
 // timeline says. The producer and consumer packages never see the timeline.
 type Runner struct {
 	declared   *scenario.Scenario
+	unscaled   *scenario.Scenario
+	timeScale  float64
 	connection *common.Connection
 	recordDir  string
 	name       string
 }
 
-func NewRunner(declared *scenario.Scenario, connection *common.Connection, recordDir string, name string) (*Runner, error) {
+// NewRunner runs the declared scenario scaled by timeScale; the roles run
+// the scaled timeline, and the checker records the declaration as written.
+func NewRunner(declared *scenario.Scenario, timeScale float64, connection *common.Connection, recordDir string, name string) (*Runner, error) {
 	if declared == nil {
 		return nil, errors.New("declared must not be nil")
+	}
+	if timeScale <= 0 {
+		return nil, fmt.Errorf("timeScale must be > 0, got %g", timeScale)
 	}
 	if connection == nil {
 		return nil, errors.New("connection must not be nil")
@@ -34,7 +42,7 @@ func NewRunner(declared *scenario.Scenario, connection *common.Connection, recor
 	if name == "" {
 		return nil, errors.New("name must not be empty")
 	}
-	return &Runner{declared: declared, connection: connection, recordDir: recordDir, name: name}, nil
+	return &Runner{declared: declared.Scaled(timeScale), unscaled: declared, timeScale: timeScale, connection: connection, recordDir: recordDir, name: name}, nil
 }
 
 func (r *Runner) openWriter(kind record.FileKind) (*record.Writer, error) {

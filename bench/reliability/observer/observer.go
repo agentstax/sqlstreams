@@ -20,14 +20,20 @@ type Observer struct {
 	ds       *datastore.ObserverDatastore
 	samples  *record.Writer
 	backlogs *record.Writer
-	topic    string
-	group    string
+	groups   []GroupName
 
-	target   datastore.Target
-	resolved bool
+	// resolved fills per group as the consumer role registers it
+	resolved map[GroupName]datastore.Target
 }
 
-func NewObserver(ds *datastore.ObserverDatastore, samples *record.Writer, backlogs *record.Writer, topic string, group string) (*Observer, error) {
+// GroupName is one consumer group to sample, by the names the scenario
+// declares.
+type GroupName struct {
+	Topic string
+	Group string
+}
+
+func NewObserver(ds *datastore.ObserverDatastore, samples *record.Writer, backlogs *record.Writer, groups []GroupName) (*Observer, error) {
 	if ds == nil {
 		return nil, errors.New("ds must not be nil")
 	}
@@ -37,13 +43,10 @@ func NewObserver(ds *datastore.ObserverDatastore, samples *record.Writer, backlo
 	if backlogs == nil {
 		return nil, errors.New("backlogs must not be nil")
 	}
-	if topic == "" {
-		return nil, errors.New("topic must not be empty")
+	if len(groups) == 0 {
+		return nil, errors.New("groups must not be empty")
 	}
-	if group == "" {
-		return nil, errors.New("group must not be empty")
-	}
-	return &Observer{ds: ds, samples: samples, backlogs: backlogs, topic: topic, group: group}, nil
+	return &Observer{ds: ds, samples: samples, backlogs: backlogs, groups: groups, resolved: map[GroupName]datastore.Target{}}, nil
 }
 
 // Run samples until ctx is cancelled and returns ctx.Err(). A read that
@@ -75,17 +78,23 @@ func (o *Observer) sample(ctx context.Context, now time.Time) error {
 		}
 	}
 
-	if !o.resolved {
-		target, ok, err := o.ds.ResolveTarget(ctx, o.topic, o.group)
-		if err != nil || !ok {
-			return nil
+	for _, group := range o.groups {
+		target, ok := o.resolved[group]
+		if !ok {
+			target, ok, err = o.ds.ResolveTarget(ctx, group.Topic, group.Group)
+			if err != nil || !ok {
+				continue
+			}
+			o.resolved[group] = target
 		}
-		o.target, o.resolved = target, true
+		backlog, err := o.ds.ReadBacklog(ctx, target)
+		if err != nil {
+			continue
+		}
+		backlog.At, backlog.Topic, backlog.Group = now, group.Topic, group.Group
+		if err := o.backlogs.Write(backlog); err != nil {
+			return err
+		}
 	}
-	backlog, err := o.ds.ReadBacklog(ctx, o.target)
-	if err != nil {
-		return nil
-	}
-	backlog.At, backlog.Topic, backlog.Group = now, o.topic, o.group
-	return o.backlogs.Write(backlog)
+	return nil
 }

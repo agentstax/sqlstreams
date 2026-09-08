@@ -31,3 +31,9 @@ func (p ProducerPhase) Validate() error {
 func (p ProducerPhase) String() string {
 	return fmt.Sprintf("steady %d/s %s", p.Rate, formatDuration(p.Duration))
 }
+
+// PerTopicString is String for a scenario with several topics, each running
+// the phase at this rate: "steady 200/s per topic 10m".
+func (p ProducerPhase) PerTopicString() string {
+	return fmt.Sprintf("steady %d/s per topic %s", p.Rate, formatDuration(p.Duration))
+}

@@ -22,18 +22,28 @@ import (
 type Checker struct {
 	ds          *datastore.CheckerDatastore
 	declared    *scenario.Scenario
+	unscaled    *scenario.Scenario
+	timeScale   float64
 	fingerprint *Fingerprint
 	recordDir   string
 	statsFile   string
 	drainBudget time.Duration
 }
 
-func NewChecker(pool *pgxpool.Pool, declared *scenario.Scenario, fingerprint *Fingerprint, recordDir string, statsFile string, drainBudget time.Duration) (*Checker, error) {
+// NewChecker judges the scaled scenario the roles ran; unscaled and
+// timeScale are recorded so the run line names the workload as declared.
+func NewChecker(pool *pgxpool.Pool, declared *scenario.Scenario, unscaled *scenario.Scenario, timeScale float64, fingerprint *Fingerprint, recordDir string, statsFile string, drainBudget time.Duration) (*Checker, error) {
 	if pool == nil {
 		return nil, errors.New("pool must not be nil")
 	}
 	if declared == nil {
 		return nil, errors.New("declared must not be nil")
+	}
+	if unscaled == nil {
+		return nil, errors.New("unscaled must not be nil")
+	}
+	if timeScale <= 0 {
+		return nil, fmt.Errorf("timeScale must be > 0, got %g", timeScale)
 	}
 	if fingerprint == nil {
 		return nil, errors.New("fingerprint must not be nil")
@@ -52,7 +62,7 @@ func NewChecker(pool *pgxpool.Pool, declared *scenario.Scenario, fingerprint *Fi
 	if err != nil {
 		return nil, err
 	}
-	return &Checker{ds: ds, declared: declared, fingerprint: fingerprint, recordDir: recordDir, statsFile: statsFile, drainBudget: drainBudget}, nil
+	return &Checker{ds: ds, declared: declared, unscaled: unscaled, timeScale: timeScale, fingerprint: fingerprint, recordDir: recordDir, statsFile: statsFile, drainBudget: drainBudget}, nil
 }
 
 // Run loads the producers' records, drains the group, loads the handlers'
@@ -68,6 +78,8 @@ func (c *Checker) Run(ctx context.Context) (*Verdict, error) {
 
 	verdict := &Verdict{
 		Scenario:    c.declared.Name,
+		Declaration: c.unscaled.String(),
+		TimeScale:   c.timeScale,
 		StartedAt:   time.Now(),
 		Fingerprint: c.fingerprint,
 		Checks:      []CheckResult{},
@@ -82,7 +94,7 @@ func (c *Checker) Run(ctx context.Context) (*Verdict, error) {
 }
 
 func (c *Checker) judge(ctx context.Context, verdict *Verdict) error {
-	target, err := c.ds.ResolveTarget(ctx, c.declared.Topic, c.declared.Group)
+	targets, err := c.resolveTargets(ctx)
 	if err != nil {
 		return err
 	}
@@ -126,10 +138,19 @@ func (c *Checker) judge(ctx context.Context, verdict *Verdict) error {
 		return errors.New("nothing was produced")
 	}
 
-	// the handler files are complete only once the group has drained: a
-	// handler row is on disk before the delivery it records is committed
-	if err := c.drain(ctx, target); err != nil {
+	// the produce side is measured before the drain, so a run whose
+	// consumers never catch up still records what its producers saw
+	verdict.Measure, err = c.measure(ctx, targets, verdict.Phases)
+	if err != nil {
 		return err
+	}
+
+	// the handler files are complete only once every group has drained: a
+	// handler row is on disk before the delivery it records is committed
+	for _, target := range targets {
+		if err := c.drain(ctx, target); err != nil {
+			return err
+		}
 	}
 	verdict.Records.Handler, err = c.ds.LoadHandler(ctx, c.recordDir)
 	if err != nil {
@@ -139,13 +160,12 @@ func (c *Checker) judge(ctx context.Context, verdict *Verdict) error {
 	if err != nil {
 		return err
 	}
-	verdict.Measure, err = c.measure(ctx, verdict.Phases)
-	if err != nil {
+	if err := c.measureEndToEnd(ctx, verdict.Measure, verdict.Phases); err != nil {
 		return err
 	}
 
 	for _, expectation := range c.declared.Expect {
-		result, err := c.check(ctx, target, verdict.Phases, expectation)
+		result, err := c.check(ctx, targets, verdict.Phases, expectation)
 		if err != nil {
 			return fmt.Errorf("%s: %w", expectation.Check, err)
 		}
@@ -155,31 +175,49 @@ func (c *Checker) judge(ctx context.Context, verdict *Verdict) error {
 	return nil
 }
 
+// resolveTargets is every declared topic and group pair, in declaration
+// order.
+func (c *Checker) resolveTargets(ctx context.Context) ([]datastore.Target, error) {
+	targets := []datastore.Target{}
+	for _, declared := range c.declared.Topics {
+		for _, group := range declared.Groups {
+			target, err := c.ds.ResolveTarget(ctx, declared.Name, group.Name)
+			if err != nil {
+				return nil, err
+			}
+			targets = append(targets, target)
+		}
+	}
+	return targets, nil
+}
+
 // check runs one expectation's query and judges the count against its Want.
-func (c *Checker) check(ctx context.Context, target datastore.Target, phases []record.PhaseRecord, expectation scenario.Expectation) (CheckResult, error) {
+// A per-group check is summed over every target, a per-topic check over one
+// target per topic; the examples are the first targets' examples.
+func (c *Checker) check(ctx context.Context, targets []datastore.Target, phases []record.PhaseRecord, expectation scenario.Expectation) (CheckResult, error) {
 	var measured datastore.Measurement
 	var err error
 	switch expectation.Check {
 	case scenario.CheckLost:
-		measured, err = c.ds.CountLost(ctx, target)
+		measured, err = c.sumOverTargets(ctx, oneTargetPerTopic(targets), c.ds.CountLost)
 	case scenario.CheckUnexpected:
-		measured, err = c.ds.CountUnexpected(ctx, target)
+		measured, err = c.sumOverTargets(ctx, oneTargetPerTopic(targets), c.ds.CountUnexpected)
 	case scenario.CheckRecovered:
-		measured, err = c.ds.CountRecovered(ctx, target)
+		measured, err = c.sumOverTargets(ctx, oneTargetPerTopic(targets), c.ds.CountRecovered)
 	case scenario.CheckUndelivered:
-		measured, err = c.ds.CountUndelivered(ctx, target)
+		measured, err = c.sumOverTargets(ctx, targets, c.ds.CountUndelivered)
 	case scenario.CheckDuplicates:
-		measured, err = c.ds.CountDuplicates(ctx)
+		measured, err = c.sumOverTargets(ctx, targets, c.ds.CountDuplicates)
 	case scenario.CheckUnbucketed:
-		measured, err = c.ds.CountUnbucketed(ctx, target)
+		measured, err = c.sumOverTargets(ctx, targets, c.ds.CountUnbucketed)
 	case scenario.CheckReclaims:
-		measured, err = c.ds.CountReclaims(ctx, target)
+		measured, err = c.sumOverTargets(ctx, targets, c.ds.CountReclaims)
 	case scenario.CheckDead:
-		measured, err = c.ds.CountDead(ctx, target)
+		measured, err = c.sumOverTargets(ctx, targets, c.ds.CountDead)
 	case scenario.CheckScheduleKept:
-		measured, err = c.ds.CountScheduleSlips(ctx, scheduleTolerance)
+		measured, err = c.countScheduleSlips(ctx, phases)
 	case scenario.CheckBacklogBounded:
-		measured, err = c.countDivergingPhases(ctx, phases)
+		measured, err = c.countDivergingPhases(ctx, targets, phases)
 	case scenario.CheckGeneratorHeadroom:
 		measured, err = c.countHeadroomBreaches(ctx, phases)
 	}
@@ -187,4 +225,41 @@ func (c *Checker) check(ctx context.Context, target datastore.Target, phases []r
 		return CheckResult{}, err
 	}
 	return newCheckResult(expectation, measured), nil
+}
+
+func (c *Checker) sumOverTargets(ctx context.Context, targets []datastore.Target, count func(ctx context.Context, target datastore.Target) (datastore.Measurement, error)) (datastore.Measurement, error) {
+	var summed datastore.Measurement
+	for _, target := range targets {
+		measured, err := count(ctx, target)
+		if err != nil {
+			return datastore.Measurement{}, fmt.Errorf("%s/%s: %w", target.Topic, target.Group, err)
+		}
+		summed.Count += measured.Count
+		summed.ExampleOf = measured.ExampleOf
+		for _, example := range measured.Examples {
+			if len(summed.Examples) < len(measured.Examples) {
+				summed.Examples = append(summed.Examples, target.Topic+" "+example)
+			}
+		}
+	}
+	return summed, nil
+}
+
+// ***************
+// *** HELPERS ***
+// ***************
+
+// oneTargetPerTopic keeps the first target of each topic, for the checks
+// that read the topic's produce records and message rows and know no group.
+func oneTargetPerTopic(targets []datastore.Target) []datastore.Target {
+	seen := map[string]bool{}
+	perTopic := []datastore.Target{}
+	for _, target := range targets {
+		if seen[target.Topic] {
+			continue
+		}
+		seen[target.Topic] = true
+		perTopic = append(perTopic, target)
+	}
+	return perTopic
 }

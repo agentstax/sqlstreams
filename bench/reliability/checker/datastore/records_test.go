@@ -25,7 +25,7 @@ func TestLineSourceDecodesEveryLine(t *testing.T) {
 	if len(rows) != 2 {
 		t.Fatalf("decoded %d rows, want 2", len(rows))
 	}
-	if got := rows[1][6]; got != int64(7) {
+	if got := rows[1][7]; got != int64(7) {
 		t.Fatalf("second row message_id = %v, want 7", got)
 	}
 }

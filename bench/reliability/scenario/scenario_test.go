@@ -9,16 +9,31 @@ import (
 
 func validScenario() Scenario {
 	return Scenario{
-		Name:            "test",
-		Summary:         "a valid scenario for the validation tests",
-		Topic:           "orders",
-		DeliveryLogMode: topic.DeliveryLogModeAll,
-		Group:           "fraud-scoring",
-		MaxRetries:      3,
-		Duration:        time.Minute,
-		Producer:        []ProducerPhase{{Name: "hold", Rate: 200, Duration: time.Minute}},
-		Consumers:       []ConsumerChange{{At: 0, Instances: 3}},
-		Expect:          append([]Expectation{}, Invariants...),
+		Name:     "test",
+		Summary:  "a valid scenario for the validation tests",
+		Duration: time.Minute,
+		Topics: []TopicDeclaration{{
+			Name:            "orders",
+			DeliveryLogMode: topic.DeliveryLogModeAll,
+			Groups:          []GroupDeclaration{{Name: "fraud-scoring", MaxRetries: 3}},
+		}},
+		Producer:  []ProducerPhase{{Name: "hold", Rate: 200, Duration: time.Minute}},
+		Consumers: []ConsumerChange{{At: 0, Instances: 3}},
+		Expect:    append([]Expectation{}, Invariants...),
+	}
+}
+
+func TestValidateRejectsARepeatedTopicOrGroup(t *testing.T) {
+	scenario := validScenario()
+	scenario.Topics = append(scenario.Topics, scenario.Topics[0])
+	if err := scenario.Validate(); err == nil {
+		t.Fatal("Validate accepted the same topic declared twice")
+	}
+
+	scenario = validScenario()
+	scenario.Topics[0].Groups = append(scenario.Topics[0].Groups, scenario.Topics[0].Groups[0])
+	if err := scenario.Validate(); err == nil {
+		t.Fatal("Validate accepted the same group declared twice on one topic")
 	}
 }
 

@@ -17,7 +17,9 @@ compat-lab expect="round-trip":
 
 # Run a reliability-lab scenario on its own compose stack, reps times from a fresh stack, and exit with the worst verdict: 0 pass, 1 fail, 2 unknown, 3 lab failure.
 # drain_budget bounds how long the checker waits for the consumers to catch up; a saturating scenario needs more than the default.
-reliability-lab scenario="dev" time_scale="1" drain_budget="2m" reps="1":
+# replicas is the number of consumer processes, each running the scenario's instance count on every group.
+# sync sets synchronous_commit on the lab database for the run; off is a labelled diagnostic cell, never the headline.
+reliability-lab scenario="dev" time_scale="1" drain_budget="2m" reps="1" replicas="1" sync="on":
     #!/usr/bin/env bash
     set -euo pipefail
     cd bench/reliability
@@ -25,12 +27,15 @@ reliability-lab scenario="dev" time_scale="1" drain_budget="2m" reps="1":
     # the repo .env just loads names the dev database; the lab's stack is its own
     unset POSTGRES_HOST POSTGRES_PORT POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB
     stats_pid=""
-    trap 'kill "$stats_pid" 2>/dev/null || true; docker compose down -v' EXIT
+    trap 'kill "$stats_pid" 2>/dev/null || true; docker compose down -v --remove-orphans' EXIT
+    # a run killed mid-way can leave a one-off container holding the records volume
+    docker compose down -v --remove-orphans
     docker compose --profile checker build
     worst=0
     for rep in $(seq 1 {{ reps }}); do
         echo "rep $rep of {{ reps }}"
-        docker compose up --detach consumer observer
+        docker compose up --detach --scale consumer={{ replicas }} consumer observer
+        docker compose exec -T postgres psql -U lab -d lab -q -c "ALTER DATABASE lab SET synchronous_commit = {{ sync }}"
         mkdir -p results && ./fingerprint.sh > results/fingerprint.json
         ./stats.sh > results/stats.jsonl &
         stats_pid=$!
@@ -38,7 +43,7 @@ reliability-lab scenario="dev" time_scale="1" drain_budget="2m" reps="1":
         kill "$stats_pid" && wait "$stats_pid" || true
         code=0
         docker compose run --rm checker || code=$?
-        docker compose down -v
+        docker compose down -v --remove-orphans
         # a lab failure outranks a fail, which outranks an unknown
         case "$code:$worst" in
             3:*) worst=3 ;;

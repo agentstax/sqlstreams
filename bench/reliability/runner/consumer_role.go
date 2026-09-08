@@ -13,13 +13,13 @@ import (
 	"github.com/agentstax/vulkan/bench/reliability/scenario"
 )
 
-// RunConsumer registers, applies each consumer change at its offset, then
-// holds the last count until ctx is cancelled -- the checker decides when
-// the topic has drained, not the consumer. Every instance is stopped before
-// returning. A Consume session failing on its own ends the run with its
-// error.
+// RunConsumer registers every topic, applies each consumer change at its
+// offset to every group of every topic, then holds the last count until ctx
+// is cancelled -- the checker decides when the topics have drained, not the
+// consumer. Every instance is stopped before returning. A Consume session
+// failing on its own ends the run with its error.
 func (r *Runner) RunConsumer(ctx context.Context) error {
-	orders, err := r.registerTopic(ctx)
+	topics, err := r.registerTopics(ctx)
 	if err != nil {
 		return err
 	}
@@ -34,29 +34,40 @@ func (r *Runner) RunConsumer(ctx context.Context) error {
 		return err
 	}
 	defer phaseRecords.Close()
-	instances, err := consumer.NewInstances(orders.Consumer(r.declared.Group), r.consumerConfig(), r.declared.Group, r.declared.HandlerFailRate, handlerRecords, r.name)
-	if err != nil {
-		return err
+
+	failed := make(chan error, 1)
+	groups := []*consumer.Instances{}
+	for _, registered := range topics {
+		for _, group := range registered.declared.Groups {
+			instances, err := consumer.NewInstances(registered.handle.Consumer(group.Name), consumerConfig(group), consumeOptions(group),
+				registered.declared.Name, group.Name, group.HandlerFailRate, handlerRecords, r.name, failed)
+			if err != nil {
+				return err
+			}
+			groups = append(groups, instances)
+		}
 	}
 
 	start := time.Now()
 	for _, change := range r.declared.Consumers {
 		if err := common.WaitUntil(ctx, start.Add(change.At)); err != nil {
-			return stopInstances(instances, ignoreCancellation(err))
+			return stopInstances(groups, ignoreCancellation(err))
 		}
-		if err := instances.SetCount(ctx, change.Instances); err != nil {
-			return stopInstances(instances, err)
+		for _, instances := range groups {
+			if err := instances.SetCount(ctx, change.Instances); err != nil {
+				return stopInstances(groups, err)
+			}
 		}
 		if err := r.writeConsumerPhase(phaseRecords, change); err != nil {
-			return stopInstances(instances, err)
+			return stopInstances(groups, err)
 		}
 	}
 
 	select {
 	case <-ctx.Done():
-		return stopInstances(instances, nil)
-	case err := <-instances.Failed():
-		return stopInstances(instances, err)
+		return stopInstances(groups, nil)
+	case err := <-failed:
+		return stopInstances(groups, err)
 	}
 }
 
@@ -70,11 +81,13 @@ func (r *Runner) writeConsumerPhase(phaseRecords *record.Writer, change scenario
 // *** HELPERS ***
 // ***************
 
-// stopInstances stops every instance and returns cause; the stop must
-// outlive the cancelled run ctx so each session can return.
-func stopInstances(instances *consumer.Instances, cause error) error {
-	if err := instances.SetCount(context.WithoutCancel(context.Background()), 0); err != nil {
-		return errors.Join(cause, err)
+// stopInstances stops every group's instances and returns cause; the stop
+// must outlive the cancelled run ctx so each session can return.
+func stopInstances(groups []*consumer.Instances, cause error) error {
+	for _, instances := range groups {
+		if err := instances.SetCount(context.WithoutCancel(context.Background()), 0); err != nil {
+			cause = errors.Join(cause, err)
+		}
 	}
 	return cause
 }

@@ -4,18 +4,13 @@ import (
 	"time"
 
 	"github.com/agentstax/vulkan/bench/reliability/scenario"
-	"github.com/agentstax/vulkan/pkg/topic"
 )
 
 var Dev = &scenario.Scenario{
-	Name:            "dev",
-	Summary:         "the quiet run at one minute, for a laptop",
-	Topic:           "orders",
-	DeliveryLogMode: topic.DeliveryLogModeAll,
-	Group:           "fraud-scoring",
-	HandlerFailRate: 0,
-	MaxRetries:      3,
-	Duration:        time.Minute,
+	Name:     "dev",
+	Summary:  "the quiet run at one minute, for a laptop",
+	Duration: time.Minute,
+	Topics:   Quiet.Topics,
 	Producer: []scenario.ProducerPhase{
 		{Name: "hold", Rate: 200, Duration: time.Minute},
 	},

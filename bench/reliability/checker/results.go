@@ -91,12 +91,18 @@ func Report(declared *scenario.Scenario, verdict *Verdict) string {
 }
 
 // ReportColumns is the report's columns after the phase's [shape] line,
-// tab-separated: the achieved rate, then produce and end-to-end p50 and p99.
+// tab-separated: the achieved total rate, produce and end-to-end p50 and
+// p99, each service's median CPU, then held or the guard that gave.
 func (p PhaseSummary) ReportColumns() string {
-	return fmt.Sprintf("achieved %.1f/s\tproduce p50 %s p99 %s\tend-to-end p50 %s p99 %s",
-		p.AchievedRate,
+	guards := "held"
+	if !p.Held {
+		guards = fmt.Sprintf("gave: backlog %+.1f/s, slips %ds, headroom %d", p.BacklogSlope, p.ScheduleSlips, p.HeadroomBreaches)
+	}
+	return fmt.Sprintf("achieved %.1f/s of %d/s\tproduce p50 %s p99 %s\tend-to-end p50 %s p99 %s\tcpu postgres %.0f%% producer %.0f%% consumer %.0f%%\t%s",
+		p.AchievedRate, p.DeclaredRate,
 		formatLatency(p.Produce.P50), formatLatency(p.Produce.P99),
-		formatLatency(p.EndToEnd.P50), formatLatency(p.EndToEnd.P99))
+		formatLatency(p.EndToEnd.P50), formatLatency(p.EndToEnd.P99),
+		p.PostgresCpu, p.ProducerCpu, p.ConsumerCpu, guards)
 }
 
 // ReportColumns is the report's columns after the declared line, tab-separated:

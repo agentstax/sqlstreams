@@ -156,21 +156,56 @@ directory's verdict.json.
 
 ### 5. Multi-topic scenario shape and the first workload
 
-- [ ] `Scenario.Topic` becomes `Topics []TopicDeclaration`: name, delivery
-  log mode, groups, and that topic's producer phases. The printer gains a
-  section per topic; the `.scenario` files regenerate and their test diffs.
-  Producer and consumer roles run every topic's timeline concurrently.
-- [ ] Replicas: `docker compose up --scale consumer=N`; the consumer name
-  already carries the hostname, so records stay distinct.
-- [ ] `multitopic` scenario: a saturation ladder of stepped phases across
-  a topic count axis, groups per topic, high goroutine concurrency, pushed
-  until a guard fails. Sustainable max per topic count is the highest
-  phase whose guards held; then rate phases at fractions of it for the
-  latency spectrum. Windows span at least one checkpoint (the observer's
-  `pg_stat_checkpointer` delta proves it).
-- [ ] Each cell's limiter named from the observer deltas and `docker
-  stats`; the writeup is `results/multitopic/RESULTS.md` citing
-  `runs.jsonl` and the durability posture beside every number.
+In progress 2026-09-07. Shape landed: `Topics []TopicDeclaration` each
+with its groups; the producer phases stay at scenario level and every
+topic runs them, the rate per topic (the printer says "per topic" past one
+topic). Records carry the topic; per-topic checks (lost, unexpected,
+recovered) sum once per topic, per-group checks once per group. Each phase
+row now carries its own guard reading (backlog slope, slips, headroom
+breaches, held), so a ladder whose run-level guards are declared report
+still reads its sustainable rung off the phase rows. Sabotage: multitopic-4
+at 1/16 scale with two replicas, one message_log row of orders-3 deleted,
+failed lost with the example naming the topic -- and exposed that the
+per-topic checks had been summed per group (fixed). The consumer's fixed
+hostname is gone so `--scale` replicas name their records by container id.
+`golang.org/x/sync` is now a direct import of the bench module; its
+`// indirect` marker in bench/go.mod is stale and left for a hand edit,
+since `go mod tidy` is not run there.
+
+- [x] `Scenario.Topic` becomes `Topics []TopicDeclaration`: name, delivery
+  log mode, groups. The producer phases stay scenario-wide, rate per topic.
+  The printer lists every topic and group; the `.scenario` files regenerate
+  and their test diffs. Producer and consumer roles run every topic
+  concurrently.
+- [x] Replicas: `docker compose up --scale consumer=N` through the recipe's
+  `replicas` parameter; records are named by container id.
+- [x] `multitopic-1`, `-4`, `-16` ladders declared: the same total rate
+  stepped 2000 -> 16000/s over the topics, two groups per topic in batches
+  of 100, sixteen producer batch workers per topic, guards declared report
+  and read per rung off the phase rows. Run at time scale 0.25 (30s rungs)
+  on 2026-09-08 at the user's request for short runs; the full-length
+  rungs that span a checkpoint, three reps, and the rate runs at half the
+  held maximum remain.
+- [x] Limiter named: `results/multitopic/RESULTS.md`. The durable ceiling
+  is ~8000/s total at every topic count, commit latency under
+  `synchronous_commit` on (the off cell held 16000/s at sub-ms p50); no
+  container near its cap. Open question for the library: a batch waits
+  ~200ms on vs ~100ms off while fdatasync costs 0.45ms.
+- [ ] Full-length rungs spanning a checkpoint, three reps, and
+  `multitopic-<n>-rate` runs at half the held maximum for the latency
+  spectrum. Deferred while runs stay short.
+
+Harness changes the ladder forced, all landed: the pacer's in-flight cap
+scales with the rate (2s of it, floor 256); a group declares its
+`BatchLimit`; the scenario declares `ProducerBatchConcurrency`; the
+recipe gained `sync` (a labelled diagnostic cell via ALTER DATABASE) and
+a pre-run `down -v --remove-orphans`, since a killed run's one-off
+container kept the records volume alive into the next run; the checker
+measures the produce side before draining; each phase row carries the
+median CPU of the postgres, producer, and consumer services; the verdict
+carries the declaration and time scale, and the report groups by them.
+Three lines from harness-bug and sabotage runs were removed from the
+untracked-so-far `runs.jsonl` files before they are first committed.
 
 ### 6. Idle-fleet scenario
 

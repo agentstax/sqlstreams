@@ -52,26 +52,26 @@ type tableLayout struct {
 var produceLayout = tableLayout{
 	kind:    record.FileKindProduce,
 	table:   produceTable,
-	columns: []string{"at", "kind", "producer", "sequence", "key", "scheduled_at", "message_id", "duplicate", "code", "error"},
+	columns: []string{"at", "kind", "topic", "producer", "sequence", "key", "scheduled_at", "message_id", "duplicate", "code", "error"},
 	decode: func(line []byte) ([]any, error) {
 		var row record.ProduceRecord
 		if err := json.Unmarshal(line, &row); err != nil {
 			return nil, err
 		}
-		return []any{row.At, string(row.Kind), row.Producer, row.Sequence, row.Key, row.ScheduledAt, row.MessageId, row.Duplicate, row.Code, row.Error}, nil
+		return []any{row.At, string(row.Kind), row.Topic, row.Producer, row.Sequence, row.Key, row.ScheduledAt, row.MessageId, row.Duplicate, row.Code, row.Error}, nil
 	},
 }
 
 var handlerLayout = tableLayout{
 	kind:    record.FileKindHandler,
 	table:   handlerTable,
-	columns: []string{"at", "consumer", "group", "message_id", "key", "attempt", "outcome"},
+	columns: []string{"at", "consumer", "topic", "group", "message_id", "key", "attempt", "outcome"},
 	decode: func(line []byte) ([]any, error) {
 		var row record.HandlerRecord
 		if err := json.Unmarshal(line, &row); err != nil {
 			return nil, err
 		}
-		return []any{row.At, row.Consumer, row.Group, row.MessageId, row.Key, row.Attempt, string(row.Outcome)}, nil
+		return []any{row.At, row.Consumer, row.Topic, row.Group, row.MessageId, row.Key, row.Attempt, string(row.Outcome)}, nil
 	},
 }
 
@@ -182,28 +182,31 @@ func (d *CheckerDatastore) CreateTables(ctx context.Context) error {
 		CREATE TABLE %[1]s.%[2]s (
 			at           TIMESTAMPTZ NOT NULL,
 			kind         TEXT NOT NULL,           -- 'attempted' | 'committed' | 'rejected' | 'unknown'
+			topic        TEXT NOT NULL,
 			producer     TEXT NOT NULL,
-			sequence          BIGINT NOT NULL,
-			key          TEXT NOT NULL,           -- '<producer>-<sequence>', the idempotency key
+			sequence     BIGINT NOT NULL,
+			key          TEXT NOT NULL,           -- '<producer>-<sequence>', the idempotency key, unique per topic
 			scheduled_at TIMESTAMPTZ NOT NULL,
 			message_id   BIGINT NOT NULL,         -- 0 unless committed
 			duplicate    BOOLEAN NOT NULL,
 			code         TEXT NOT NULL,           -- '' unless rejected
 			error        TEXT NOT NULL            -- '' unless rejected or unknown
 		);
-		CREATE INDEX %[2]s_key ON %[1]s.%[2]s (key);
-		CREATE INDEX %[2]s_kind_message_id ON %[1]s.%[2]s (kind, message_id);
+		CREATE INDEX %[2]s_topic_key ON %[1]s.%[2]s (topic, key);
+		CREATE INDEX %[2]s_topic_kind_message_id ON %[1]s.%[2]s (topic, kind, message_id);
+		CREATE INDEX %[2]s_kind_scheduled_at ON %[1]s.%[2]s (kind, scheduled_at);
 
 		CREATE TABLE %[1]s.%[3]s (
 			at         TIMESTAMPTZ NOT NULL,
 			consumer   TEXT NOT NULL,
+			topic      TEXT NOT NULL,
 			"group"    TEXT NOT NULL,
 			message_id BIGINT NOT NULL,
 			key        TEXT NOT NULL,
 			attempt    INT NOT NULL,
 			outcome    TEXT NOT NULL               -- 'success' | 'error'
 		);
-		CREATE INDEX %[3]s_message_id ON %[1]s.%[3]s (message_id);
+		CREATE INDEX %[3]s_topic_group_message_id ON %[1]s.%[3]s (topic, "group", message_id);
 
 		CREATE TABLE %[1]s.%[4]s (
 			at      TIMESTAMPTZ NOT NULL,

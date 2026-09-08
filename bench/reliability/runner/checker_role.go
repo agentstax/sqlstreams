@@ -17,7 +17,7 @@ func (r *Runner) RunChecker(ctx context.Context, resultsDir string, fingerprintF
 	if err != nil {
 		return nil, err
 	}
-	judge, err := checker.NewChecker(r.connection.Pool, r.declared, fingerprint, r.recordDir, statsFile, drainBudget)
+	judge, err := checker.NewChecker(r.connection.Pool, r.declared, r.unscaled, r.timeScale, fingerprint, r.recordDir, statsFile, drainBudget)
 	if err != nil {
 		return nil, err
 	}

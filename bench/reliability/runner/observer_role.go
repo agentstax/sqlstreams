@@ -26,7 +26,13 @@ func (r *Runner) RunObserver(ctx context.Context) error {
 		return err
 	}
 	defer backlogRecords.Close()
-	sampler, err := observer.NewObserver(ds, sampleRecords, backlogRecords, r.declared.Topic, r.declared.Group)
+	groups := []observer.GroupName{}
+	for _, declared := range r.declared.Topics {
+		for _, group := range declared.Groups {
+			groups = append(groups, observer.GroupName{Topic: declared.Name, Group: group.Name})
+		}
+	}
+	sampler, err := observer.NewObserver(ds, sampleRecords, backlogRecords, groups)
 	if err != nil {
 		return err
 	}

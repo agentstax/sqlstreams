@@ -21,15 +21,19 @@ var errInjectedFailure = errors.New("handler failure injected by the scenario's 
 // invocation before returning, and fails the scenario's share of them.
 type Handler struct {
 	name     string
+	topic    string
 	group    string
 	failRate float64
 	writer   *record.Writer
 	failed   chan error
 }
 
-func NewHandler(name string, group string, failRate float64, writer *record.Writer, failed chan error) (*Handler, error) {
+func NewHandler(name string, topic string, group string, failRate float64, writer *record.Writer, failed chan error) (*Handler, error) {
 	if name == "" {
 		return nil, errors.New("name must not be empty")
+	}
+	if topic == "" {
+		return nil, errors.New("topic must not be empty")
 	}
 	if group == "" {
 		return nil, errors.New("group must not be empty")
@@ -43,7 +47,7 @@ func NewHandler(name string, group string, failRate float64, writer *record.Writ
 	if failed == nil {
 		return nil, errors.New("failed must not be nil")
 	}
-	return &Handler{name: name, group: group, failRate: failRate, writer: writer, failed: failed}, nil
+	return &Handler{name: name, topic: topic, group: group, failRate: failRate, writer: writer, failed: failed}, nil
 }
 
 // Handle writes the invocation's record, then returns the injected outcome.
@@ -63,6 +67,7 @@ func (h *Handler) Handle(ctx context.Context, order *common.Order) error {
 	row := record.HandlerRecord{
 		At:        time.Now(),
 		Consumer:  h.name,
+		Topic:     h.topic,
 		Group:     h.group,
 		MessageId: meta.Id,
 		Key:       order.Key(),

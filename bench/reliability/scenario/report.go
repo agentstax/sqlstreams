@@ -21,17 +21,28 @@ func (s *Scenario) Report(phaseColumns map[string]string, expectColumns map[Chec
 }
 
 func (s *Scenario) inputLines() []string {
-	return []string{
-		fmt.Sprintf("topic\t%s\tDeliveryLogMode %s", s.Topic, s.DeliveryLogMode),
-		fmt.Sprintf("consumers\t%s\thandler fail rate %g, %d retries then dead", s.Group, s.HandlerFailRate, s.MaxRetries),
-		fmt.Sprintf("duration\t%s", formatDuration(s.Duration)),
+	lines := []string{}
+	for _, declared := range s.Topics {
+		lines = append(lines, fmt.Sprintf("topic\t%s\tDeliveryLogMode %s", declared.Name, declared.DeliveryLogMode))
+		for _, group := range declared.Groups {
+			lines = append(lines, fmt.Sprintf("consumers\t%s\t%s", group.Name, group.String()))
+		}
 	}
+	if s.ProducerBatchConcurrency > 0 {
+		lines = append(lines, fmt.Sprintf("producer\tbatch concurrency %d per topic", s.ProducerBatchConcurrency))
+	}
+	return append(lines, fmt.Sprintf("duration\t%s", formatDuration(s.Duration)))
 }
 
+// producerLines say "per topic" once the rate is multiplied by more than one
+// topic, so a reader never mistakes a phase's rate for the total.
 func (s *Scenario) producerLines(columns map[string]string) []string {
 	lines := make([]string, 0, len(s.Producer))
 	for _, phase := range s.Producer {
 		line := phase.Name + ":\t" + phase.String()
+		if len(s.Topics) > 1 {
+			line = phase.Name + ":\t" + phase.PerTopicString()
+		}
 		if extra, ok := columns[phase.Name]; ok {
 			line += "\t" + extra
 		}

@@ -17,21 +17,27 @@ import (
 type Producer struct {
 	instance *vulkan.ProducerInstance[common.Order]
 	writer   *record.Writer
+	topic    string
 	name     string
 	sequence atomic.Int64
 }
 
-func NewProducer(instance *vulkan.ProducerInstance[common.Order], writer *record.Writer, name string) (*Producer, error) {
+// NewProducer is one topic's recording producer; keys restart at 1 per
+// topic, so a key names a message only together with its topic.
+func NewProducer(instance *vulkan.ProducerInstance[common.Order], writer *record.Writer, topic string, name string) (*Producer, error) {
 	if instance == nil {
 		return nil, errors.New("instance must not be nil")
 	}
 	if writer == nil {
 		return nil, errors.New("writer must not be nil")
 	}
+	if topic == "" {
+		return nil, errors.New("topic must not be empty")
+	}
 	if name == "" {
 		return nil, errors.New("name must not be empty")
 	}
-	return &Producer{instance: instance, writer: writer, name: name}, nil
+	return &Producer{instance: instance, writer: writer, topic: topic, name: name}, nil
 }
 
 // Produce is one scheduled call: the attempt goes to the records first, then
@@ -42,6 +48,7 @@ func (p *Producer) Produce(ctx context.Context, scheduled time.Time) error {
 	row := record.ProduceRecord{
 		At:          time.Now(),
 		Kind:        record.ProduceKindAttempted,
+		Topic:       p.topic,
 		Producer:    order.Producer,
 		Sequence:    order.Sequence,
 		Key:         order.Key(),

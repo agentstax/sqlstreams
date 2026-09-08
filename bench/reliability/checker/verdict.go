@@ -22,6 +22,8 @@ const (
 // environment, and how each expectation came out.
 type Verdict struct {
 	Scenario    string                   `json:"scenario"`
+	Declaration string                   `json:"declaration"` // the scenario as declared, unscaled, in its .scenario form
+	TimeScale   float64                  `json:"time_scale"`
 	Status      VerdictStatus            `json:"status"`
 	Reason      string                   `json:"reason"` // "" unless unknown
 	StartedAt   time.Time                `json:"started_at"`

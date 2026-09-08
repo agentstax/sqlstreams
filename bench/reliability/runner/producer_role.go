@@ -5,25 +5,28 @@ import (
 	"fmt"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/agentstax/vulkan/bench/reliability/producer"
 	"github.com/agentstax/vulkan/bench/reliability/record"
 	"github.com/agentstax/vulkan/bench/reliability/scenario"
 )
 
-// inFlightLimit bounds the produces a stalled database can leave running at
-// once; the pacer blocks past it, and the late scheduled_at shows the stall.
-const inFlightLimit = 256
+// inFlightSeconds bounds the produces a stalled database can leave running
+// at once per topic, as seconds of the phase's rate: past it the pacer
+// blocks and the late scheduled_at shows the stall. Below inFlightFloor the
+// bound is the floor, so a slow rate still rides out a short stall.
+const (
+	inFlightSeconds = 2
+	inFlightFloor   = 256
+)
 
-// RunProducer registers, then walks the producer phases in order, pacing
-// the recording producer at each phase's rate. Returns when the last phase
-// ends, or nil early when ctx is cancelled -- produces still in flight then
-// land in the records as unknown.
+// RunProducer registers every topic, then walks the producer phases on all
+// of them at once, each topic paced at the phase's rate by its own recording
+// producer. Returns when the last phase ends, or nil early when ctx is
+// cancelled -- produces still in flight then land in the records as unknown.
 func (r *Runner) RunProducer(ctx context.Context) error {
-	orders, err := r.registerTopic(ctx)
-	if err != nil {
-		return err
-	}
-	instance, err := orders.Producer().Register(ctx, nil)
+	topics, err := r.registerTopics(ctx)
 	if err != nil {
 		return err
 	}
@@ -38,26 +41,47 @@ func (r *Runner) RunProducer(ctx context.Context) error {
 		return err
 	}
 	defer phaseRecords.Close()
-	recordingProducer, err := producer.NewProducer(instance, produceRecords, r.name)
-	if err != nil {
-		return err
+
+	producers := make([]*producer.Producer, 0, len(topics))
+	for _, registered := range topics {
+		instance, err := registered.handle.Producer().Register(ctx, producerConfig(r.declared))
+		if err != nil {
+			return err
+		}
+		recordingProducer, err := producer.NewProducer(instance, produceRecords, registered.declared.Name, r.name)
+		if err != nil {
+			return err
+		}
+		producers = append(producers, recordingProducer)
 	}
 
-	for _, phase := range r.declared.Producer {
-		if err := r.runProducerPhase(ctx, phase, recordingProducer, phaseRecords); err != nil {
-			return ignoreCancellation(err)
-		}
+	var routines errgroup.Group
+	for i, registered := range topics {
+		recordingProducer := producers[i]
+		topicName := registered.declared.Name
+		routines.Go(func() error {
+			for _, phase := range r.declared.Producer {
+				if err := r.runProducerPhase(ctx, phase, topicName, recordingProducer, phaseRecords); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
 	}
-	return nil
+	return ignoreCancellation(routines.Wait())
 }
 
-func (r *Runner) runProducerPhase(ctx context.Context, phase scenario.ProducerPhase, recordingProducer *producer.Producer, phaseRecords *record.Writer) error {
-	pacer, err := NewPacer(phase.Rate, phase.Duration, inFlightLimit)
+// runProducerPhase paces one topic through one phase; its phase rows carry
+// the topic in Detail, and the checker takes the earliest start and latest
+// end across topics as the phase's window.
+func (r *Runner) runProducerPhase(ctx context.Context, phase scenario.ProducerPhase, topicName string, recordingProducer *producer.Producer, phaseRecords *record.Writer) error {
+	pacer, err := NewPacer(phase.Rate, phase.Duration, max(inFlightFloor, phase.Rate*inFlightSeconds))
 	if err != nil {
 		return err
 	}
 
-	if err := r.writePhase(phaseRecords, record.PhaseKindProducer, phase.Name, record.PhaseStatusStarted, phase.String()); err != nil {
+	detail := topicName + ": " + phase.String()
+	if err := r.writePhase(phaseRecords, record.PhaseKindProducer, phase.Name, record.PhaseStatusStarted, detail); err != nil {
 		return err
 	}
 	runErr := pacer.Run(ctx, func(ctx context.Context, scheduled time.Time) {
@@ -65,7 +89,7 @@ func (r *Runner) runProducerPhase(ctx context.Context, phase scenario.ProducerPh
 			panic(fmt.Errorf("record write: %w", err))
 		}
 	})
-	if err := r.writePhase(phaseRecords, record.PhaseKindProducer, phase.Name, record.PhaseStatusEnded, phase.String()); err != nil {
+	if err := r.writePhase(phaseRecords, record.PhaseKindProducer, phase.Name, record.PhaseStatusEnded, detail); err != nil {
 		return err
 	}
 	return runErr

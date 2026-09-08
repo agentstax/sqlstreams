@@ -72,7 +72,7 @@ func RunsReport(scenarioName string, runs []*Verdict) string {
 	for _, key := range order {
 		group := groups[key]
 		out.WriteString("\n")
-		out.WriteString(identityLine(group[0].Fingerprint))
+		out.WriteString(identityLine(group[0]))
 		out.WriteString("\n")
 		out.WriteString(groupSummaryLine(group))
 		out.WriteString("\n")
@@ -102,19 +102,22 @@ func runLine(verdict *Verdict) ([]byte, error) {
 	return json.Marshal(fields)
 }
 
-// identityKey is what makes two runs comparable: the same library commit,
-// the same image, the same settings read back from the server.
-func identityKey(fingerprint *Fingerprint) string {
+// identityKey is what makes two runs comparable: the same declaration at
+// the same time scale, the same library commit, the same image, the same
+// settings read back from the server.
+func identityKey(run *Verdict) string {
+	fingerprint := run.Fingerprint
 	names := make([]string, 0, len(fingerprint.Settings))
 	for name := range fingerprint.Settings {
 		names = append(names, name)
 	}
 	sort.Strings(names)
 	var key strings.Builder
-	fmt.Fprintf(&key, "%s %t %s", fingerprint.LibrarySha, fingerprint.LibraryDirty, fingerprint.PostgresImage)
+	fmt.Fprintf(&key, "%g %s %t %s", run.TimeScale, fingerprint.LibrarySha, fingerprint.LibraryDirty, fingerprint.PostgresImage)
 	for _, name := range names {
 		fmt.Fprintf(&key, " %s=%s", name, fingerprint.Settings[name])
 	}
+	key.WriteString("\n" + run.Declaration)
 	return key.String()
 }
 
@@ -122,7 +125,7 @@ func groupByIdentity(runs []*Verdict) (map[string][]*Verdict, []string) {
 	groups := map[string][]*Verdict{}
 	order := []string{}
 	for _, run := range runs {
-		key := identityKey(run.Fingerprint)
+		key := identityKey(run)
 		if _, ok := groups[key]; !ok {
 			order = append(order, key)
 		}
@@ -131,11 +134,12 @@ func groupByIdentity(runs []*Verdict) (map[string][]*Verdict, []string) {
 	return groups, order
 }
 
-// identityLine names the group: the commit, the image, the durability
-// posture, and a short hash of every recorded setting so two groups that
-// differ only in a setting read as different.
-func identityLine(fingerprint *Fingerprint) string {
-	settings := sha256.Sum256([]byte(identityKey(fingerprint)))
+// identityLine names the group: the time scale, the commit, the image, the
+// durability posture, and a short hash of the declaration and every
+// recorded setting so two groups that differ only there read as different.
+func identityLine(run *Verdict) string {
+	fingerprint := run.Fingerprint
+	identity := sha256.Sum256([]byte(identityKey(run)))
 	library := fingerprint.LibrarySha
 	if len(library) > 12 {
 		library = library[:12]
@@ -143,8 +147,8 @@ func identityLine(fingerprint *Fingerprint) string {
 	if fingerprint.LibraryDirty {
 		library += " dirty"
 	}
-	return fmt.Sprintf("library %s, %s, synchronous_commit %s, settings %s",
-		library, fingerprint.PostgresImage, fingerprint.Settings["synchronous_commit"], hex.EncodeToString(settings[:4]))
+	return fmt.Sprintf("time scale %g, library %s, %s, synchronous_commit %s, identity %s",
+		run.TimeScale, library, fingerprint.PostgresImage, fingerprint.Settings["synchronous_commit"], hex.EncodeToString(identity[:4]))
 }
 
 func groupSummaryLine(group []*Verdict) string {

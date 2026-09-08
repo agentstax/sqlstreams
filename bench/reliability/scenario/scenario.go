@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"time"
-
-	"github.com/agentstax/vulkan/pkg/topic"
 )
 
 // Scenario is one run's declaration: what is under test, what happens over
@@ -13,44 +11,44 @@ import (
 // declaration is the same content for readers; String prints this exact
 // format and a test diffs the two, so the Go value is the one source.
 type Scenario struct {
-	Name    string
-	Summary string
+	Name     string
+	Summary  string
+	Duration time.Duration
 
-	Topic           string
-	DeliveryLogMode topic.DeliveryLogMode
-	Group           string
-	HandlerFailRate float64
-	MaxRetries      int
-	Duration        time.Duration
-
+	// every topic runs Producer's phases, each at the phase's rate; every
+	// consumer process runs Consumers' instance count on every group
+	Topics    []TopicDeclaration
 	Producer  []ProducerPhase
 	Consumers []ConsumerChange
 	Expect    []Expectation
+
+	// ProducerBatchConcurrency is each topic's producer batch workers, one
+	// connection each; 0 leaves the library's default
+	ProducerBatchConcurrency int
 }
 
 func (s *Scenario) Validate() error {
 	if s.Name == "" {
 		return errors.New("Name is required")
 	}
-	if s.Topic == "" {
-		return errors.New("Topic is required")
-	}
-
-	// unbucketed reads delivery_log success rows, which only mode all writes
-	if s.DeliveryLogMode != topic.DeliveryLogModeAll {
-		return fmt.Errorf("DeliveryLogMode must be %q, got %q", topic.DeliveryLogModeAll, s.DeliveryLogMode)
-	}
-	if s.Group == "" {
-		return errors.New("Group is required")
-	}
-	if s.HandlerFailRate < 0 || s.HandlerFailRate > 1 {
-		return fmt.Errorf("HandlerFailRate must be between 0 and 1, got %g", s.HandlerFailRate)
-	}
-	if s.MaxRetries < 0 {
-		return fmt.Errorf("MaxRetries must be >= 0, got %d", s.MaxRetries)
-	}
 	if s.Duration <= 0 {
 		return fmt.Errorf("Duration must be > 0, got %v", s.Duration)
+	}
+	if s.ProducerBatchConcurrency < 0 {
+		return fmt.Errorf("ProducerBatchConcurrency must be >= 0, got %d", s.ProducerBatchConcurrency)
+	}
+	if len(s.Topics) == 0 {
+		return errors.New("Topics must not be empty")
+	}
+	topics := map[string]bool{}
+	for i, declared := range s.Topics {
+		if err := declared.Validate(); err != nil {
+			return fmt.Errorf("Topics[%d]: %w", i, err)
+		}
+		if topics[declared.Name] {
+			return fmt.Errorf("Topics[%d].Name already declared: %q", i, declared.Name)
+		}
+		topics[declared.Name] = true
 	}
 
 	var phases time.Duration

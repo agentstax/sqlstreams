@@ -8,14 +8,14 @@ import (
 )
 
 var Quiet = &scenario.Scenario{
-	Name:            "quiet",
-	Summary:         "the hour-long quiet run: constant load, fixed consumers, no chaos, nothing may move",
-	Topic:           "orders",
-	DeliveryLogMode: topic.DeliveryLogModeAll,
-	Group:           "fraud-scoring",
-	HandlerFailRate: 0,
-	MaxRetries:      3,
-	Duration:        60 * time.Minute,
+	Name:     "quiet",
+	Summary:  "the hour-long quiet run: constant load, fixed consumers, no chaos, nothing may move",
+	Duration: 60 * time.Minute,
+	Topics: []scenario.TopicDeclaration{{
+		Name:            "orders",
+		DeliveryLogMode: topic.DeliveryLogModeAll,
+		Groups:          []scenario.GroupDeclaration{{Name: "fraud-scoring", HandlerFailRate: 0, MaxRetries: 3}},
+	}},
 	Producer: []scenario.ProducerPhase{
 		{Name: "hold", Rate: 200, Duration: 60 * time.Minute},
 	},
