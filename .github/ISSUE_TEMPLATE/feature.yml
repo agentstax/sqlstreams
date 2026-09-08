@@ -1,0 +1,27 @@
+name: Feature
+description: Something Vulkan should do.
+body:
+  - type: markdown
+    attributes:
+      value: See the Changes section of CONTRIBUTING.md. Describe the problem, not a design.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What you cannot do today.
+    validations:
+      required: true
+  - type: textarea
+    id: workload
+    attributes:
+      label: Workload
+      description: The real system that needs it, and what you tried instead.
+    validations:
+      required: true
+  - type: checkboxes
+    id: prior
+    attributes:
+      label: Prior decisions
+      options:
+        - label: I grepped docs/DECISIONS.md and the rejected line in docs/DECISION_MAP.md, and this is not one of them.
+          required: true

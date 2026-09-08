@@ -1,0 +1,34 @@
+name: Bug
+description: Something Vulkan does is wrong.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: See the Bugs section of CONTRIBUTING.md. Never paste a message payload.
+  - type: input
+    id: versions
+    attributes:
+      label: Vulkan and Postgres versions
+      placeholder: vulkan v0.x.y, postgres 17
+    validations:
+      required: true
+  - type: textarea
+    id: line
+    attributes:
+      label: Error or log line
+      description: The rendered line with its VKnnnn code and attributes.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: explain
+    attributes:
+      label: Output of `vulkan explain VKnnnn`
+      description: Including what its diagnose queries returned.
+      render: text
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual
+    validations:
+      required: true
