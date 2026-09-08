@@ -1,0 +1,43 @@
+# Version updates: one grouped PR per ecosystem per month, after a release
+# has sat on its registry for a week. Security updates ignore the schedule
+# and the cooldown; they open as soon as a fixed version exists, one grouped
+# PR per ecosystem when "grouped security updates" is on in the repo's
+# code-security settings.
+#
+# Only the root module is listed under gomod. The nested modules resolve the
+# root library through the gitignored go.work and carry no require on it, so
+# Dependabot cannot run their updates until the root is a published module.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    groups:
+      go-dependencies:
+        patterns:
+          - "*"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns:
+          - "*"
+
+  - package-ecosystem: npm
+    directory: /website
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    groups:
+      website-dependencies:
+        patterns:
+          - "*"
