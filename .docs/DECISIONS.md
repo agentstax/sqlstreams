@@ -293,7 +293,7 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 - 0538 2026-08-19 accepted (phase 14b) — # File content ordering convention
 - 0539 2026-08-19 accepted (phase 14b) — # Blank-line convention for function bodies
 - 0540 2026-08-19 accepted (phase 14b) — # Bare sub-consumer constructors: doc fencing, not structural fencing
-- 0541 2026-08-19 accepted (phase 14b) — # examples, bench, and reference become dev-only nested modules
+- 0541 2026-08-19 superseded in part by 0720 and 0723 (phase 14b) — # examples, bench, and reference become dev-only nested modules
 - 0542 2026-08-19 accepted (phase 14b) — # Config & options refinement: the three shape decisions
 - 0543 2026-08-19 accepted (phase 14b) — # Config field order: domain-first, ambient tail
 - 0544 2026-08-19 accepted (phase 14b) — # Dead-field pass: two deletions, one exemption
@@ -474,4 +474,5 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 - 0719 2026-09-08 accepted (pre-v1) — Programs under .e2e are e2e tests
 - 0720 2026-09-08 accepted (pre-v1) — End-to-end tests and runnable examples have separate hidden roots
 - 0721 2026-09-08 superseded by 0722 (pre-v1) — Repository-only roots are hidden
-- 0722 2026-09-08 accepted (pre-v1) — Repository support and build-output roots are hidden
+- 0722 2026-09-08 superseded by 0723 (pre-v1) — Repository support and build-output roots are hidden
+- 0723 2026-09-08 accepted (pre-v1) — Repository support, build-output, and benchmark roots are hidden

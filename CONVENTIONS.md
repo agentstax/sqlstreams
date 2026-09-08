@@ -1064,7 +1064,7 @@ Rules for the doc site (.website/) and all user-facing prose.
   proposed, never shown as current; the process that gets it there (the
   doc page as the proposal) is in AGENTS.md.
 - No performance number without a benchmark record behind it. The site
-  cites bench/ records; a comparison table scores shipped behavior only --
+  cites .bench/ records; a comparison table scores shipped behavior only --
   a proposed capability is never a checkmark.
 - Docs speak the API's own nouns in their plainest form. The ## Vocabulary
   registry governs docs prose exactly as it governs code.

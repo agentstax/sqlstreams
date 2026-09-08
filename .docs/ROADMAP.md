@@ -21,15 +21,15 @@ the item is removed.
   workload: a thorough multi-topic throughput/latency benchmark under high
   concurrency, pushed to real DB limits (connection pool, lock table, I/O)
   rather than the library's own bottleneck. Single-topic skip-vs-claim was
-  already measured in bench/idempotency/RESULTS.md; multi-topic contention
+  already measured in .bench/idempotency/RESULTS.md; multi-topic contention
   is still open. Also measure the debug buffer's overhead here
   (WithLogBuffer + BufferLogger cost per operation, healthy path) — a
   published number is the adoption gate for always-on capture ([0559]).
   - When this lands, fold the existing ad-hoc benches into the standard it
-    sets — one method/env/recording shape across bench/: bench/idempotency,
-    bench/scale, bench/trigger_fanout, the compaction hot-key
-    serialization bench (bench/compaction, [0574]), and the consume-side
-    fillfactor bench (bench/fillfactor, [0578]).
+    sets — one method/env/recording shape across .bench/: .bench/idempotency,
+    .bench/scale, .bench/trigger_fanout, the compaction hot-key
+    serialization bench (.bench/compaction, [0574]), and the consume-side
+    fillfactor bench (.bench/fillfactor, [0578]).
   - Design round 2026-08-22 (tabled for the documentation-first pass, which
     closed 2026-08-23 — this is now the front of Now):
     method + recording shape drafted in repo-root bench-methodology.html
@@ -38,7 +38,7 @@ the item is removed.
     scope not yet settled). Settled in the round: two tiers (go test
     -bench + benchstat for CPU paths; shared harness for Postgres-bound
     benches), git-tracked append-only cells.jsonl, hdrhistogram-go dep in
-    the bench module, no regression detection yet (record keyed so a
+    the `.bench` module, no regression detection yet (record keyed so a
     loader/Otava can ingest later). Decision records written when design
     closes. [0565] note: the [0559] gate now measures NewPipelineLogger
     Buffer on/off, BufferLogger no longer exists.

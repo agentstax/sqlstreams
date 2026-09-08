@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded
 date: 2026-08-19
 phase: 14b
 ---
@@ -42,3 +42,6 @@ cmd/vulkan / otelvulkan pattern:
   of the labs against a published parent version, by design.
 - The roadmap's go.mod-cleanup follow-up dissolves: the root go.mod was
   already exactly the library's needs.
+
+Directory naming was superseded by [0720] and [0723]. The dev-only module
+boundary remains in force.

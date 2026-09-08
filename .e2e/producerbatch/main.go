@@ -24,7 +24,7 @@ package main
 //   - throughputScenario: the numbers -- batched Produce vs per-call
 //     ProduceFunc at equal concurrency, plus a saturated batched arm
 //     (callers >> batch cap). The retired SkipIdempotency floor's numbers
-//     live in bench/idempotency/RESULTS.md's follow-up section -- batched
+//     live in .bench/idempotency/RESULTS.md's follow-up section -- batched
 //     lapped it ~10x saturated, which is why it could be removed.
 
 import (

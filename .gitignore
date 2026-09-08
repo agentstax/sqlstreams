@@ -9,15 +9,15 @@ go.work.sum
 /.bin/*
 !/.bin/.gitkeep
 
-# bench scratch -- only the writeup is tracked
-bench/idempotency/*
-!bench/idempotency/RESULTS.md
+# benchmark scratch -- only the writeup is tracked
+.bench/idempotency/*
+!.bench/idempotency/RESULTS.md
 
 # reliability-lab runs: results/<scenario>/runs.jsonl is tracked, the
 # per-run directories and the recipe's scratch files are not
-bench/reliability/results/*/*/
-bench/reliability/results/fingerprint.json
-bench/reliability/results/stats.jsonl
+.bench/reliability/results/*/*/
+.bench/reliability/results/fingerprint.json
+.bench/reliability/results/stats.jsonl
 
 # go build run inside a main package drops a binary named for its directory;
 # go test -c and profiling flags drop *.test and *.prof beside the source
@@ -25,17 +25,17 @@ bench/reliability/results/stats.jsonl
 /.tools/codeexport/codeexport
 /.tools/compat/compat
 /.tools/compatexport/compatexport
-/bench/claim/claim
-/bench/reliability/reliability
-/bench/scale/projector/projector
-/bench/*/driver/driver
+/.bench/claim/claim
+/.bench/reliability/reliability
+/.bench/scale/projector/projector
+/.bench/*/driver/driver
 *.test
 *.prof
 *.pprof
 __debug_bin*
 
 # Native scratch benchmark evidence is retained locally.
-bench/scratchnative/results/evidence/
+.bench/scratchnative/results/evidence/
 
 # goreleaser output
 /.dist/

@@ -9,7 +9,7 @@ verify:
     cd otel && go build ./... && go vet ./...
     cd .e2e && go build ./...
     cd .examples && go build ./...
-    cd bench && go build ./... && go vet ./... && go test -race -count=1 ./reliability/...
+    cd .bench && go build ./... && go vet ./... && go test -race -count=1 ./reliability/...
     cd .tools && go test -race -count=1 ./...
 
 # Check a release's pinned public API against the working schema.
@@ -23,7 +23,7 @@ compat-lab expect="round-trip":
 reliability-lab scenario="dev" time_scale="1" drain_budget="2m" reps="1" replicas="1" sync="on":
     #!/usr/bin/env bash
     set -euo pipefail
-    cd bench/reliability
+    cd .bench/reliability
     export SCENARIO={{ scenario }} TIME_SCALE={{ time_scale }} DRAIN_BUDGET={{ drain_budget }}
     # the repo .env just loads names the dev database; the lab's stack is its own
     unset POSTGRES_HOST POSTGRES_PORT POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB
@@ -54,9 +54,9 @@ reliability-lab scenario="dev" time_scale="1" drain_budget="2m" reps="1" replica
     done
     exit "$worst"
 
-# Summarize a scenario's recorded runs from bench/reliability/results/<scenario>/runs.jsonl: medians per environment identity.
+# Summarize a scenario's recorded runs from .bench/reliability/results/<scenario>/runs.jsonl: medians per environment identity.
 reliability-report scenario="dev":
-    cd bench/reliability && go run . -role report -scenario {{ scenario }}
+    cd .bench/reliability && go run . -role report -scenario {{ scenario }}
 
 ### DATABASE ###
 

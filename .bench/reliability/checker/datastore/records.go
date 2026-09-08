@@ -1,0 +1,318 @@
+package datastore
+
+import (
+	"bufio"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+
+	"github.com/jackc/pgx/v5"
+
+	"github.com/agentstax/vulkan/.bench/reliability/record"
+)
+
+// labSchema is the Postgres namespace the checker loads the records into, on
+// the same database as vulkan's own schema so the checks are plain joins.
+const labSchema = "lab"
+
+const (
+	produceTable   = "produce_record"
+	handlerTable   = "handler_record"
+	phaseTable     = "run_phase"
+	sampleTable    = "observer_sample"
+	backlogTable   = "observer_backlog"
+	containerTable = "container_sample"
+)
+
+// the same tables, qualified for the check queries
+var (
+	produceRecord   = labSchema + "." + produceTable
+	handlerRecord   = labSchema + "." + handlerTable
+	runPhase        = labSchema + "." + phaseTable
+	observerSample  = labSchema + "." + sampleTable
+	observerBacklog = labSchema + "." + backlogTable
+	containerSample = labSchema + "." + containerTable
+)
+
+// lineByteLimit bounds one record line; the longest field is an error text.
+const lineByteLimit = 1 << 20
+
+// tableLayout is how one record file kind lands in its table: the columns
+// in the order decode returns them.
+type tableLayout struct {
+	kind    record.FileKind
+	table   string
+	columns []string
+	decode  func(line []byte) ([]any, error)
+}
+
+var produceLayout = tableLayout{
+	kind:    record.FileKindProduce,
+	table:   produceTable,
+	columns: []string{"at", "kind", "topic", "producer", "sequence", "key", "scheduled_at", "message_id", "duplicate", "code", "error"},
+	decode: func(line []byte) ([]any, error) {
+		var row record.ProduceRecord
+		if err := json.Unmarshal(line, &row); err != nil {
+			return nil, err
+		}
+		return []any{row.At, string(row.Kind), row.Topic, row.Producer, row.Sequence, row.Key, row.ScheduledAt, row.MessageId, row.Duplicate, row.Code, row.Error}, nil
+	},
+}
+
+var handlerLayout = tableLayout{
+	kind:    record.FileKindHandler,
+	table:   handlerTable,
+	columns: []string{"at", "consumer", "topic", "group", "message_id", "key", "attempt", "outcome"},
+	decode: func(line []byte) ([]any, error) {
+		var row record.HandlerRecord
+		if err := json.Unmarshal(line, &row); err != nil {
+			return nil, err
+		}
+		return []any{row.At, row.Consumer, row.Topic, row.Group, row.MessageId, row.Key, row.Attempt, string(row.Outcome)}, nil
+	},
+}
+
+var phaseLayout = tableLayout{
+	kind:    record.FileKindPhase,
+	table:   phaseTable,
+	columns: []string{"at", "process", "kind", "name", "status", "detail"},
+	decode: func(line []byte) ([]any, error) {
+		var row record.PhaseRecord
+		if err := json.Unmarshal(line, &row); err != nil {
+			return nil, err
+		}
+		return []any{row.At, row.Process, string(row.Kind), row.Name, string(row.Status), row.Detail}, nil
+	},
+}
+
+var sampleLayout = tableLayout{
+	kind:    record.FileKindSample,
+	table:   sampleTable,
+	columns: []string{"at", "wal_records", "wal_fpi", "wal_bytes", "checkpoints", "xact_commit", "deadlocks", "blocks_hit", "blocks_read"},
+	decode: func(line []byte) ([]any, error) {
+		var row record.SampleRecord
+		if err := json.Unmarshal(line, &row); err != nil {
+			return nil, err
+		}
+		return []any{row.At, row.WalRecords, row.WalFpi, row.WalBytes, row.Checkpoints, row.XactCommit, row.Deadlocks, row.BlocksHit, row.BlocksRead}, nil
+	},
+}
+
+var backlogLayout = tableLayout{
+	kind:    record.FileKindBacklog,
+	table:   backlogTable,
+	columns: []string{"at", "topic", "group", "highest_message", "committed"},
+	decode: func(line []byte) ([]any, error) {
+		var row record.BacklogRecord
+		if err := json.Unmarshal(line, &row); err != nil {
+			return nil, err
+		}
+		return []any{row.At, row.Topic, row.Group, row.HighestMessage, row.Committed}, nil
+	},
+}
+
+// containerLayout has no file kind: stats.sh writes its file on the host,
+// outside the record directory, and the checker is handed its path.
+var containerLayout = tableLayout{
+	table:   containerTable,
+	columns: []string{"at", "name", "service", "cpu_percent", "cpus"},
+	decode: func(line []byte) ([]any, error) {
+		var row record.ContainerRecord
+		if err := json.Unmarshal(line, &row); err != nil {
+			return nil, err
+		}
+		return []any{row.At, row.Name, row.Service, row.CpuPercent, row.Cpus}, nil
+	},
+}
+
+// lineSource feeds COPY one decoded JSON line at a time, so a file is never
+// held in memory whole.
+type lineSource struct {
+	scanner *bufio.Scanner
+	decode  func(line []byte) ([]any, error)
+	line    int
+	row     []any
+	err     error
+}
+
+var _ pgx.CopyFromSource = (*lineSource)(nil)
+
+func newLineSource(reader io.Reader, decode func(line []byte) ([]any, error)) *lineSource {
+	scanner := bufio.NewScanner(reader)
+	scanner.Buffer(nil, lineByteLimit)
+	return &lineSource{scanner: scanner, decode: decode}
+}
+
+func (s *lineSource) Next() bool {
+	if !s.scanner.Scan() {
+		s.err = s.scanner.Err()
+		return false
+	}
+	s.line++
+
+	row, err := s.decode(s.scanner.Bytes())
+	if err != nil {
+		s.err = fmt.Errorf("line %d: %w", s.line, err)
+		return false
+	}
+	s.row = row
+	return true
+}
+
+func (s *lineSource) Values() ([]any, error) {
+	return s.row, nil
+}
+
+func (s *lineSource) Err() error {
+	return s.err
+}
+
+// CreateTables drops and recreates labSchema with one table per record file
+// kind, the JSON-lines field names as columns, so a checker run reads only
+// the files it loaded.
+func (d *CheckerDatastore) CreateTables(ctx context.Context) error {
+	createSql := fmt.Sprintf(`
+		-- lab: datastore.CreateTables
+		DROP SCHEMA IF EXISTS %[1]s CASCADE;
+		CREATE SCHEMA %[1]s;
+
+		CREATE TABLE %[1]s.%[2]s (
+			at           TIMESTAMPTZ NOT NULL,
+			kind         TEXT NOT NULL,           -- 'attempted' | 'committed' | 'rejected' | 'unknown'
+			topic        TEXT NOT NULL,
+			producer     TEXT NOT NULL,
+			sequence     BIGINT NOT NULL,
+			key          TEXT NOT NULL,           -- '<producer>-<sequence>', the idempotency key, unique per topic
+			scheduled_at TIMESTAMPTZ NOT NULL,
+			message_id   BIGINT NOT NULL,         -- 0 unless committed
+			duplicate    BOOLEAN NOT NULL,
+			code         TEXT NOT NULL,           -- '' unless rejected
+			error        TEXT NOT NULL            -- '' unless rejected or unknown
+		);
+		CREATE INDEX %[2]s_topic_key ON %[1]s.%[2]s (topic, key);
+		CREATE INDEX %[2]s_topic_kind_message_id ON %[1]s.%[2]s (topic, kind, message_id);
+		CREATE INDEX %[2]s_kind_scheduled_at ON %[1]s.%[2]s (kind, scheduled_at);
+
+		CREATE TABLE %[1]s.%[3]s (
+			at         TIMESTAMPTZ NOT NULL,
+			consumer   TEXT NOT NULL,
+			topic      TEXT NOT NULL,
+			"group"    TEXT NOT NULL,
+			message_id BIGINT NOT NULL,
+			key        TEXT NOT NULL,
+			attempt    INT NOT NULL,
+			outcome    TEXT NOT NULL               -- 'success' | 'error'
+		);
+		CREATE INDEX %[3]s_topic_group_message_id ON %[1]s.%[3]s (topic, "group", message_id);
+
+		CREATE TABLE %[1]s.%[4]s (
+			at      TIMESTAMPTZ NOT NULL,
+			process TEXT NOT NULL,                -- the writing process's name
+			kind    TEXT NOT NULL,                -- 'producer' | 'consumers'
+			name    TEXT NOT NULL,
+			status  TEXT NOT NULL,                -- 'started' | 'ended'
+			detail  TEXT NOT NULL
+		);
+
+		CREATE TABLE %[1]s.%[5]s (
+			at          TIMESTAMPTZ NOT NULL,
+			wal_records BIGINT NOT NULL,          -- cumulative, as the server reports them
+			wal_fpi     BIGINT NOT NULL,
+			wal_bytes   BIGINT NOT NULL,
+			checkpoints BIGINT NOT NULL,
+			xact_commit BIGINT NOT NULL,
+			deadlocks   BIGINT NOT NULL,
+			blocks_hit  BIGINT NOT NULL,
+			blocks_read BIGINT NOT NULL
+		);
+		CREATE INDEX %[5]s_at ON %[1]s.%[5]s (at);
+
+		CREATE TABLE %[1]s.%[6]s (
+			at              TIMESTAMPTZ NOT NULL,
+			topic           TEXT NOT NULL,
+			"group"         TEXT NOT NULL,
+			highest_message BIGINT NOT NULL,
+			committed       BIGINT NOT NULL
+		);
+		CREATE INDEX %[6]s_at ON %[1]s.%[6]s (at);
+
+		CREATE TABLE %[1]s.%[7]s (
+			at          TIMESTAMPTZ NOT NULL,
+			name        TEXT NOT NULL,
+			service     TEXT NOT NULL,           -- the compose service, 'none' for a container outside the stack
+			cpu_percent DOUBLE PRECISION NOT NULL, -- of one core
+			cpus        DOUBLE PRECISION NOT NULL  -- the compose cap, 0 when uncapped
+		);
+	`, labSchema, produceTable, handlerTable, phaseTable, sampleTable, backlogTable, containerTable)
+	_, err := d.pool.Exec(ctx, createSql)
+	return err
+}
+
+// LoadProduce, LoadHandler, and LoadPhase COPY every <name>.<kind>.jsonl of
+// their kind under dir into the kind's table, one streamed COPY per file,
+// and return the rows loaded. A line that does not decode is an error.
+func (d *CheckerDatastore) LoadProduce(ctx context.Context, dir string) (int64, error) {
+	return d.load(ctx, dir, produceLayout)
+}
+
+func (d *CheckerDatastore) LoadHandler(ctx context.Context, dir string) (int64, error) {
+	return d.load(ctx, dir, handlerLayout)
+}
+
+func (d *CheckerDatastore) LoadPhase(ctx context.Context, dir string) (int64, error) {
+	return d.load(ctx, dir, phaseLayout)
+}
+
+func (d *CheckerDatastore) LoadSample(ctx context.Context, dir string) (int64, error) {
+	return d.load(ctx, dir, sampleLayout)
+}
+
+func (d *CheckerDatastore) LoadBacklog(ctx context.Context, dir string) (int64, error) {
+	return d.load(ctx, dir, backlogLayout)
+}
+
+// LoadContainer COPYs the one file stats.sh wrote at path.
+func (d *CheckerDatastore) LoadContainer(ctx context.Context, path string) (int64, error) {
+	rows, err := d.loadFile(ctx, path, containerLayout)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", filepath.Base(path), err)
+	}
+	return rows, nil
+}
+
+func (d *CheckerDatastore) load(ctx context.Context, dir string, layout tableLayout) (int64, error) {
+	paths, err := filepath.Glob(filepath.Join(dir, fmt.Sprintf("*.%s.jsonl", layout.kind)))
+	if err != nil {
+		return 0, err
+	}
+
+	var loaded int64
+	for _, path := range paths {
+		rows, err := d.loadFile(ctx, path, layout)
+		if err != nil {
+			return 0, fmt.Errorf("%s: %w", filepath.Base(path), err)
+		}
+		loaded += rows
+	}
+	// COPY leaves fresh tables without planner statistics until autoanalyze.
+	analyzeSql := fmt.Sprintf(`
+		-- lab: datastore.load
+		ANALYZE %s;
+	`, pgx.Identifier{labSchema, layout.table}.Sanitize())
+	_, err = d.pool.Exec(ctx, analyzeSql)
+	return loaded, err
+}
+
+func (d *CheckerDatastore) loadFile(ctx context.Context, path string, layout tableLayout) (int64, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return 0, err
+	}
+	defer file.Close()
+
+	source := newLineSource(file, layout.decode)
+	return d.pool.CopyFrom(ctx, pgx.Identifier{labSchema, layout.table}, layout.columns, source)
+}

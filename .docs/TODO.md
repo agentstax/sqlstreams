@@ -6,7 +6,7 @@ shipped work in HISTORY.md; decision rationale in DECISIONS.md ->
 
 ## Benchmark-recording pipeline on the reliability lab [0687] [0696] [0697]
 
-`bench/reliability` is the Postgres-bound benchmark harness. A benchmark is
+`.bench/reliability` is the Postgres-bound benchmark harness. A benchmark is
 a scenario: the same compose stack, roles, pacer, records, checker, and
 verdict. Nothing is built beside it -- no shared driver package, no
 histogram dependency, no second record shape. Each chunk is a review
@@ -39,7 +39,7 @@ Settled 2026-09-07, recorded in [0711]:
   the one entry point. Tier 1 (`go test -bench` + benchstat) covers CPU
   paths and is untouched by the lab.
 
-Verification per chunk: `cd bench && go build ./... && go vet ./... && go
+Verification per chunk: `cd .bench && go build ./... && go vet ./... && go
 test -race -count=1 ./reliability/...`, then `just reliability-lab dev`
 green, then the chunk's own sabotage. A green run is trusted only after
 the sabotage turns it.
@@ -168,8 +168,8 @@ at 1/16 scale with two replicas, one message_log row of orders-3 deleted,
 failed lost with the example naming the topic -- and exposed that the
 per-topic checks had been summed per group (fixed). The consumer's fixed
 hostname is gone so `--scale` replicas name their records by container id.
-`golang.org/x/sync` is now a direct import of the bench module; its
-`// indirect` marker in bench/go.mod is stale and left for a hand edit,
+`golang.org/x/sync` is now a direct import of the `.bench` module; its
+`// indirect` marker in .bench/go.mod is stale and left for a hand edit,
 since `go mod tidy` is not run there.
 
 - [x] `Scenario.Topic` becomes `Topics []TopicDeclaration`: name, delivery
@@ -231,7 +231,7 @@ untracked-so-far `runs.jsonl` files before they are first committed.
   2k/4k/8k/16k per second passed 30s probes; 32k failed twice with
   131/57 committed messages lacking handler calls despite cursor progress.
   Full second-run evidence is retained under
-  bench/reliability/results/throughput/evidence/20260908T020110Z/.
+  .bench/reliability/results/throughput/evidence/20260908T020110Z/.
   Serial producer batches avoided missing calls in two diagnostics, but
   still failed latency/backlog at 32k. [0714]/[0715] fix a deterministic
   reproduction of skipped ids on the active cursor-consumer path and commits empty
@@ -247,11 +247,11 @@ untracked-so-far `runs.jsonl` files before they are first committed.
   backlog or schedule slips (startup still failed backlog). The one-minute
   48k/s repeat had p99 985ms but backlog +398/s: not sustainable despite
   the harness PASS. A 96k/s probe overloaded. No maximum established.
-  See bench/reliability/results/throughput/RESULTS.md.
+  See .bench/reliability/results/throughput/RESULTS.md.
   Long runs also need bounded recording/import storage; the current
   all-records/all-messages method exceeds 20 GiB before 15m at high rates.
 - Native scratch exploration (2026-09-08): reliability suite paused at the
-  user's request. Code: bench/scratchnative/main.go; runner: run.py there.
+  user's request. Code: .bench/scratchnative/main.go; runner: run.py there.
   Native PostgreSQL 17.9 on 127.0.0.1:55439; session path is in
   /private/tmp/vulkan-native-session-path.txt. Separate producer/consumer
   processes keep counters, duplicate bitsets and 1ms latency histograms
@@ -341,7 +341,7 @@ untracked-so-far `runs.jsonl` files before they are first committed.
   `/private/tmp/vulkan-native18.D1I5CE/scratch_<suffix>/`: command.json,
   binary.sha256, runtime configuration logs, settings, per-second counts,
   waits, profiles and verification.txt. Completed raw artifacts are now retained locally under
-  `bench/scratchnative/results/evidence/native18/` (git-ignored), with
+  `.bench/scratchnative/results/evidence/native18/` (git-ignored), with
   symlinks from the original temporary paths. This ledger is the tracked
   findings record; raw files still need separate backup if the workspace
   is deleted. Each run records its executable hash and resolved settings.
@@ -392,7 +392,7 @@ untracked-so-far `runs.jsonl` files before they are first committed.
   This pass produced and subsequently consumed 60,394,000 messages with
   matching counts and zero application errors/duplicate handler calls.
   One socket-setup failure occurred before production and is recorded.
-  `bench/scratchnative/results/runs.jsonl` indexes retained runs across
+  `.bench/scratchnative/results/runs.jsonl` indexes retained runs across
   the native18 session; successful new runs append automatically and move
   their evidence into the workspace (original paths remain symlinks). Disposable databases
   and benchmark sessions were removed; the native PostgreSQL service stays
@@ -1393,7 +1393,39 @@ untracked-so-far `runs.jsonl` files before they are first committed.
   both custom instances stopped and all synthetic .bin files removed.
   deeper-investigation-restored.json records29.42GB retained and130.92GB
   free. No application throughput maximum is established by these
-  storage-only tests. Follow the forthcoming bench -> .bench move.
+  storage-only tests under `.bench/scratchnative`.
+- [ ] Native WAL alignment comparison: build matched PG18.6 with16KiB
+  data pages and16KiB WAL blocks, versus existing16KiB data/8KiB WAL.
+  Run8/16/16/8KiB WAL order,60s each, WAL no-cache enabled, fixed
+  producer and durability settings. This tests alignment cost in real
+  production; it does not assume alignment explains all long stalls.
+- [ ] Follow WAL alignment repeats with one60s16KiB WAL comparison
+  using fsync_writethrough (F_FULLFSYNC on macOS), keeping WAL no-cache
+  and all durability settings on. This changes synchronous-open writes
+  into explicit durable flushes; compare write and fsync latency separately.
+- [ ] SSD ceiling sanity check requested by user: confirmed MacBook Air
+  Mac16,13/M4/24GB, internal APPLE SSD AP0512Z512GB, revision2914.80,
+  TRIM enabled. Published512GB M4 Air Blackmagic results around3-3.5GB/s
+  are short sequential tests, not durable database ceilings. Prior849MiB/s
+  test was capped at850MiB/s and is only a lower bound. Add unpaced
+  scratch mode and measure aligned1MiB synchronous no-cache writes on
+  this machine with PG stopped,16GiB fixed footprint,120s maximum.
+  Sync-method follow-up remains queued after this requested sanity check.
+- [x] Native WAL ABBA completed: scratch_204217/204500/204719/204907,
+  WAL8/16/16/8KiB, data16KiB, WAL no-cache,60s each. Rates191.9/
+  165.2/131.8/129.8k/s: chronology dominates; no throughput cure proven.
+  Producer-attributed OS reads159.86/0.69/0.05/78.92MB support the
+  WAL alignment penalty. Total PostgreSQL reads1774/0.83/689/835MB
+  also include io-worker reads and must NOT all be attributed to WAL.
+  First16KiB WAL early write latency0.33ms versus8KiB0.64ms, but the
+  repeated16KiB run fell228k->75k/s with WAL writes8.81ms near end;
+  driver completion0.71->25.17ms and driver throughput605->337MB/s.
+  Effective block sizes, byte budgets and all durability flags verified.
+  Zero producer errors/duplicates and no consumers/workers; row count,
+  batch and semantics checks passed; scratch databases dropped. Full
+  windows/settings in page_builds/wal-block-comparison.json and runs.jsonl.
+  bench moved during first run; a temporary compatibility symlink let
+  that run archive into .bench, then was removed before later runs.
 - [ ] Choose retention from measured storage, then validate finalists.
 - [ ] Record comparison and sustainable result with evidence.
 
@@ -1424,11 +1456,11 @@ untracked-so-far `runs.jsonl` files before they are first committed.
 - [ ] `fillfactor` harness deleted ([0578] adopted nothing); `RESULTS.md`
   and `cells.jsonl` stay. `trigger_fanout` deleted outright (nothing was
   ever recorded). `scale` stays as history untouched. `idempotency` keeps
-  its gitignore rule and `RESULTS.md`. `bench/claim` is a statement
+  its gitignore rule and `RESULTS.md`. `.bench/claim` is a statement
   profile, not a benchmark; it stays.
-- [ ] Root `.gitignore`: the stale `/bench/*/driver/driver` and
-  `/bench/scale/projector/projector` rules go with their binaries.
-- [ ] Citations of the deleted `bench/alertcadence` in HISTORY (2026-09-07
+- [ ] Root `.gitignore`: the stale `/.bench/*/driver/driver` and
+  `/.bench/scale/projector/projector` rules go with their binaries.
+- [ ] Citations of the deleted `.bench/alertcadence` in HISTORY (2026-09-07
   cadence entry), decision 0709, and `concepts/alert-history.mdx` are
   reworded to state the measurement without the link.
 - [ ] `concepts/reliability-lab.mdx` documents the shipped measurement,
