@@ -1,6 +1,13 @@
 <!-- Im copying https://github.com/ghostty-org/ghostty/blob/main/README.md layout. You can hate me, but it's so fucking clean. -->
 
 <p align="center">
+  <br />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".website/public/sqlstreams-dark.svg">
+    <img alt="SQLStreams" src=".website/public/sqlstreams-light.svg" height="56">
+  </picture>
+</p>
+<p align="center">
     <strong>It's Kafka on Postgres.</strong>
     <br />
     Fast, reliable and easy to use.
@@ -18,7 +25,7 @@
 </p>
 
 <br />
-<hr />
+<hr id="about" />
 <br />
 
 I use Kafka, you use Kafka, your mom uses Kafka. *Kafka is great.*
@@ -27,16 +34,22 @@ I use Kafka, you use Kafka, your mom uses Kafka. *Kafka is great.*
 
 I'd love to use Kafka for my [agentic powered TODO app](https://github.com/agentstax/tomorrows-todo-today) but if I see one more `"no brokers available"` error I will crash out.
 
+<br />
+
 <p align="center">
-  <strong>INTRODUCING</strong>
-  <br />
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset=".website/public/sqlstreams-dark.svg">
-    <img alt="SQLStreams" src=".website/public/sqlstreams-light.svg" height="56">
+    <source media="(prefers-color-scheme: dark)" srcset=".website/public/introducing-dark.svg">
+    <img alt="INTRODUCING" src=".website/public/introducing-light.svg" width="180" height="36">
+  </picture>&ensp;
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".website/public/sqlstreams-inline-dark.svg">
+    <img alt="SQLStreams" src=".website/public/sqlstreams-inline-light.svg" width="132" height="36">
   </picture>
+</p>
+<p align="center">
+  for when you barely know what a Topic is but know Kafka is good...
   <br />
-  <em>for when you barely know what a Topic is but know Kafka is good...<br />
-  for some reason or another.</em>
+  <em>for some reason or another.</em>
 </p>
 
 <br />
