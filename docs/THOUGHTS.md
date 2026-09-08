@@ -45,4 +45,4 @@ review of most important website docs
 
 # Other
 
-Need to publish cli to homebrew and maybe choco
+Should spruce up name SQLStreams with better typograph and maybe some coloring

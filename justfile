@@ -110,7 +110,7 @@ produce count="1":
 ### E2E TESTS: BUILD ###
 
 # Build an e2e test binary in bin/. EX: just build-e2e reclaim
-build-e2e:
+build-e2e test:
     go build -o bin/{{ test }} ./.e2e/{{ test }}/main.go
 
 ### E2E TESTS: CONSUMERS, DECLARATIONS, AND WORKERS ###

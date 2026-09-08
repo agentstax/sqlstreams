@@ -109,11 +109,11 @@ Deferred (not run): multi-topic contention, partition rollover under load,
 streaming-replica amplification, commit_delay points, ProduceInTx savepoint
 overhead.
 
-## Follow-up: in-library batched Produce (acceptance lab)
+## Follow-up: in-library batched Produce (acceptance e2e test)
 
 The library-side answer to conclusion 6 — measured through the real public
-API once batching landed, via `examples/phase_1/producerbatchlab`
-(`just producer-batch-lab`), while `SkipIdempotency` still existed as the
+API once batching landed, via `.e2e/producerbatch`
+(`just producer-batch-e2e`), while `SkipIdempotency` still existed as the
 comparison floor. Environment differs from the container above: the dev
 postgres:17 under Docker Desktop on macOS (fsync=on, synchronous_commit=on,
 untuned). `common.Work` payload, default knobs (BatchMaxSize 100 /

@@ -25,5 +25,5 @@ are in `docs/DECISIONS.md`. A new record adds its number to its line.
 - CLI: nested module, flags, --output json: 0354-0355 0576
 - doc site: board, sandbox, versioning, voice, cookie, errors, links, page size, reference board: 0581-0610 0651 0677 0679 0712
 - rejected/reverted (do not re-suggest): 0270 latest_key backfill, 0379 PartitionsAhead, 0591 pglite prefetch, 0594 byte ceilings, 0672 mandatory named client results, 0673 0675 scheduled time as a message_log column / sent_at, 0323 a library retry inside InTransaction, 0536 a never-nil MessageOptions (NULLIF/COALESCE reshape), 0578 any fillfactor change without measured HOT-ratio degradation, 0626 strict declaration forms (RequireMatch, a stale-build gate)
-- playground, examples, handler placement, handle and instance names: 0674
+- playground, examples, e2e, handler placement, handle and instance names: 0674 0718 0719
 - rule files, record-keeping surface, citations, (checked) markers: 0681

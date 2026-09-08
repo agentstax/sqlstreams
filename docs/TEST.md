@@ -218,7 +218,7 @@ part most likely to get skipped or faked wrong.
 Setup: two `InTransaction` callers, each producing to the same two compaction keys' `compaction_head` rows in REVERSE order of each other (`ProduceInTx` doesn't get the batch path's lock-order sort -- the one place a real deadlock can happen, [0574]).
 Action: run both concurrently.
 Assert: Postgres deadlocks one of them (`40P01`); the error classifies transient (`common.IsTransientPgError`) but `InTransaction` never retries -- the caller's own rerun of the closure lands both; each key's head ends at its max id.
-Implemented: `examples/phase_1/compactiondeadlocklab` (`just compaction-deadlock-lab`).
+Implemented: `.e2e/compactiondeadlock` (`just compaction-deadlock-e2e`).
 
 #### RETRY-53300 -- too_many_connections
 Setup: a `PostgresDatastore` with `MaxConns: 1`; hold that one connection open manually via `pool.Acquire` (don't release it yet).
@@ -242,12 +242,12 @@ Assert: the operation retries and succeeds on a fresh connection. Flag: fiddly -
 
 #### RETRY-08000 -- connection_exception
 #### RETRY-08006 -- connection_failure
-Both need a fault-injection proxy (e.g. toxiproxy) between the app and Postgres to sever the TCP connection mid-statement in a way that surfaces as a *formatted* PgError rather than a raw network error `pgconn.SafeToRetry`/`net.Error` already catch below the PgError branch. Candidate for a future toxiproxy-based lab. Until that exists, fall back to the synthetic-injection shape used for the unreachable group below (construct a fake `*pgconn.PgError` with the code, feed it through a real `DatastoreRetry.Wrap` call with a counter closure, assert it retries and returns nil on the second attempt) -- that at least proves the MECHANISM, even without proving the trigger is realistic.
+Both need a fault-injection proxy (e.g. toxiproxy) between the app and Postgres to sever the TCP connection mid-statement in a way that surfaces as a *formatted* PgError rather than a raw network error `pgconn.SafeToRetry`/`net.Error` already catch below the PgError branch. Candidate for a future toxiproxy-based e2e test. Until that exists, fall back to the synthetic-injection shape used for the unreachable group below (construct a fake `*pgconn.PgError` with the code, feed it through a real `DatastoreRetry.Wrap` call with a counter closure, assert it retries and returns nil on the second attempt) -- that at least proves the MECHANISM, even without proving the trigger is realistic.
 
 #### RETRY-08001 -- sqlclient_unable_to_establish_sqlconnection
-Setup: point a `PostgresDatastore` at the real dev Postgres, then stop the container/process briefly (needs control over the dev Postgres's lifecycle -- not currently something any lab does).
+Setup: point a `PostgresDatastore` at the real dev Postgres, then stop the container/process briefly (needs control over the dev Postgres's lifecycle -- not currently something any e2e test does).
 Action: attempt an operation while unreachable, restart Postgres before the retry budget exhausts.
-Assert: the operation succeeds once the server is back. Infra gap: needs a lab that owns the Postgres container's lifecycle instead of assuming it's always up at `:5432`.
+Assert: the operation succeeds once the server is back. Infra gap: needs an e2e test that owns the Postgres container's lifecycle instead of assuming it's always up at `:5432`.
 
 #### RETRY-08003 -- connection_does_not_exist
 Genuinely hard to trigger deliberately -- `pgxpool` validates a connection's health before handing it out, so getting it to hand you one that's ALREADY dead needs reaching underneath pgx (e.g. closing the raw `net.Conn` while pgx still believes it's healthy). Synthetic-injection test only, same shape as the 08000/08006 fallback above; flag as possibly not worth a live-trigger attempt at all.

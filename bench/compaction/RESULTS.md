@@ -20,7 +20,7 @@ sweep.sh; container: container.sh.
 
 Every cell raised ZERO deadlocks (pg_stat_database.deadlocks, asserted by
 the driver) — the batcher-sort absence claim held at bench scale, matching
-examples/phase_1/compactiondeadlocklab.
+.e2e/compactiondeadlock.
 
 ## Cardinality curve — 3 producers, sync=on
 
@@ -36,7 +36,7 @@ examples/phase_1/compactiondeadlocklab.
 *checkpoint stall sample; the cell's median is in line with its neighbors.
 
 The shape: keyed throughput steps down ONCE (~30% by 1024 keys — mostly the
-head upsert's second write, the cost compaction-head-write-lab measured),
+head upsert's second write, the cost compaction-head-write-e2e measured),
 then FLATTENS at ~48-50% of unkeyed all the way down to one single hot key.
 No cliff: full serialization behind one head-row lock still commits ~250
 batches/s × ~100 messages. Batch amortization is what makes the worst case

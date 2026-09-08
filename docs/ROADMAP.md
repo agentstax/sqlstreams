@@ -100,6 +100,49 @@ the item is removed.
     meanings: `bug`, `roadmap`, `accepted`, `help wanted`. CONTRIBUTING's
     Changes section becomes these two numbered paths.
 
+- **Release pipeline, dependency scanning, and package managers** -- prove
+  the CLI release path and Dependabot end to end, then turn on the package
+  managers. `.goreleaser.yaml`, `.github/workflows/release.yml`,
+  `.github/workflows/ci.yml`, and `.github/dependabot.yml` (all drafted
+  2026-09-08, uncommitted). Two tests, each a repo-settings step plus a
+  push that proves it:
+  1. Release: push a prerelease tag (`v0.1.0-rc.1`) and confirm the
+     release job is green with no secrets set -- the Homebrew and
+     Chocolatey steps skip themselves while `HOMEBREW_TAP_TOKEN` /
+     `CHOCOLATEY_API_KEY` are unset. Download one archive from the
+     Release and check `vulkan --version` prints the tag.
+  2. Dependabot: under Settings > Code security, turn on Dependabot
+     alerts, security updates, and grouped security updates, then commit
+     the config. Verify three things: Insights > Dependency graph >
+     Dependabot lists all three ecosystems with no parse error and a
+     "last checked" time; "Check for updates" on the gomod entry opens
+     nothing or exactly one grouped PR; the alerts tab shows the nested
+     modules' manifests (cmd/vulkan, otel) even though only the root is
+     in the config. Record the outcome here before trimming the item.
+  - Blocked on the rename item in Later: the tap name, cask name, and
+    Chocolatey package id are public once pushed, like the module path.
+  - `.e2e/` and `.example/` are untracked, so a clean checkout cannot run
+    `just verify`; commit them before the first CI run.
+  - The nested cmd/vulkan module has no `require` on the root, so
+    `go install ...@version` still needs the three-module tag story its
+    go.mod comment describes; the workflow builds through a generated
+    go.work instead and pins `GORELEASER_CURRENT_TAG` so a nested-module
+    tag on the same commit is never picked.
+  - Signing is deferred: package-manager installs never carry the browser
+    quarantine mark, and the cask strips it post-install. Notarization
+    (Developer ID + goreleaser's `notarize.macos`) and Authenticode
+    (SignPath OSS or Azure Trusted Signing) land only when raw GitHub
+    Release downloads matter.
+  - Dependabot volume: monthly grouped version updates per ecosystem with
+    a seven-day cooldown, so the steady state is at most three PRs a
+    month; security updates ignore both. Only the root gomod is listed;
+    cmd/vulkan, otel, and the dev modules join once the root is published
+    and their go.mod carries a real require on it.
+  - Homebrew needs an `agentstax/homebrew-tap` repo and a PAT with write
+    access to it; Chocolatey needs an account and API key, and its first
+    push goes through human moderation. winget and scoop are manifest-only
+    additions to the same config if wanted later.
+
 - **Search-engine submission** -- after the doc-site sitemap is deployed,
   verify the canonical site property in Google Search Console and Bing
   Webmaster Tools, submit the sitemap in each service (or import the verified
@@ -254,7 +297,7 @@ documentation; the latter want a surface that has stopped moving.
   live on that product of one call. The option is returning
   `*SchedulerInstance` with the client's `SystemManager`
   passed in (a `Schedule` call builds a manager per call, which
-  scheduleconcurrencylab covers -- rival loops are no longer the
+  scheduleconcurrency covers -- rival loops are no longer the
   objection, since the row's claim gate arbitrates them) or dropping
   the schedule half. The plumbing
   was built once and reverted in full — a declaration verb returning the
@@ -271,7 +314,7 @@ documentation; the latter want a surface that has stopped moving.
   per-DATABASE, on the grounds that a schema isolates the tables but not
   the locks, and chunk 15 task 4 then made every advisory lock key carry
   the schema. Two schemas of one database no longer serialize on
-  `RegisterSystem` — schemalab section 4 asserts it — so per-schema
+  `RegisterSystem` — the schema e2e test's section 4 asserts it — so per-schema
   isolation is now open, and a schema is cheaper to create and drop per
   test than a database. [0632] strengthens it again: the pool sets no
   `search_path`, so a test's own fixture tables land in the connection's
@@ -388,7 +431,7 @@ documentation; the latter want a surface that has stopped moving.
     state metered + queryable; "instance open, group closed" surfaced as the
     bad-node signal; DLQ alerting able to report "breaker open, N dead rows
     pending reconciliation".
-  - Breaker lab: dead-dependency (all trip -> global OPEN -> recovery ->
+  - Breaker e2e test: dead-dependency (all trip -> global OPEN -> recovery ->
     zero wrongful DLQ), bad-node (one instance trips alone, group drains,
     its rows succeed elsewhere), flap (cooldown backoff + refund cycles
     converge, no poison-quarantine creep).
@@ -474,7 +517,7 @@ prerequisite if quorum-as-a-fraction wins.
     stays as a second literal or the reclaim also reads by token. No
     schema change. The missing-cursor error still comes from zero rows on
     the first result ([0387]).
-  - Lab shape to add: the caught-up branch inside the batch (no lease
+  - E2E test shape to add: the caught-up branch inside the batch (no lease
     row, empty read), and a peer's claim blocked on the cursor row still
     reading the bounds its own lease carries.
   - Rejected on the way: bounding MAX(id) by settled_head for partition
@@ -601,7 +644,7 @@ prerequisite if quorum-as-a-fraction wins.
   snapshot's flat 10-minute overdue threshold; the consumer group
   janitor's waitingDeclarationTTL (7d, [0573]); expect more.
 - **Mechanical enforcement of checkable conventions** — a `just vet`
-  analyzer (or lab-suite test) that fails on the CONVENTIONS.md rules a
+  analyzer (or e2e test) that fails on the CONVENTIONS.md rules a
   machine can check: `SELECT *` anywhere incl. CTEs, banned words in error
   problem lines, tense-follows-recovery, receiver-letter rule, `db:` tags
   on scan structs, Wrap-pair shape, config file naming. Rationale: prose
@@ -915,7 +958,7 @@ prerequisite if quorum-as-a-fraction wins.
   migrate) for a human to paste, never runs it. Every read carries a scope
   (topic, consumer, limit). A diagnosis ends by naming the alert or metric
   that should clear and re-reading it. Rung 0 before building: point an
-  agent at a broken lab deployment with only the CLI and record where it
+  agent at a broken e2e test deployment with only the CLI and record where it
   goes wrong; VK codes, fix text, and alert hints may already be enough.
   Evidence 2026-09-07: Supabase MCP exfiltration and Kiro prod delete
   (credential scope, not prompts); kubectl-ai #628 (no-execute mode);

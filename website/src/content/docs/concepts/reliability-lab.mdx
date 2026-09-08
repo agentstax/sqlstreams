@@ -25,14 +25,14 @@ packaged for you to run in five minutes.
 ## The tests around it
 
 Vulkan is tested at unit scale and at mechanism scale. `go test -race`
-covers the packages. About twenty failure-injection labs each run one
+covers the packages. About twenty failure-injection e2e tests each run one
 mechanism for a few minutes under a real Postgres: reclaim of an expired
 lease, dead-lettering after the retry budget, shutdown that truncates a
 batch mid-commit, exclusive keys, partition drops. A compat lab runs the
 previous release against the current schema at every release checkpoint.
 
 None of them run long, run everything at once, and account for every
-single message. That is the lab's job. A reclaim lab proves a reclaim
+single message. That is the reliability lab's job. A reclaim e2e test proves a reclaim
 works; the lab proves that after an hour the total still adds up.
 
 ## A ledger and a checker

@@ -1,0 +1,859 @@
+// Command alert proves the default-alert machinery end to end: what
+// RegisterSystem seeds, every classify arm, and the live partition_count
+// executor claimed as a real worker.
+//
+// Sections:
+//  1. seeding -- both alert schedules + consumer groups + exact declarations + worker
+//     rows exist after RegisterSystem; a declared threshold applies on a
+//     re-register and a suspended job survives one
+//  2. classify -- driven through AlertController with a 2s repeat: the active
+//     edge WARNs once, an unchanged condition publishes nothing, the repeat
+//     republish moves the head to a fresh row, a severity change publishes
+//     silently, the resolve edge INFOs once, resolved stays silent
+//  3. executor -- the real partition_count worker: a threshold-1 run
+//     publishes active heads + WARN edges, a second run inside the repeat
+//     interval publishes nothing, foreign and bindingless groups on the
+//     schedules topic receive nothing
+//  4. isolation -- one owner's corrupted head fails its Record while every
+//     other topic still resolves; fixing the head lets the retry resolve it
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"sync"
+	"time"
+
+	"github.com/agentstax/vulkan/pkg/alert"
+	"github.com/agentstax/vulkan/pkg/alert/compactionreadcost"
+	alertcontroller "github.com/agentstax/vulkan/pkg/alert/controller"
+	"github.com/agentstax/vulkan/pkg/alert/partitioncount"
+	"github.com/agentstax/vulkan/pkg/alert/workerliveness"
+	"github.com/agentstax/vulkan/pkg/common"
+	compactioncontroller "github.com/agentstax/vulkan/pkg/compaction/controller"
+	"github.com/agentstax/vulkan/pkg/consume"
+	consumecontroller "github.com/agentstax/vulkan/pkg/consume/controller"
+	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
+	iMetrics "github.com/agentstax/vulkan/pkg/metrics"
+	"github.com/agentstax/vulkan/pkg/producer"
+	"github.com/agentstax/vulkan/pkg/schedule"
+	"github.com/agentstax/vulkan/pkg/topic"
+	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/vulkan/pkg/worker"
+	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
+	"golang.org/x/sync/errgroup"
+)
+
+const (
+	testCheckName  = "testcheck"
+	classifyRepeat = 2 * time.Second
+)
+
+// testMessage is the e2e test topic's payload -- its one write creates the
+// topic's first partition, so threshold 1 can trip on it.
+type testMessage struct {
+	Value string
+}
+
+func (testMessage) SchemaVersion() int { return 1 }
+
+var (
+	ds     *iDatastore.PostgresDatastore
+	client *vulkan.Client
+
+	schedulesTopic *topic.Topic
+	alertsTopic    *topic.Topic
+	prefix         string
+
+	partitionCountGroup int64
+	groupOwner          *common.Owner
+	testTopic           *topic.Topic
+	testTopicOwner      *common.Owner
+	executorCapture     *captureLogger
+)
+
+func main() {
+	if err := run(); err != nil {
+		fmt.Printf("\n❌ E2E TEST FAILED: %s\n", err.Error())
+		os.Exit(1)
+	}
+}
+
+// testFailure is what die panics with; run recovers it into its error so
+// main's deferred cleanup runs on a failed assertion.
+type testFailure struct {
+	message string
+}
+
+func (f testFailure) Error() string {
+	return f.message
+}
+
+func run() (err error) {
+	defer func() {
+		switch recovered := recover().(type) {
+		case nil:
+		case testFailure:
+			err = recovered
+		default:
+			panic(recovered)
+		}
+	}()
+	ctx := context.Background()
+
+	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	must(err)
+	defer pool.Close()
+
+	client, err = vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	must(err)
+	ds, err = iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
+	must(client.System().Register(ctx, nil))
+
+	schedulesTopic, err = client.Topic[vulkan.RawPayload](schedule.ScheduleTopicName).Get(ctx)
+	must(err)
+	alertsTopic, err = client.Topic[vulkan.RawPayload](alert.AlertTopicName).Get(ctx)
+	must(err)
+	if schedulesTopic == nil || alertsTopic == nil {
+		die("RegisterSystem must create the schedules and alerts topics")
+	}
+
+	prefix = fmt.Sprintf("alert.%d", time.Now().UnixNano())
+	defer cleanup()
+
+	seedingSection(ctx)
+	classifySection(ctx)
+
+	// the executor's embedded consumer spawns a schedule producer -- suspend the
+	// alert schedules so only the e2e test's run-nows produce requests (a suspended
+	// job still runs on run-now)
+	must(client.Scheduler(partitioncount.JobName).Suspend(ctx))
+	must(client.Scheduler(compactionreadcost.JobName).Suspend(ctx))
+	must(client.Scheduler(workerliveness.JobName).Suspend(ctx))
+
+	executorCapture = newCaptureLogger()
+	stopExecutor := startExecutor(ctx)
+	defer stopExecutor()
+
+	executorSection(ctx)
+	isolationSection(ctx)
+
+	fmt.Println("\n✅ ALERT E2E TEST PASSED")
+	return nil
+}
+
+// --- sections ---
+
+func seedingSection(ctx context.Context) {
+	step("seeding: jobs/groups/bindings/workers exist; declared threshold applies, suspended survives")
+
+	partitionCountJob, err := client.Scheduler(partitioncount.JobName).Get(ctx)
+	must(err)
+	if partitionCountJob == nil {
+		die("RegisterSystem must seed the " + partitioncount.JobName + " schedule")
+	}
+	var seeded alert.JobPayload
+	must(json.Unmarshal(partitionCountJob.Payload, &seeded))
+	if seeded.Threshold != 0 || partitionCountJob.Concurrency != common.ConcurrencyExclusive {
+		die(fmt.Sprintf("seeded job: want threshold 0 + defer, got %d %s", seeded.Threshold, partitionCountJob.Concurrency))
+	}
+	readCostJob, err := client.Scheduler(compactionreadcost.JobName).Get(ctx)
+	must(err)
+	if readCostJob == nil {
+		die("RegisterSystem must seed the " + compactionreadcost.JobName + " schedule")
+	}
+
+	declarations, err := client.System().Bindings(ctx)
+	must(err)
+	for _, jobName := range []string{partitioncount.JobName, compactionreadcost.JobName} {
+		declared := false
+		for _, declaration := range declarations {
+			if declaration.ConsumerGroupName == jobName && declaration.TopicName == schedule.ScheduleTopicName &&
+				declaration.Status == consume.BindingInstalled &&
+				len(declaration.Patterns) == 1 && declaration.Patterns[0] == jobName {
+				declared = true
+			}
+		}
+		if !declared {
+			die("group " + jobName + " must declare exactly its job name at RegisterSystem")
+		}
+	}
+
+	partitionCountGroup = scalarInt64(ctx,
+		fmt.Sprintf(`SELECT id FROM %s.consumer_group_config WHERE topic_id = $1 AND name = $2;`, ds.Schema),
+		schedulesTopic.Id, partitioncount.JobName)
+	groupOwner, err = common.NewConsumerGroupOwner(schedulesTopic.SystemId, schedulesTopic.Id, partitionCountGroup, partitioncount.JobName)
+	must(err)
+	workers, err := workercontroller.NewWorkerController(ds, ds.Logger)
+	must(err)
+	row, err := workers.GetWorker(ctx, partitioncount.JobName, groupOwner)
+	must(err)
+	if row == nil {
+		die("RegisterSystem must declare the " + partitioncount.JobName + " worker row")
+	}
+	fmt.Println("  ✓ both alert schedules, exact declarations, and the worker row exist")
+
+	// a declared threshold applies on every RegisterSystem, and a suspended
+	// alert job stays suspended through one
+	must(client.Scheduler(compactionreadcost.JobName).Suspend(ctx))
+	declareThreshold(ctx, 7)
+
+	reread, err := client.Scheduler(partitioncount.JobName).Get(ctx)
+	must(err)
+	var redeclared alert.JobPayload
+	must(json.Unmarshal(reread.Payload, &redeclared))
+	if redeclared.Threshold != 7 {
+		die(fmt.Sprintf("declared threshold must apply on re-register, got %d", redeclared.Threshold))
+	}
+	readCostJob, err = client.Scheduler(compactionreadcost.JobName).Get(ctx)
+	must(err)
+	if !readCostJob.Suspended {
+		die("a suspended alert schedule must survive re-register")
+	}
+
+	declareThreshold(ctx, 0)
+	must(client.Scheduler(compactionreadcost.JobName).Unsuspend(ctx))
+	fmt.Println("  ✓ declared threshold applied, suspended state survived re-register")
+}
+
+// declareThreshold re-declares the partition_count alert at threshold, through
+// the same call a user changing it would make.
+func declareThreshold(ctx context.Context, threshold int64) {
+	must(client.System().Register(ctx, &vulkan.SystemConfig{
+		PartitionCountAlert: &alert.PartitionCountAlertConfig{Threshold: threshold, DisablePending: true},
+		MetricsCollector:    &iMetrics.MetricsCollectorWorkerConfig{PollRate: 100 * time.Millisecond},
+	}))
+}
+
+func classifySection(ctx context.Context) {
+	step("classify: edge WARN, quiet hold, repeat republish, silent severity change, resolve INFO")
+
+	var err error
+	testTopic, err = client.Topic[vulkan.RawPayload](prefix+".topic").Register(ctx, nil)
+	must(err)
+	testTopicOwner, err = common.NewTopicOwner(testTopic.SystemId, testTopic.Id, testTopic.Name)
+	must(err)
+
+	// the alert controller takes the producer package's instance, not the
+	// client's wrapper
+	alertProducer, err := producer.NewProducer(ds)
+	must(err)
+	instance, err := alertProducer.Register[alert.Alert](ctx, alert.AlertTopicName, nil)
+	must(err)
+	heads, err := compactioncontroller.NewCompactionController(ds, ds.Logger)
+	must(err)
+	capture := newCaptureLogger()
+	alerts, err := alertcontroller.NewAlertController(ctx, instance, ds, heads, classifyRepeat, capture)
+	must(err)
+
+	key, err := alert.MessageKey(testCheckName, testTopicOwner)
+	must(err)
+	found, err := alert.NewAlert(testCheckName, testTopicOwner, alert.AlertStatusActive, alert.AlertSeverityWarn, "testcheck condition holds", time.Now(), nil)
+	must(err)
+
+	record := func(found *alert.Alert, want alert.RecordOutcome, arm string) {
+		state := alert.AlertEvaluationStateHealthy
+		if found != nil {
+			state = alert.AlertEvaluationStateActive
+		}
+		evaluation, err := alert.NewAlertEvaluationSnapshot(state, found, nil)
+		must(err)
+		outcome, err := alerts.Record(ctx, testCheckName, testTopicOwner, evaluation)
+		must(err)
+		if outcome != want {
+			die(fmt.Sprintf("%s: want outcome %q, got %q", arm, want, outcome))
+		}
+	}
+
+	// active edge: first publish moves the head and WARNs once
+	record(found, alert.RecordOutcomeActive, "active edge")
+	if got := alertMessageCount(ctx, key); got != 1 {
+		die(fmt.Sprintf("active edge: want 1 published message, got %d", got))
+	}
+	if got := headStatus(ctx, key); got != string(alert.AlertStatusActive) {
+		die(fmt.Sprintf("active edge: want head status active, got %q", got))
+	}
+	if got := capture.count("warn", testCheckName, testTopic.Name); got != 1 {
+		die(fmt.Sprintf("active edge: want 1 WARN, got %d", got))
+	}
+	fmt.Println("  ✓ active edge published the head and WARNed once")
+
+	// unchanged condition inside the repeat interval: nothing publishes
+	record(found, alert.RecordOutcomeNothing, "quiet hold")
+	if got := alertMessageCount(ctx, key); got != 1 {
+		die(fmt.Sprintf("quiet hold: want no republish inside the repeat interval, got %d messages", got))
+	}
+	fmt.Println("  ✓ unchanged condition inside the interval published nothing")
+
+	// repeat republish: the same alert past the interval republishes
+	// silently, moving the head to a fresh row so retention can't sweep a
+	// live alert
+	firstHead := headId(ctx, key)
+	time.Sleep(classifyRepeat + 500*time.Millisecond)
+	record(found, alert.RecordOutcomeActive, "repeat")
+	if got := alertMessageCount(ctx, key); got != 2 {
+		die(fmt.Sprintf("repeat: want a republish past the interval, got %d messages", got))
+	}
+	if got := headId(ctx, key); got == firstHead {
+		die("repeat: the republish must move the head to the fresh row")
+	}
+	if got := capture.count("warn", testCheckName, testTopic.Name); got != 1 {
+		die(fmt.Sprintf("repeat: the republish must be silent, got %d WARNs", got))
+	}
+	fmt.Println("  ✓ repeat republish refreshed the head silently")
+
+	// severity change: publishes immediately (still inside the interval),
+	// silently -- the head's stored severity is doctored by direct SQL,
+	// bypassing the controller
+	exec(ctx, fmt.Sprintf(`UPDATE %s.%s SET payload = jsonb_set(payload, '{severity}', '"e2e-critical"') WHERE id = $1;`, ds.Schema, topic.MessageLogTable(alertsTopic.Id)), headId(ctx, key))
+	record(found, alert.RecordOutcomeActive, "severity change")
+	if got := alertMessageCount(ctx, key); got != 3 {
+		die(fmt.Sprintf("severity change: want an immediate republish, got %d messages", got))
+	}
+	if got := capture.count("warn", testCheckName, testTopic.Name); got != 1 {
+		die(fmt.Sprintf("severity change: the republish must be silent, got %d WARNs", got))
+	}
+	fmt.Println("  ✓ severity change republished immediately and silently")
+
+	// resolve edge: a nil finding resolves the head with one INFO
+	record(nil, alert.RecordOutcomeResolved, "resolve edge")
+	if got := alertMessageCount(ctx, key); got != 4 {
+		die(fmt.Sprintf("resolve edge: want a resolve publish, got %d messages", got))
+	}
+	if got := headStatus(ctx, key); got != string(alert.AlertStatusResolved) {
+		die(fmt.Sprintf("resolve edge: want head status resolved, got %q", got))
+	}
+	if got := capture.count("info", testCheckName, testTopic.Name); got != 1 {
+		die(fmt.Sprintf("resolve edge: want 1 INFO, got %d", got))
+	}
+
+	// resolved head + nil finding: nothing
+	record(nil, alert.RecordOutcomeNothing, "resolved + nothing found")
+	if got := alertMessageCount(ctx, key); got != 4 {
+		die(fmt.Sprintf("resolved + nothing found must publish nothing, got %d messages", got))
+	}
+	fmt.Println("  ✓ resolve edge INFOed once, resolved head stayed silent")
+
+	concurrentAlerts, err := alertcontroller.NewAlertController(ctx, instance, ds, heads, 4*time.Hour, capture)
+	must(err)
+	for _, test := range []struct {
+		name    string
+		finding *alert.Alert
+		changed alert.RecordOutcome
+		count   int
+	}{
+		{"concurrent activation", found, alert.RecordOutcomeActive, 1},
+		{"concurrent quiet checks", found, alert.RecordOutcomeActive, 0},
+		{"concurrent recovery", nil, alert.RecordOutcomeResolved, 1},
+	} {
+		state := alert.AlertEvaluationStateHealthy
+		if test.finding != nil {
+			state = alert.AlertEvaluationStateActive
+		}
+		evaluation, err := alert.NewAlertEvaluationSnapshot(state, test.finding, nil)
+		must(err)
+		before := alertMessageCount(ctx, key)
+		start := make(chan struct{})
+		outcomes := make(chan alert.RecordOutcome, 16)
+		var routines errgroup.Group
+		for range 16 {
+			routines.Go(func() error {
+				<-start
+				outcome, err := concurrentAlerts.Record(ctx, testCheckName, testTopicOwner, evaluation)
+				if err != nil {
+					return err
+				}
+				outcomes <- outcome
+				return nil
+			})
+		}
+		close(start)
+		must(routines.Wait())
+		close(outcomes)
+		changed := 0
+		for outcome := range outcomes {
+			if outcome == test.changed {
+				changed++
+			} else if outcome != alert.RecordOutcomeNothing {
+				die(fmt.Sprintf("%s: unexpected outcome %q", test.name, outcome))
+			}
+		}
+		if changed != test.count || alertMessageCount(ctx, key)-before != int64(test.count) {
+			die(fmt.Sprintf("%s: want %d transitions, got %d", test.name, test.count, changed))
+		}
+	}
+	if capture.count("warn", testCheckName, testTopic.Name) != 2 || capture.count("info", testCheckName, testTopic.Name) != 2 {
+		die("concurrent checks must log each committed transition once")
+	}
+	fmt.Println("  ✓ concurrent checks recorded and logged each transition once")
+
+	unencodable, err := alert.NewAlert(testCheckName, testTopicOwner, alert.AlertStatusActive, alert.AlertSeverityWarn, "testcheck condition holds", time.Now(), &alert.AlertOptions{
+		Data: map[string]any{"unencodable": make(chan struct{})},
+	})
+	must(err)
+	before := alertMessageCount(ctx, key)
+	evaluation, err := alert.NewAlertEvaluationSnapshot(alert.AlertEvaluationStateActive, unencodable, nil)
+	must(err)
+	outcome, err := concurrentAlerts.Record(ctx, testCheckName, testTopicOwner, evaluation)
+	if err == nil || outcome != "" || alertMessageCount(ctx, key) != before || headStatus(ctx, key) != string(alert.AlertStatusResolved) {
+		die("a rejected alert write must leave the resolved head and history unchanged")
+	}
+	if capture.count("warn", testCheckName, testTopic.Name) != 2 || capture.count("info", testCheckName, testTopic.Name) != 2 {
+		die("a rolled-back alert must not log a transition")
+	}
+	fmt.Println("  ✓ rejected alert write left no transition or log")
+}
+
+func executorSection(ctx context.Context) {
+	step("executor: threshold-1 run alerts, repeat-interval run is quiet, foreign groups untouched")
+
+	// one write gives the e2e test topic its first partition
+	testInstance, err := client.Topic[testMessage](testTopic.Name).Producer().Register(ctx, nil)
+	must(err)
+	_, err = testInstance.Produce(ctx, &testMessage{Value: "seed"}, nil)
+	must(err)
+	if observations := partitionObservations(ctx); len(observations) != 0 {
+		die("registration-time warnings must not store partition observations")
+	}
+
+	otherGroup := registerGroup(ctx, prefix+".other", "some.other.job")
+	bindinglessGroup := registerGroup(ctx, prefix+".bindingless")
+
+	declareThreshold(ctx, 1)
+	waitForCollector(ctx)
+
+	firstRun, err := client.Scheduler(partitioncount.JobName).Run(ctx, nil)
+	must(err)
+	waitDelivered(ctx, firstRun.Id, "success")
+	if observations := partitionObservations(ctx); len(observations) == 0 || observations[0].Message.Value != 1 {
+		die("collector must retain the partition count of 1")
+	}
+
+	// the running executor's Register declared the group's set
+	declarations, err := client.System().Bindings(ctx)
+	must(err)
+	declared := false
+	for _, declaration := range declarations {
+		if declaration.ConsumerGroupName == partitioncount.JobName && declaration.TopicName == schedule.ScheduleTopicName &&
+			declaration.Status == consume.BindingInstalled &&
+			len(declaration.Patterns) == 1 && declaration.Patterns[0] == partitioncount.JobName {
+			declared = true
+		}
+	}
+	if !declared {
+		die("the live executor must declare exactly its job name")
+	}
+	fmt.Println("  ✓ the executor declared exactly its job name")
+
+	testKey := partitionCountKey(testTopicOwner)
+	schedulesOwner, err := common.NewTopicOwner(schedulesTopic.SystemId, schedulesTopic.Id, schedulesTopic.Name)
+	must(err)
+	schedulesKey := partitionCountKey(schedulesOwner)
+	if got := headStatus(ctx, testKey); got != string(alert.AlertStatusActive) {
+		die(fmt.Sprintf("threshold-1 run: want the e2e test topic's head active, got %q", got))
+	}
+	if got := headStatus(ctx, schedulesKey); got != string(alert.AlertStatusActive) {
+		die(fmt.Sprintf("threshold-1 run: want the schedules topic's head active, got %q", got))
+	}
+	if got := executorCapture.count("warn", alert.AlertPartitionCount.Name, testTopic.Name); got != 1 {
+		die(fmt.Sprintf("threshold-1 run: want 1 WARN edge for the e2e test topic, got %d", got))
+	}
+	fmt.Println("  ✓ threshold-1 run published active heads with WARN edges")
+
+	summary := readCheckSummary(ctx)
+	if summary[iMetrics.MetricCheckTopicsEvaluated.Name] < 2 ||
+		summary[iMetrics.MetricCheckTopicsFailed.Name] != 0 ||
+		summary[iMetrics.MetricCheckPublishedAlerts.Name] != summary[iMetrics.MetricCheckTopicsEvaluated.Name] {
+		die(fmt.Sprintf("threshold-1 run: want every evaluated topic published and none failed, got %v", summary))
+	}
+	fmt.Println("  ✓ check summary: every evaluated topic published, none failed")
+
+	// inside the system's 4h repeat interval the same finding publishes nothing
+	published := alertMessageCount(ctx, testKey)
+	secondRun, err := client.Scheduler(partitioncount.JobName).Run(ctx, nil)
+	must(err)
+	waitDelivered(ctx, secondRun.Id, "success")
+	if observations := partitionObservations(ctx); len(observations) == 0 || observations[0].Message.Value != 1 {
+		die("quiet scheduled check must still have collector evidence")
+	}
+	if got := alertMessageCount(ctx, testKey); got != published {
+		die(fmt.Sprintf("repeat-interval run: want no republish, got %d messages after %d", got, published))
+	}
+	if got := executorCapture.count("warn", alert.AlertPartitionCount.Name, testTopic.Name); got != 1 {
+		die(fmt.Sprintf("repeat-interval run: want no new WARN, got %d", got))
+	}
+	fmt.Println("  ✓ a second run inside the repeat interval published nothing")
+
+	summary = readCheckSummary(ctx)
+	if summary[iMetrics.MetricCheckPublishedAlerts.Name] != 0 ||
+		summary[iMetrics.MetricCheckTopicsFailed.Name] != 0 {
+		die(fmt.Sprintf("repeat-interval run: want a quiet summary, got %v", summary))
+	}
+	fmt.Println("  ✓ check summary: the quiet run counted zero publishes")
+
+	// exact-name dispatch: the live consumer never claims another job's
+	// request, and alert traffic leaves other groups alone
+	readCostRun, err := client.Scheduler(compactionreadcost.JobName).Run(ctx, nil)
+	must(err)
+	thirdRun, err := client.Scheduler(partitioncount.JobName).Run(ctx, nil)
+	must(err)
+	waitDelivered(ctx, thirdRun.Id, "success")
+	if got := scalarInt64(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND message_id = %d;`, ds.Schema, topic.DeliveryLogTable(schedulesTopic.Id), partitionCountGroup, readCostRun.Id)); got != 0 {
+		die(fmt.Sprintf("the executor must not claim another job's request, got %d delivery rows", got))
+	}
+	for _, foreignGroup := range []int64{otherGroup, bindinglessGroup} {
+		claimed := scalarInt64(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d;`, ds.Schema, topic.ExceptionQueueTable(schedulesTopic.Id), foreignGroup))
+		logged := scalarInt64(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d;`, ds.Schema, topic.DeliveryLogTable(schedulesTopic.Id), foreignGroup))
+		if claimed != 0 || logged != 0 {
+			die(fmt.Sprintf("group %d must be untouched by alert runs, got %d claims %d log rows", foreignGroup, claimed, logged))
+		}
+	}
+	fmt.Println("  ✓ foreign request unclaimed, other/bindingless groups untouched")
+}
+
+func isolationSection(ctx context.Context) {
+	step("isolation: a corrupted head fails its topic's Record, the others still resolve")
+
+	testKey := partitionCountKey(testTopicOwner)
+	schedulesOwner, err := common.NewTopicOwner(schedulesTopic.SystemId, schedulesTopic.Id, schedulesTopic.Name)
+	must(err)
+	schedulesKey := partitionCountKey(schedulesOwner)
+
+	// the head row stays, but its payload no longer unmarshals into an Alert
+	corruptedHead := headId(ctx, testKey)
+	saved := scalarString(ctx, fmt.Sprintf(`SELECT payload::text FROM %s.%s WHERE id = $1;`, ds.Schema, topic.MessageLogTable(alertsTopic.Id)), corruptedHead)
+	exec(ctx, fmt.Sprintf(`UPDATE %s.%s SET payload = '"corrupt"'::jsonb WHERE id = $1;`, ds.Schema, topic.MessageLogTable(alertsTopic.Id)), corruptedHead)
+
+	declareThreshold(ctx, 0)
+	resolveRun, err := client.Scheduler(partitioncount.JobName).Run(ctx, nil)
+	must(err)
+
+	// the attempt fails on the corrupted owner -- but the same attempt
+	// already resolved every healthy topic
+	waitDelivered(ctx, resolveRun.Id, "failure")
+	if observations := partitionObservations(ctx); len(observations) == 0 || observations[0].Message.Value != 1 {
+		die("healthy partition evidence must survive failed alert recording")
+	}
+	if got := headStatus(ctx, schedulesKey); got != string(alert.AlertStatusResolved) {
+		die(fmt.Sprintf("isolation: healthy topics must resolve beside the failure, got %q", got))
+	}
+	if got := executorCapture.count("info", alert.AlertPartitionCount.Name, schedulesTopic.Name); got != 1 {
+		die(fmt.Sprintf("isolation: want 1 resolve INFO for the healthy topic, got %d", got))
+	}
+	if got := headId(ctx, testKey); got != corruptedHead {
+		die("isolation: the corrupted owner's head must not move")
+	}
+	fmt.Println("  ✓ healthy topics resolved in the same attempt the corrupted owner failed")
+
+	// resolved is left unasserted here: an automatic retry may already have
+	// overwritten the summary, and only its failed/published counts repeat
+	summary := readCheckSummary(ctx)
+	if summary[iMetrics.MetricCheckTopicsFailed.Name] != 1 ||
+		summary[iMetrics.MetricCheckPublishedAlerts.Name] != 0 {
+		die(fmt.Sprintf("isolation: the failed run must still produce its summary, got %v", summary))
+	}
+	fmt.Println("  ✓ check summary went out on the failed run: exactly 1 topic failed")
+
+	// fixing the head lets the request's retry resolve the last owner
+	exec(ctx, fmt.Sprintf(`UPDATE %s.%s SET payload = $1::jsonb WHERE id = $2;`, ds.Schema, topic.MessageLogTable(alertsTopic.Id)), saved, corruptedHead)
+	waitDelivered(ctx, resolveRun.Id, "success")
+	if got := headStatus(ctx, testKey); got != string(alert.AlertStatusResolved) {
+		die(fmt.Sprintf("isolation: want the fixed owner resolved on retry, got %q", got))
+	}
+	if got := executorCapture.count("info", alert.AlertPartitionCount.Name, testTopic.Name); got != 1 {
+		die(fmt.Sprintf("isolation: want 1 resolve INFO for the fixed owner, got %d", got))
+	}
+	fmt.Println("  ✓ retry resolved the fixed owner; healthy topics resolved exactly once")
+
+	summary = readCheckSummary(ctx)
+	if summary[iMetrics.MetricCheckTopicsFailed.Name] != 0 ||
+		summary[iMetrics.MetricCheckResolvedAlerts.Name] != 1 {
+		die(fmt.Sprintf("isolation retry: want 0 failed and only the fixed owner resolved, got %v", summary))
+	}
+	fmt.Println("  ✓ retry summary: zero failed, only the fixed owner resolved")
+}
+
+// --- harness ---
+
+func waitForCollector(ctx context.Context) {
+	started := time.Now()
+	deadline := time.NewTimer(10 * time.Second)
+	defer deadline.Stop()
+	ticker := time.NewTicker(20 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			completion, err := client.System().Metrics().CollectorCompletedTimestamp().Latest(ctx)
+			must(err)
+			if completion != nil && completion.At.After(started) {
+				return
+			}
+		case <-deadline.C:
+			die("manager's collector did not complete a pass within 10s")
+		case <-ctx.Done():
+			must(ctx.Err())
+		}
+	}
+}
+
+func partitionObservations(ctx context.Context) []*common.StoredMessage[iMetrics.Measurement] {
+	metricsTopic, err := client.Topic[iMetrics.Measurement](iMetrics.MetricsTopicName).Get(ctx)
+	must(err)
+	heads, err := compactioncontroller.NewCompactionController(ds, ds.Logger)
+	must(err)
+	key := iMetrics.MeasurementKey(iMetrics.MetricTopicPartitions.Name, map[string]string{"topic": testTopic.Name})
+	observations, err := heads.ListKeyMessages[iMetrics.Measurement](ctx, metricsTopic.Id, key, 100)
+	must(err)
+	for _, observation := range observations {
+		if observation.CompactionRank != 0 || observation.CreatedAt.IsZero() {
+			die("partition observations must use default rank and retain their storage timestamp")
+		}
+	}
+	return observations
+}
+
+// startExecutor claims the partition_count worker row and runs its execution
+// until the returned stop is called.
+func startExecutor(ctx context.Context) func() {
+	provisioner, err := partitioncount.NewPartitionCountProvisioner(ds, nil, executorCapture)
+	must(err)
+	workers, err := workercontroller.NewWorkerController(ds, ds.Logger)
+	must(err)
+	row, err := workers.GetWorker(ctx, partitioncount.JobName, groupOwner)
+	must(err)
+	if row == nil {
+		die("the " + partitioncount.JobName + " worker row is missing")
+	}
+
+	// a crashed earlier run's claim lingers until its InstanceTTL expires --
+	// retry past it instead of dying
+	var execution worker.Execution
+	deadline := time.Now().Add(60 * time.Second)
+	for {
+		execution, err = provisioner.Provision(ctx, row)
+		must(err)
+		if execution != nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			die("the alert worker declined the instance for 60s -- is a daemon already running?")
+		}
+		time.Sleep(time.Second)
+	}
+
+	runCtx, cancel := context.WithCancel(ctx)
+	done := make(chan error, 1)
+	go func() { done <- execution.Run(runCtx) }()
+	return func() {
+		cancel()
+		must(<-done)
+	}
+}
+
+// registerGroup creates a consumer group on the schedules topic, bound to
+// the given job names (none = bindingless), and returns its id.
+func registerGroup(ctx context.Context, name string, bindings ...string) int64 {
+	controller, err := consumecontroller.NewConsumeController(ds, ds.Logger)
+	must(err)
+	group, err := controller.RegisterGroup(ctx, schedulesTopic.Id, name, consume.Beginning())
+	must(err)
+	_, err = controller.DeclareBindings(ctx, schedulesTopic.Id, group.Id, bindings, time.Now())
+	must(err)
+	return group.Id
+}
+
+func cleanup() {
+	ctx := context.Background()
+
+	must(client.Scheduler(partitioncount.JobName).Unsuspend(ctx))
+	must(client.Scheduler(compactionreadcost.JobName).Unsuspend(ctx))
+
+	testKey := partitionCountKey(testTopicOwner)
+	checkKey, err := alert.MessageKey(testCheckName, testTopicOwner)
+	must(err)
+	keys := []string{testKey, checkKey}
+	exec(ctx, fmt.Sprintf(`DELETE FROM %s.%s WHERE compaction_key = ANY($1);`, ds.Schema, topic.CompactionHeadTable(alertsTopic.Id)), keys)
+	exec(ctx, fmt.Sprintf(`DELETE FROM %s.%s WHERE message_key = ANY($1);`, ds.Schema, topic.MessageLogTable(alertsTopic.Id)), keys)
+
+	must(client.Topic[testMessage](testTopic.Name).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+
+	for _, sql := range []string{
+		fmt.Sprintf(`DELETE FROM %s.%s WHERE consumer_group_id IN (SELECT id FROM %s.consumer_group_config WHERE name LIKE '%s.%%');`, ds.Schema, topic.ExceptionQueueTable(schedulesTopic.Id), ds.Schema, prefix),
+		fmt.Sprintf(`DELETE FROM %s.%s WHERE consumer_group_id IN (SELECT id FROM %s.consumer_group_config WHERE name LIKE '%s.%%');`, ds.Schema, topic.DeliveryLogTable(schedulesTopic.Id), ds.Schema, prefix),
+		fmt.Sprintf(`DELETE FROM %s.%s WHERE consumer_group_id IN (SELECT id FROM %s.consumer_group_config WHERE name LIKE '%s.%%');`, ds.Schema, topic.ClaimLeaseTable(schedulesTopic.Id), ds.Schema, prefix),
+		fmt.Sprintf(`DELETE FROM %s.consumer_group_config WHERE name LIKE '%s.%%';`, ds.Schema, prefix),
+	} {
+		exec(ctx, sql)
+	}
+}
+
+// --- capture logger ---
+
+// captureLogger records every line so sections can count edges by their
+// alert/owner attributes.
+type captureLogger struct {
+	mu    sync.Mutex
+	lines []capturedLine
+}
+
+type capturedLine struct {
+	level   string
+	message string
+	args    map[string]any
+}
+
+func newCaptureLogger() *captureLogger {
+	return &captureLogger{}
+}
+
+func (c *captureLogger) record(level string, message string, args []any) {
+	fields := map[string]any{}
+	for i := 0; i+1 < len(args); i += 2 {
+		if key, ok := args[i].(string); ok {
+			fields[key] = args[i+1]
+		}
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.lines = append(c.lines, capturedLine{level: level, message: message, args: fields})
+}
+
+func (c *captureLogger) DebugContext(ctx context.Context, message string, args ...any) {
+	c.record("debug", message, args)
+}
+
+func (c *captureLogger) InfoContext(ctx context.Context, message string, args ...any) {
+	c.record("info", message, args)
+}
+
+func (c *captureLogger) WarnContext(ctx context.Context, message string, args ...any) {
+	c.record("warn", message, args)
+}
+
+func (c *captureLogger) ErrorContext(ctx context.Context, message string, args ...any) {
+	c.record("error", message, args)
+}
+
+// count is the number of lines at level carrying alert=alertName owner=ownerName.
+func (c *captureLogger) count(level string, alertName string, ownerName string) int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	matches := 0
+	for _, line := range c.lines {
+		if line.level == level && line.args["alert"] == alertName && line.args["owner"] == ownerName {
+			matches++
+		}
+	}
+	return matches
+}
+
+// --- assertion helpers ---
+
+// readCheckSummary returns the partition_count check summary heads by metric
+// name -- the latest run's counts, read the same way `vulkan metrics list`
+// reads them.
+func readCheckSummary(ctx context.Context) map[string]float64 {
+	measurements, err := client.System().Metrics().Latest(ctx)
+	must(err)
+	attributes := map[string]string{"alert": alert.AlertPartitionCount.Name}
+	byKey := make(map[string]float64, len(measurements))
+	for _, measurement := range measurements {
+		byKey[iMetrics.MeasurementKey(measurement.Name, measurement.Attributes)] = measurement.Value
+	}
+	summary := make(map[string]float64, 4)
+	for _, name := range []string{
+		iMetrics.MetricCheckTopicsEvaluated.Name,
+		iMetrics.MetricCheckTopicsFailed.Name,
+		iMetrics.MetricCheckPublishedAlerts.Name,
+		iMetrics.MetricCheckResolvedAlerts.Name,
+	} {
+		value, ok := byKey[iMetrics.MeasurementKey(name, attributes)]
+		if !ok {
+			die(fmt.Sprintf("no check summary head for %s", name))
+		}
+		summary[name] = value
+	}
+	return summary
+}
+
+func partitionCountKey(owner *common.Owner) string {
+	key, err := alert.MessageKey(alert.AlertPartitionCount.Name, owner)
+	must(err)
+	return key
+}
+
+func alertMessageCount(ctx context.Context, messageKey string) int64 {
+	return scalarInt64(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE message_key = $1;`, ds.Schema, topic.MessageLogTable(alertsTopic.Id)), messageKey)
+}
+
+func headId(ctx context.Context, messageKey string) int64 {
+	return scalarInt64(ctx, fmt.Sprintf(`SELECT message_id FROM %s.%s WHERE compaction_key = $1;`, ds.Schema, topic.CompactionHeadTable(alertsTopic.Id)),
+		messageKey)
+}
+
+// headStatus is "" when the key has no head or its payload carries no status.
+func headStatus(ctx context.Context, messageKey string) string {
+	sql := fmt.Sprintf(`
+		SELECT m.payload->>'status'
+		FROM %s.%s h
+		JOIN %s.%s m ON m.id = h.message_id
+		WHERE h.compaction_key = $1;
+	`, ds.Schema, topic.CompactionHeadTable(alertsTopic.Id), ds.Schema, topic.MessageLogTable(alertsTopic.Id))
+	var status *string
+	err := ds.Pool.QueryRow(ctx, sql, messageKey).Scan(&status)
+	must(err)
+	if status == nil {
+		return ""
+	}
+	return *status
+}
+
+// waitDelivered returns once the partition_count group's delivery log holds
+// the request at the given status.
+func waitDelivered(ctx context.Context, messageId int64, status string) {
+	waitForCount(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND message_id = %d AND status = '%s';`, ds.Schema, topic.DeliveryLogTable(schedulesTopic.Id), partitionCountGroup, messageId, status), 1)
+}
+
+func waitForCount(ctx context.Context, sql string, want int64) {
+	deadline := time.Now().Add(60 * time.Second)
+	for time.Now().Before(deadline) {
+		if scalarInt64(ctx, sql) >= want {
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	die("timed out waiting for: " + sql)
+}
+
+func scalarInt64(ctx context.Context, sql string, args ...any) int64 {
+	var value int64
+	must(ds.Pool.QueryRow(ctx, sql, args...).Scan(&value))
+	return value
+}
+
+func scalarString(ctx context.Context, sql string, args ...any) string {
+	var value string
+	must(ds.Pool.QueryRow(ctx, sql, args...).Scan(&value))
+	return value
+}
+
+func exec(ctx context.Context, sql string, args ...any) {
+	_, err := ds.Pool.Exec(ctx, sql, args...)
+	must(err)
+}
+
+func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
+
+func must(err error) {
+	if err != nil {
+		die(err.Error())
+	}
+}
+
+func die(msg string) {
+	panic(testFailure{message: msg})
+}

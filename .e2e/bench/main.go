@@ -1,0 +1,115 @@
+// Command bench drains a pre-seeded backlog of `ready` rows with a no-op
+// consumerFunc and reports throughput (msgs/sec). It is the harness for the
+// Phase 3 "Find the ceiling" e2e test: hold batch constant, sweep -concurrency,
+// plot throughput vs worker count.
+//
+// It is deliberately silent (no per-message prints) so stdout is not the
+// bottleneck, and it self-times from the first processed message to the
+// target-th so DB-connect/startup cost is excluded from the rate.
+package main
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"os"
+	"sync/atomic"
+	"time"
+
+	"github.com/agentstax/vulkan/e2e/common"
+	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+)
+
+func main() {
+	if err := run(); err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+}
+
+func run() error {
+	concurrencyPtr := flag.Int("concurrency", 5, "worker pool size (concurrent consumerFuncs)")
+	batchPtr := flag.Int("batch", 100, "claim batch limit (held constant across the sweep)")
+	countPtr := flag.Int("count", 20000, "messages to process before stopping (should be <= seeded rows)")
+	maxConnsPtr := flag.Int("maxconns", 25, "pgxpool max connections (must exceed concurrency+1)")
+	groupPtr := flag.String("group", "phase3.bench", "consumer group name")
+	topicPtr := flag.String("topic", "learning.v1", "topic to drain (must already have a seeded backlog, e.g. via `just produce`)")
+	flag.Parse()
+
+	conc := *concurrencyPtr
+	batch := *batchPtr
+	target := int64(*countPtr)
+
+	ctx, stop := context.WithCancel(context.Background())
+	defer stop()
+
+	// safety watchdog: never let a stalled run hang the sweep
+	time.AfterFunc(180*time.Second, stop)
+
+	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", &vulkan.PostgresConnectionConfig{MaxConns: *maxConnsPtr})
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+
+	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	if err != nil {
+		return err
+	}
+
+	t, err := client.Topic[vulkan.RawPayload](*topicPtr).Get(ctx)
+	if err != nil {
+		return err
+	}
+	if t == nil {
+		return fmt.Errorf("topic %q is not registered -- `just produce` declares it\n", *topicPtr)
+	}
+
+	wcInstance, err := client.Topic[common.Work](t.Name).Consumer(*groupPtr).Register(ctx, &vulkan.ConsumerConfig{
+		Message: &vulkan.MessageOptions{Timeout: 30 * time.Second, Retry: &vulkan.RetryPolicy{MaxRetries: 3}},
+	})
+
+	if err != nil {
+		return err
+	}
+
+	var counter atomic.Int64
+	var firstNs, lastNs atomic.Int64
+	start := time.Now()
+
+	err = wcInstance.Consume(ctx, func(ctx context.Context, work *common.Work) error {
+		n := counter.Add(1)
+		if n == 1 {
+			firstNs.Store(int64(time.Since(start)))
+		}
+		if n == target {
+			lastNs.Store(int64(time.Since(start)))
+			stop() // backlog target hit -> begin graceful shutdown
+		}
+		return nil // no-op: measures the queue machinery ceiling, not handler work
+	}, &vulkan.ConsumeOptions{
+		BatchLimit: batch,
+		// buffer stays shallow but must be >= batch (validate) and big enough to keep the pool fed
+		QueueSize:          batch + conc,
+		MessageConcurrency: conc,
+		ClaimPollRate:      500 * time.Millisecond,
+		QueueMargin:        10 * time.Second,
+		RecordMargin:       5 * time.Second,
+	})
+	if err != nil {
+		return fmt.Errorf("consume error: %w", err)
+	}
+
+	processed := counter.Load()
+	elapsed := time.Duration(lastNs.Load() - firstNs.Load())
+	secs := elapsed.Seconds()
+	var tput float64
+	if secs > 0 {
+		// first->last span, so DB connect + first claim are excluded
+		tput = float64(processed-1) / secs
+	}
+
+	fmt.Printf("RESULT concurrency=%d batch=%d processed=%d seconds=%.3f throughput=%.1f\n",
+		conc, batch, processed, secs, tput)
+	return nil
+}

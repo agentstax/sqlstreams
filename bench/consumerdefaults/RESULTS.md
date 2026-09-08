@@ -297,12 +297,12 @@ with no open leases or exceptions before cancellation. Schema cleanup passed.
 The printed zero option fields in `/tmp/consumer-default-smoke.log` are inputs,
 not resolved values. This run verifies the shipped default resolution path.
 
-Group-config, ordered, and shutdown-truncation labs passed with only their
+The group-config, ordered, and shutdown-truncation e2e tests passed with only their
 client/datastore schema settings adapted to temporary namespaces. Each schema
 was removed. The original development-schema attempts encountered a missing
 worker_instance_log table; no reset was performed. Affected builds/race tests,
 the concurrent stale-range warning test, conventions, site prose checks,
-and the site build passed. This is a targeted checkpoint, not a full lab suite.
+and the site build passed. This is a targeted checkpoint, not a full e2e test suite.
 
 ## Detailed control map
 

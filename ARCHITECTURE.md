@@ -45,7 +45,7 @@ The root module is the library. Nested modules with their own `go.mod`:
 | --- | --- |
 | `cmd/vulkan` | CLI |
 | `otel` | metrics exporter |
-| `.e2e` | the `just *-lab` programs and their support commands |
+| `.e2e` | end-to-end tests and their support commands |
 | `.example` | runnable user examples |
 | `bench` | benchmarks and the reliability lab |
 | `tools` | convention tests, compatibility checks, doc-site exports |

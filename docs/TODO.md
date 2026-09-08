@@ -1085,6 +1085,79 @@ untracked-so-far `runs.jsonl` files before they are first committed.
   host free142GB. Build manifests/hashes/configs and comparison.json under
   evidence/native18/page_builds; per-run analysis and runs.jsonl retained.
   Python syntax and scoped diff checks passed; no library code changed.
+- WAL recycling investigation completed: matched16KiB build, recycling
+  ON -> OFF -> ON; each arm first produces8m messages (90s cap), then
+  measures45s with a fresh database. Restart between runs, retain WAL
+  files, keep wal_init_zero and all durability settings ON. Assert the
+  effective setting on every start; retain phase.json and the plan under
+  evidence/native18/page_builds/wal_recycling_plan.json. Compare WAL
+  initialization counters, write latency, waits, and time-window rates;
+  fixed-count conditioning does not guarantee identical filesystem state.
+- Recycling results (2026-09-08): measured ON170645 / OFF171039 /
+  ON171433 =200,728 /141,249 /125,214 messages/s over45.04/45.28/45.18s.
+  Conditioning170447/170906/171157 each reached8m rows in38.55/49.92/
+  61.84s. All45,094,000 rows across six runs verified, batches1000,
+  zero errors/duplicates, no consumers or exception instances; DBs dropped.
+  The setting took: measurement WAL-init bytes84MB/9.60GB/17MB,
+  initialization fsync time0.048/5.163/0.034s. OFF really allocated fresh
+  segments, and final ON returned to reuse. OFF still dropped to94.5k/s
+  with6.03ms WAL writes and3.52 mean WALWrite lock waiters in20–30s;
+  final ON reached80.3k/s with9.74ms WAL writes in30–40s and52.3k/s
+  in its final5s. Recycling is not necessary for the severe stall regime,
+  and disabling it is not a demonstrated fix. No recovery on return to
+  ON means chronology/storage state confounds the independent setting
+  effect; do not claim OFF itself costs30% from these averages.
+  Measurement PG CPU4.57/3.14/2.78 cores, app0.89/0.70/0.61 cores;
+  post-warmup pool wait rounded0s, median8 acquired connections throughout.
+  CPU exhaustion and pool starvation do not explain this slowdown.
+  Aligned-data benefit persists: checkpointer OS reads20/37/8KB;
+  producer data-page write time0.059/0.287/1.021 cumulative seconds.
+  Autovacuum overlapped parts of runs and is not a controlled constant.
+  Backend/global counters can publish late; these are not syscall traces.
+  Next fence: investigate WAL write alignment/size versus changing host
+  storage state. Both page builds retain8KiB WAL blocks; prior synthetic
+  WAL controls used1MiB aligned writes, which do not cover every PostgreSQL
+  WAL write boundary. Compare controlled write boundaries with equal
+  bytes/durability and repeated ordering before attributing stalls to SSD
+  hardware, APFS, or PostgreSQL. Keep maintenance timing visible.
+  Evidence: page_builds/wal_recycling_comparison.json, per-run analyses,
+  runs.jsonl. Baseline restored and verified durability/recycling ON,6GB
+  shared buffers, no scratch DBs; both comparison clusters stopped.
+  Retained storage29.1GB, host free138.6GB; restored-state evidence in
+  page_builds/wal_recycling_restored.json. Python syntax checks passed;
+  no library changes or sustained/end-to-end maximum claimed.
+- Continued root-cause investigation: storage-only WAL offset0/8/8/0KiB
+  controls, prefilled8GiB WAL ring,1MiB O_DSYNC writes250MiB/s, aligned
+  16KiB data writes300MiB/s to8GiB ring,45s each. Stop/restore baseline;
+  no DB workloads overlap. Retain source/config/counters in wal_alignment_*
+  evidence directories, delete both temporary files between arms.
+  PostgreSQL XLogWrite uses nbytes=npages*XLOG_BLCKSZ and offsets on WAL
+  page boundaries (xlog.c2394/2422/2434); data16KiB build still uses8KiB
+  WAL. This synthetic test isolates fixed offset, not its full distribution.
+  Next test data fsync cadence: previous synthetic controls sync every1s,
+  which can hide dirty-write accumulation before checkpoint synchronization.
+- WAL offset controls completed132203/132251/132339/132428: first aligned
+  and two shifted runs held250MiB/s WAL with maxima7.16/10.64/13.00ms.
+  Shifted WAL processes incurred181/182MB reads versus3.1MB first aligned,
+  but no >20ms WAL intervals. Final aligned repeat instead reproduced
+  severe stalls:205.5MiB/s WAL,520ms max,26 intervals >20ms; data297.3MiB/s,
+  max518ms writes and1.795s fsync. Thus PostgreSQL/SQL/locks are not
+  necessary for this stall pattern, and shifting WAL offsets is not
+  necessary either. No thermal/performance warning reported by pmset;
+  measured swapouts unchanged during final run. No large accessible
+  non-benchmark process I/O found; inaccessible processes remain a limit.
+  Follow-up storage_cache_*:60s each, data sync30s cached /1s F_NOCACHE /
+  1s cached, otherwise identical. F_NOCACHE48 verified in installed SDK.
+  PostgreSQL18 also exposes this via debug_io_direct (fd.c1144); this is
+  a diagnostic-only setting, not a proposed production configuration.
+- Storage-cache controls132723/132827/132931 completed: WAL250.0/250.0/
+  221.7MiB/s, max8.55/7.71/464ms, >20ms intervals0/0/52; data298.7/
+  300.0/277.5MiB/s. Delayed fsync alone did not reproduce the stall;
+  cache bypass then return to cached behavior is suggestive, not yet a
+  causal estimate. Native follow-up runs45s with debug_io_direct empty /
+  wal /data,wal /empty, matched16KiB build, WAL recycling/durability ON.
+  All include the same10MiB/s independent O_DSYNC probe, and assert the
+  actual debug_io_direct value. Plan in page_builds/direct_io_plan.json.
 - [ ] Choose retention from measured storage, then validate finalists.
 - [ ] Record comparison and sustainable result with evidence.
 

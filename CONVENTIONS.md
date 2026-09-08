@@ -340,7 +340,7 @@ surfaces it.
   provisioner, and runner an instance composes, so their Warn lines land
   in that instance's window.
 - A top-level instance (system manager) opens its own window over
-  `ds.Logger`; a caller with no window (admin, the CLI, a lab) passes
+  `ds.Logger`; a caller with no window (admin, the CLI, an e2e test) passes
   `ds.Logger`.
 
 ### Validation
@@ -558,7 +558,7 @@ topic's family -- never both.
   message_key_lease, compaction_head, binding_config, binding_config_log
   -- one physical table per topic, created by topic createTopicTables.
   Everything names them ONLY through pkg/topic's table-name funcs
-  (`topic.MessageLogTable(topicId)`) -- library code, labs, and a user
+  (`topic.MessageLogTable(topicId)`) -- library code, e2e tests, and a user
   writing a diagnostic query alike.
 - A new table splits per-topic when every row has exactly one owning topic
   (directly or through its consumer group) and no reader needs the table
@@ -909,8 +909,8 @@ per row.
   fact (a self-healing failure reads "could not <verb>"; a completed
   transition reads past participle -- "topic registered", "lease
   reclaimed"), consequence or next action after ` -- `. (checked)
-- Nothing branches or filters on message text -- not code, not labs.
-  Labs assert on log events by level and attributes through a counting
+- Nothing branches or filters on message text -- not code, not e2e tests.
+  E2E tests assert on log events by level and attributes through a counting
   Logger, never by matching message substrings.
 
 ### Declared events
@@ -1034,12 +1034,12 @@ trailing `help` attribute, so the line itself points at its explanation.
 
 # Part 5 -- Outside the library
 
-## Labs
+## E2E tests
 
-- End-to-end labs and their support programs live under `.e2e/`, in their own
-  dev-only module. The root Justfile exposes the labs as `*-lab` recipes.
-- A lab that hand-copies a production query (EXPLAIN demos) goes silently
-  stale when the real query changes -- grep labs for mirrors whenever a
+- End-to-end tests and their support programs live under `.e2e/`, in their own
+  dev-only module. The root Justfile exposes the tests as `*-e2e` recipes.
+- An e2e test that hand-copies a production query (EXPLAIN demos) goes silently
+  stale when the real query changes -- grep e2e tests for mirrors whenever a
   production query moves. Prefer driving the real datastore method.
 
 ## Playground examples

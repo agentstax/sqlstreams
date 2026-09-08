@@ -78,20 +78,20 @@ Doc site:
 ## Verification
 
 - Per change: foreground targeted checks only -- build, `go test -race` on
-  touched packages, directly-affected labs. `just verify` is the whole-repo
+  touched packages, directly affected e2e tests. `just verify` is the whole-repo
   check (root plus every nested module plus tools/); per change, build and
   test the touched module only. Use `go fmt ./...`, not the system gofmt,
   which may predate the go.mod toolchain.
 - A mechanical rename or file move is fully checked by build + vet + gofmt;
-  labs only when behavior could have moved.
-- Full fresh-DB lab suite only at review-ready checkpoints or on request,
+  e2e tests only when behavior could have moved.
+- Full fresh-DB e2e test suite only at review-ready checkpoints or on request,
   never background-per-change.
 - A new tools/conventions test is sabotaged (fed deliberately wrong input)
   before it is trusted -- a walk can pass green while checking nothing.
 - Fresh-DB suite recipe: `just database-delete`; `set -a; source ./.env;
   set +a` before `docker compose up` (the justfile needs the dotenv); wait
-  on pg_isready; run every `*-lab` recipe except `build-lab` (a
-  parameterized build recipe, not a lab). Score labs, not playground
+  on pg_isready; run every `*-e2e` recipe except `build-e2e` (a
+  parameterized build recipe, not a test). Score e2e tests, not example
   scenarios -- most scenarios run until interrupted.
 
 ## Releases
@@ -103,7 +103,7 @@ At a release checkpoint, after the full fresh-DB suite:
   declares.
 - Update the compatibility table in
   website/src/content/docs/guides/migrations.mdx.
-- Cite the lab outcome in the release's HISTORY.md entry.
+- Cite the e2e test outcome in the release's HISTORY.md entry.
 
 ## Docs & record-keeping
 

@@ -15,7 +15,7 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/agentstax/vulkan/examples/phase_1/common"
+	"github.com/agentstax/vulkan/e2e/common"
 	"github.com/agentstax/vulkan/pkg/consume"
 	consumecontroller "github.com/agentstax/vulkan/pkg/consume/controller"
 	messageconsumerdatastore "github.com/agentstax/vulkan/pkg/consume/messageconsumer/controller/datastore"

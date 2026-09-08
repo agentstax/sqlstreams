@@ -9,9 +9,9 @@ import ChaosDiagram from '../../components/ChaosDiagram.astro';
 <ThreadAside label="PROPOSED" title="vulkan demo does not ship yet">
 `vulkan demo` does not ship yet. This page is the product proposal for
 it — and it's a thin one, because the attacks below are the
-failure-injection labs the engine is *actually developed against*
+failure-injection e2e tests the engine is *actually developed against*
 (kill -9 mid-process, crash mid-commit, expired-lease reclaim). The
-demo is those labs, packaged so you can run them yourself.
+demo is those e2e tests, packaged so you can run them yourself.
 
 </ThreadAside>
 
@@ -150,7 +150,7 @@ SELECT
 `committed` is the load-bearing number: every message at or below it
 either ran clean or sits in `dead` with its error recorded. "Lost"
 would be a message the cursor passed with neither — and the demo's
-assertion, like the labs', is that there are none.
+assertion, like the e2e tests', is that there are none.
 
 <ThreadAside label="TIP" title="Now ask the uncomfortable question">
 Run this attack list against your current stack — the `kill -9`, the

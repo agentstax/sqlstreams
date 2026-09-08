@@ -470,3 +470,5 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0715 2026-09-07 accepted (pre-v1) — Throughput work excludes the archived delivery consumer
 - 0716 2026-09-08 accepted (pre-v1) — Tools holds all repository-only developer tooling
 - 0717 2026-09-08 accepted (pre-v1) — The OpenTelemetry integration module is otel
+- 0718 2026-09-08 accepted (pre-v1) — End-to-end labs and runnable examples have separate roots
+- 0719 2026-09-08 accepted (pre-v1) — Programs under .e2e are e2e tests

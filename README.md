@@ -53,6 +53,8 @@ link to other playground examples
 
 ### CLI
 
+How to install: homebrew, linux (curl | sh), choco
+
 Few starting out commands 
 
 Then get into fun ones like code explain and metrics

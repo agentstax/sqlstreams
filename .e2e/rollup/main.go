@@ -1,0 +1,450 @@
+package main
+
+// Rollup e2e test: measures the numbers behind the lazy-vs-synchronous
+// AdvanceCommitted decision (record [0301] in docs/decisions/: the rollup
+// stays lazy). Three scenarios:
+//
+//   - Staleness: how long after a range's Commit does `committed` actually
+//     reflect it -- the cursor advancer's own ticker (AdvanceCommitted) vs. calling
+//     AdvanceCommitted synchronously right after Commit. This is the gain.
+//   - Fixed cost: sequential, uncontended -- the extra SELECT+UPDATE round
+//     trip a synchronous call chains onto every Commit, isolated from any
+//     lock contention.
+//   - Concurrent contention: G goroutines committing against the SAME
+//     (group, topic) cursor row -- Commit itself never touches that row
+//     today (only lease + delivery), so a synchronous AdvanceCommitted
+//     call is new contention on it, not a cost that already existed. Same
+//     shape as compactionheadwrite's hot-key scenario, applied to cursor.
+//
+// Registers its own topics (destroyed on exit), self-seeded.
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"sync"
+	"time"
+
+	"github.com/agentstax/vulkan/e2e/common"
+	"github.com/agentstax/vulkan/pkg/consume"
+	consumecontroller "github.com/agentstax/vulkan/pkg/consume/controller"
+	cursoradvancerdatastore "github.com/agentstax/vulkan/pkg/consume/cursoradvancer/controller/datastore"
+	messageconsumercontroller "github.com/agentstax/vulkan/pkg/consume/messageconsumer/controller"
+	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
+	"github.com/agentstax/vulkan/pkg/topic"
+	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+const (
+	group            = "phase10.rollup"
+	lease            = 30 * time.Second // long enough to never expire mid-e2e test
+	maxRangeReclaims = 3
+)
+
+func main() {
+	if err := run(); err != nil {
+		fmt.Printf("\n❌ E2E TEST FAILED: %s\n", err.Error())
+		os.Exit(1)
+	}
+}
+
+// testFailure is what die panics with; run recovers it into its error so
+// main's deferred cleanup runs on a failed assertion.
+type testFailure struct {
+	message string
+}
+
+func (f testFailure) Error() string {
+	return f.message
+}
+
+func run() (err error) {
+	defer func() {
+		switch recovered := recover().(type) {
+		case nil:
+		case testFailure:
+			err = recovered
+		default:
+			panic(recovered)
+		}
+	}()
+	ctx := context.Background()
+
+	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", &vulkan.PostgresConnectionConfig{
+		MaxConns: 40, // headroom above the contention scenario's 20 concurrent goroutines
+	})
+	must(err)
+	defer pool.Close()
+
+	stalenessScenario(ctx, pool)
+	fixedCostScenario(ctx, pool)
+	contentionScenario(ctx, pool)
+
+	fmt.Println("\n✅ ROLLUP E2E TEST — numbers gathered; decision record [0301] (docs/decisions/)")
+	fmt.Println("   holds the lazy-vs-synchronous decision these numbers drove.")
+	return nil
+}
+
+// ---- scenario 1: staleness ----
+
+const (
+	pollInterval  = 150 * time.Millisecond // stand-in for ClaimPollRate (default 5s -- see write-up)
+	watchInterval = 2 * time.Millisecond   // fine-grained sampling so the detected-at time is trustworthy
+	numRanges     = 30
+	batchSize     = int64(5)
+)
+
+type rangeEvent struct {
+	commitTime time.Time
+	high       int64
+}
+
+type sample struct {
+	t   time.Time
+	val int64
+}
+
+func stalenessScenario(ctx context.Context, pool *pgxpool.Pool) {
+	step("staleness: time from Commit to `committed` reflecting it -- lazy ticker vs. synchronous")
+
+	lazyEvents, lazySamples := runLazyStaleness(ctx, pool)
+	lazyAvg, lazyMax := stalenessFromSamples(lazyEvents, lazySamples)
+
+	syncStalenesses := runSyncStaleness(ctx, pool)
+	syncAvg, syncMax := avgMax(syncStalenesses)
+
+	fmt.Printf("  %-28s avg=%8.2fms  max=%8.2fms  (poll interval=%s)\n", "lazy (periodic roller)", lazyAvg, lazyMax, pollInterval)
+	fmt.Printf("  %-28s avg=%8.2fms  max=%8.2fms\n", "synchronous (per-commit)", syncAvg, syncMax)
+}
+
+// runLazyStaleness commits numRanges ranges while a background ticker plays
+// the role of AdvanceCommitted, and a fast poller independently samples
+// `committed` so staleness is measured from the outside, not self-reported.
+func runLazyStaleness(ctx context.Context, pool *pgxpool.Pool) ([]rangeEvent, []sample) {
+	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	must(err)
+
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
+
+	topicName := fmt.Sprintf("phase10.rollup.staleness.lazy.%d", time.Now().UnixNano())
+	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{})
+	must(err)
+	defer func() {
+		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+	}()
+
+	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
+	must(err)
+	messageConsumers, err := messageconsumercontroller.NewMessageConsumerGroupController(ds, ds.Logger)
+	must(err)
+	cursorAdvancerDatastore, err := cursoradvancerdatastore.NewCursorAdvancerDatastore(ds, ds.Logger)
+	must(err)
+	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	must(err)
+	groupId := mustGroupID(cd.RegisterGroup(ctx, tp.Id, group, consume.Beginning()))
+	seed(ctx, wpInstance, int(int64(numRanges)*batchSize))
+
+	watcherDone := make(chan struct{})
+	samplesCh := make(chan []sample, 1)
+	go func() {
+		var samples []sample
+		ticker := time.NewTicker(watchInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-watcherDone:
+				samplesCh <- samples
+				return
+			case <-ticker.C:
+				samples = append(samples, sample{t: time.Now(), val: committedCol(ctx, ds, groupId, tp.Id)})
+			}
+		}
+	}()
+
+	rollerDone := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(pollInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-rollerDone:
+				return
+			case <-ticker.C:
+				if _, err := cursorAdvancerDatastore.AdvanceCommitted(ctx, tp.Id, groupId); err != nil {
+					fmt.Printf("  (roller tick error, ignored: %v)\n", err)
+				}
+			}
+		}
+	}()
+
+	var events []rangeEvent
+	for i := range numRanges {
+		claim, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, int(batchSize), maxRangeReclaims, lease, topic.DeliveryLogModeFailures)
+		must(err)
+		if claim == nil {
+			break
+		}
+		time.Sleep(jitter(i))
+		must(messageConsumers.Commit(ctx, tp.Id, groupId, claim.Lease.Token, nil, 5*time.Second, topic.DeliveryLogModeFailures))
+		events = append(events, rangeEvent{commitTime: time.Now(), high: claim.Lease.High})
+	}
+
+	time.Sleep(pollInterval + 100*time.Millisecond) // let the final tick catch the last commit
+	close(rollerDone)
+	close(watcherDone)
+	samples := <-samplesCh
+
+	return events, samples
+}
+
+// runSyncStaleness commits numRanges ranges, calling AdvanceCommitted
+// immediately after each Commit -- staleness is just that call's own latency.
+func runSyncStaleness(ctx context.Context, pool *pgxpool.Pool) []float64 {
+	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	must(err)
+
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
+
+	topicName := fmt.Sprintf("phase10.rollup.staleness.sync.%d", time.Now().UnixNano())
+	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{})
+	must(err)
+	defer func() {
+		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+	}()
+
+	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
+	must(err)
+	messageConsumers, err := messageconsumercontroller.NewMessageConsumerGroupController(ds, ds.Logger)
+	must(err)
+	cursorAdvancerDatastore, err := cursoradvancerdatastore.NewCursorAdvancerDatastore(ds, ds.Logger)
+	must(err)
+	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	must(err)
+	groupId := mustGroupID(cd.RegisterGroup(ctx, tp.Id, group, consume.Beginning()))
+	seed(ctx, wpInstance, int(int64(numRanges)*batchSize))
+
+	var stalenesses []float64
+	for i := range numRanges {
+		claim, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, int(batchSize), maxRangeReclaims, lease, topic.DeliveryLogModeFailures)
+		must(err)
+		if claim == nil {
+			break
+		}
+		time.Sleep(jitter(i))
+		must(messageConsumers.Commit(ctx, tp.Id, groupId, claim.Lease.Token, nil, 5*time.Second, topic.DeliveryLogModeFailures))
+
+		start := time.Now()
+		_, err = cursorAdvancerDatastore.AdvanceCommitted(ctx, tp.Id, groupId)
+		must(err)
+		stalenesses = append(stalenesses, msSince(start))
+	}
+	return stalenesses
+}
+
+func stalenessFromSamples(events []rangeEvent, samples []sample) (avg, max float64) {
+	var total float64
+	var n int
+	for _, e := range events {
+		for _, s := range samples {
+			if s.val >= e.high {
+				d := s.t.Sub(e.commitTime).Seconds() * 1000
+				if d < 0 {
+					d = 0
+				}
+				total += d
+				n++
+				if d > max {
+					max = d
+				}
+				break
+			}
+		}
+	}
+	if n == 0 {
+		return 0, 0
+	}
+	return total / float64(n), max
+}
+
+// jitter stands in for real consumerFunc work -- small and deterministic so
+// the e2e test's own runtime stays predictable.
+func jitter(i int) time.Duration {
+	return time.Duration(10+(i%5)*5) * time.Millisecond
+}
+
+// ---- scenario 2: fixed cost, uncontended ----
+
+func fixedCostScenario(ctx context.Context, pool *pgxpool.Pool) {
+	step("fixed cost: sequential claim+commit, no contention -- commit-only vs. commit+synchronous-advance")
+
+	const n = 200
+
+	baselineMs := timeSequentialCommits(ctx, pool, "commitonly", n, false)
+	syncMs := timeSequentialCommits(ctx, pool, "commitsync", n, true)
+
+	fmt.Printf("  %-28s %10.3fms total  %8.4fms/op\n", "commit only (lazy hot path)", baselineMs, baselineMs/n)
+	fmt.Printf("  %-28s %10.3fms total  %8.4fms/op  (+%.1f%% vs. baseline)\n", "commit + synchronous advance", syncMs, syncMs/n, pctOver(syncMs, baselineMs))
+}
+
+func timeSequentialCommits(ctx context.Context, pool *pgxpool.Pool, label string, n float64, syncAdvance bool) float64 {
+	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	must(err)
+
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
+
+	topicName := fmt.Sprintf("phase10.rollup.fixedcost.%s.%d", label, time.Now().UnixNano())
+	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{})
+	must(err)
+	defer func() {
+		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+	}()
+
+	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
+	must(err)
+	messageConsumers, err := messageconsumercontroller.NewMessageConsumerGroupController(ds, ds.Logger)
+	must(err)
+	cursorAdvancerDatastore, err := cursoradvancerdatastore.NewCursorAdvancerDatastore(ds, ds.Logger)
+	must(err)
+	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	must(err)
+	groupId := mustGroupID(cd.RegisterGroup(ctx, tp.Id, group, consume.Beginning()))
+	seed(ctx, wpInstance, int(n))
+
+	start := time.Now()
+	for range int(n) {
+		claim, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, 1, maxRangeReclaims, lease, topic.DeliveryLogModeFailures)
+		must(err)
+		if claim == nil {
+			break
+		}
+		must(messageConsumers.Commit(ctx, tp.Id, groupId, claim.Lease.Token, nil, 5*time.Second, topic.DeliveryLogModeFailures))
+		if syncAdvance {
+			_, err := cursorAdvancerDatastore.AdvanceCommitted(ctx, tp.Id, groupId)
+			must(err)
+		}
+	}
+	return msSince(start)
+}
+
+// ---- scenario 3: concurrent contention ----
+
+func contentionScenario(ctx context.Context, pool *pgxpool.Pool) {
+	step("concurrent contention: G goroutines committing against the SAME cursor row")
+
+	const goroutines = 20
+	const perGoroutine = 10
+	total := goroutines * perGoroutine
+
+	baseMs := timeConcurrentCommits(ctx, pool, "base", goroutines, perGoroutine, false)
+	syncMs := timeConcurrentCommits(ctx, pool, "sync", goroutines, perGoroutine, true)
+
+	fmt.Printf("  %-28s %10.3fms total  %8.4fms/op (%d ops, %d goroutines)\n", "commit only (baseline)", baseMs, baseMs/float64(total), total, goroutines)
+	fmt.Printf("  %-28s %10.3fms total  %8.4fms/op (%d ops, %d goroutines)\n", "commit + synchronous advance", syncMs, syncMs/float64(total), total, goroutines)
+	fmt.Printf("  -> %.2fx slower with a synchronous rollup chained onto every commit\n", syncMs/baseMs)
+}
+
+func timeConcurrentCommits(ctx context.Context, pool *pgxpool.Pool, label string, goroutines, perGoroutine int, syncAdvance bool) float64 {
+	total := goroutines * perGoroutine
+	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	must(err)
+
+	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
+	must(err)
+
+	topicName := fmt.Sprintf("phase10.rollup.contention.%s.%d", label, time.Now().UnixNano())
+	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{})
+	must(err)
+	defer func() {
+		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+	}()
+
+	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
+	must(err)
+	messageConsumers, err := messageconsumercontroller.NewMessageConsumerGroupController(ds, ds.Logger)
+	must(err)
+	cursorAdvancerDatastore, err := cursoradvancerdatastore.NewCursorAdvancerDatastore(ds, ds.Logger)
+	must(err)
+	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	must(err)
+	groupId := mustGroupID(cd.RegisterGroup(ctx, tp.Id, group, consume.Beginning()))
+	seed(ctx, wpInstance, total)
+
+	start := time.Now()
+	var wg sync.WaitGroup
+	for range goroutines {
+		wg.Go(func() {
+			for range perGoroutine {
+				claim, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, 1, maxRangeReclaims, lease, topic.DeliveryLogModeFailures)
+				must(err)
+				if claim == nil {
+					return
+				}
+				must(messageConsumers.Commit(ctx, tp.Id, groupId, claim.Lease.Token, nil, 5*time.Second, topic.DeliveryLogModeFailures))
+				if syncAdvance {
+					_, err := cursorAdvancerDatastore.AdvanceCommitted(ctx, tp.Id, groupId)
+					must(err)
+				}
+			}
+		})
+	}
+	wg.Wait()
+	return msSince(start)
+}
+
+// ---- helpers ----
+
+func seed(ctx context.Context, wpInstance *vulkan.ProducerInstance[common.Work], n int) {
+	for range n {
+		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
+			return common.NewWork(30, "admin@example.com")
+		}, nil)
+		must(err)
+	}
+}
+
+func committedCol(ctx context.Context, ds *iDatastore.PostgresDatastore, groupId int64, topicId int64) int64 {
+	var v int64
+	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT committed FROM %s.%s WHERE consumer_group_id=$1`, ds.Schema, topic.ConsumerGroupCursorTable(topicId)), groupId).Scan(&v))
+	return v
+}
+
+func msSince(start time.Time) float64 {
+	return float64(time.Since(start).Microseconds()) / 1000.0
+}
+
+func avgMax(vals []float64) (avg, max float64) {
+	if len(vals) == 0 {
+		return 0, 0
+	}
+	var total float64
+	for _, v := range vals {
+		total += v
+		if v > max {
+			max = v
+		}
+	}
+	return total / float64(len(vals)), max
+}
+
+func pctOver(got, baseline float64) float64 {
+	if baseline == 0 {
+		return 0
+	}
+	return (got - baseline) / baseline * 100
+}
+
+func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
+func must(err error) {
+	if err != nil {
+		die(err.Error())
+	}
+}
+func die(msg string) {
+	panic(testFailure{message: msg})
+}
+
+func mustGroupID(g *consume.Consumer, err error) int64 { must(err); return g.Id }
