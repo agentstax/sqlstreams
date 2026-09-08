@@ -1,18 +1,11 @@
 <!-- Im copying https://github.com/ghostty-org/ghostty/blob/main/README.md layout. You can hate me, but it's so fucking clean. -->
 
 <p align="center">
-  <br>
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset=".website/public/sqlstreams-dark.svg">
-    <br />
-    <img alt="SQLStreams" src=".website/public/sqlstreams-light.svg" height="56">
-  </picture>
-</p>
-<p align="center">
-    It's Kafka on Postgres.
+    <strong>It's Kafka on Postgres.</strong>
     <br />
     Fast, reliable and easy to use.
-    <br />
+</p>
+<p align="center">
     <a href="#about">About</a>
     ·
     <a href="#usage">Usage</a>
@@ -24,24 +17,29 @@
     <a href="DEVELOPING.md">Developing</a>
 </p>
 
-## About
+<br />
+<hr />
+<br />
 
 I use Kafka, you use Kafka, your mom uses Kafka. *Kafka is great.*
 
-**Buuuuuut....** running and maintaing a Kafka cluster is **not fun.**
+**Buuuuuut....** running and maintaing a Kafka cluster is not fun.
 
-I'd love to use Kafka for my [agentic powered TODO app](https://github.com/agentstax/tomorrows-todo-today) but if I see one more `"no brokers available"` error I will **crash out.**
+I'd love to use Kafka for my [agentic powered TODO app](https://github.com/agentstax/tomorrows-todo-today) but if I see one more `"no brokers available"` error I will crash out.
 
 <p align="center">
   <strong>INTRODUCING</strong>
   <br />
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset=".website/public/sqlstreams-dark.svg">
-    <img alt="SQLStreams" src=".website/public/sqlstreams-light.svg" height="44">
+    <img alt="SQLStreams" src=".website/public/sqlstreams-light.svg" height="56">
   </picture>
   <br />
-  <em>for when you barely know what a Topic is but know Kafka is good... for some reason or another.</em>
+  <em>for when you barely know what a Topic is but know Kafka is good...<br />
+  for some reason or another.</em>
 </p>
+
+<br />
 
 **SQLStreams is a pure SQL library that uses Postgres as its broker.**
 
