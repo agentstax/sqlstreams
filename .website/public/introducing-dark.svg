@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 36" width="180" height="36" role="img" aria-label="INTRODUCING" fill="none" stroke-linecap="square" stroke-linejoin="round">
+  <path d="M1 0H11M6 0V20M1 20H11" transform="translate(4.00 15.00) scale(0.70)" stroke="#9da7b3" stroke-width="2.30"/>
+  <path d="M0 20V0L12 20V0" transform="translate(16.90 14.00) scale(0.75)" stroke="#a6a7a7" stroke-width="2.30"/>
+  <path d="M0 0H12M6 0V20" transform="translate(30.40 13.00) scale(0.80)" stroke="#afa69b" stroke-width="2.30"/>
+  <path d="M0 20V0H6C10 0 12 2 12 6S10 12 6 12H0M6 12L12 20" transform="translate(44.50 12.00) scale(0.85)" stroke="#b8a68f" stroke-width="2.30"/>
+  <path d="M6 0C2 0 0 2.5 0 6V14C0 17.5 2 20 6 20S12 17.5 12 14V6C12 2.5 10 0 6 0Z" transform="translate(59.20 11.00) scale(0.90)" stroke="#c1a583" stroke-width="2.30"/>
+  <path d="M0 0H4C9 0 12 3 12 8V12C12 17 9 20 4 20H0Z" transform="translate(74.50 10.00) scale(0.95)" stroke="#caa577" stroke-width="2.30"/>
+  <path d="M0 0V14C0 18 2 20 6 20S12 18 12 14V0" transform="translate(90.40 9.00) scale(1.00)" stroke="#d3a46b" stroke-width="2.30"/>
+  <path d="M12 3C11 1 9 0 6 0C2 0 0 3 0 6V14C0 17 2 20 6 20C9 20 11 19 12 17" transform="translate(106.90 8.00) scale(1.05)" stroke="#dca45f" stroke-width="2.30"/>
+  <path d="M1 0H11M6 0V20M1 20H11" transform="translate(124.00 7.00) scale(1.10)" stroke="#e5a353" stroke-width="2.30"/>
+  <path d="M0 20V0L12 20V0" transform="translate(141.70 6.00) scale(1.15)" stroke="#eca346" stroke-width="2.30"/>
+  <path d="M12 3C11 1 9 0 6 0C2 0 0 3 0 6V14C0 17 2 20 6 20S12 17 12 14V11H7" transform="translate(160.00 5.00) scale(1.20)" stroke="#f2a33a" stroke-width="2.30"/>
+</svg>
