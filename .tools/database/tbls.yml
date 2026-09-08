@@ -5,7 +5,7 @@
 # RegisterSystem creates (__system.metrics) and always exists.
 dsn: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable
 
-docPath: bin/schema
+docPath: .bin/schema
 
 include:
   - system_config

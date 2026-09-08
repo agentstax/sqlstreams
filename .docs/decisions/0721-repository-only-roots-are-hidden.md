@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded
 date: 2026-09-08
 phase: pre-v1
 ---
@@ -31,3 +31,5 @@ while preserving their dependency-isolation and single-tooling-root rules.
 Current commands, automation, links, and rule files use the hidden paths.
 Historical records, HISTORY, THOUGHTS, and archive prose retain the paths they
 recorded.
+
+Superseded by [0722].

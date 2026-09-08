@@ -81,14 +81,14 @@ system-register:
 # Generate a gitignored ER diagram from a registered development database.
 schema-diagram:
     tbls doc -c .tools/database/tbls.yml --force
-    tbls out -c .tools/database/tbls.yml -t json -o bin/schema/schema.json
-    cd bin/schema && npx --yes @liam-hq/cli erd build --format tbls --input schema.json
-    rm -rf bin/schema/erd && mv bin/schema/dist bin/schema/erd
+    tbls out -c .tools/database/tbls.yml -t json -o .bin/schema/schema.json
+    cd .bin/schema && npx --yes @liam-hq/cli erd build --format tbls --input schema.json
+    rm -rf .bin/schema/erd && mv .bin/schema/dist .bin/schema/erd
     @echo "open with: just schema-diagram-serve"
 
 # Serve the generated ER diagram at http://localhost:8377.
 schema-diagram-serve:
-    python3 -m http.server 8377 -d bin/schema/erd
+    python3 -m http.server 8377 -d .bin/schema/erd
 
 # Recreate the development database, register the system, then generate its ER diagram.
 schema-diagram-fresh:
@@ -109,9 +109,9 @@ produce count="1":
 
 ### E2E TESTS: BUILD ###
 
-# Build an e2e test binary in bin/. EX: just build-e2e reclaim
+# Build an e2e test binary in .bin/. EX: just build-e2e reclaim
 build-e2e test:
-    go build -o bin/{{ test }} ./.e2e/{{ test }}/main.go
+    go build -o .bin/{{ test }} ./.e2e/{{ test }}/main.go
 
 ### E2E TESTS: CONSUMERS, DECLARATIONS, AND WORKERS ###
 
@@ -309,7 +309,7 @@ metrics-e2e:
 
 # Verify concurrent metric collection and an HTTP scrape from a manager process.
 metrics-collector-e2e:
-    cd cmd/vulkan && go build -o ../../bin/vulkan .
+    cd cmd/vulkan && go build -o ../../.bin/vulkan .
     go run -race ./.e2e/metricscollector/main.go
 
 # Verify built-in alert thresholds classify, refresh, change severity, and resolve.

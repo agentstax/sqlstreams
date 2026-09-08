@@ -5,9 +5,9 @@
 go.work
 go.work.sum
 
-# built binaries live in bin/ (just build-e2e <test>)
-/bin/*
-!/bin/.gitkeep
+# built binaries live in .bin/ (just build-e2e <test>)
+/.bin/*
+!/.bin/.gitkeep
 
 # bench scratch -- only the writeup is tracked
 bench/idempotency/*

@@ -8,7 +8,7 @@ package main
 // `vulkan metrics list` / `vulkan metrics get` use, and a real
 // `vulkan manager run --metrics-address` process scraped over HTTP.
 // Self-seeding (6 topics x 2 groups x 5 messages), self-cleaning; expects
-// bin/vulkan built by the justfile recipe.
+// .bin/vulkan built by the justfile recipe.
 
 import (
 	"context"
@@ -316,7 +316,7 @@ func run() (err error) {
 	must(<-collectorDone)
 
 	step("vulkan manager run --metrics-address serves the heads as Prometheus text")
-	manager := exec.Command("./bin/vulkan", "manager", "run",
+	manager := exec.Command("./.bin/vulkan", "manager", "run",
 		"--metrics-address", metricsAddress,
 		"--database-url", databaseURL,
 	)

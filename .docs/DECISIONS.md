@@ -473,4 +473,5 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 - 0718 2026-09-08 superseded (pre-v1) — End-to-end labs and runnable examples have separate roots
 - 0719 2026-09-08 accepted (pre-v1) — Programs under .e2e are e2e tests
 - 0720 2026-09-08 accepted (pre-v1) — End-to-end tests and runnable examples have separate hidden roots
-- 0721 2026-09-08 accepted (pre-v1) — Repository-only roots are hidden
+- 0721 2026-09-08 superseded by 0722 (pre-v1) — Repository-only roots are hidden
+- 0722 2026-09-08 accepted (pre-v1) — Repository support and build-output roots are hidden

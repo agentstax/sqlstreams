@@ -1367,6 +1367,33 @@ untracked-so-far `runs.jsonl` files before they are first committed.
   aligned1MiB buffers,250+600MiB/s targets. Extra1MiB was prewritten
   to avoid file extension at shifted wraparound. Cache-toggle trial is
   deferred in favor of this more specific alignment test.
+- [x] Same-file alignment trial storage_offset_direct_155859 completed:
+  WAL offset0/8192/0/8192/0 in five60s phases delivered249.45/232.81/
+  249.13/180.14/240.73MiB/s. Median WAL write latency0.330/1.568/
+  0.323/3.007/0.323ms; shifted phases introduced457.7/351.0MB OS
+  reads versus essentially zero in aligned phases. Alignment causes
+  read amplification and higher typical latency. The second shifted
+  phase reached456ms and the final aligned phase still reached222ms:
+  alignment alone does not explain prolonged stalls. Raw phase-analysis
+  and settings are in the run directory and runs.jsonl.
+- [x] Same-file cache trial storage_wal_cache_160503 completed: WAL
+  F_NOCACHE on/off/on/off/on, five60s phases, aligned1MiB buffers and
+  offsets, data always no-cache. WAL rates249.76/249.60/236.97/237.26/
+  214.45MiB/s; data595.43/596.68/540.70/512.93/422.14MiB/s. The
+  largest WAL stall870ms occurred after bypass was restored. This
+  contradicts a universal instantaneous cache-bypass cure; delayed OS
+  work or controller behavior remain hypotheses, not established causes.
+- [ ] Capture kernel stacks during a reproduced stall to separate OS
+  queueing/throttling from lower-driver/controller waits. Normal-user
+  spindump requires root (exit77); sudo -n reports a password is required.
+  These are macOS privilege limits, not automatic approval rejection.
+  Asked whether the user can execute a narrowly scoped10s administrator
+  trace in their own Terminal; no password is requested or handled here.
+- [x] Restored original native PG18.6 with durability and autovacuum on;
+  both custom instances stopped and all synthetic .bin files removed.
+  deeper-investigation-restored.json records29.42GB retained and130.92GB
+  free. No application throughput maximum is established by these
+  storage-only tests. Follow the forthcoming bench -> .bench move.
 - [ ] Choose retention from measured storage, then validate finalists.
 - [ ] Record comparison and sustainable result with evidence.
 
