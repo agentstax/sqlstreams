@@ -1,51 +1,30 @@
 ---
 title: Transactional Produce
-description: Produce a message in the same transaction as your business write. The dual-write problem, solved by refusing to have two systems — every sample compiles against the shipped library.
+description: Choose a produce verb, write business data and messages in one transaction, and verify rollback.
 ---
 
 import ThreadAside from '../../../components/thread-aside/thread-aside.svelte';
 
-This is Vulkan's headline feature, so let's earn it properly.
+Use `ProduceFunc` to commit a business write and its message together.
+Use `InTransaction` with `ProduceInTx` when one transaction must produce
+to several topics. [Why Vulkan](/why-vulkan/#one-commit-for-the-business-write-and-message)
+explains the failure window this removes.
 
-## The bug you've definitely shipped
+The examples assume registered producers and application-owned `orders`
+and invoice tables. Replace their fields with your application's schema.
 
-Here's the innocent-looking code at the heart of a thousand incident
-reviews — a database and a broker, each written separately:
+## Choose the verb
 
-```go
-// ❌ The dual write. One of these will betray you.
-func CreateOrder(ctx context.Context, order Order) error {
-    if err := db.Insert(ctx, order); err != nil {      // write 1: database
-        return err
-    }
-    return broker.Publish(ctx, OrderCreated{order.Id}) // write 2: broker
-}
-```
+| Transaction | Payload already exists | Payload comes from database work |
+| --- | --- | --- |
+| Vulkan opens it | `Produce` | `ProduceFunc` |
+| Your `InTransaction` closure owns it | `ProduceInTx` | `ProduceFuncInTx` |
 
-Two writes, two systems, no shared transaction. Walk the failure cases:
+`ProduceBatch` writes several messages on one topic in one transaction,
+returning results in argument order. [Producer](/reference/producer/)
+lists each method's parameters and errors.
 
-- **DB commits, the broker write fails** (broker blip, network, deploy):
-  the order exists, the message doesn't. No receipt, no fraud check, no
-  warehouse pick. Silent.
-- **Swap the order — broker first, then the DB write fails**: now there's
-  a message for an order that doesn't exist. The receipt sends; the
-  warehouse ships air.
-- **Retry the broker write?** If the *first* attempt actually succeeded
-  and only the response got lost, you send twice. If your process dies
-  before the retry, you're back to case one.
-
-There is no ordering and no retry policy that closes this. The two
-systems can each be perfectly reliable and the *seam between them* still
-loses or fabricates messages. The industry's accepted fix — the
-**transactional outbox pattern** — is to write the message into a
-database table inside your transaction, then relay it to the broker
-afterwards. Which is an admission: the only trustworthy way to produce
-a message is an `INSERT` in your own transaction.
-
-Vulkan's position: keep the insert, **skip the relay and the broker.**
-The outbox table *is* the message platform.
-
-## The fix
+## Write and produce together
 
 The closure you pass to `ProduceFunc` runs inside the message's own
 transaction. Run your business writes on the `tx` it hands you and
@@ -65,10 +44,11 @@ func CreateOrder(ctx context.Context, instance *vulkan.ProducerInstance[OrderCre
 }
 ```
 
-There is no failure window because there is no seam — it's one `COMMIT`,
-and Postgres has spent thirty years making sure `COMMIT` means what it
-says. Returning an error from the closure rolls everything back:
-your writes and the message together.
+Returning an error from the closure rolls back its statements and the
+message. A commit error can still leave the caller uncertain whether the
+transaction landed; it does not split the business write from the message.
+[Side Effects & Retries](/guides/side-effects-and-retries/#retries-are-yours-to-own)
+explains safe retries after an ambiguous result.
 
 Three details about the closure:
 
@@ -84,17 +64,12 @@ Three details about the closure:
   means setting it — more in
   [Side Effects & Retries](/guides/side-effects-and-retries/).
 
-You also get the converse guarantee free, from transaction isolation:
-**no consumer can observe the message before your transaction commits.**
-No more "the handler ran before the row it referenced was visible" — a
-race so common that job-queue docs have a standard name for the
-workaround (send-after-commit hooks, with their own failure window).
+Consumers cannot observe the message before its transaction commits.
 
 ## Prove it to yourself
 
-
-1. Write the business row, return the payload — then **force a
-   rollback** by returning an error:
+1. Choose an unused order id, such as `order-9`, and **force a rollback**
+   after inserting it:
 
    ```go
    _, err := instance.ProduceFunc(ctx,
@@ -106,22 +81,22 @@ workaround (send-after-commit hooks, with their own failure window).
    	}, nil)
    ```
 
-2. Check both tables — **neither** row exists. Resolve the topic's id
+2. Check for that order and its message; neither should exist. Resolve the topic's id
    from the catalog once (each topic owns its physical tables, named by
    that id; say it returned `1`):
 
    ```sql
    SELECT id FROM vulkan.topic_config WHERE name = 'orders.created';
 
-   SELECT count(*) FROM orders;        -- 0
-   SELECT count(*) FROM vulkan.message_log_1; -- 0
+   SELECT count(*) FROM orders WHERE id = 'order-9'; -- 0
+   SELECT count(*) FROM vulkan.message_log_1
+   WHERE payload ->> 'order_id' = 'order-9'; -- 0
    ```
 
-3. Run it again returning the payload instead of the error: both rows
-   exist, and a consumer picks the message up — but only *after* the
-   commit. While the transaction is open, consumers can't see it.
-   Atomicity on your side, isolation on theirs, composing for free.
-
+3. Replace the final return with `return &OrderCreated{OrderId: "order-9"}, nil`
+   and run it again. Check `err` before proceeding. Both counts should now
+   be `1`, provided `OrderCreated.OrderId` uses the JSON tag `order_id`.
+   While the transaction is open, consumers cannot see its message.
 
 ## Several topics, one commit
 
@@ -179,37 +154,16 @@ org's Kafka, a partner webhook), your Vulkan topic already *is* a
 transactional outbox — add a relay consumer group that forwards
 downstream, with retries and
 [dead-lettered messages](/guides/dead-letters/) for the flaky
-remote end. The hard half (atomic capture) is done; the relay is just
-another consumer.
+remote end. The downstream operation still needs idempotency because a relay
+can repeat after a crash.
 
 </ThreadAside>
 
-## Which verb
+## Build a payload inside a shared transaction
 
-Two questions pick one of four: who opens the transaction, and does the
-payload exist before it or come out of it.
-
-| who opens the transaction | the message is a value | the message comes from a closure |
-| --- | --- | --- |
-| Vulkan | `Produce(ctx, message, options)` | `ProduceFunc(ctx, producerFunc, options)` |
-| you, via `InTransaction` | `ProduceInTx(ctx, tx, message, options)` | `ProduceFuncInTx(ctx, tx, producerFunc, options)` |
-
-The rows differ in what the commit covers. Vulkan's own transaction
-holds the message and whatever the closure ran, and concurrent
-`Produce` calls share it — batched under load, committed alone at idle.
-Yours holds everything else you put in it, commits when you commit, and
-never batches with anyone.
-
-`ProduceBatch` is the many-messages form of the top-left cell: every
-item in one transaction of Vulkan's, all of them or none, results in
-argument order.
-
-`ProduceFuncInTx` is the one you'll reach for least, because inside
-your own transaction you already hold `tx` — the read can happen on the
-line above and the value form takes its result. It's there so the
-closure form composes with a transaction you own the same way
-`ProduceFunc` does with Vulkan's, and it keeps a write and the message
-describing that write in one place:
+Inside `InTransaction` you already hold `tx`, so `ProduceInTx` usually
+suffices. Use `ProduceFuncInTx` when an existing producer function owns
+the write and constructs the payload from its result:
 
 ```go
 err := client.InTransaction(ctx, func(ctx context.Context, tx vulkan.Tx) error {
@@ -225,15 +179,3 @@ err := client.InTransaction(ctx, func(ctx context.Context, tx vulkan.Tx) error {
 	return err
 })
 ```
-
-## Why brokers can't follow you here
-
-This isn't a missing feature Kafka could ship next quarter — it's
-structural. A broker is a *separate system*; your database transaction
-boundary physically cannot extend into it (two-phase commit exists, and
-nobody's on-call rotation has ever been improved by it). Every
-broker-centric architecture eventually grows an outbox table, a relay,
-and a reconciliation job. Vulkan is what you get by taking that endpoint
-seriously and designing for it from the start. The full comparison —
-including when Kafka is still the right call — is
-[its own page](/compare/kafka/).

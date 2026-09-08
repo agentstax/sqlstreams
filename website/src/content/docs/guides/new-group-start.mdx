@@ -15,51 +15,44 @@ scoring, err := client.Topic[OrderPlaced]("orders.placed").Consumer("fraud-scori
 	&vulkan.ConsumerConfig{
 		Start: vulkan.Head(),
 	})
-must(err)
-must(scoring.Consume(ctx, scoreOrder, nil))
+if err != nil {
+	return err
+}
+return scoring.Consume(ctx, scoreOrder, nil)
 ```
 
-This is Kafka's `auto.offset.reset=latest` and JetStream's
-`DeliverNew`, with the same rule: declaration-time config, consulted
-only when the group has no position yet. It is not a verb - moving an
-existing group is [rewind](/guides/replay/), which is still proposed
-and answers harder questions (open delivery rows, a safety rail,
-retention) that a brand-new group does not have.
+To read retained history, leave `Start` unset or use `vulkan.Beginning()`.
+Moving an existing group is a different operation; the
+[rewind proposal](/guides/replay/#proposed-rewind-an-existing-group) is not
+shipped API.
 
-## The position type
+## Choose the initial position
 
-`vulkan.CursorPosition` is a place in a topic's message log,
-and it is the one type every cursor-placing surface takes: `Start` on
-the consumer config today, the rewind verb when it ships. Its zero
-value is the beginning, so a config that says nothing keeps today's
-behavior.
+| Value | New group reads |
+| --- | --- |
+| `vulkan.Beginning()` (default) | retained history, then live traffic |
+| `vulkan.Head()` | messages with ids above the visible head at registration |
 
-| constructor | the cursor is set to | status |
-| --- | --- | --- |
-| `vulkan.Beginning()` | the oldest retained message; the zero value | shipped |
-| `vulkan.Head()` | `MAX(id)` of the log at the moment the row is written | shipped |
-| `vulkan.AtMessageId(id)` | a message id | [rewind](/guides/replay/), proposed |
-| `vulkan.AtTime(t)` | the first message created at or after `t` | [rewind](/guides/replay/), proposed |
-
-Event Hubs' `EventPosition` and EventStoreDB's `StreamPosition` are the
-same shape: a value with a constructor per kind, handed to whichever
-verb places a cursor. The last two rows are on the page so the type is
-read once; they ship with the verb that needs them, not with this
-field.
+Both construct `vulkan.CursorPosition`. The position only applies when
+registration creates the cursor; it does not reset an existing group.
 
 ## Worked case
 
 `orders.placed` (topic id `1`) has been live for a year and
 `message_log_1` holds ids `1` through `1204318`. A fraud-scoring
-service is added today; scoring a year of settled orders is a day of
-CPU for nothing.
+service is added today and only needs to score new orders.
 
 `Register` with `Start: vulkan.Head()` creates the cursor row at
 the head instead of at 0:
 
 ```sql
-SELECT consumer_group_id, claimed, committed, settled_head
-FROM vulkan.consumer_group_cursor_1;
+SELECT
+    consumer_group_id,
+    claimed,
+    committed,
+    settled_head
+FROM vulkan.consumer_group_cursor_1
+WHERE consumer_group_id = 7;
 --  consumer_group_id | claimed | committed | settled_head
 --  7                 | 1204318 | 1204318   | 1204318
 ```
@@ -67,7 +60,8 @@ FROM vulkan.consumer_group_cursor_1;
 The next produce is id `1204319`. The group's first claim is the range
 `(1204318, 1204319]` and the handler sees exactly that order. The year
 behind it is never read, and because `committed` already sits at the
-head, retention and partition drops never wait on this group either.
+head, this group does not prevent retention from deleting that older
+history. If it falls behind later, it can still delay future cleanup.
 
 The register log line carries the position, so a group that started
 at the head says so once:
@@ -78,46 +72,21 @@ consumer group registered (created) group=fraud-scoring topic_id=1 group_id=7 co
 
 ## What "after" means
 
-The head is `MAX(id)` of the message log inside the register
-transaction. A produce that took id `1204317` but had not committed
-when the group registered commits later, and `1204317 < claimed`
-forever: the group never sees it. Kafka `latest` and JetStream `new`
-skip that message the same way. For a service that wants live
-traffic this is the right trade - the message is from before it
-existed, by the only clock that matters to a new group.
+A produce can allocate an id before group registration and commit after
+it. If that id is at or below the recorded head, the new group skips it.
+Register the group before producers start when it must receive traffic
+around its startup. See the
+[registration boundary](/concepts/fan-out/#the-registration-boundary)
+for a concrete transaction example and the cursor columns involved.
 
-If a group must not miss anything produced around its own start, the
-answer is ordering, not a position: register it before the producer
-runs. On an empty topic the beginning and the head are the same place.
+## Existing groups and recovery
 
-## What it does not do
+Changing `Start` on an existing `fraud-scoring` group leaves its cursor
+in place. The creation log shown above only appears when the cursor is
+created. Inspect the stored position to verify the result.
 
-- No id or timestamp target yet. "Start from Tuesday" is
-  `vulkan.AtTime(tuesday)` handed to the rewind verb pointed
-  forward, and it inherits that verb's spec questions; the two shipped
-  constructors are the ones a brand-new group can use.
-- No effect on an existing group. Changing `Start` for a group that
-  has a cursor row changes nothing, and the register log line does not
-  fire because nothing was created. Delete the group and register it
-  again if that is what you want.
-- Bindings need nothing extra. A group with a [binding set](/concepts/fan-out/)
-  reads the same cursor row, so a bound group at the head starts at
-  the head.
-- The exception queue is untouched. A new group has no delivery rows,
-  which is exactly why this is one statement.
-
-## The statement
-
-The register transaction writes the cursor row with the head in every
-position column instead of the default `0`:
-
-```sql
-INSERT INTO consumer_group_cursor_1 (consumer_group_id, claimed, committed, settled_head)
-SELECT $1, head, head, head
-FROM (SELECT COALESCE(MAX(id), 0) AS head FROM vulkan.message_log_1) AS log;
-```
-
-`settled_head` is the fresh-claim fence's "nothing uncommitted at or
-below this id" mark. Writing the head there is the skip described
-above, stated as a column value: the group treats everything at or
-below the head as settled, whether or not it was.
+For a separate read of history, use a fresh group with the intended
+handler. Deleting and recreating a group also deletes its delivery state
+and is a destructive operation; see [Consumer](/reference/consumer/#verbs)
+for the guards and [Replaying History](/guides/replay/) for the recovery
+workflow. Starting from a chosen id or timestamp is still proposed.

@@ -1,103 +1,146 @@
 ---
 title: Fan-out, Retention & Replay
-description: Messages are facts. Retain them, fan them out to independent consumer groups, and let new consumers read history — without a Kafka cluster.
+description: Independent consumer groups share a retained message log; cursor progress and delivery failures are separate signals.
 ---
 
 import ThreadAside from '../../../components/thread-aside/thread-aside.svelte';
 
-A Vulkan topic is a named, append-only message log. Producing appends;
-consuming never deletes. That single decision — *retain instead of
-consume* — is what unlocks everything on this page.
+A topic retains messages independently of consumption. Each consumer
+group has its own cursor and exception rows, so several groups can
+process the same message with different handlers and retry policies.
+They share database capacity and the topic's retention policy.
 
-## Fan-out: consumers are independent by construction
+## Independent groups
 
-The log is shared; each consumer group holds only its own cursor (and
-its own delivery rows for failures). Adding a group is invisible to
-every other group:
+On `orders.created`, `email-receipts` sends receipts while
+`fraud-screening` scores the same orders. Each group registers against
+the same topic handle:
 
 ```go
-// Three teams, three groups, one topic — zero coordination.
-orders := client.Topic[OrderCreated](registered.Name)
-receipts, err := orders.Consumer("email-receipts").Register(ctx, nil)
-screening, err := orders.Consumer("fraud-screening").Register(ctx, nil)
-warehouse, err := orders.Consumer("warehouse-sync").Register(ctx, nil)
+orders := client.Topic[OrderCreated]("orders.created")
+receipts := orders.Consumer("email-receipts")
+receiptsConsumer, err := receipts.Register(ctx, nil)
+if err != nil {
+	return err
+}
+screening := orders.Consumer("fraud-screening")
+screeningConsumer, err := screening.Register(ctx, nil)
+if err != nil {
+	return err
+}
 ```
 
-- A slow group falls behind **alone**; nobody else feels it.
-- Each group has its own retry budget and its own dead-lettered
-  messages ([lifecycle →](/concepts/lifecycle/)).
-- A group can declare [bindings](/concepts/routing/) to receive only a
-  slice of the topic.
+If message 101 succeeds for `email-receipts` and becomes `dead` for
+`fraud-screening`, neither outcome changes the other group's delivery.
+A slow group does not hold another group's cursor, though it can prevent
+shared history from expiring. Each group can also declare
+[bindings](/concepts/routing/) to read only matching routing keys.
 
-And the part queue-world fan-out can't do: **a new group starts at the
-beginning of retained history.** Its cursor starts at zero, so the
-consumer you add tomorrow *can* see yesterday — it chews through
-history at its own pace and arrives at live traffic. In SQS or
-RabbitMQ, the moment a message was consumed it was gone; the fourth
-queue you bind next quarter receives only what's published after it
-exists.
+## Reading history
 
-A group that only wants live traffic says so once, at registration:
-`Start: vulkan.Head()` on its consumer config places the new
-cursor at the head of the log instead of 0
-([where a new group starts](/guides/new-group-start/)). The default
-stays the beginning.
+A new group reads retained history by default. Add `search-indexer` after
+orders have been flowing for months and it can build its projection from
+the messages still retained, then continue into live traffic.
 
-## Replay
-
-For a **new** group, replay is the default behavior above. For an
-**existing** group — "re-run Tuesday's window through the fixed
-handler" — Vulkan has no rewind verb today:
+A group that only needs new traffic declares `Start: vulkan.Head()`.
+This chooses its initial cursor once; redeclaring an existing group does
+not move it. [Where a New Group Starts](/guides/new-group-start/) shows
+the declaration and how to check its position.
 
 <ThreadAside label="PROPOSED" title="Rewinding an existing group">
-Moving a group's cursor backwards (to an id or a timestamp) is a
-proposed capability. The [replay guide](/guides/replay/) is written as
-the proposal spec — what the verbs would look like and what they'd
-cost. Until it ships, the shipped workaround is registering a fresh
-group with the fixed handler and letting it read history.
+There is no shipped rewind verb. A corrected handler can rebuild a
+projection through a fresh consumer group reading retained history.
+[Replaying History](/guides/replay/) documents that workflow and labels
+the proposed rewind separately.
 
 </ThreadAside>
 
-## Lag: the one health metric
+## The registration boundary
 
-Every group's health is one subtraction — how far its committed cursor
-trails the head of the log:
+`Head()` uses the visible `MAX(id)` inside the registration transaction.
+Suppose `orders.created` (topic id `1`) has a visible head of `1204318`.
+The new `search-indexer` group (id `7`) gets this cursor:
 
 ```sql
-SELECT g.name AS consumer_group, c.claimed, c.committed,
-       (SELECT max(id) FROM vulkan.message_log_1) - c.committed AS backlog
-FROM vulkan.consumer_group_cursor_1 c JOIN vulkan.consumer_group_config g ON g.id = c.consumer_group_id;
+SELECT
+    consumer_group_id,
+    claimed,
+    committed,
+    settled_head
+FROM vulkan.consumer_group_cursor_1
+WHERE consumer_group_id = 7;
+-- consumer_group_id | claimed | committed | settled_head
+-- 7                 | 1204318 | 1204318   | 1204318
 ```
 
-The same numbers ship as metrics — head, claimed, committed, backlog,
-in-flight per group — collected by the metrics worker and readable via
-`vulkan metrics list`, because lag is the early warning for every
-consumer failure mode: a [stuck handler](/guides/consumer-timeouts/),
-an under-provisioned fleet, a
-[poison-pill loop](/guides/dead-letters/).
+All three positions start at the head. `settled_head` tells fresh claims
+to treat ids at or below that position as settled. If a produce already
+allocated id `1204317` but commits after registration, this group skips
+it too: its cursor is already past that id. A new message with id
+`1204319` is ahead of the cursor and can be read.
+
+For a group that must receive traffic around its startup, register it
+before producers start. `Head()` is a visible id boundary, not a commit
+timestamp filter.
+
+## Progress and failures
+
+Read cursor progress alongside pending and dead deliveries. In the
+example above, `fraud-screening` can reach the head while message 101
+remains dead. Zero cursor lag does not mean every handler succeeded.
+
+For topic id `1`, inspect the cursors:
+
+```sql
+SELECT
+    g.name AS consumer_group,
+    c.claimed,
+    c.committed,
+    (SELECT COALESCE(max(id), 0) FROM vulkan.message_log_1) - c.committed AS cursor_distance
+FROM vulkan.consumer_group_cursor_1 c
+JOIN vulkan.consumer_group_config g ON g.id = c.consumer_group_id;
+```
+
+The distance is measured in ids, not a count of messages: ids can have
+gaps and groups can skip rows through version or routing filters.
+Inspect exception state separately:
+
+```sql
+SELECT
+    g.name AS consumer_group,
+    d.status,
+    count(*) AS messages,
+    min(d.created_at) AS oldest_created_at
+FROM vulkan.exception_queue_1 d
+JOIN vulkan.consumer_group_config g ON g.id = d.consumer_group_id
+GROUP BY g.name, d.status
+ORDER BY g.name, d.status;
+```
+
+| Signal | What it tells you |
+| --- | --- |
+| Cursor distance | progress through the message log |
+| `ready`, `inflight`, `deferred` rows | deliveries still unresolved, including requested delays and key waits |
+| Oldest unresolved row | how long pending delivery state has existed |
+| `dead` rows | deliveries requiring investigation even if the cursor is caught up |
+
+The [metrics API](/reference/metrics/) exposes cursor, exception, and
+lease state. Use [Consumer Tuning](/guides/consumer-tuning/) for growing
+backlog and [Dead-lettered Messages](/guides/dead-letters/) for dead rows.
 
 ## Retention
 
-Retention is per-topic config, set at registration:
+`TopicConfig.RetentionTTL` defaults to `0`, which retains messages
+indefinitely. A nonzero TTL lets the janitor drop whole id-range
+partitions whose newest message has expired and sweep the remaining
+expired rows. Consuming a message does not delete it.
 
-```go
-registered, err := client.Topic[OrderPlaced]("orders").Register(ctx,
-	&vulkan.TopicConfig{RetentionTTL: 30 * 24 * time.Hour})
-```
+By default, `AllowDropPastCommitted: false` prevents retention from
+passing the slowest group's committed cursor. A lagging `search-indexer`
+can therefore keep old partitions on disk even after `email-receipts`
+has caught up. Observe storage as well as delivery progress.
 
-The default is `0` — keep everything forever. With a TTL set, the topic
-janitor drops whole id-range partitions whose newest row has expired —
-a `DROP TABLE`, not a million-row `DELETE` — and sweeps the slow tail
-that never fills a partition.
-
-<ThreadAside label="TIP" title="The retention cliff, defused by default">
-The classic log-world failure is a slow consumer falling off the log:
-retention deletes history the group never read. Vulkan's default is the
-opposite — **retention never drops past the slowest group's committed
-cursor** (`AllowDropPastCommitted: false`). A badly lagging group
-blocks cleanup instead of losing data, and the growing backlog is
-visible in the lag query above. Set `AllowDropPastCommitted: true` per
-topic when staleness beats unbounded disk — Kafka's behavior, opted
-into knowingly.
-
-</ThreadAside>
+Set `AllowDropPastCommitted: true` only when dropping unread history is
+acceptable. Exception rows do not provide separate retention: when
+retention deletes the source message, its retry, delayed, or dead state
+is deleted too. See [Topic](/reference/topic/#config) for the fields.

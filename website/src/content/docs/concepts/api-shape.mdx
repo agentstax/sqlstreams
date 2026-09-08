@@ -82,9 +82,7 @@ creation, and install / wait.
 That is right for a rolling deploy and wrong for two services that both
 think they own `charge-cards`: they overwrite each other forever, and the
 tell is the same VK0059 line on every restart of either one. One declaring
-service per resource is a convention, not a constraint. A refusing form was
-built and reverted: a service that refuses a differing config can never
-have its config changed without first redeploying it as accepting.
+service per resource is a convention, not a constraint.
 
 <ThreadAside label="PROPOSED" title="Reading the outcome back">
 The log makes an overwrite visible and a log line is not an API, so a

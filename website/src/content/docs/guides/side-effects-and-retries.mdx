@@ -59,10 +59,9 @@ sendEmailConfirmation("jamie@example.com") // the commit is known here
 ```
 
 Now walk *this* failure: the process crashes after the commit, before
-the send. The payment is recorded, the receipt message flows, the
-email never goes out. That's the dual write from the top of
-[the produce guide](/guides/transactional-produce/) in the other
-order — database first, side effect second — and it has the same fix.
+the send. The payment is recorded, but the email never goes out. This is
+the [dual-write failure window](/why-vulkan/#one-commit-for-the-business-write-and-message):
+database first, side effect second.
 Make the email a message:
 
 ```go
@@ -81,9 +80,12 @@ dead-lettered instead of vanishing with a crashed process.
 
 `InTransaction` never retries your closure — a transient blip or an
 ambiguous commit failure surfaces to you as-is, because only you know
-what's safe to rerun. If you wrap your own retry loop around it, make
-the rerun dedup-safe by supplying your own idempotency key: unset keys
-mint fresh per call, so a naive rerun produces the message twice.
+what's safe to rerun. A retry must make both the business statements and
+the produced message safe to repeat. A stable `ProduceOptions.IdempotencyKey` deduplicates the
+message within its TTL; it does not undo or deduplicate other statements
+in your closure. Use a business operation id or an equivalent database
+constraint for those writes. Omitting `IdempotencyKey` mints a fresh key
+per call, so a naive rerun can produce a second message.
 
 ```go
 // any stable string works as the key -- here the order id already is one

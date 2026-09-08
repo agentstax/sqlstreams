@@ -1,142 +1,140 @@
 ---
 title: Message Lifecycle
-description: Success leaves no per-message state at all. Failure gets a state machine — retries, backoff, leases, and dead-lettered messages you can SELECT.
+description: How range claims, retries, delays, and per-key waiting become delivery state, and how to inspect a failed message.
 ---
 
 import ThreadAside from '../../../components/thread-aside/thread-aside.svelte';
 
-Vulkan's consumer is built on an asymmetry worth understanding: **a
-message that succeeds never gets its own row.** Consumer instances claim
-contiguous *ranges* of the message log under the group's cursor, run your
-handler over each message, and the cursor sweeps past everything that
-went cleanly — zero per-message bookkeeping on the happy path.
+Consumer groups track progress with range leases and a cursor. A message
+that succeeds on its first delivery normally needs no exception row.
+Retries, requested delays, and messages waiting for a key get their own
+rows in the topic's `exception_queue`.
 
-State materializes exactly when something goes wrong. A handler error
-writes the message its own **delivery row**, and that row is a state
-machine:
+| Trigger | State | Next action |
+| --- | --- | --- |
+| A handler returns a retryable error | `ready` | wait until `can_run_after`, then claim again |
+| A handler returns `vulkan.Delay(d)` | `ready` | wait for the requested time; count a delay |
+| A key is busy or an ordered predecessor is unresolved | `deferred` | wait until the key and ordering checks permit a claim |
+| An eligible exception row is claimed | `inflight` | run the handler under a lease |
+| That handler succeeds | row deleted | no further delivery for this group |
+| A retryable error exhausts the budget, or the error is permanent | `dead` | retain for inspection until message retention removes it |
+| An exception row belongs to a compacted message that is no longer the head | `superseded` | no further delivery of that version |
 
-```
-  handler returns an error
-            │  the message gets its own delivery row
-            ▼
-        ┌───────┐    claimed, attempts + 1     ┌──────────┐
-        │ ready │ ───────────────────────────▶ │ inflight │
-        └───────┘                              └──────────┘
-            ▲                                   │        │
-            │ lease expired — reclaimed         │        │ retry succeeds
-            ├───────────────────────────────────┤        ▼
-            │ retry fails, attempts left        │    row DELETED
-            └─── can_run_after = now + backoff ◀┤
-                                                │ retry fails, attempts spent
-                                                ▼
-                                            ┌──────┐   dead-lettered: payload,
-                                            │ dead │   attempts, and last_error
-                                            └──────┘   all kept, all queryable
-```
+An expired `inflight` lease permits another claim while retry budget
+remains. A repeated crash that exhausts the budget is marked `dead`.
+[Handler Outcomes](/concepts/handler-outcomes/) explains how return values,
+attempts, and delays determine that budget.
 
-The handler has two more answers than nil-or-error.
-`vulkan.Terminal(err)` skips the retries and writes the row
-`dead` on this attempt; `vulkan.Delay(d)` writes a `ready` row
-with `can_run_after` = now + `d` and counts it in `delays`, not as a
-failure. [Handler outcomes](/concepts/handler-outcomes/) has the table.
+## One group, four messages
 
-All of it is **per consumer group**. Group A dead-lettering message 5
-doesn't affect group B — for group B the message never even had a row.
-And a `dead` row never blocks the group's cursor: the rest of the topic
-keeps flowing past it.
+The `apply-balance` group (id `7`) reads `ledger.adjustments` (topic id
+`1`) with ordered delivery for `acct-42`:
 
-Every transition is also appended to the topic's `delivery_log` audit
-trail — by default every outcome except success (the topic's
-`DeliveryLogMode` can widen that to successes too, or turn it off).
+1. Message 101 runs and returns an error. Vulkan records a `ready` row
+   with a future `can_run_after`.
+2. Messages 102–104 cannot pass 101. They are recorded `deferred`
+   without running their handlers.
+3. The retry of 101 succeeds, so its exception row is deleted. The next
+   eligible claim can run 102, then 103 and 104 in order.
+4. If 101 becomes `dead` instead, it also releases the messages behind it.
+   The failure remains queryable, but it does not stop the cursor.
 
-## Retries & backoff
+This state belongs to group 7. Another group reading message 101 has
+its own outcome and progress. [Ordering & Concurrency](/concepts/ordering/)
+explains the checks behind the waiting; [Ordered Delivery](/guides/ordered-delivery/)
+shows the group declaration.
 
-The retry budget and curve are ordinary config — set once on the
-consumer group, or requested per message at produce time (messages *request*,
-consumers *clamp*):
+## Retries and backoff
+
+Set retry policy on the consumer group. Produced messages may request
+values within the group's configured bounds:
 
 ```go
-fraud, err := client.Topic[OrderPlaced]("orders.placed").Consumer("fraud-scoring").Register(ctx,
-	&vulkan.ConsumerConfig{
-		Message: &vulkan.MessageOptions{
-			Timeout: 30 * time.Second,
-			Retry:   &vulkan.RetryPolicy{MaxRetries: 5, BaseDelay: 2 * time.Second},
-		},
-	})
+orders := client.Topic[OrderPlaced]("orders.placed")
+scoring := orders.Consumer("fraud-scoring")
+consumer, err := scoring.Register(ctx, &vulkan.ConsumerConfig{
+	Message: &vulkan.MessageOptions{
+		Timeout: 30 * time.Second,
+		Retry:   &vulkan.RetryPolicy{MaxRetries: 5, BaseDelay: 2 * time.Second},
+	},
+})
+if err != nil {
+	return err
+}
 ```
 
-The delay before attempt *n* is `BaseDelay × Exponent^n`, capped at
-`MaxDelay` (defaults: exponent 2, cap 5 minutes, 3 retries, `30s`
-timeout). What the timeout actually does when it fires — and the
-goroutine it can leave behind — is its own page:
-[Consumer Timeouts](/guides/consumer-timeouts/). And backoff is a **timestamp, not a timer**: a failed retry
-writes `can_run_after` into the future and the row simply becomes
-claimable again when the time comes. Nothing is waiting in a process
-that might die.
+A fresh retryable failure uses `ExceptionInitialBackoff` (default `5s`).
+Subsequent failures use the retry curve: `BaseDelay × Exponent^n`, capped
+at `MaxDelay`, where `n` is the failed retry count minus one (zero for the
+first failed retry). Defaults are exponent 2, cap 5 minutes, and 3 retries. Requested delays do not
+increase the failure count. See [Message Options](/reference/message-options/)
+for the fields and [Handler Outcomes](/concepts/handler-outcomes/#how-the-counts-fit-together)
+for the counters.
 
-## Leases: surviving dead consumers
+Backoff is stored in `can_run_after`. No process needs to keep a timer
+alive; the next eligible poll can claim the row. A due timestamp does
+not promise an immediate start, because polling and key ordering still
+apply.
 
-A claim takes a **lease** — a row with an expiry, not a database lock.
-Two kinds cover the two tiers:
+## Leases and crash recovery
 
-- **Range leases** cover healthy claims. A consumer instance that
-  vanishes — OOM-killed, deploy, kernel panic — leaves its range's lease
-  to expire; the next claim by any instance reclaims crashed ranges
-  *before* taking fresh work, so those messages drain first. A range
-  reclaimed too many times (3 by default) is **quarantined** into
-  individual delivery rows instead of handed out again — one poison
-  message can't crash-loop a whole range forever.
-- **Per-row leases** cover retries. An `inflight` row whose lease
-  expired is claimable again. And as a backstop, an expired row that is
-  *also* out of attempts is marked `dead` with
-  `[killed: crash-loop hit max attempts]` appended to its error — a
-  handler that kills its process every time can't loop forever.
+A lease is an expiring claim recorded in a row. The handler runs after
+the claim transaction commits, without holding its database lock.
 
-No heartbeat protocol, no session state, no rebalancing storm. Expired
-leases are reclaimed by the same claim queries that do the normal work.
+| Lease | What survives a crash | Recovery |
+| --- | --- | --- |
+| Range | the claimed range of message ids | a later claim reclaims the expired range before taking fresh work |
+| Exception row | one claimed retry or deferred delivery | another claim can take the row after expiry |
 
-<ThreadAside label="CAUTION" title="At-least-once, and proud of it">
-Leases mean a slow-but-alive handler and a reclaim can occasionally both
-process the same message — the same trade SQS, Pulsar, and every real
-queue makes. Vulkan is honest about being **at-least-once**: write
-idempotent handlers. `vulkan.MetaFromContext(ctx)` gives you the
-message id inside your handler — a natural idempotency key. Systems that
-promise exactly-once delivery are selling you exactly-once *something
-else*.
+A range reclaimed too many times (`MaxRangeReclaims`, default `3`) is
+quarantined into individual exception rows. That lets the remaining
+messages progress independently of a message that repeatedly crashes
+the process.
 
-</ThreadAside>
+Successful handlers in an unresolved range can run again after reclaim.
+A timed-out handler that ignores cancellation can also keep running
+while a retry starts. Use idempotent handlers and pass their context to
+blocking calls. [Consumer Timeouts](/guides/consumer-timeouts/) explains
+cancellation and abandonment; [Consumer](/reference/consumer/#queue-and-lease-budgets)
+shows how queue time affects the lease budget.
 
-## Dead-lettered messages are a query
+## Inspect a failed message
 
-After the retry budget is spent, the row's status is `dead` — with the
-payload still joined to the log, the attempt count, and the final error:
+Resolve the topic id before using its table suffix. For `orders.placed`:
 
 ```sql
-SELECT m.payload, d.attempts, d.last_error, d.updated_at
+SELECT id FROM vulkan.topic_config WHERE name = 'orders.placed';
+```
+
+If the result is `1`, inspect failures for `fraud-scoring`:
+
+```sql
+SELECT
+    d.message_id,
+    m.payload,
+    d.attempts,
+    d.last_error,
+    d.updated_at
 FROM vulkan.exception_queue_1 d
 JOIN vulkan.message_log_1 m ON m.id = d.message_id
 JOIN vulkan.consumer_group_config g ON g.id = d.consumer_group_id
-WHERE g.name = 'fraud-screening' AND d.status = 'dead'
+WHERE g.name = 'fraud-scoring' AND d.status = 'dead'
 ORDER BY d.updated_at DESC;
 ```
 
-No separate dead-letter queue to provision per consumer, and nothing
-expires behind your back — dead rows live until the retention drop that
-removes their message log rows.
+`delivery_log_1` holds the per-attempt audit trail. By default,
+`DeliveryLogMode` records outcomes other than success; `all` includes
+successes and `off` disables the audit trail. Exception state still
+exists when the audit trail is off.
 
-<ThreadAside label="PROPOSED" title="A redrive verb">
-Today there is no API to reset dead rows to `ready` after you fix the
-bug — a first-class redrive verb is a proposed capability, not a shipped
-one. The [dead-letters guide](/guides/dead-letters/) covers the triage
-workflow that exists now.
+Dead rows remain until retention removes their source message. A group's
+cursor can pass dead messages, so cursor lag alone cannot establish that
+handlers succeeded. See [progress and failures](/concepts/fan-out/#progress-and-failures)
+for the signals to inspect together.
+
+<ThreadAside label="PROPOSED" title="Redrive">
+There is no shipped API to reset a dead row to `ready` after fixing its
+handler. [Dead-lettered Messages](/guides/dead-letters/) covers current
+triage and recovery options.
 
 </ThreadAside>
-
-## Why this matters
-
-This per-message failure lifecycle is precisely what the log world can't
-express — a Kafka consumer's *only* state is "I have read up to offset
-N." One poison message and your choices are: stall the partition, skip
-and lose it, or build a parallel retry-topic system by hand. Vulkan's
-answer is a cursor for the 99.9% that succeeds and a state machine for
-the 0.1% that doesn't — native, per group, and visible in `psql`.

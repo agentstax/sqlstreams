@@ -1,138 +1,77 @@
 ---
 title: Why Vulkan
-description: The case for one Postgres-native messaging platform instead of three brokers.
+description: Transactional messaging, retained history, and independent consumer groups in your Postgres database, with the operating costs made explicit.
 ---
 
-import ThreadAside from '../../components/thread-aside/thread-aside.svelte';
+Vulkan gives Go applications transactional messaging, retained history,
+and independent consumer groups in Postgres. It fits applications that
+want business writes and messages to commit together and can allocate
+database capacity to both.
 
-## The dead-end problem
+## One commit for the business write and message
 
-Every async tool you adopt is a bet on your future needs, made when you
-know the least. You pick a job queue for the welcome emails. It's
-great. Then product wants an activity feed off the same signups — but
-the queue deleted them. Then a new service needs last quarter's
-history — the queue never had it. Each time, the tool you have can't do
-the next thing, so you add another system beside it. Walk into almost
-any backend team a few years in and you'll find where that road ends —
-the same accidental architecture:
+Suppose order 4127 needs a receipt. Writing the order to Postgres and
+then sending its message to a separate service creates a failure window:
 
-1. **A job queue** (Sidekiq, Celery, SQS, a Redis list) for background
-   work — retries, dead-lettering, "process this exactly once-ish."
-2. **An event log** (Kafka, Kinesis) for facts — "an order was
-   created," kept around so new services can read history and many
-   teams can consume independently.
-3. **A message broker** (RabbitMQ, SNS) for routing — publish here,
-   deliver there, based on topology nobody fully remembers.
+| Failure | Result |
+| --- | --- |
+| Order commits; process stops before sending | order exists without its receipt request |
+| Message is sent first; order rolls back | receipt request exists for an order that does not |
 
-Three systems. Three sets of client libraries, three monitoring stacks,
-three on-call playbooks, three upgrade treadmills. And here's the
-uncomfortable part: **they're the same primitives with different
-defaults.** A queue is "messages are work you claim and consume." A log
-is "messages are facts you retain and re-read at a cursor." Routing is
-a predicate over message attributes. Every broker is one of these, or a
-deliberate fusion.
+Vulkan's `ProduceFunc` runs the business write and message insert in one
+transaction. Both commit or both roll back. The consumer cannot see the
+message before that commit. [Transactional Produce](/guides/transactional-produce/)
+shows the code and how to verify rollback.
 
-Vulkan is the fusion, built deliberately, on the database you already
-operate — so the tool you pick for the welcome emails on day one is the
-same tool, and the same tables, serving the fan-out, the history, and
-the routing years later. The dead end never comes.
+The transaction covers database statements. Sending the actual email
+still happens outside it, and delivery can repeat after a crash or
+timeout. [Side Effects & Retries](/guides/side-effects-and-retries/)
+explains the idempotency responsibility that remains with the application.
 
-## The dual-write problem (and why no broker can fix it)
+## Several readers, retained history
 
-Every external broker shares one structural flaw. Your business data
-lives in Postgres; your messages live somewhere else. So every "save
-and notify" operation is **two writes to two systems with no shared
-transaction**:
+On `orders.created`, `email-receipts` handles receipts while
+`fraud-screening` scores orders. Each group has its own cursor and retry
+state. Adding `search-indexer` later lets it build a projection from the
+same retained messages without resetting either existing group.
 
-- The database commits, the broker write fails → you did the work but
-  **lost the message**. The receipt never sends. The downstream service
-  never hears.
-- The broker write succeeds, the database rolls back → a **phantom
-  message** for work that never happened. The receipt sends for an
-  order that doesn't exist.
-
-There is no safe ordering, and no amount of retry logic closes the gap.
-The industry's workaround is the *transactional outbox pattern*: write
-the message to a database table in your transaction, then run a relay
-process to forward it to the broker. Notice what that admits — **the
-only safe queue is a table in your database.** Vulkan just stops
-pretending otherwise. The outbox *is* the platform.
-
-```go
-// One transaction. The order row and the message commit together, or neither does.
-produced, err := instance.ProduceFunc(ctx,
-	func(ctx context.Context, tx vulkan.Tx) (*OrderCreated, error) {
-		if _, err := tx.Exec(ctx,
-			`INSERT INTO orders (id, total) VALUES ($1, $2)`, order.Id, order.Total); err != nil {
-			return nil, err
-		}
-		return &OrderCreated{OrderId: order.Id}, nil
-	}, nil)
-```
-
-<ThreadAside label="TIP" title="This is the headline feature">
-Producing in your own transaction isn't a nice-to-have — it deletes an
-entire class of consistency bugs that teams otherwise spend years
-patching with retries, reconciliation jobs, and incident reviews.
-[Read the full guide →](/guides/transactional-produce/)
-
-</ThreadAside>
-
-## What you get by being *in* the database
-
-**Observability you already know how to use.** A broker is a black box
-with its own CLI and its own dashboard. Vulkan's entire state is rows.
-Backlog, consumer lag, dead-lettered messages, the failure history of a
-single message — all SQL. Your existing dashboards, backups, and
-point-in-time recovery cover your messaging layer for free.
-
-**Operational surface area of zero.** No new cluster. No ZooKeeper, no
-Raft quorum, no broker version matrix. If you can keep Postgres up —
-and you already have to — you can keep Vulkan up.
-
-**Honest scaling.** A Postgres-backed platform is bounded by your
-Postgres — which comfortably covers the actual workload of most
-products, and we'd rather prove where the boundary sits than assert it:
-Vulkan's published numbers wait on its
-[benchmark pipeline](/roadmap/), and until a number has a recorded run
-behind it, we don't print it. If you're genuinely pushing Kafka-scale
-firehoses, use Kafka; [we'll tell you when](/compare/kafka/). What we
-won't do is make you pay Kafka's operational tax for a workload
-Postgres handles before breakfast.
-
-## What makes Vulkan different from "Postgres queue" libraries
-
-Libraries like River, pgmq, and graphile-worker proved the model:
-Postgres is a great queue. But they stop at **jobs** — claim, run,
-delete. Vulkan keeps going:
-
-| Capability | Job queue libraries | Vulkan |
+| Need | Vulkan mechanism | Cost or boundary |
 | --- | --- | --- |
-| Atomic claim, retries, dead-lettering | yes | yes |
-| Transactional produce | yes | yes |
-| [Retained history new consumers can read](/concepts/fan-out/) | no — deleted on consume | yes — append-only log |
-| Independent consumer groups (fan-out) | no — one consumer wins | yes — cursor per group |
-| [Routing by key bindings](/concepts/routing/) | no | yes |
-| [Per-key ordering beside full parallelism](/concepts/ordering/) | no | per-key exclusivity or strict order (opt-in per message) |
+| Independent handlers | consumer group per reader | each group adds reads and its own delivery state |
+| Read historical messages | retained message log | storage and retention determine available history |
+| Select matching messages | routing keys and group bindings | groups still advance through the topic's log |
+| Process each account in order | ordered delivery per message key | one slow message holds later messages on that key |
+| Apply only current state | message-key compaction | intermediate values may be superseded; incompatible with ordered delivery |
 
-The deep idea: Vulkan separates the **immutable log of what happened**
-from the **mutable state of who's handled it** — and only materializes
-the second where something actually failed. That design is what lets a
-single system offer queue lifecycle *and* retained history *and*
-fan-out *and* routing simultaneously — the combination that currently
-forces you to run three brokers.
-[See how it works →](/concepts/architecture/)
+[Fan-out, Retention & Replay](/concepts/fan-out/) explains the shared log;
+[Ordering & Concurrency](/concepts/ordering/) explains per-key behavior.
+There is no shipped rewind or dead-message redrive verb. Those proposals
+are labeled separately in their guides.
 
-## Open source, no asterisk
+## What you operate
 
-The engine is open source — run it as a Go library against any
-Postgres, in your VPC, forever, free. Every semantic capability —
-transactions, lifecycle, fan-out, routing, compaction, ordering —
-ships in the engine itself.
-[Where it's going →](/roadmap/)
+Vulkan runs inside your Go processes against Postgres. Consumers run
+upkeep by default; a producer-only deployment also needs a
+[manager](/reference/manager/). Database backups include messaging state,
+and SQL exposes cursors, pending deliveries, dead messages, and attempt
+history.
 
----
+You still size connection pools, monitor storage and delivery failures,
+and keep maintenance running. A slow consumer group can prevent old
+partitions from expiring under the default retention safeguards. Database
+CPU, memory, I/O, and availability are shared with your application.
+[Architecture](/concepts/architecture/) describes that arrangement.
 
-**Convinced?** [The quickstart](/quickstart/) takes minutes on the
-Postgres you already run. **Skeptical?** Better —
-[see the attack plan](/demo/) first.
+## Evaluate the fit
+
+Use the [Quickstart](/quickstart/) to run a producer and consumer, then
+exercise retries and retained history in the [demo](/demo/). Measure
+with your payloads, handlers, and replica counts before choosing capacity.
+This page makes no throughput claim; the [roadmap](/roadmap/) tracks
+benchmark work and release scope.
+
+If messaging must have independent database capacity or availability,
+include that requirement in your evaluation. The comparison pages cover
+[Kafka](/compare/kafka/), [RabbitMQ and SQS](/compare/rabbitmq-sqs/), and
+[job queues](/compare/job-queues/). The engine is an open-source Go library;
+its source and license are in the project repository.

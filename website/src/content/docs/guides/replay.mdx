@@ -3,50 +3,44 @@ title: Replaying History
 description: What history-reading ships today, and the proposed rewind verb for re-running an existing group — written up as the spec.
 ---
 
-import ThreadAside from '../../../components/thread-aside/thread-aside.svelte';
-
-Replay is the feature that quietly changes how you build. When history
-is retained and cursors are cheap, "reprocess everything since Tuesday"
-stops being a war-room project. This page is honest about which half of
-that ships today.
-
-<ThreadAside label="NOTE" title="Partly shipped, partly proposed">
-Reading history with a **new** consumer group works today — it's the
-default. Rewinding an **existing** group is a proposed capability; the
-sections below marked *proposed* are the spec for it, not shipped API.
-
-</ThreadAside>
+Register a fresh consumer group to process retained history with a new
+or corrected handler. An existing group's cursor cannot be rewound with
+the shipped API.
 
 ## Shipped today: bootstrap a new service from history
 
-Your team ships a search service eight months after orders started
-flowing. With a consumed-and-gone queue, you'd write a custom backfill
-against the orders table, keep it consistent with live traffic, and
-pray during the cutover. In Vulkan, a newly registered group's cursor
-starts at zero by default — it reads everything retention still holds
-(a group that wants live traffic only sets
-[`Start: vulkan.Head()`](/guides/new-group-start/)):
+Suppose `orders.placed` already contains months of orders and a new
+`search-indexer` needs to build a projection. Register it with default
+`Start` so it reads retained history, then continues with live traffic:
 
 ```go
-indexer, err := client.Topic[OrderPlaced](registered.Name).Consumer("search-indexer").Register(ctx, nil)
-must(err)
-must(indexer.Consume(ctx, indexOrder, nil))
+orders := client.Topic[OrderPlaced]("orders.placed")
+search := orders.Consumer("search-indexer")
+indexer, err := search.Register(ctx, nil)
+if err != nil {
+	return err
+}
+return indexer.Consume(ctx, indexOrder, nil)
 ```
 
-The group chews through history at its own pace (its lag shrinking is
-your progress bar) and seamlessly arrives at live traffic. Other groups
-never notice it happened.
+If that name already has a cursor, it resumes the existing position.
+Use a new name for a separate rebuild. A group that needs only live
+traffic uses [`Start: vulkan.Head()`](/guides/new-group-start/).
 
-This also gives you a shipped — if blunt — recovery tool: a handler bug
-that corrupted a projection can be fixed by pointing a **fresh group**
-with the corrected handler at the topic and rebuilding the projection
-from scratch, then retiring the old group.
+For a damaged projection, run the corrected handler under a fresh group
+and write into a separate projection. For example, rebuild orders 101–104
+with `search-indexer-v2`, check the resulting records and unresolved
+deliveries, then switch readers to the rebuilt projection and retire the
+old group. Cursor progress alone does not prove the rebuild succeeded;
+[inspect failures too](/concepts/fan-out/#progress-and-failures).
+
+Other groups keep their cursors, but the rebuild adds database reads,
+handler load, and possible retention pressure.
 
 ## Proposed: rewind an existing group
 
 Tuesday 09:14: a deploy ships a bug in `warehouse-sync` that silently
 mis-handles EU orders. Wednesday: you notice. The proposed loop:
-
 
 1. Deploy the corrected handler.
 
@@ -68,7 +62,6 @@ mis-handles EU orders. Wednesday: you notice. The proposed loop:
    had to be — [at-least-once delivery](/concepts/lifecycle/)), so
    re-processing messages it had handled correctly is harmless.
 
-
 Spec questions the proposal has to answer before it ships — recorded
 here so the eventual design is reviewable against them:
 
@@ -85,17 +78,20 @@ here so the eventual design is reviewable against them:
 
 ## What replay costs
 
-Nothing at write time — it's the same append-only log either way. At
-read time it's sequential indexed reads, the cheapest thing Postgres
-does. The real budget question is **retention**: how much history to
-keep, set per topic at registration:
+Rebuilding reads retained messages and runs the handler again. Plan for
+that database and downstream load; idempotency must cover the entire
+history window, including any external provider's deduplication limits.
+Retention determines which messages remain available:
 
 ```go
 registered, err := client.Topic[OrderPlaced]("orders").Register(ctx,
 	&vulkan.TopicConfig{RetentionTTL: 30 * 24 * time.Hour})
+if err != nil {
+	return err
+}
 ```
 
-The default keeps everything forever; a TTL trades replayable history
-against storage. Remember the default safety:
+The default retains messages indefinitely; a TTL trades history against
+storage. By default,
 [retention never drops past the slowest group's cursor](/concepts/fan-out/)
 unless the topic opts into `AllowDropPastCommitted`.

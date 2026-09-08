@@ -1,144 +1,102 @@
 ---
 title: Architecture
-description: No broker process, no daemons — a control plane, one table family per topic, and a worker fleet that runs inside your own processes.
+description: Application processes run Vulkan against Postgres; shared tables describe resources and each topic owns a table family.
 ---
 
-import ThreadAside from '../../../components/thread-aside/thread-aside.svelte';
-
-Vulkan has no broker process. The "server" is your Postgres database;
-the "clients" are your own application processes running the Vulkan
-library. Everything below is rows.
-
-```
-                     ┌──────────────────────────────────────────────────┐
-                     │                     POSTGRES                     │
-  producers          │                                                  │      consumers
-                     │  shared control plane:                           │
-  app ──produce────▶ │    topic_config · consumer_group_config          │
-  app ──produce────▶ │    worker_config · schedule_config               │
-    (in your txn)    │                                                  │
-                     │  one table family per topic (suffix = topic id): │
-                     │    message_log_1  immutable log, id-partitioned  │ ◀──claim ranges── instance
-                     │    consumer_group_cursor_1  claimed / committed  │ ◀──claim ranges── instance
-                     │    binding_config_1   routing patterns           │
-                     │    exception_queue_1  failure lifecycle          │ ◀──retry claims── instance
-                     │    delivery_log_1  per-attempt audit trail       │
-                     │    claim_lease_1 · message_key_lease_1           │
-                     │    compaction_head_1 · idempotency_key_1         │
-                     └──────────────────────────────────────────────────┘
-```
-
-## Two kinds of table
-
-**The shared control plane** — created once by `System().Register`, which
-the first topic `Register` against an empty database runs automatically
-(or `vulkan migrate init`): the topic catalog (`system_config`,
-`topic_config`, `topic_config_log`, `consumer_group_config`), the
-worker fleet (`worker_config`, `worker_config_log`, `worker_instance`, `worker_instance_log`,
-`schedule_config`, `schedule_cursor`), and migration history
-(`migration_log`).
-
-Topic registration validates the name and resolved config before creating
-the system. An invalid name such as
-`Orders!`, or a config with `PartitionSize: 1`, returns an error without
-creating system resources. A later database failure can still leave partial
-registration progress.
-
-**One physical family per topic** — created by the topic's `Register`, named
-by the topic's id. A per-topic table carries no `topic_id` column; the
-table name *is* the scope — every table, key, and relationship is
-mapped on [Table Design](/concepts/table-design/). The split is
-deliberate, not decorative:
-
-- Retention drops wait on every cursor in a table — shared tables would
-  let one lagging group on topic A block cleanup for unrelated topic B.
-- A failure outage churns `exception_queue` with inserts and deletes —
-  shared, that churn would slow every other topic's claims.
-- Destroying a topic is `DROP TABLE` on its family, not a cross-table
-  `DELETE` sweep.
-
-The core of the family:
-
-**`message_log_<id>` — the log.** Append-only, never mutated by
-consumption; the bigserial `id` is the position. It is **partitioned by
-id range** (`PartitionSize` rows per partition, default 1M): the
-producer creates the next partition ahead as the current one fills, and
-retention expires whole partitions with a `DROP` — no million-row
-deletes, no vacuum debt.
-
-**`consumer_group_cursor_<id>` — the happy path.** One row per consumer group:
-`claimed` (the read frontier) and `committed` (everything at or below
-it is resolved). Consumer instances claim contiguous *ranges* of the
-log under a lease; messages that succeed are simply swept past. Fan-out
-to another group costs one more cursor row, and per-group **lag** is
-`max(id) - committed`.
-
-**`exception_queue_<id>` — the failure lifecycle.** One row per *failed*
-message per group: status, attempts, backoff timestamp, last error,
-lease. The [state machine](/concepts/lifecycle/) lives here, claimed
-with `FOR UPDATE SKIP LOCKED` so any number of instances compete
-safely. `delivery_log_<id>` keeps the per-attempt audit trail beside
-it.
-
-**`binding_config_<id>` — the routing.** Which groups receive which messages,
-decided when deliveries materialize, by matching the message's routing
-key against stored patterns ([routing →](/concepts/routing/)).
+Vulkan runs inside your Go processes against Postgres. Producers write
+messages, consumers claim and handle them, and a system manager runs
+maintenance. Consumers run that manager by default; a deployment that
+only produces needs a [standalone manager](/reference/manager/).
 
 ## The flow of one message
 
-1. **Produce.** One `INSERT` into the topic's message log — optionally
-   inside *your* transaction, next to your business writes
-   ([the headline →](/guides/transactional-produce/)). Commit makes it
-   durable and visible, atomically.
-2. **Claim.** A consumer instance advances the group's `claimed` cursor
-   over a range and takes a lease on it; bindings and compaction filter
-   what the range hands the handler. The claim commits instantly and
-   the handler runs unlocked — a ten-minute handler never holds a
-   database lock.
-3. **Resolve.** Success: nothing to write; the committed cursor sweeps
-   past. Failure: an exception-queue row materializes and retries with backoff
-   until it succeeds (row deleted) or exhausts its budget (`dead`).
-   Instance crashed? Its lease expires and the range is reclaimed —
-   recovery is a property of the data, not of any process that can die.
+For `orders.created` (topic id `1`), the `email-receipts` group (id `7`)
+handles message 101:
 
-<ThreadAside label="NOTE" title="Consumers poll — by design, for now">
-There is no `LISTEN/NOTIFY` anywhere in the library. Claims poll
-(`ClaimPollRate`, default 500ms), which keeps the mechanism to one moving
-part and covers backoff-delayed work for free. Produce-triggered
-wake-ups with a fallback poll are a designed proposal, deliberately
-deferred until polling latency is a *measured* problem.
+1. **Produce:** the application inserts the message into
+   `vulkan.message_log_1`. With `ProduceFunc`, the business write runs
+   in the same transaction. Commit makes both visible together.
+2. **Claim:** a consumer advances group 7's `claimed` cursor over a
+   range containing 101 and takes a range lease. The transaction commits
+   before the handler starts. Version, routing, and compaction rules
+   determine which messages reach the handler.
+3. **Resolve:** a first delivery that succeeds normally writes no
+   exception row. An error, requested delay, or key wait records state
+   in `vulkan.exception_queue_1`. The cursor advancer moves `committed`
+   past resolved ranges; exception delivery continues independently.
+4. **Recover:** if the process crashes before resolving its range,
+   another consumer can reclaim the range after lease expiry. Message
+   101 may run again even if its handler already succeeded.
 
-</ThreadAside>
+[Message Lifecycle](/concepts/lifecycle/) describes the states and
+[Transactional Produce](/guides/transactional-produce/) shows the atomic write.
+
+## Two kinds of table
+
+Shared tables describe resources and maintenance. Every topic also owns
+physical tables named with its id, so topic `1` uses `message_log_1`,
+`exception_queue_1`, and the rest of that family.
+
+| Scope | Tables | Purpose |
+| --- | --- | --- |
+| Shared | `system_config`, `topic_config`, `consumer_group_config` | resource declarations |
+| Shared | `worker_config`, `worker_instance`, `schedule_config`, `schedule_cursor` | maintenance and schedule state |
+| Topic | `message_log_1` | retained payloads, versions, routing keys, and message keys |
+| Topic | `consumer_group_cursor_1`, `claim_lease_1` | group progress and range claims |
+| Topic | `exception_queue_1`, `delivery_log_1` | retries, delays, key waits, and attempt history |
+| Topic | `binding_config_1` | group routing patterns |
+| Topic | `message_key_lease_1`, `compaction_head_1`, `idempotency_key_1` | per-key concurrency, current compacted values, and produce deduplication |
+
+[Table Design](/concepts/table-design/) lists the full family, declaration
+history, and relationships. A per-topic table carries no `topic_id`
+column because its name supplies the scope.
+
+The first topic registration creates the shared tables if absent, then
+the topic's family. It validates the topic name and config before
+creating resources. A later database failure can still leave partial
+registration progress. `System().Register` explicitly declares system
+configuration; `vulkan migrate init` creates the shared baseline from
+the CLI.
+
+Separate table families isolate retention decisions: a lagging group on
+one topic cannot prevent a different topic's partitions from expiring.
+They also separate table and index churn, while still sharing database
+CPU, memory, and I/O. Destroying a topic drops its family of tables.
 
 ## The maintenance fleet
 
-Upkeep runs as **workers** — rows in the `worker_config` table, claimed and
-executed by whatever processes are around. Every `Consume` runs the
-system manager, which reconciles the fleet; a deployment that only
-produces runs `vulkan manager run` instead, and
-`ClientConfig.DisableManager` opts a process out. Replicas coordinate
-through worker claims, so running N copies is safe.
+Workers are registered in `worker_config` and claimed by running
+managers. Replicas coordinate through expiring worker claims. A live
+consumer's manager can maintain the deployment, and
+`ClientConfig.DisableManager` lets a process opt out when another
+process carries that responsibility.
 
 | Worker | Maintains |
 | --- | --- |
-| `topic_janitor` | drops/sweeps expired partitions, idempotency keys, message-key leases |
-| `cursor_advancer` | advances each group's `committed` behind resolved work |
-| `consumer_group_janitor` | sweeps superseded binding declarations |
-| `schedule_producer` | produces one request per due schedule |
-| `metrics_collector` | snapshots lag, backlog, and delivery state as metrics |
-| `alert.*` checks | publish operator warnings to the `__system.alerts` topic |
+| `topic_janitor` | expired partitions, idempotency keys, and message-key leases |
+| `cursor_advancer` | committed cursors behind resolved ranges |
+| `consumer_group_janitor` | superseded binding declarations |
+| `schedule_producer` | requests for due schedules |
+| `metrics_collector` | snapshots of cursor, exception, and lease state |
+| `alert.*` checks | operator warnings on `__system.alerts` |
 
-## Costs, honestly
+## Costs and timing
 
-Failure costs writes: a message that fails gets an exception-queue row, a log
-row per attempt, and updates per retry. Success costs almost nothing
-per message — the cursor advance amortizes over the whole range. That
-inverts the usual per-subscription trade (Pulsar pays per-message
-per-subscriber always; Kafka never pays and therefore can't express
-per-message state).
+Claims poll with `ClaimPollRate` (default `500ms`). There is no
+`LISTEN/NOTIFY` wake-up path. A shorter interval increases idle database
+queries; a due retry also waits for a poll and any key-ordering checks.
 
-Throughput and latency numbers are deliberately absent from this page:
-the benchmark pipeline that will back them is
-[in progress](/roadmap/), and until a number has a recorded run behind
-it, we don't print it. Postgres compatibility: the test suite runs
-against Postgres 17, and PG-18-only syntax is deliberately avoided.
+Successful first deliveries share the cost of range claims and cursor
+advancement. Exceptions add per-message inserts, updates, and audit
+writes. Enabling success audit logging also adds per-message writes.
+[Consumer Tuning](/guides/consumer-tuning/) covers queue, batch, and
+concurrency tradeoffs.
+
+Retention uses id-range partitions (`PartitionSize`, default
+`1_000_000`): whole expired partitions can be dropped without deleting
+each row individually. A slow group can delay that cleanup, as described
+in [retention](/concepts/fan-out/#retention).
+
+Database capacity remains the throughput limit. This page makes no
+throughput claim; recorded benchmark work is tracked on the
+[roadmap](/roadmap/).

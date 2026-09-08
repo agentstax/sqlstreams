@@ -1,319 +1,229 @@
 ---
 title: Quickstart
-description: Produce and consume your first message on the Postgres you already run — every line of code on this page compiles against the shipped library.
+description: Set up a Go example, produce a message, and consume it from your Postgres database.
 ---
 
 import ThreadAside from '../../components/thread-aside/thread-aside.svelte';
 
-Vulkan runs against the Postgres you already have — no broker, no new
-infrastructure. This page takes you from an empty database to producing,
-consuming, and inspecting messages, ending with the headline: producing a
-message in the same transaction as your own writes.
+Produce and consume one welcome-email message using two Go programs and
+an existing Postgres database. The consumer prints the request; it does
+not send an email.
 
-You write two constructors: the connection pool and the client over it.
-The pool stays yours to close; topics, producing, and consuming are calls
-on the client. Nothing on this page is pseudocode; every sample compiles
-against the shipped library.
+## 1. Prepare the example
 
-<ThreadAside label="NOTE" title="Prerequisites">
-You need a Postgres connection and Go 1.27+. Vulkan's test suite runs
-against Postgres 17. Tables are created in the `vulkan` schema
-by Vulkan itself — there is no SQL migration file to apply by hand.
+You need Go 1.27+ and a local Postgres database. These examples use
+`app_db` on `localhost:5432`, with role `app_user`. The role must be able
+to create schemas and tables in that database. Substitute your own
+connection details in both programs if they differ.
 
-</ThreadAside>
+Create a directory and install the library:
 
-1. **Install the library and CLI**
+```sh
+mkdir vulkan-quickstart
+cd vulkan-quickstart
+go mod init example.com/vulkan-quickstart
+go get github.com/agentstax/vulkan
+mkdir -p cmd/produce cmd/consume
+export PGPASSWORD='your-local-database-password'
+```
 
-   ```sh
-   go get github.com/agentstax/vulkan
-   go install github.com/agentstax/vulkan/cmd/vulkan@latest
-   ```
+Run the commands below from this directory, in the same terminal so both
+programs receive `PGPASSWORD`. The first topic registration creates
+Vulkan's shared tables and the topic's tables in the `vulkan` schema.
+There is no separate migration command for this example.
 
-   The CLI is a separate module, so cobra and friends never enter your
-   application's dependency graph.
+## 2. Produce a message
 
-2. **Create the control-plane tables**
+Save this as `cmd/produce/main.go`:
 
-   ```sh
-   export VULKAN_ADMIN_DATABASE_URL='postgres://app_user:secret@localhost:5432/app_db'
-   vulkan migrate init
-   ```
+```go
+package main
 
-   `migrate init` creates the shared control-plane tables (the topic
-   catalog, the worker fleet) at their baseline. It is idempotent — a no-op
-   against a database that already has them. The same thing happens in code
-   the first time a topic's `Register` runs against an empty database, so
-   the CLI step is a convenience, not a requirement. `client.System().Register`
-   stays the explicit call for setting the system's own knobs — the built-in alert
-   schedules — and is safe to run on every startup.
+import (
+	"fmt"
+	"os"
 
-   The alert name stays visible in each field, and the schedule field says
-   what its cron expression schedules:
+	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+)
 
-   ```go
-   if err := client.System().Register(ctx, &vulkan.SystemConfig{
-    PartitionCountAlert: &vulkan.PartitionCountAlertConfig{
-     ScheduleExpression: "0 * * * *",
-    },
-   }); err != nil {
-    return err
-   }
-   ```
+type WelcomeEmail struct {
+	UserId string `json:"user_id"`
+}
 
-3. **Register a topic and produce a message**
+func (WelcomeEmail) SchemaVersion() int { return 1 }
 
-   A topic is registered once by name; producing is then a typed call.
-   Your payload type is a plain Go struct, stored as JSONB, and it
-   declares its own schema version — the number written on every row it
-   produces ([schema versions](/guides/schema-versions/)).
+func main() {
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
 
-   ```go
-   package main
+func run() error {
+	ctx, stop := vulkan.LifecycleContext(nil)
+	defer stop()
 
-   import (
-   	"context"
-   	"fmt"
-   	"os"
+	pool, err := vulkan.NewPostgresPool(ctx, "app_user", os.Getenv("PGPASSWORD"), "localhost", "app_db", nil)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
 
-   	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
-   )
+	client, err := vulkan.NewClient(ctx, pool, nil)
+	if err != nil {
+		return err
+	}
 
-   type WelcomeEmail struct {
-   	UserId string `json:"user_id"`
-   }
+	emails := client.Topic[WelcomeEmail]("signup.welcome-email")
+	if _, err := emails.Register(ctx, nil); err != nil {
+		return err
+	}
 
-   func (WelcomeEmail) SchemaVersion() int { return 1 }
+	producer, err := emails.Producer().Register(ctx, nil)
+	if err != nil {
+		return err
+	}
 
-   func main() {
-   	if err := run(); err != nil {
-   		fmt.Println(err.Error())
-   		os.Exit(1)
-   	}
-   }
+	produced, err := producer.Produce(ctx, &WelcomeEmail{UserId: "user-123"}, nil)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("produced message id=%d\n", produced.Id)
+	return nil
+}
+```
 
-   func run() error {
-   	ctx := context.Background()
+Run it:
 
-   	pool, err := vulkan.NewPostgresPool(ctx, "app_user", os.Getenv("PGPASSWORD"), "localhost", "app_db", nil)
-   	if err != nil {
-   		return err
-   	}
-   	defer pool.Close()
+```sh
+go run ./cmd/produce
+```
 
-   	client, err := vulkan.NewClient(ctx, pool, nil)
-   	if err != nil {
-   		return err
-   	}
+The output includes `produced message id=1` on a fresh topic; the id may
+be higher if the topic already contains messages. Each run produces
+another message.
 
-	registered, err := client.Topic[WelcomeEmail]("signup.welcome-email").Register(ctx, nil)
-   	if err != nil {
-   		return err
-   	}
+`WelcomeEmail` is stored as JSONB. Its `SchemaVersion` method identifies
+the payload version, which the consumer type must also declare.
+[Schema Versions](/guides/schema-versions/) explains how versions share a topic.
 
-	instance, err := client.Topic[WelcomeEmail](registered.Name).Producer().Register(ctx, nil)
-   	if err != nil {
-   		return err
-   	}
+## 3. Consume the message
 
-   	produced, err := instance.Produce(ctx, &WelcomeEmail{UserId: "user-123"}, nil)
-   	if err != nil {
-   		return err
-   	}
-   	fmt.Printf("produced message id=%d\n", produced.Id)
-   	return nil
-   }
-   ```
+Save this as `cmd/consume/main.go`:
 
-   A topic's `Register` is idempotent, and it creates the topic's own physical
-   tables — its message log, exception queue, and cursor tables — in the
-   same call. If the system is absent, registration creates it with defaults
-   after validating the topic name and config. Invalid input creates no system
-   resources; a later database failure can still leave partial progress.
+```go
+package main
 
-4. **Consume it**
+import (
+	"context"
+	"errors"
+	"fmt"
+	"os"
 
-   Consumption is a consumer group: an independent reader with its own
-   cursor, its own retry budget, and its own dead-lettered messages. The
-   handler receives your typed payload; returning an error schedules a
-   retry with exponential backoff (`vulkan.Terminal` and
-   `vulkan.Delay` are the other two answers —
-   [handler outcomes](/concepts/handler-outcomes/)).
+	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+)
 
-   ```go
-   package main
+type WelcomeEmail struct {
+	UserId string `json:"user_id"`
+}
 
-   import (
-   	"context"
-   	"errors"
-   	"fmt"
-   	"os"
-   	"time"
+func (WelcomeEmail) SchemaVersion() int { return 1 }
 
-   	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
-   )
+func main() {
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
 
-   type WelcomeEmail struct {
-   	UserId string `json:"user_id"`
-   }
+func run() error {
+	ctx, stop := vulkan.LifecycleContext(nil)
+	defer stop()
 
-   func (WelcomeEmail) SchemaVersion() int { return 1 }
+	pool, err := vulkan.NewPostgresPool(ctx, "app_user", os.Getenv("PGPASSWORD"), "localhost", "app_db", nil)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
 
-   func main() {
-   	if err := run(); err != nil {
-   		fmt.Println(err.Error())
-   		os.Exit(1)
-   	}
-   }
+	client, err := vulkan.NewClient(ctx, pool, nil)
+	if err != nil {
+		return err
+	}
 
-   func run() error {
-   	ctx, stop := vulkan.LifecycleContext(nil)
-   	defer stop()
+	emails := client.Topic[WelcomeEmail]("signup.welcome-email")
+	registered, err := emails.Get(ctx)
+	if err != nil {
+		return err
+	}
+	if registered == nil {
+		return errors.New("topic not registered -- run the producer first")
+	}
 
-   	pool, err := vulkan.NewPostgresPool(ctx, "app_user", os.Getenv("PGPASSWORD"), "localhost", "app_db", nil)
-   	if err != nil {
-   		return err
-   	}
-   	defer pool.Close()
+	sender := emails.Consumer("email-sender")
+	consumer, err := sender.Register(ctx, nil)
+	if err != nil {
+		return err
+	}
 
-   	client, err := vulkan.NewClient(ctx, pool, nil)
-   	if err != nil {
-   		return err
-   	}
+	return consumer.Consume(ctx, receiveEmail, nil)
+}
 
-   	registered, err := client.Topic[WelcomeEmail]("signup.welcome-email").Get(ctx)
-   	if err != nil {
-   		return err
-   	}
-   	if registered == nil {
-   		return errors.New("topic not registered -- run the producer first")
-   	}
+func receiveEmail(ctx context.Context, email *WelcomeEmail) error {
+	fmt.Printf("received welcome email request for %s\n", email.UserId)
+	return nil
+}
+```
 
-	instance, err := client.Topic[WelcomeEmail](registered.Name).Consumer("email-sender").Register(ctx,
-   		&vulkan.ConsumerConfig{
-   			Message: &vulkan.MessageOptions{
-   				Timeout: 5 * time.Second,
-   				Retry:   &vulkan.RetryPolicy{MaxRetries: 3, BaseDelay: time.Second},
-   			},
-   		})
-   	if err != nil {
-   		return err
-   	}
+Run it:
 
-   	return instance.Consume(ctx, func(ctx context.Context, email *WelcomeEmail) error {
-   		fmt.Printf("sending welcome email to %s\n", email.UserId)
-   		return nil
-   	}, nil)
-   }
-   ```
+```sh
+go run ./cmd/consume
+```
 
-   Two things here are load-bearing:
+The output includes:
 
-   - `vulkan.LifecycleContext` wires SIGINT/SIGTERM into the context.
-     `Consume` requires a cancellable context by default and refuses
-     `context.Background()`. Ctrl-C starts graceful shutdown. Explicitly
-     setting `ConsumeOptions.DisableGracefulShutdown` permits a context
-     without cancellation; that session also runs without the embedded
-     manager, so a separate manager or consumer session must carry upkeep.
-   - `ConsumerConfig.Bindings` is the group's binding set; leaving it
-     unset means the whole topic. Handlers should be idempotent —
-     redelivery after a crash or timeout is normal at-least-once behavior.
+```text
+received welcome email request for user-123
+```
 
-5. **Look inside with psql**
+Startup also writes logs to stderr. On a fresh installation,
+`alert evidence is insufficient` means an alert check has too little
+metric history to evaluate yet; it does not mean the message failed.
+[Alert history](/concepts/alert-history/#recording-and-evidence-gaps)
+explains missing evidence.
 
-   Everything is rows in your database. The tables live in the `vulkan`
-   schema unless you set another one
-   ([the schema](/reference/client/#the-schema)), and each topic owns its
-   physical tables, named by the topic's id
-   ([the whole map](/concepts/table-design/)) — resolve it once from
-   the catalog:
+The process keeps waiting for messages. Press Ctrl-C to stop it:
+`LifecycleContext` turns SIGINT and SIGTERM into cancellation, and
+`Consume` drains its in-flight handlers before returning.
 
-   ```sql
-   SELECT id FROM vulkan.topic_config WHERE name = 'signup.welcome-email';
-   ```
+The new `email-sender` group reads retained history by default, including
+the message produced before it started. Restarting the same group resumes
+its existing cursor. If a previous run already consumed the message,
+stop the consumer, run the producer again, then restart the consumer.
 
-   Say it returned `1`. Then (make your handler return an error and
-   produce a few messages first, if you want something to watch):
+Returning `nil` succeeds; an ordinary error schedules a retry.
+[Handler Outcomes](/concepts/handler-outcomes/) covers terminal errors and
+requested delays. A real email handler must tolerate duplicate delivery
+and pass its context to blocking calls: crashes and timeouts can cause
+at-least-once redelivery. See [Consumer Timeouts](/guides/consumer-timeouts/)
+and [Side Effects & Retries](/guides/side-effects-and-retries/).
 
-   **Your messages**
-
-   ```sql
-   SELECT id, payload, created_at FROM vulkan.message_log_1 ORDER BY id;
-   ```
-
-   **Delivery status**
-
-   ```sql
-   SELECT g.name AS consumer_group, d.status, count(*), max(d.attempts) AS attempts
-   FROM vulkan.exception_queue_1 d JOIN vulkan.consumer_group_config g ON g.id = d.consumer_group_id
-   GROUP BY 1, 2;
-   ```
-
-   **Dead-lettered**
-
-   ```sql
-   SELECT d.message_id, m.payload, d.attempts, d.last_error
-   FROM vulkan.exception_queue_1 d JOIN vulkan.message_log_1 m ON m.id = d.message_id
-   WHERE d.status = 'dead';
-   ```
-
-   **Attempt history**
-
-   ```sql
-   SELECT message_id, attempt, status, error, attempted_at
-   FROM vulkan.delivery_log_1 ORDER BY message_id, attempt;
-   ```
-
-   Watch `attempts` climb and `can_run_after` push into the future with
-   backoff; after the retry budget is spent the row's status becomes
-   `dead`, with the payload and `last_error` intact — nothing expires
-   behind your back. One honesty note: a delivery that *succeeds* is
-   deleted, not kept — the exception queue shows in-flight and failed
-   work, while every failed attempt is preserved in the `delivery_log_1`
-   audit trail.
-
-6. **The headline: produce inside your own transaction**
-
-   The closure you pass to `ProduceFunc` runs inside the message's own
-   transaction. Your business write and the message commit together, or
-   neither does — the message can never exist for a rolled-back signup,
-   and never be lost for a committed one.
-
-   ```go
-   produced, err := instance.ProduceFunc(ctx,
-   	func(ctx context.Context, tx vulkan.Tx) (*WelcomeEmail, error) {
-   		if _, err := tx.Exec(ctx, `INSERT INTO users (id) VALUES ($1)`, "user-123"); err != nil {
-   			return nil, err
-   		}
-   		return &WelcomeEmail{UserId: "user-123"}, nil
-   	}, nil)
-   ```
-
-   To produce to several topics atomically, `client.InTransaction` opens
-   one transaction and hands your closure a `Tx` that each instance's
-   `ProduceInTx` accepts. Do your own statements first and produce last:
-   producing holds a lock on consumer progress for the topic until commit,
-   so the produce should be the shortest-held thing in the transaction.
-   The whole story — proving the rollback to yourself, multi-topic
-   commits, and what stays yours — is
-   [the transactional-produce guide](/guides/transactional-produce/).
-
-<ThreadAside label="CAUTION" title="One more thing for real deployments">
-Topic upkeep — creating partitions ahead, enforcing retention, advancing
-the committed cursor — runs while a consumer is running: `Consume` runs
-the deployment's manager beside the session, so there is nothing to wire.
-A deployment that only produces has no consumer to carry it and should
-run the standalone manager alongside: `vulkan manager run`.
+<ThreadAside label="NOTE" title="Keep upkeep running">
+`Consume` runs the system manager beside the session by default. It
+advances committed cursors and carries the deployment's maintenance.
+A deployment that only produces must also run a
+[standalone manager](/reference/manager/).
 
 </ThreadAside>
 
-## Where next
+## 4. Continue with your application
 
-- [Concepts: Queues, Logs & the Fusion](/concepts/queue-and-log/) — the
-  mental model: one immutable message log, per-group delivery state.
-- [Message Lifecycle](/concepts/lifecycle/) — retries, leases, and
-  dead-lettered messages in detail.
-- [Upgrades & Migrations](/guides/migrations/) — what a rolling deploy can
-  rely on.
-- `vulkan explain` — every Vulkan error and log event has a code and an
-  offline explanation; `vulkan topic list --output json` and friends cover
-  inspection.
+- [Transactional Produce](/guides/transactional-produce/) puts a business
+  write and its message in one commit.
+- [Message Lifecycle](/concepts/lifecycle/) explains retries, leases, and
+  the rows you can inspect when a handler fails.
+- [Fan-out, Retention & Replay](/concepts/fan-out/) explains independent
+  groups and how long their source messages remain available.
+- [Consumer](/reference/consumer/) lists configuration fields, defaults,
+  and session options.

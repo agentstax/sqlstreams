@@ -5,6 +5,35 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-07 — Documentation onboarding and explanation pass [0712]
+
+Quickstart now supplies two complete programs, filenames, connection setup,
+run commands, expected output, and cancellation guidance, ending at the first
+produce/consume result. Getting Started leads with it; Concepts introduces
+consumer groups and delivery behavior before architecture and table design.
+
+Lifecycle and Architecture use compact tables and causal steps instead of
+wide text diagrams. Lifecycle includes delays, deferred state, and superseded
+exceptions; Fan-out separates cursor distance from pending and dead deliveries.
+Ordering and registration internals moved to concept pages. Transactional
+Produce leads with verb selection and makes its rollback check specific to
+one order. Replay and Schema Versions show error handling; schema version
+storage now correctly says INTEGER. Orientation states database and upkeep
+costs. Side Effects distinguishes message deduplication from business-write
+idempotency. No library, layout, dependency, or documentation-tooling changes.
+
+The two extracted Quickstart programs compiled and produced/consumed message 1
+in an isolated schema using the existing test role. Inspection queries ran;
+the schema was removed and its absence verified. Fresh-install alert-evidence
+warnings are explained in Quickstart. Immediate SIGINT after handler output
+also logged an unresolved-range warning, consistent with the documented
+redelivery boundary; the consumer exited successfully.
+
+Site build, targeted Prettier/ESLint/remark/Vale checks, rendered internal-link
+checks, and the existing Chromium title/search flows passed. Browser control
+was unavailable, so manual desktop/mobile visual inspection remains unverified.
+The root review was folded into this entry and [0712], then removed.
+
 ## 2026-09-07 — Responsive consumer defaults [0710]
 
 ConsumeOptions now defaults to BatchLimit 4, ClaimPollRate 500ms, and

@@ -1,92 +1,124 @@
 ---
 title: Ordering & Concurrency
-description: What order Vulkan actually guarantees, and the two per-key policies you can opt into — exclusive and ordered.
+description: Parallel, exclusive, and ordered delivery differ in whether a key waits for an active handler or an unresolved predecessor.
 ---
 
-Ordering and concurrency are fundamentally at odds: if message B must
-wait for message A, no amount of consumer instances makes B faster.
-Systems that pretend otherwise either serialize everything (slow) or
-order nothing (wrong). This page says exactly which trades Vulkan
-ships, per message key.
+Vulkan claims messages in id order, but concurrent handlers and retries
+can finish in a different order. Per-key policies determine when a
+message must wait within one consumer group. They do not order different
+keys or different groups.
 
-## What's guaranteed by default
+## The three policies
 
-Messages are appended with strictly increasing ids, and a group's
-[claims](/concepts/architecture/) scan the log **in id order** — work is
-handed out oldest-first. But
-handed out is not finished: with `MessageConcurrency` above 1, multiple
-consumer instances, or a retry in the mix, *completion* order is not
-guaranteed. The default is full parallelism, honestly labeled.
+| Policy | Same key is active | An earlier same-key message is waiting to retry |
+| --- | --- | --- |
+| `parallel` | may run concurrently | may run |
+| `exclusive` | waits for the key lease | may run before the retry |
+| `ordered` | waits | waits until the predecessor is resolved |
 
-## Opt-in: one in-flight delivery per key
+Set the policy on the group with `ConsumerConfig.ConcurrencyOverride`
+when every producer must follow it. A per-message policy applies only
+to messages that request it: another producer supplying a key without a
+policy still requests the default parallel behavior. No warning is
+logged for that default.
 
-For messages that carry a [message key](/concepts/message-key/),
-`ConcurrencyExclusive` gives you per-key mutual exclusion within a consumer
-group:
+[Ordered Delivery](/guides/ordered-delivery/) shows the declaration.
+`MessageConcurrency` separately controls an instance's dispatch capacity;
+raising it cannot make one ordered key run concurrently.
 
-```go
-produced, err := instance.Produce(ctx, &BalanceAdjusted{Account: "acct-42", Delta: -500},
-	&vulkan.ProduceOptions{
-		MessageKey: "acct-42",
-		Message:    &vulkan.MessageOptions{Concurrency: vulkan.ConcurrencyExclusive},
-	})
+## Exclusive delivery and compaction
+
+`ConcurrencyExclusive` uses a `message_key_lease` row to prevent another
+same-key delivery while the lease is held. A busy key produces a
+[`deferred`](/concepts/lifecycle/) exception row. After a handler error,
+the key can be released before that message's retry is due, allowing a
+later message to run first.
+
+For `apply-balance` on `ledger.adjustments`, message 101 subtracts 500
+from `acct-42` and fails; message 102 adds 200. Exclusive delivery can
+apply 102 before retrying 101. Choose ordered delivery when that reorder
+would change the business result.
+
+With [compaction](/concepts/message-key/), deferred deliveries also check
+which message is the current head. If updates 102 and 103 arrive while
+101 runs, 102 can be superseded by 103. That suits a handler applying a
+key's latest state; it does not preserve every delta. `ordered` refuses
+compaction because its guarantee requires preserving that history.
+
+## Ordered delivery through a failure
+
+The `apply-balance` group (id `7`) reads `ledger.adjustments` (topic id
+`1`) with ordered delivery for `acct-42`:
+
+| Message id | Outcome |
+| --- | --- |
+| 101 | handler errors; recorded `ready` until its retry is due |
+| 102 | waits as `deferred`; handler has not run |
+| 103 | waits as `deferred`; handler has not run |
+| 104 | waits as `deferred`; handler has not run |
+
+The retry of 101 runs first. Success deletes its exception row; permanent
+failure or an exhausted retry budget leaves it `dead`. Either outcome
+allows 102 to become eligible, followed by 103 and 104. A requested delay
+keeps the predecessor unresolved and the later messages waiting.
+
+```sql
+SELECT
+    message_id,
+    message_key,
+    status,
+    attempts,
+    can_run_after
+FROM vulkan.exception_queue_1
+WHERE consumer_group_id = 7 AND message_key = 'acct-42'
+ORDER BY message_id;
 ```
 
-The guarantee: **at most one delivery per message key is in flight
-at a time, per consumer group.** Under the hood it's a
-`message_key_lease` row — a same-key message arriving while the key is
-busy is recorded [`deferred`](/concepts/lifecycle/) and runs when the
-key frees, oldest first; messages with different keys, and messages
-with no key, run fully parallel.
+## What "earlier" means
 
-The same policy declared once for the group, `ConcurrencyOverride:
-vulkan.ConcurrencyExclusive` on its `ConsumerConfig`, covers every
-keyed message it sees. Prefer that: the per-message form above is one
-producer's request, and a key alone orders nothing, so a second
-producer that sets the key and forgets the policy runs in parallel with
-the first on the same key.
+Ordered delivery checks both recorded exceptions and messages whose
+ranges have not committed:
 
-Two subtleties keep this from being FIFO. First, exclusivity is the
-whole guarantee: a delivery that errors re-enters through the exception
-window on its own retry schedule, and the key does not wait — the next
-same-key message can run before the failed one's retry. Second, a
-message that also enables [compaction](/concepts/message-key/) brings
-supersede semantics along: when the key frees, the key's **current
-head** runs — the latest version, not every version ever written. If
-three updates to `acct-42` land while the first is processing, the
-middle one is superseded and only the newest runs. That's "process each
-key's current state, one at a time" — exactly right for state-shaped
-messages (a user record, a session, a device's latest reading), and
-exactly wrong for "apply every delta in sequence."
+1. `exception_queue` stores the resolved `message_key` and `concurrency`
+   on each row, with an index on `(consumer_group_id, message_key,
+   message_id)`. An earlier unresolved same-key delivery is
+   one indexed lookup: a row with a lower `message_id`, the same key,
+   and status `ready`, `inflight`, or `deferred`. The policy sits on
+   the row so the exception consumer's claim can tell an ordered row
+   from an exclusive one without re-resolving options in SQL.
+2. An earlier same-key message the group has claimed but not recorded
+   yet has no exception row. It sits between the group's `committed`
+   cursor and the message's own id, so the ordered claim also checks
+   `message_log` for a same-key id in that window, outside the
+   claimer's own range. Inside its own range the consumer instance runs
+   same-key ordered messages one after another in id order, in the
+   same goroutine: the first message of a key is dispatched, the rest
+   are chained behind it. When one succeeds or dead-letters the next
+   runs; when one fails, delays, or is deferred, the rest of the chain
+   is recorded `deferred` without running and the exception consumer
+   takes over in order. An uninterrupted same-key chain can run without an exception poll
+   between its successful handlers.
 
-The hot-key trade comes with it, visibly: a hot key serializes its own
-deliveries no matter how many consumer instances you add, and with
-compaction enabled same-key produces commit one after another too —
-that's what you opted into.
+Both checks live in the key-lease claim. An earlier unresolved delivery
+produces a busy verdict and a `deferred` row. The exception claim also
+applies check 1, avoiding repeated claims of a row whose predecessor is
+waiting on backoff. Check 2 stays in the key-lease claim until the other
+range commits and cursor advancement closes the window.
 
-## Opt-in: every message on a key, in order
+A deferred ordered message becomes eligible after its predecessor resolves
+and waits for an exception poll. A message blocked on another instance's
+range also waits for that range to commit and the cursor advancer to move
+`committed`. Exclusive delivery does not impose these predecessor waits,
+though its deferred rows still wait for the key lease and polling.
 
-`ConcurrencyOrdered` is the stricter policy: a keyed message runs only
-after every earlier message on its key is resolved for the group, and
-the order holds through a failure — the failed message's retry goes
-before the messages behind it, and only `dead` releases them. It is
-the SQS `MessageGroupId` / Kafka partition guarantee on the message
-key, and a different one from exclusive: exclusive answers "one at a
-time," ordered answers "don't reorder history." Every row it writes,
-what "earlier" means, and what it costs are on
-[ordered delivery](/guides/ordered-delivery/). Declare it on
-the group, `ConcurrencyOverride: vulkan.ConcurrencyOrdered`, for the
-same reason as above.
+## Lease limits
 
-## Compared to the neighbors
+The policy coordinates claims through leases. An expired lease can be
+reclaimed even if an old handler ignored cancellation and is still
+running. Keep handlers idempotent and pass their contexts to blocking
+calls; [Consumer Timeouts](/guides/consumer-timeouts/) explains this
+at-least-once boundary.
 
-Scored on shipped behavior only — the [Kafka](/compare/kafka/) and
-[RabbitMQ & SQS](/compare/rabbitmq-sqs/) pages carry the full
-comparisons:
-
-| | Kafka | SQS FIFO | Vulkan today |
-| --- | --- | --- | --- |
-| Ordering unit | partition (count fixed up front) | MessageGroupId | message key |
-| Guarantee | per-partition order | per-group order | per-key order (`ordered`) or exclusivity (`exclusive`); latest version wins when compacted |
-| Choose per message? | no — topic topology | yes | yes |
-| Unordered fast path on the same topic | no | no — separate queue | yes — messages without a key |
+A hot key stays serial regardless of replica count. Different keys can
+use additional concurrency. For compacted messages, same-key produces
+also contend on the compaction head until commit.
