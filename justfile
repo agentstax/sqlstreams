@@ -7,7 +7,8 @@ verify:
     go build ./... && go vet ./... && go test -race ./...
     cd cmd/vulkan && go build ./... && go vet ./...
     cd otel && go build ./... && go vet ./...
-    cd examples && go build ./...
+    cd .e2e && go build ./...
+    cd .example && go build ./...
     cd bench && go build ./... && go vet ./... && go test -race -count=1 ./reliability/...
     cd tools && go test -race -count=1 ./...
 
@@ -73,7 +74,7 @@ database-delete:
 
 # Register the system in the development database. Safe to run repeatedly.
 system-register:
-    go run examples/phase_1/systemregister/main.go
+    go run ./.e2e/systemregister/main.go
 
 ### SCHEMA ###
 
@@ -98,230 +99,230 @@ schema-diagram-fresh:
 
 ### EXAMPLES ###
 
-# Run the phase-1 consumer example. EX: just consume learning.v1 0.1 1.0 0.0 -1
+# Run the end-to-end consumer. EX: just consume learning.v1 0.1 1.0 0.0 -1
 consume group="learning.v1" processorsleep="0.1" shutdownsleep="1.0" failrate="0.0" crashafter="-1":
-    go run examples/phase_1/consumer/main.go -group={{ group }} -processor-sleep={{ processorsleep }} -shutdown-sleep={{ shutdownsleep }} -fail-rate={{ failrate }} -crash-after={{ crashafter }}
+    go run ./.e2e/consumer/main.go -group={{ group }} -processor-sleep={{ processorsleep }} -shutdown-sleep={{ shutdownsleep }} -fail-rate={{ failrate }} -crash-after={{ crashafter }}
 
-# Produce messages with the phase-1 producer example. EX: just produce 3
+# Produce messages with the end-to-end producer. EX: just produce 3
 produce count="1":
-    go run examples/phase_1/producer/main.go -count={{ count }}
+    go run ./.e2e/producer/main.go -count={{ count }}
 
-### LABS: BUILD ###
+### E2E TESTS: BUILD ###
 
-# Build a lab binary in bin/. EX: just build-lab reclaimlab
-build-lab lab:
-    go build -o bin/{{ lab }} examples/phase_1/{{ lab }}/main.go
+# Build an e2e test binary in bin/. EX: just build-e2e reclaim
+build-e2e:
+    go build -o bin/{{ test }} ./.e2e/{{ test }}/main.go
 
-### LABS: CONSUMERS, DECLARATIONS, AND WORKERS ###
+### E2E TESTS: CONSUMERS, DECLARATIONS, AND WORKERS ###
 
 # Verify recovery after a consumer crashes while processing a message range.
-reclaim-lab:
-    go run examples/phase_1/reclaimlab/main.go
+reclaim-e2e:
+    go run ./.e2e/reclaim/main.go
 
 # Verify a failing message holds the committed cursor until it resolves.
-exception-lab:
-    go run examples/phase_1/exceptionlab/main.go
+exception-e2e:
+    go run ./.e2e/exception/main.go
 
 # Verify consumer-group declaration defaults, validation, and replacement.
-group-config-lab:
-    go run examples/phase_1/groupconfiglab/main.go
+group-config-e2e:
+    go run ./.e2e/groupconfig/main.go
 
 # Verify declaration outcomes reported by consumer registration.
-outcome-lab:
-    go run examples/phase_1/outcomelab/main.go
+outcome-e2e:
+    go run ./.e2e/outcome/main.go
 
 # Verify ordered delivery and its key lease behavior.
-ordered-lab:
-    go run examples/phase_1/orderedlab/main.go
+ordered-e2e:
+    go run ./.e2e/ordered/main.go
 
 # Verify bindings choose which messages a group receives.
-routing-lab:
-    go run examples/phase_1/routinglab/main.go
+routing-e2e:
+    go run ./.e2e/routing/main.go
 
 # Verify same-set joins, divergent-set waits, and replacement after a fleet exits.
-binding-lab:
-    go run examples/phase_1/bindinglab/main.go
+binding-e2e:
+    go run ./.e2e/binding/main.go
 
 # Verify consumer routines abandoned during a snapshot are recorded correctly.
-abandoned-routine-snapshot-lab:
-    go run examples/phase_1/abandonedroutinesnapshotlab/main.go
+abandoned-routine-snapshot-e2e:
+    go run ./.e2e/abandonedroutinesnapshot/main.go
 
 # Verify expired messages and abandoned routines are reported by maintenance work.
-abandoned-events-lab:
-    go run examples/phase_1/abandonedeventslab/main.go
+abandoned-events-e2e:
+    go run ./.e2e/abandonedevents/main.go
 
 # Verify maintenance-worker polling backs off when no work is available.
-duty-backoff-lab:
-    go run examples/phase_1/dutybackofflab/main.go
+duty-backoff-e2e:
+    go run ./.e2e/dutybackoff/main.go
 
 # Verify a produce-only deployment warns, and a live consumer resolves that alert.
-worker-liveness-lab:
-    go run examples/phase_1/workerlivenesslab/main.go
+worker-liveness-e2e:
+    go run ./.e2e/workerliveness/main.go
 
 # Verify maintenance-worker claims, failover, and final release across consumers.
-worker-claim-lab:
-    go run examples/phase_1/workerclaimlab/main.go
+worker-claim-e2e:
+    go run ./.e2e/workerclaim/main.go
 
 # Verify Consume shares one system-manager instance and its claim across sessions.
-manager-autorun-lab:
-    go run examples/phase_1/managerautorunlab/main.go
+manager-autorun-e2e:
+    go run ./.e2e/managerautorun/main.go
 
 # Verify graceful shutdown narrows a lease to the unprocessed message suffix.
-shutdown-truncation-lab:
-    go run examples/phase_1/shutdowntruncationlab/main.go
+shutdown-truncation-e2e:
+    go run ./.e2e/shutdowntruncation/main.go
 
 # Measure lazy versus synchronous advancement of a consumer group's committed cursor.
-rollup-lab:
-    go run examples/phase_1/rolluplab/main.go
+rollup-e2e:
+    go run ./.e2e/rollup/main.go
 
 # Verify exclusive consumer-group behavior.
-exclusive-lab:
-    go run examples/phase_1/exclusivelab/main.go
+exclusive-e2e:
+    go run ./.e2e/exclusive/main.go
 
 # Verify per-key leases prevent concurrent ordered delivery.
-key-lease-lab:
-    go run examples/phase_1/keyleaselab/main.go
+key-lease-e2e:
+    go run ./.e2e/keylease/main.go
 
-### LABS: TOPICS, RETENTION, AND SCHEMA ###
+### E2E TESTS: TOPICS, RETENTION, AND SCHEMA ###
 
 # Verify partitions prune claim reads to the relevant message-id range.
-partition-lab:
-    go run examples/phase_1/partitionlab/main.go
+partition-e2e:
+    go run ./.e2e/partition/main.go
 
 # Verify a lagging cursor passes a dropped partition without stalling.
-drop-floor-lab:
-    go run examples/phase_1/dropfloorlab/main.go
+drop-floor-e2e:
+    go run ./.e2e/dropfloor/main.go
 
 # Verify retention sweeps an expired prefix that cannot justify a partition drop.
-sweep-lab:
-    go run examples/phase_1/sweeplab/main.go
+sweep-e2e:
+    go run ./.e2e/sweep/main.go
 
 # Verify per-topic tables, cursors, routing, and retention are isolated by topic.
-topic-lab:
-    go run examples/phase_1/topiclab/main.go
+topic-e2e:
+    go run ./.e2e/topic/main.go
 
 # Verify users cannot alter the system's reserved topics.
-reserved-topic-lab:
-    go run examples/phase_1/reservedtopiclab/main.go
+reserved-topic-e2e:
+    go run ./.e2e/reservedtopic/main.go
 
 # Verify topic registration is idempotent and rejects a conflicting configuration.
-register-idempotency-lab:
-    go run examples/phase_1/registeridempotencylab/main.go
+register-idempotency-e2e:
+    go run ./.e2e/registeridempotency/main.go
 
 # Verify topic destruction clears every topic-scoped control-plane and message row.
-delete-topic-lab:
-    go run examples/phase_1/deletetopiclab/main.go
+delete-topic-e2e:
+    go run ./.e2e/deletetopic/main.go
 
 # Verify system destruction refuses unsafe states and leaves a fresh registration possible.
-destroy-system-lab:
-    go run examples/phase_1/destroysystemlab/main.go
+destroy-system-e2e:
+    go run ./.e2e/destroysystem/main.go
 
 # Verify independent installations can share one database through separate schemas.
-schema-lab:
-    go run examples/phase_1/schemalab/main.go
+schema-e2e:
+    go run ./.e2e/schema/main.go
 
 # Verify producers and consumers reject database versions this build cannot support.
-schema-gate-lab:
-    go run examples/phase_1/schemagatelab/main.go
+schema-gate-e2e:
+    go run ./.e2e/schemagate/main.go
 
 # Verify the migration registry is reversible, idempotent, and matches fresh creation.
-invariant-lab:
-    go run examples/phase_1/invariantlab/main.go
+invariant-e2e:
+    go run ./.e2e/invariant/main.go
 
 # Verify a user-space bridge moves compacted winners from one message schema to another.
-schema-evolution-lab:
-    go run examples/phase_1/schemaevolutionlab/main.go
+schema-evolution-e2e:
+    go run ./.e2e/schemaevolution/main.go
 
-### LABS: PRODUCERS AND DELIVERY RECORDS ###
+### E2E TESTS: PRODUCERS AND DELIVERY RECORDS ###
 
 # Verify idempotency keys deduplicate retries and the janitor removes expired claims.
-idempotency-keys-lab:
-    go run examples/phase_1/idempotencykeyslab/main.go
+idempotency-keys-e2e:
+    go run ./.e2e/idempotencykeys/main.go
 
 # Measure idempotency-key storage growth and verify its steady-state cleanup bound.
-idempotency-keys-growth-lab:
-    go run examples/phase_1/idempotencykeysgrowthlab/main.go
+idempotency-keys-growth-e2e:
+    go run ./.e2e/idempotencykeysgrowth/main.go
 
 # Verify concurrent calls sharing one idempotency key produce exactly one message.
-idempotency-keys-race-lab:
-    go run examples/phase_1/idempotencykeysracelab/main.go
+idempotency-keys-race-e2e:
+    go run ./.e2e/idempotencykeysrace/main.go
 
 # Verify batched production shares transactions without cross-caller failure or deadlock.
-producer-batch-lab:
-    go run examples/phase_1/producerbatchlab/main.go
+producer-batch-e2e:
+    go run ./.e2e/producerbatch/main.go
 
 # Verify every production path creates the next partition before the boundary.
-create-ahead-lab:
-    go run examples/phase_1/createaheadlab/main.go
+create-ahead-e2e:
+    go run ./.e2e/createahead/main.go
 
 # Verify two in-transaction targets commit or roll back together.
-multi-target-lab:
-    go run examples/phase_1/multitargetlab/main.go
+multi-target-e2e:
+    go run ./.e2e/multitarget/main.go
 
 # Verify failures append delivery records, respecting opt-out and retention.
-delivery-log-lab:
-    go run examples/phase_1/deliveryloglab/main.go
+delivery-log-e2e:
+    go run ./.e2e/deliverylog/main.go
 
-### LABS: COMPACTION ###
+### E2E TESTS: COMPACTION ###
 
 # Verify a compacted topic delivers only its latest eligible message per key.
-compaction-lab:
-    go run examples/phase_1/compactionlab/main.go
+compaction-e2e:
+    go run ./.e2e/compaction/main.go
 
 # Verify compaction ranks keep pinned or bridge messages from being superseded.
-compaction-rank-lab:
-    go run examples/phase_1/compactionranklab/main.go
+compaction-rank-e2e:
+    go run ./.e2e/compactionrank/main.go
 
 # Measure the partition-scan cost of finding the latest message for a key.
-compaction-width-lab:
-    go run examples/phase_1/compactionwidthlab/main.go
+compaction-width-e2e:
+    go run ./.e2e/compactionwidth/main.go
 
 # Measure how latest-message lookup cost grows with compacted-topic history.
-compaction-scale-lab:
-    go run examples/phase_1/compactionscalelab/main.go
+compaction-scale-e2e:
+    go run ./.e2e/compactionscale/main.go
 
 # Verify concurrent production converges compaction heads to the highest message id.
-compaction-head-race-lab:
-    go run examples/phase_1/compactionheadracelab/main.go
+compaction-head-race-e2e:
+    go run ./.e2e/compactionheadrace/main.go
 
 # Verify lockable compaction-head rows serialize first writes and race safely with cleanup.
-compaction-head-lock-lab:
-    go run -race examples/phase_1/compactionheadlocklab/main.go
+compaction-head-lock-e2e:
+    go run -race ./.e2e/compactionheadlock/main.go
 
 # Verify retention removes a compaction head only after its key has no surviving message.
-compaction-head-retention-lab:
-    go run examples/phase_1/compactionheadretentionlab/main.go
+compaction-head-retention-e2e:
+    go run ./.e2e/compactionheadretention/main.go
 
 # Measure compaction-head write cost, hot-key contention, and dead-tuple growth.
-compaction-head-write-lab:
-    go run examples/phase_1/compactionheadwritelab/main.go
+compaction-head-write-e2e:
+    go run ./.e2e/compactionheadwrite/main.go
 
 # Verify batched production avoids hot-key deadlocks while caller transactions surface them.
-compaction-deadlock-lab:
-    go run examples/phase_1/compactiondeadlocklab/main.go
+compaction-deadlock-e2e:
+    go run ./.e2e/compactiondeadlock/main.go
 
-### LABS: METRICS, ALERTS, AND SCHEDULES ###
+### E2E TESTS: METRICS, ALERTS, AND SCHEDULES ###
 
 # Verify stored metric reads and the CLI's metrics surface.
-metrics-lab:
-    go run examples/phase_1/metricslab/main.go
+metrics-e2e:
+    go run ./.e2e/metrics/main.go
 
 # Verify concurrent metric collection and an HTTP scrape from a manager process.
-metrics-collector-lab:
+metrics-collector-e2e:
     cd cmd/vulkan && go build -o ../../bin/vulkan .
-    go run -race examples/phase_1/metricscollectorlab/main.go
+    go run -race ./.e2e/metricscollector/main.go
 
 # Verify built-in alert thresholds classify, refresh, change severity, and resolve.
-alert-lab:
-    go run examples/phase_1/alertlab/main.go
+alert-e2e:
+    go run ./.e2e/alert/main.go
 
 # Verify cron validation, schedule lifecycle, production, and consumer delivery.
-schedule-lab:
-    go run examples/phase_1/schedulelab/main.go
+schedule-e2e:
+    go run ./.e2e/schedule/main.go
 
 # Verify concurrent Schedule calls run only one system-manager reconciliation loop.
-schedule-concurrency-lab:
-    go run examples/phase_1/scheduleconcurrencylab/main.go
+schedule-concurrency-e2e:
+    go run ./.e2e/scheduleconcurrency/main.go
 
 ### INSPECT ###
 

@@ -36,3 +36,6 @@ __debug_bin*
 
 # Native scratch benchmark evidence is retained locally.
 bench/scratchnative/results/evidence/
+
+# goreleaser output
+/dist/

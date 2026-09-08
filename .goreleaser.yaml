@@ -1,0 +1,107 @@
+# Release pipeline for the CLI: builds cmd/vulkan on every v* tag, publishes
+# the archives to a GitHub Release, then the Homebrew cask when its token is
+# present. The Chocolatey step is skipped by the workflow until its API key
+# exists (skip_publish is a plain bool here, so it cannot gate on the env).
+#
+# Local dry run (needs the repo go.work):
+#   goreleaser release --snapshot --clean --skip=publish
+version: 2
+
+project_name: vulkan
+
+builds:
+  - id: vulkan
+    # The nested module resolves the root library through go.work, which is
+    # gitignored; the workflow generates it before goreleaser runs.
+    dir: cmd/vulkan
+    main: .
+    binary: vulkan
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: vulkan
+    ids:
+      - vulkan
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - cmd/vulkan/README.md
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: github-native
+
+release:
+  github:
+    owner: agentstax
+    name: vulkan
+  prerelease: auto
+
+# Homebrew applies the quarantine attribute to cask downloads, so the
+# post-install hook strips it until the binary is notarized.
+homebrew_casks:
+  - name: vulkan
+    ids:
+      - vulkan
+    binaries:
+      - vulkan
+    homepage: https://vulkan-5ss.pages.dev
+    description: CLI for vulkan, the Postgres-backed message log
+    license: Apache-2.0
+    repository:
+      owner: agentstax
+      name: homebrew-tap
+      branch: main
+      token: '{{ envOrDefault "HOMEBREW_TAP_TOKEN" "" }}'
+    skip_upload: '{{ if isEnvSet "HOMEBREW_TAP_TOKEN" }}false{{ else }}true{{ end }}'
+    commit_msg_template: "vulkan {{ .Tag }}"
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/vulkan"]
+          end
+
+chocolateys:
+  - name: vulkan
+    ids:
+      - vulkan
+    package_source_url: https://github.com/agentstax/vulkan
+    owners: agentstax
+    title: vulkan
+    authors: agentstax
+    project_url: https://vulkan-5ss.pages.dev
+    license_url: https://github.com/agentstax/vulkan/blob/main/LICENSE
+    require_license_acceptance: false
+    project_source_url: https://github.com/agentstax/vulkan
+    docs_url: https://vulkan-5ss.pages.dev
+    bug_tracker_url: https://github.com/agentstax/vulkan/issues
+    tags: "vulkan postgres messaging cli"
+    summary: CLI for vulkan, the Postgres-backed message log
+    description: |
+      {{ .ProjectName }} installer package.
+      CLI for vulkan, the Postgres-backed message log.
+    release_notes: "https://github.com/agentstax/vulkan/releases/tag/{{ .Tag }}"
+    api_key: '{{ envOrDefault "CHOCOLATEY_API_KEY" "" }}'
+    source_repo: "https://push.chocolatey.org/"

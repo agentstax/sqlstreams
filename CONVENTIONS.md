@@ -1036,12 +1036,15 @@ trailing `help` attribute, so the line itself points at its explanation.
 
 ## Labs
 
+- End-to-end labs and their support programs live under `.e2e/`, in their own
+  dev-only module. The root Justfile exposes the labs as `*-lab` recipes.
 - A lab that hand-copies a production query (EXPLAIN demos) goes silently
   stale when the real query changes -- grep labs for mirrors whenever a
   production query moves. Prefer driving the real datastore method.
 
 ## Playground examples
 
+- Runnable user examples live under `.example/`, in their own dev-only module.
 - Create each topic handle once and reuse it for registration and operations.
 - Handles use domain names (`uploads`, `transcoder`); registered instances use
   activity names (`producer`, `consumer`, `scheduler`). Qualify instance names

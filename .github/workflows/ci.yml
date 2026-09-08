@@ -1,0 +1,50 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main-fake # change back to 'main' when ready
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: vulkan
+          POSTGRES_PASSWORD: vulkan
+          POSTGRES_DB: vulkan
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U vulkan"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      VULKAN_TEST_DSN: postgres://vulkan:vulkan@localhost:5432/vulkan
+      VULKAN_CLI_TEST_DATABASE_URL: postgres://vulkan:vulkan@localhost:5432/vulkan
+      VULKAN_WORKER_TEST_DATABASE_URL: postgres://vulkan:vulkan@localhost:5432/vulkan
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: "**/go.sum"
+
+      - uses: extractions/setup-just@v3
+
+      # go.work is gitignored; the nested modules resolve the root library through it.
+      - run: go work init . ./.e2e ./.example ./bench ./cmd/vulkan ./otel ./tools
+
+      # The justfile sets dotenv-required for the compose recipes; verify
+      # reads nothing from it.
+      - run: touch .env
+
+      - run: just verify
