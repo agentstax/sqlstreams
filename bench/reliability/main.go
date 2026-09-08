@@ -16,12 +16,15 @@ package main
 // Exit 3 is a lab failure (connection, flags, records), never a verdict.
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 
 	"github.com/agentstax/vulkan/bench/reliability/checker"
 	"github.com/agentstax/vulkan/bench/reliability/common"
 	"github.com/agentstax/vulkan/bench/reliability/runner"
+	"github.com/agentstax/vulkan/bench/reliability/scenario"
 	"github.com/agentstax/vulkan/bench/reliability/scenarios"
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 )
@@ -47,6 +50,22 @@ func run() (int, error) {
 		return 0, err
 	}
 	declared, ok := scenarios.ByName(flags.scenario)
+	if flags.scenarioFile != "" {
+		encoded, err := os.ReadFile(flags.scenarioFile)
+		if err != nil {
+			return 0, err
+		}
+		declared = &scenario.Scenario{}
+		decoder := json.NewDecoder(bytes.NewReader(encoded))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(declared); err != nil {
+			return 0, err
+		}
+		if err := declared.Validate(); err != nil {
+			return 0, err
+		}
+		ok = true
+	}
 	if !ok {
 		return 0, fmt.Errorf("unrecognized scenario: %q -- one of %s", flags.scenario, scenarios.Names())
 	}
@@ -65,7 +84,7 @@ func run() (int, error) {
 
 	ctx, stop := vulkan.LifecycleContext(nil)
 	defer stop()
-	connection, err := common.NewConnection(ctx)
+	connection, err := common.NewConnection(ctx, declared.MaxConns)
 	if err != nil {
 		return 0, err
 	}

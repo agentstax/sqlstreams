@@ -10,11 +10,12 @@ import (
 )
 
 type labFlags struct {
-	role      string
-	scenario  string
-	timeScale float64
-	recordDir string
-	name      string
+	role         string
+	scenario     string
+	scenarioFile string
+	timeScale    float64
+	recordDir    string
+	name         string
 
 	resultsDir      string
 	fingerprintFile string
@@ -26,6 +27,7 @@ func parseFlags() (*labFlags, error) {
 	flags := &labFlags{}
 	flag.StringVar(&flags.role, "role", "print", "producer, consumer, observer, checker, report, or print")
 	flag.StringVar(&flags.scenario, "scenario", "dev", "scenario to run: "+scenarios.Names())
+	flag.StringVar(&flags.scenarioFile, "scenario-file", os.Getenv("SCENARIO_FILE"), "JSON scenario declaration; overrides -scenario")
 	flag.Float64Var(&flags.timeScale, "time-scale", 1, "multiplier on every phase duration and offset; 1/60 runs the hour in a minute")
 	flag.StringVar(&flags.recordDir, "record-dir", "records", "directory the role's record files are appended under")
 	flag.StringVar(&flags.name, "name", "", "this process's name in the records; default the hostname")

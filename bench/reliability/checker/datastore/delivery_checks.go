@@ -5,10 +5,8 @@ import (
 	"fmt"
 )
 
-// The delivery side: every message row sorted into its bucket. Two sources
-// say a message reached its end: the handler records, written by the lab's own
-// handler, and the library's tables -- a 'success' delivery_log row (mode
-// 'all' writes one) or a 'dead' exception row.
+// The handler records prove invocation; the committed cursor and exception
+// rows prove completion independently of success audit logging.
 
 // Undelivered: messages the lab's handler never succeeded on that the
 // library did not dead-letter either. The handler records are the source, so a
@@ -50,17 +48,18 @@ func (d *CheckerDatastore) CountDuplicates(ctx context.Context, target Target) (
 	return d.measure(ctx, exampleMessageId, duplicatesSql, target.Topic, target.Group)
 }
 
-// Unbucketed: by the library's own tables, messages in no bucket or in both,
-// so the sum produced = success + dead holds exactly when this is zero.
+// Unbucketed: messages not completed by the durable cursor or dead-lettered.
+// Undelivered separately checks that the handler actually ran.
 func (d *CheckerDatastore) CountUnbucketed(ctx context.Context, target Target) (Measurement, error) {
 	unbucketedSql := fmt.Sprintf(`
 		-- lab: datastore.CountUnbucketed
 		WITH buckets AS (
 			SELECT
 				m.id,
-				EXISTS (
-					SELECT 1 FROM %[2]s d
-					WHERE d.consumer_group_id = $1 AND d.message_id = m.id AND d.status = 'success') AS success,
+				(m.id <= (SELECT COALESCE(max(committed), 0) FROM %[2]s WHERE consumer_group_id = $1)
+				 AND NOT EXISTS (
+					SELECT 1 FROM %[3]s e
+					WHERE e.consumer_group_id = $1 AND e.message_id = m.id AND e.status <> 'done')) AS success,
 				EXISTS (
 					SELECT 1 FROM %[3]s e
 					WHERE e.consumer_group_id = $1 AND e.message_id = m.id AND e.status = 'dead') AS dead
@@ -71,6 +70,6 @@ func (d *CheckerDatastore) CountUnbucketed(ctx context.Context, target Target) (
 			COALESCE((array_agg(id::text ORDER BY id))[1:%[4]d], ARRAY[]::text[])
 		FROM buckets
 		WHERE (success AND dead) OR (NOT success AND NOT dead);
-	`, target.messageLog(), target.deliveryLog(), target.exceptionQueue(), exampleLimit)
+	`, target.messageLog(), target.consumerGroupCursor(), target.exceptionQueue(), exampleLimit)
 	return d.measure(ctx, exampleMessageId, unbucketedSql, target.GroupId)
 }

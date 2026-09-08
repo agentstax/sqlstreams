@@ -207,6 +207,39 @@ carries the declaration and time scale, and the report groups by them.
 Three lines from harness-bug and sabotage runs were removed from the
 untracked-so-far `runs.jsonl` files before they are first committed.
 
+### Sustainable throughput tuning (agreed 2026-09-07)
+
+- Target this Mac first: 1 KB messages, one group, minimal handler,
+  automatic producer batching, default failure-only delivery logging.
+- Keep durable commits, fsync, full-page writes, and autovacuum enabled.
+  Tune configuration first; propose library/SQL changes after profiling.
+- Total benchmark storage budget 20 GiB; preserve 40 GiB host free space.
+  Include records, checker imports, WAL, and temporary files. Measure
+  growth in short probes before choosing retention and longer windows.
+- Start with 10–30s probes, then 1–2m candidates, then three 15m windows
+  after warmup, extending until maintenance has actually run. Require
+  no growing producer or consumer queue and p99 end-to-end <= 1s.
+- Compare native and Docker Postgres under matched versions/resources.
+  No cloud or hardware purchases in this scope.
+- [x] Correct topic/group latency accounting and failure-only checking.
+  Database-backed fixtures pass; removing one handler record failed with
+  exactly one undelivered message. COPY imports now ANALYZE before checks.
+- [x] Add the automatic-batching 1 KB workload and record its settings.
+  Scenario-file input varies configuration without recompiling the harness.
+- [ ] Short storage-bounded probes; configuration sweeps and profiles.
+  2k/4k/8k/16k per second passed 30s probes; 32k failed twice with
+  131/57 committed messages lacking handler calls despite cursor progress.
+  Full second-run evidence is retained under
+  bench/reliability/results/throughput/evidence/20260908T020110Z/.
+  Serial producer batches avoided missing calls in two diagnostics, but
+  still failed latency/backlog at 32k. Exact cause not established;
+  isolate claim visibility/cursor advancement before a library fix.
+  See bench/reliability/results/throughput/RESULTS.md.
+  Long runs also need bounded recording/import storage; the current
+  all-records/all-messages method exceeds 20 GiB before 15m at high rates.
+- [ ] Choose retention from measured storage, then validate finalists.
+- [ ] Record comparison and sustainable result with evidence.
+
 ### 6. Idle-fleet scenario
 
 - [ ] `idlefleet` scenario: N topics and groups sized to 100 / 1k / 10k

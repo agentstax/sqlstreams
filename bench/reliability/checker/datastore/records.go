@@ -297,7 +297,13 @@ func (d *CheckerDatastore) load(ctx context.Context, dir string, layout tableLay
 		}
 		loaded += rows
 	}
-	return loaded, nil
+	// COPY leaves fresh tables without planner statistics until autoanalyze.
+	analyzeSql := fmt.Sprintf(`
+		-- lab: datastore.load
+		ANALYZE %s;
+	`, pgx.Identifier{labSchema, layout.table}.Sanitize())
+	_, err = d.pool.Exec(ctx, analyzeSql)
+	return loaded, err
 }
 
 func (d *CheckerDatastore) loadFile(ctx context.Context, path string, layout tableLayout) (int64, error) {

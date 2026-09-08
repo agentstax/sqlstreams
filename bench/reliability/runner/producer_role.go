@@ -48,7 +48,7 @@ func (r *Runner) RunProducer(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		recordingProducer, err := producer.NewProducer(instance, produceRecords, registered.declared.Name, r.name)
+		recordingProducer, err := producer.NewProducer(instance, produceRecords, registered.declared.Name, r.name, &producer.ProducerConfig{AutomaticBatching: r.declared.AutomaticBatching, PayloadBytes: r.declared.PayloadBytes})
 		if err != nil {
 			return err
 		}

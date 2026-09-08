@@ -25,6 +25,10 @@ type Scenario struct {
 	// ProducerBatchConcurrency is each topic's producer batch workers, one
 	// connection each; 0 leaves the library's default
 	ProducerBatchConcurrency int
+	ProducerBatchSize        int
+	AutomaticBatching        bool
+	PayloadBytes             int
+	MaxConns                 int
 }
 
 func (s *Scenario) Validate() error {
@@ -36,6 +40,15 @@ func (s *Scenario) Validate() error {
 	}
 	if s.ProducerBatchConcurrency < 0 {
 		return fmt.Errorf("ProducerBatchConcurrency must be >= 0, got %d", s.ProducerBatchConcurrency)
+	}
+	if s.ProducerBatchSize < 0 {
+		return fmt.Errorf("ProducerBatchSize must be >= 0, got %d", s.ProducerBatchSize)
+	}
+	if s.PayloadBytes != 0 && s.PayloadBytes < 128 {
+		return fmt.Errorf("PayloadBytes must be 0 or >= 128, got %d", s.PayloadBytes)
+	}
+	if s.MaxConns < 0 {
+		return fmt.Errorf("MaxConns must be >= 0, got %d", s.MaxConns)
 	}
 	if len(s.Topics) == 0 {
 		return errors.New("Topics must not be empty")

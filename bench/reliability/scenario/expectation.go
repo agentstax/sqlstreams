@@ -10,7 +10,7 @@ import "fmt"
 //	recovered    unknown produces (reply lost) whose row is there after all
 //	undelivered  messages the handler never succeeded on and the library never dead-lettered
 //	duplicates   messages the handler succeeded on more than once
-//	unbucketed   by the library's tables, messages in no bucket or in two (success and dead)
+//	unbucketed   messages neither completed by the durable cursor nor dead-lettered
 //	reclaims     deliveries logged expired -- a lease a consumer stopped renewing
 //	dead         exception_queue rows dead-lettered
 //	schedule_kept       seconds a produce started more than 100ms behind its scheduled instant -- the generator, not the library, was the limiter

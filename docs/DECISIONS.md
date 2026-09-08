@@ -465,3 +465,4 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0710 2026-09-07 accepted (pre-v1) — Consumer defaults use small batches and responsive polling
 - 0711 2026-09-07 accepted (pre-v1) — The reliability lab is the benchmark harness, and a benchmark is a scenario
 - 0712 2026-09-07 accepted (pre-v1) — Documentation starts with a runnable example and separates progress from delivery outcomes
+- 0713 2026-09-07 accepted (pre-v1) — Sustainable throughput keeps both producer and consumer queues bounded

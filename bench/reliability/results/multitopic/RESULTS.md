@@ -1,5 +1,14 @@
 # Multi-topic throughput ladder -- first reading
 
+Correction 2026-09-07: this workload supplies caller idempotency keys, so
+`ProducerInstance.Produce` bypasses its batcher and uses individual
+transactions. The batch-worker setting did not tune these runs. The table
+below only held through 4000/s; the claimed 8000/s durable ceiling and the
+batch-commit explanation in the original conclusions are not established.
+The original end-to-end query also joined ids without topic identity and
+selected the first group, so its multi-topic/group latency is not valid.
+Historical readings remain below; use fresh runs with corrected accounting.
+
 Read with `docs/decisions/0711`. This is the first workload the reliability
 lab ran as a benchmark, and it was run to set the method, not to publish a
 number: single runs, no rep, thirty-second rungs. Raw records: one line per

@@ -31,6 +31,9 @@ func (s *Scenario) inputLines() []string {
 	if s.ProducerBatchConcurrency > 0 {
 		lines = append(lines, fmt.Sprintf("producer\tbatch concurrency %d per topic", s.ProducerBatchConcurrency))
 	}
+	if s.AutomaticBatching || s.PayloadBytes > 0 || s.MaxConns > 0 {
+		lines = append(lines, fmt.Sprintf("workload\tautomatic batching %t, payload bytes %d, pool max %d, batch size %d", s.AutomaticBatching, s.PayloadBytes, s.MaxConns, s.ProducerBatchSize))
+	}
 	return append(lines, fmt.Sprintf("duration\t%s", formatDuration(s.Duration)))
 }
 

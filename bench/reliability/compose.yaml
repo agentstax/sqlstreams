@@ -60,12 +60,14 @@ services:
         limits:
           cpus: '2'
     environment:
+      SCENARIO_FILE: ${SCENARIO_FILE:-}
       POSTGRES_HOST: postgres
       POSTGRES_USER: ${POSTGRES_USER:-lab}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lab}
       POSTGRES_DB: ${POSTGRES_DB:-lab}
     volumes:
       - records:/records
+      - ./results:/results:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -80,12 +82,14 @@ services:
         limits:
           cpus: '2'
     environment:
+      SCENARIO_FILE: ${SCENARIO_FILE:-}
       POSTGRES_HOST: postgres
       POSTGRES_USER: ${POSTGRES_USER:-lab}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lab}
       POSTGRES_DB: ${POSTGRES_DB:-lab}
     volumes:
       - records:/records
+      - ./results:/results:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -98,12 +102,14 @@ services:
     hostname: observer
     command: ['-role', 'observer', '-scenario', '${SCENARIO:-dev}', '-time-scale', '${TIME_SCALE:-1}', '-record-dir', '/records']
     environment:
+      SCENARIO_FILE: ${SCENARIO_FILE:-}
       POSTGRES_HOST: postgres
       POSTGRES_USER: ${POSTGRES_USER:-lab}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lab}
       POSTGRES_DB: ${POSTGRES_DB:-lab}
     volumes:
       - records:/records
+      - ./results:/results:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -115,6 +121,7 @@ services:
     profiles: [checker]
     command: ['-role', 'checker', '-scenario', '${SCENARIO:-dev}', '-time-scale', '${TIME_SCALE:-1}', '-record-dir', '/records', '-results-dir', '/results', '-fingerprint-file', '/results/fingerprint.json', '-stats-file', '/results/stats.jsonl', '-drain-budget', '${DRAIN_BUDGET:-2m}']
     environment:
+      SCENARIO_FILE: ${SCENARIO_FILE:-}
       POSTGRES_HOST: postgres
       POSTGRES_USER: ${POSTGRES_USER:-lab}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lab}

@@ -8,6 +8,7 @@ import "fmt"
 type Order struct {
 	Producer string `json:"producer"`
 	Sequence int64  `json:"sequence"`
+	Padding  string `json:"padding,omitempty"`
 }
 
 // Value receivers: the library reads SchemaVersion off the zero value.

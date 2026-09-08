@@ -3,7 +3,9 @@ package scenario
 import (
 	"errors"
 	"fmt"
+	"time"
 
+	"github.com/agentstax/vulkan/pkg/consumer"
 	"github.com/agentstax/vulkan/pkg/topic"
 )
 
@@ -20,9 +22,8 @@ func (t TopicDeclaration) Validate() error {
 		return errors.New("Name is required")
 	}
 
-	// unbucketed reads delivery_log success rows, which only mode all writes
-	if t.DeliveryLogMode != topic.DeliveryLogModeAll {
-		return fmt.Errorf("DeliveryLogMode must be %q, got %q", topic.DeliveryLogModeAll, t.DeliveryLogMode)
+	if t.DeliveryLogMode != topic.DeliveryLogModeAll && t.DeliveryLogMode != topic.DeliveryLogModeFailures {
+		return fmt.Errorf("DeliveryLogMode must be %q or %q, got %q", topic.DeliveryLogModeAll, topic.DeliveryLogModeFailures, t.DeliveryLogMode)
 	}
 	if len(t.Groups) == 0 {
 		return errors.New("Groups must not be empty")
@@ -45,10 +46,13 @@ func (t TopicDeclaration) Validate() error {
 // dead-lettered, and the messages each instance claims per poll -- 0 leaves
 // the library's default, which a quiet run keeps and a ladder raises.
 type GroupDeclaration struct {
-	Name            string
-	HandlerFailRate float64
-	MaxRetries      int
-	BatchLimit      int
+	Name               string
+	HandlerFailRate    float64
+	MaxRetries         int
+	BatchLimit         int
+	QueueSize          int
+	MessageConcurrency int
+	ClaimPollRate      time.Duration
 }
 
 func (g GroupDeclaration) Validate() error {
@@ -64,7 +68,7 @@ func (g GroupDeclaration) Validate() error {
 	if g.BatchLimit < 0 {
 		return fmt.Errorf("BatchLimit must be >= 0, got %d", g.BatchLimit)
 	}
-	return nil
+	return (&consumer.ConsumeOptions{BatchLimit: g.BatchLimit, QueueSize: g.QueueSize, MessageConcurrency: g.MessageConcurrency, ClaimPollRate: g.ClaimPollRate}).WithDefaults().Validate()
 }
 
 // String is the [input] consumers line after the group's name.
@@ -72,6 +76,9 @@ func (g GroupDeclaration) String() string {
 	line := fmt.Sprintf("handler fail rate %g, %d retries then dead", g.HandlerFailRate, g.MaxRetries)
 	if g.BatchLimit > 0 {
 		line += fmt.Sprintf(", batch %d", g.BatchLimit)
+	}
+	if g.QueueSize > 0 || g.MessageConcurrency > 0 || g.ClaimPollRate > 0 {
+		line += fmt.Sprintf(", queue %d, concurrency %d, idle poll %s", g.QueueSize, g.MessageConcurrency, g.ClaimPollRate)
 	}
 	return line
 }

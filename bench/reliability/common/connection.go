@@ -18,7 +18,7 @@ type Connection struct {
 	Client *vulkan.Client
 }
 
-func NewConnection(ctx context.Context) (*Connection, error) {
+func NewConnection(ctx context.Context, maxConns int) (*Connection, error) {
 	port := 5432
 	if raw := os.Getenv("POSTGRES_PORT"); raw != "" {
 		parsed, err := strconv.Atoi(raw)
@@ -34,7 +34,7 @@ func NewConnection(ctx context.Context) (*Connection, error) {
 
 	pool, err := vulkan.NewPostgresPool(ctx,
 		os.Getenv("POSTGRES_USER"), os.Getenv("POSTGRES_PASSWORD"), host, os.Getenv("POSTGRES_DB"),
-		&vulkan.PostgresConnectionConfig{Port: port})
+		&vulkan.PostgresConnectionConfig{Port: port, MaxConns: maxConns})
 	if err != nil {
 		return nil, err
 	}

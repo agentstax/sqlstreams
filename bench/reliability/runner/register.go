@@ -39,6 +39,7 @@ func (r *Runner) registerTopics(ctx context.Context) ([]registeredTopic, error) 
 func producerConfig(declared *scenario.Scenario) *vulkan.ProducerConfig {
 	cfg := &vulkan.ProducerConfig{}
 	cfg.Batch.ConcurrencyLimit = declared.ProducerBatchConcurrency
+	cfg.Batch.MaxSize = declared.ProducerBatchSize
 	return cfg
 }
 
@@ -54,5 +55,5 @@ func consumerConfig(group scenario.GroupDeclaration) *vulkan.ConsumerConfig {
 // consumeOptions is the "batch N" half; a zero BatchLimit is the library's
 // own default.
 func consumeOptions(group scenario.GroupDeclaration) *vulkan.ConsumeOptions {
-	return &vulkan.ConsumeOptions{BatchLimit: group.BatchLimit}
+	return &vulkan.ConsumeOptions{BatchLimit: group.BatchLimit, QueueSize: group.QueueSize, MessageConcurrency: group.MessageConcurrency, ClaimPollRate: group.ClaimPollRate}
 }

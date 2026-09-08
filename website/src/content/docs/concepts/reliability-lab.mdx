@@ -13,11 +13,11 @@ happened. This page is the lab as it ships, written so you can judge what
 "pass" actually proves, and then the chaos run it grows into.
 
 <ThreadAside label="NOTE" title="What ships today">
-Two scenarios run today. `quiet` is the hour at a constant 200 messages a
-second with three consumer instances and no chaos; `dev` is the same run
-at one minute. `just reliability-lab dev` builds the stack, runs it, and
-exits with the verdict. Everything under the "Proposed" heading is the
-chaos run, not yet built. The [demo page](/demo/) is the same idea
+`quiet` runs an hour at 200 messages a second with three consumer instances
+and no chaos; `dev` runs one minute. The `multitopic-1`, `-4`, and `-16`
+scenarios step the offered rate across different topic counts. `throughput`
+is a 30-second probe with 1 KB messages and automatic batching. `just reliability-lab dev` builds the stack, runs it, and
+exits with the verdict. Sections headed "Proposed" describe work not yet built. The [demo page](/demo/) is the same idea
 packaged for you to run in five minutes.
 
 </ThreadAside>
@@ -86,10 +86,11 @@ buckets must add up:
 There is no acceptable "dropped" bucket. Every expected skip has a name,
 and a message that lands in none of them fails the run.
 
-Delivered has two witnesses. The lab's own handler records say the handler
-ran and returned; the library's tables say it recorded the outcome. A
-success the library records without the handler running fails the first
-check; a message it drops silently fails both.
+Delivery has two witnesses. The handler records say the handler ran. The
+committed cursor and exception rows say whether the library completed the
+message or dead-lettered it. Both are needed: progress can pass a message
+whose handler never ran, which fails `undelivered` even if `unbucketed`
+passes. This also lets the checker run with failure-only delivery logging.
 
 Duplicates are counted and reported, never failed. A consumer instance
 killed between the handler returning and the commit is redelivered after
@@ -277,3 +278,31 @@ one named bucket:
 
 The checker never changes shape through those stages. Each one adds a
 bucket to the sum and a fault the run must prove it reached.
+
+## Proposed: sustainable throughput
+
+The throughput run measures how fast messages can be produced and consumed
+at the same time without either queue growing. The first workload uses
+1 KB messages, one consumer group, a handler with no external calls,
+automatic produce batching, and failure-only delivery logging.
+
+For `orders`, producing 10,000 messages a second requires its group to
+finish 10,000 distinct messages a second. Adding `analytics` as a second
+group requires another 10,000 deliveries a second. Report the produce
+rate and each group's completion rate separately.
+
+Caller-supplied idempotency keys use individual transactions. They are a
+separate workload; changing the batch configuration does not tune that
+path. The automatically batched workload still uses the library's durable
+produce path.
+
+Short probes find useful settings. A sustainable result needs three
+15-minute measured windows after warmup, no growing producer or consumer
+queue, and 99% of messages handled within one second of their scheduled
+send time. Checkpoints, vacuum, and retention cleanup must occur during
+validation. Draining after production stops only proves eventual completion.
+
+On the development Mac, all benchmark storage is limited to 20 GiB with
+40 GiB left free on the host. Database files, WAL, records, checker imports,
+and temporary files count. Retention is chosen from measured growth before
+long runs. Durable commits, fsync, full-page writes, and autovacuum stay on.

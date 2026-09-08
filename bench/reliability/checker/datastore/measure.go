@@ -46,7 +46,7 @@ func (d *CheckerDatastore) ReadProduceLatency(ctx context.Context, from time.Tim
 	return d.readLatency(ctx, latencySql, from, to)
 }
 
-// ReadEndToEndLatency is the handler's first success against scheduled time,
+// ReadEndToEndLatency is each group's first success against scheduled time,
 // for the produces scheduled in [from, to) -- what a message waited from the
 // moment it was meant to exist until it was handled.
 func (d *CheckerDatastore) ReadEndToEndLatency(ctx context.Context, from time.Time, to time.Time) (LatencySummary, error) {
@@ -62,9 +62,9 @@ func (d *CheckerDatastore) ReadEndToEndLatency(ctx context.Context, from time.Ti
 		FROM (
 			SELECT EXTRACT(EPOCH FROM (min(h.at) - p.scheduled_at))::double precision AS latency_seconds
 			FROM %[1]s p
-			JOIN %[2]s h ON h.message_id = p.message_id AND h.outcome = 'success'
+			JOIN %[2]s h ON h.topic = p.topic AND h.message_id = p.message_id AND h.outcome = 'success'
 			WHERE p.kind = 'committed' AND p.scheduled_at >= $1 AND p.scheduled_at < $2
-			GROUP BY p.message_id, p.scheduled_at
+			GROUP BY p.topic, h."group", p.message_id, p.scheduled_at
 		) AS latencies;
 	`, produceRecord, handlerRecord)
 	return d.readLatency(ctx, latencySql, from, to)
