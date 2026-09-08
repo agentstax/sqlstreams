@@ -74,7 +74,7 @@ func run() (err error) {
 	hotKeyContentionScenario(ctx, pool)
 
 	fmt.Println("\n✅ LATEST KEYS WRITE-COST E2E TEST — numbers gathered; decision record [0262]")
-	fmt.Println("   (docs/decisions/) holds the write-per-keyed-publish tradeoff they measure.")
+	fmt.Println("   (.docs/decisions/) holds the write-per-keyed-publish tradeoff they measure.")
 	return nil
 }
 

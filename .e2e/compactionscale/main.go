@@ -143,7 +143,7 @@ func run() (err error) {
 	fmt.Println("  -> nothing amortizes this: every checkpoint re-measures the IDENTICAL row, older with")
 	fmt.Println("     each step only because MORE history piled up behind it, never resolved cheaper")
 
-	fmt.Println("\n✅ COMPACTION SCALE E2E TEST — numbers gathered; decision records [0261]/[0263] (docs/decisions/) hold what was decided on them")
+	fmt.Println("\n✅ COMPACTION SCALE E2E TEST — numbers gathered; decision records [0261]/[0263] (.docs/decisions/) hold what was decided on them")
 	return nil
 }
 

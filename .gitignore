@@ -22,9 +22,9 @@ bench/reliability/results/stats.jsonl
 # go build run inside a main package drops a binary named for its directory;
 # go test -c and profiling flags drop *.test and *.prof beside the source
 /cmd/vulkan/vulkan
-/tools/codeexport/codeexport
-/tools/compat/compat
-/tools/compatexport/compatexport
+/.tools/codeexport/codeexport
+/.tools/compat/compat
+/.tools/compatexport/compatexport
 /bench/claim/claim
 /bench/reliability/reliability
 /bench/scale/projector/projector
@@ -38,4 +38,6 @@ __debug_bin*
 bench/scratchnative/results/evidence/
 
 # goreleaser output
-/dist/
+/.dist/
+
+.claude

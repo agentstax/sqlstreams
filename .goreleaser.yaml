@@ -8,6 +8,7 @@
 version: 2
 
 project_name: vulkan
+dist: .dist
 
 builds:
   - id: vulkan

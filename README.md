@@ -1,10 +1,13 @@
 <!-- Im copying https://github.com/ghostty-org/ghostty/blob/main/README.md layout. You can hate me, but it's so fucking clean. -->
 
-<h1>
 <p align="center">
-  <br>SQLStreams
-</h1>
-  <p align="center">
+  <br>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".website/public/sqlstreams-dark.svg">
+    <img alt="SQLStreams" src=".website/public/sqlstreams-light.svg" height="56">
+  </picture>
+</p>
+<p align="center">
     It's Kafka on Postgres.
     <br />
     Fast, reliable and easy to use.
@@ -18,7 +21,6 @@
     <a href="CONTRIBUTING.md">Contributing</a>
     ·
     <a href="DEVELOPING.md">Developing</a>
-  </p>
 </p>
 
 ## About

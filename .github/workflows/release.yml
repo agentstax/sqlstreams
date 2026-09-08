@@ -24,7 +24,7 @@ jobs:
           cache-dependency-path: "**/go.sum"
 
       # go.work is gitignored; the CLI module resolves the root library through it.
-      - run: go work init . ./cmd/vulkan ./otel ./tools
+      - run: go work init . ./cmd/vulkan ./otel ./.tools
 
       - uses: goreleaser/goreleaser-action@v7
         with:

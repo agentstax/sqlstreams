@@ -2,7 +2,7 @@ package main
 
 // Log compaction width/planner e2e test: measures the read-cost tradeoff the
 // unbounded compaction predicate creates (decision records [0261]/[0263] in
-// docs/decisions/ -- this e2e test is what turns the tradeoff into a number).
+// .docs/decisions/ -- this e2e test is what turns the tradeoff into a number).
 //
 // Proving a row IS the latest for its key (NOT EXISTS a newer one) has no
 // early termination -- it costs one partition scan per partition from that
@@ -141,7 +141,7 @@ func run() (err error) {
 		negWide == 1 && posWide == 1)
 
 	fmt.Println("\n✅ COMPACTION WIDTH E2E TEST — numbers gathered; decision records [0261]/[0263]")
-	fmt.Println("   (docs/decisions/) hold what they mean and what was decided on them.")
+	fmt.Println("   (.docs/decisions/) hold what they mean and what was decided on them.")
 	return nil
 }
 

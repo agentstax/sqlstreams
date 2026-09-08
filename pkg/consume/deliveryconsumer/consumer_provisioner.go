@@ -8,7 +8,7 @@ package deliveryconsumer
 //     (priority/delay/fairness)
 //   - not wired into consumer.NewConsumer -- reachable only by building a
 //     DeliveryConsumerProvisioner directly
-//   - keep its labs green; don't invest new work here
+//   - keep its e2e tests green; don't invest new work here
 
 import (
 	"context"

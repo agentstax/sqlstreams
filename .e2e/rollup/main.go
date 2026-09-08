@@ -1,7 +1,7 @@
 package main
 
 // Rollup e2e test: measures the numbers behind the lazy-vs-synchronous
-// AdvanceCommitted decision (record [0301] in docs/decisions/: the rollup
+// AdvanceCommitted decision (record [0301] in .docs/decisions/: the rollup
 // stays lazy). Three scenarios:
 //
 //   - Staleness: how long after a range's Commit does `committed` actually
@@ -81,7 +81,7 @@ func run() (err error) {
 	fixedCostScenario(ctx, pool)
 	contentionScenario(ctx, pool)
 
-	fmt.Println("\n✅ ROLLUP E2E TEST — numbers gathered; decision record [0301] (docs/decisions/)")
+	fmt.Println("\n✅ ROLLUP E2E TEST — numbers gathered; decision record [0301] (.docs/decisions/)")
 	fmt.Println("   holds the lazy-vs-synchronous decision these numbers drove.")
 	return nil
 }

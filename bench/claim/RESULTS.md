@@ -2,7 +2,7 @@
 
 The hand-copied snapshot-xmax queries and one-batch prototype below are
 historical. A deterministic concurrent-producer test exposed an unsafe
-transaction bound; [0714](../../docs/decisions/0714-consumer-observations-allocate-transaction-ids.md)
+transaction bound; [0714](../../.docs/decisions/0714-consumer-observations-allocate-transaction-ids.md)
 replaces it in the library. Only the real datastore calls use that fix.
 These old microbenchmarks do not establish current throughput or delivery
 correctness; use the reliability scenario for both.

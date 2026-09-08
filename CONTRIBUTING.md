@@ -21,7 +21,7 @@ missing, and labels it. Ideally, do not start coding work until the label lands:
 | --- | --- |
 | `accepted` | go ahead |
 | `help wanted` | accepted and designed, nobody is working on it |
-| `roadmap` | not planned yet; tracked in [docs/ROADMAP.md](docs/ROADMAP.md) |
+| `roadmap` | not planned yet; tracked in [.docs/ROADMAP.md](.docs/ROADMAP.md) |
 | closed | no |
 
 ### Fixing a bug
@@ -32,8 +32,8 @@ missing, and labels it. Ideally, do not start coding work until the label lands:
 
 ### Adding a feature
 
-1. Search [docs/DECISIONS.md](docs/DECISIONS.md) and the rejected line in
-   [docs/DECISION_MAP.md](docs/DECISION_MAP.md). Rejected ideas need new
+1. Search [.docs/DECISIONS.md](.docs/DECISIONS.md) and the rejected line in
+   [.docs/DECISION_MAP.md](.docs/DECISION_MAP.md). Rejected ideas need new
    evidence to be reconsidered.
 2. Open a [feature issue](https://github.com/agentstax/vulkan/issues/new?template=feature.yml)
    describing the problem, not a solution.

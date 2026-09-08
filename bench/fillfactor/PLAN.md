@@ -1,6 +1,6 @@
 # consume-side fillfactor benchmark — plan
 
-Confirms or kills the fillfactor-audit candidates (docs/TODO.md) with live
+Confirms or kills the fillfactor-audit candidates (.docs/TODO.md) with live
 before/after runs, per the ROADMAP's rule that reasoning alone adopts
 nothing. The compaction_head candidate is NOT here — it reruns
 bench/compaction's hot-key cells with fillfactor applied.

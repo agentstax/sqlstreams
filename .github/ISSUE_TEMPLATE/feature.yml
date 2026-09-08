@@ -23,5 +23,5 @@ body:
     attributes:
       label: Prior decisions
       options:
-        - label: I grepped docs/DECISIONS.md and the rejected line in docs/DECISION_MAP.md, and this is not one of them.
+        - label: I grepped .docs/DECISIONS.md and the rejected line in .docs/DECISION_MAP.md, and this is not one of them.
           required: true

@@ -6,8 +6,8 @@ the 30s message timeout, and the remaining defaults. This favors responsive
 local development and short production handlers while keeping batching small.
 Long handlers and large fleets have explicit tuning recommendations below.
 
-Accepted in [0710](../../docs/decisions/0710-consumer-defaults-use-small-batches-and-responsive-polling.md).
-The [consumer reference](../../website/src/content/docs/reference/consumer.mdx)
+Accepted in [0710](../../.docs/decisions/0710-consumer-defaults-use-small-batches-and-responsive-polling.md).
+The [consumer reference](../../.website/src/content/docs/reference/consumer.mdx)
 documents the implemented defaults. Measurements below precede that change;
 “Current” in the comparison table means the former defaults.
 No claim is made that a synthetic suite establishes what fraction of all

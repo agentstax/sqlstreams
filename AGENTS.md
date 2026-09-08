@@ -18,7 +18,7 @@ covers session workflow only; the two are a set.
   code or design in the reply and STOP. Edit nothing until an explicit
   "go" / "write it"; a later message continuing the discussion is not
   approval.
-- docs/archive/explain-it-back.md and docs/THOUGHTS.md are the user's own
+- .docs/archive/explain-it-back.md and .docs/THOUGHTS.md are the user's own
   writing -- read them, never edit them.
 
 ## Responses
@@ -79,14 +79,14 @@ Doc site:
 
 - Per change: foreground targeted checks only -- build, `go test -race` on
   touched packages, directly affected e2e tests. `just verify` is the whole-repo
-  check (root plus every nested module plus tools/); per change, build and
+  check (root plus every nested module plus .tools/); per change, build and
   test the touched module only. Use `go fmt ./...`, not the system gofmt,
   which may predate the go.mod toolchain.
 - A mechanical rename or file move is fully checked by build + vet + gofmt;
   e2e tests only when behavior could have moved.
 - Full fresh-DB e2e test suite only at review-ready checkpoints or on request,
   never background-per-change.
-- A new tools/conventions test is sabotaged (fed deliberately wrong input)
+- A new .tools/conventions test is sabotaged (fed deliberately wrong input)
   before it is trusted -- a walk can pass green while checking nothing.
 - Fresh-DB suite recipe: `just database-delete`; `set -a; source ./.env;
   set +a` before `docker compose up` (the justfile needs the dotenv); wait
@@ -98,11 +98,11 @@ Doc site:
 
 At a release checkpoint, after the full fresh-DB suite:
 
-- Run `just compat-lab` with tools/compat pinned to the prior tag (pin
+- Run `just compat-lab` with .tools/compat pinned to the prior tag (pin
   flow in its go.mod comment), passing the verdict the migration registry
   declares.
 - Update the compatibility table in
-  website/src/content/docs/guides/migrations.mdx.
+  .website/src/content/docs/guides/migrations.mdx.
 - Cite the e2e test outcome in the release's HISTORY.md entry.
 
 ## Docs & record-keeping
@@ -113,40 +113,40 @@ decision record -> ships -> HISTORY.md entry; its TODO.md and ROADMAP.md
 lines are removed.
 
 The record-keeping surface is fixed -- never create doc files outside it.
-Working docs live under docs/; only the rule files (CONVENTIONS.md, this
+Working docs live under .docs/; only the rule files (CONVENTIONS.md, this
 file) and README/CLAUDE.md stay at root:
 
-- docs/TODO.md -- sliding window of in-flight work ONLY.
-- docs/ROADMAP.md -- future work: Now / Next / Later / Parking lot. Reorder
+- .docs/TODO.md -- sliding window of in-flight work ONLY.
+- .docs/ROADMAP.md -- future work: Now / Next / Later / Parking lot. Reorder
   by moving items; an item accumulates design notes as sub-bullets in place.
   New ideas land in Later or the parking lot, never in TODO.md.
-- docs/HISTORY.md -- dated done-ledger, newest first, one entry per shipped
+- .docs/HISTORY.md -- dated done-ledger, newest first, one entry per shipped
   milestone, citing decision records as [NNNN].
-- docs/DECISION_MAP.md -- concept keywords -> record numbers, imported by
+- .docs/DECISION_MAP.md -- concept keywords -> record numbers, imported by
   the root CLAUDE.md so it loads every session. A new record adds its
   number to the line it belongs to. The rule files carry no [NNNN]
   citations; the map is the one index from a rule to its why.
-- docs/DECISIONS.md -- the status ledger: one line per record holding
+- .docs/DECISIONS.md -- the status ledger: one line per record holding
   number, date, status, and the record's own H1 title verbatim -- never a
   summary. Grep it or the bodies for a term, open only what's needed.
-  Record bodies live in docs/decisions/ (NNNN-<slug>.md, front matter
+  Record bodies live in .docs/decisions/ (NNNN-<slug>.md, front matter
   status/date/phase, Context/Decision/Consequences, under 60 lines).
   Records are append-only and written in the SAME session a design settles;
   changing a decision means a new record plus flipping the old one's status
   to superseded, linked both ways. A new record takes the next number after
   the current max.
-- docs/THOUGHTS.md -- the user's scratch: ideas not yet promoted to the
+- .docs/THOUGHTS.md -- the user's scratch: ideas not yet promoted to the
   ROADMAP. Never edited by agents.
-- Tabled drafts a ROADMAP item names by path (docs/TEST.md, and at root
+- Tabled drafts a ROADMAP item names by path (.docs/TEST.md, and at root
   bench-design.md with bench-methodology.html) stay where that item
   names them until it ships, then are folded into the surface and deleted.
-- docs/archive/ -- source material, never edited: explain-it-back.md (the
+- .docs/archive/ -- source material, never edited: explain-it-back.md (the
   user's own writing; some decision rationale exists only there).
 - _netflix-rubric.md stays at root by the user's choice -- a grading
   rubric for review passes, not a working doc.
-- CONVENTIONS.md (code rules), website/CONVENTIONS.md (frontend code
-  rules) and website/VOICE.md (site prose voice) -- both loaded via
-  website/CLAUDE.md when working in that tree -- and AGENTS.md (this
+- CONVENTIONS.md (code rules), .website/CONVENTIONS.md (frontend code
+  rules) and .website/VOICE.md (site prose voice) -- both loaded via
+  .website/CLAUDE.md when working in that tree -- and AGENTS.md (this
   file) hold the binding CURRENT rules -- never infer today's rules by
   replaying decision history.
 

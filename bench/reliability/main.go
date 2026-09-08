@@ -5,7 +5,7 @@ package main
 // is written to a record file; after producers stop and consumers drain, the
 // checker joins those records against Vulkan's own tables and sorts every
 // message into a named bucket. Design in decision record 0687; the proposal
-// page is website/src/content/docs/concepts/reliability-lab.mdx.
+// page is .website/src/content/docs/concepts/reliability-lab.mdx.
 //
 // One binary, one role per process: -role producer walks the scenario's
 // phases, -role consumer follows its consumer timeline until stopped, -role

@@ -120,7 +120,7 @@ Both cursor claims and fan-out now allocate an observation transaction id
 in the statement that reads the head, and wait for every older transaction
 to finish. The observation finishes before the claiming transaction starts.
 Caught-up polls still allocate no xid. See
-[0714](../../../../docs/decisions/0714-consumer-observations-allocate-transaction-ids.md)
+[0714](../../../../.docs/decisions/0714-consumer-observations-allocate-transaction-ids.md)
 for the proof, PostgreSQL sources, and existing-state limitations.
 
 Two repeats used the original 30s, 32k/s, batch 100, concurrency 4 setup:

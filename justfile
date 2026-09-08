@@ -8,13 +8,13 @@ verify:
     cd cmd/vulkan && go build ./... && go vet ./...
     cd otel && go build ./... && go vet ./...
     cd .e2e && go build ./...
-    cd .example && go build ./...
+    cd .examples && go build ./...
     cd bench && go build ./... && go vet ./... && go test -race -count=1 ./reliability/...
-    cd tools && go test -race -count=1 ./...
+    cd .tools && go test -race -count=1 ./...
 
 # Check a release's pinned public API against the working schema.
 compat-lab expect="round-trip":
-    cd tools/compat && go run . -expect={{ expect }}
+    cd .tools/compat && go run . -expect={{ expect }}
 
 # Run a reliability-lab scenario on its own compose stack, reps times from a fresh stack, and exit with the worst verdict: 0 pass, 1 fail, 2 unknown, 3 lab failure.
 # drain_budget bounds how long the checker waits for the consumers to catch up; a saturating scenario needs more than the default.
@@ -62,15 +62,15 @@ reliability-report scenario="dev":
 
 # Start the development PostgreSQL database in the foreground.
 database-up:
-    docker-compose -f tools/database/docker-compose.yaml up
+    docker-compose -f .tools/database/docker-compose.yaml up
 
 # Stop the development PostgreSQL database without deleting its volume.
 database-down:
-    docker-compose -f tools/database/docker-compose.yaml down
+    docker-compose -f .tools/database/docker-compose.yaml down
 
 # Stop the development database and delete all of its data.
 database-delete:
-    docker-compose -f tools/database/docker-compose.yaml down -v
+    docker-compose -f .tools/database/docker-compose.yaml down -v
 
 # Register the system in the development database. Safe to run repeatedly.
 system-register:
@@ -80,10 +80,10 @@ system-register:
 
 # Generate a gitignored ER diagram from a registered development database.
 schema-diagram:
-    tbls doc -c tools/database/tbls.yml --force
-    tbls out -c tools/database/tbls.yml -t json -o bin/schema/schema.json
-    npx --yes @liam-hq/cli erd build --format tbls --input bin/schema/schema.json
-    rm -rf bin/schema/erd && mv dist bin/schema/erd
+    tbls doc -c .tools/database/tbls.yml --force
+    tbls out -c .tools/database/tbls.yml -t json -o bin/schema/schema.json
+    cd bin/schema && npx --yes @liam-hq/cli erd build --format tbls --input schema.json
+    rm -rf bin/schema/erd && mv bin/schema/dist bin/schema/erd
     @echo "open with: just schema-diagram-serve"
 
 # Serve the generated ER diagram at http://localhost:8377.
@@ -92,8 +92,8 @@ schema-diagram-serve:
 
 # Recreate the development database, register the system, then generate its ER diagram.
 schema-diagram-fresh:
-    docker-compose -f tools/database/docker-compose.yaml down -v
-    docker-compose -f tools/database/docker-compose.yaml up -d --wait postgres
+    docker-compose -f .tools/database/docker-compose.yaml down -v
+    docker-compose -f .tools/database/docker-compose.yaml up -d --wait postgres
     just system-register
     just schema-diagram
 
@@ -345,36 +345,36 @@ lag topic_id:
 
 # Start the documentation site in development mode.
 site-dev:
-    cd website && npm run dev
+    cd .website && npm run dev
 
 # Regenerate site data, require it to be committed, then run every site check.
 site-verify:
     just site-compat
-    git diff --exit-code --stat website/src/data/compat.json
+    git diff --exit-code --stat .website/src/data/compat.json
     just site-codes
-    git diff --exit-code --stat website/src/data/codes.json
-    cd website && npm run verify
+    git diff --exit-code --stat .website/src/data/codes.json
+    cd .website && npm run verify
 
 # Regenerate the migration compatibility matrix rendered by the documentation site.
 site-compat:
-    cd tools && go run ./compatexport -out ../website/src/data/compat.json
+    cd .tools && go run ./compatexport -out ../.website/src/data/compat.json
 
 # Regenerate the documentation site's Vulkan error-code records.
 site-codes:
-    cd tools && go run ./codeexport -out ../website/src/data/codes.json
+    cd .tools && go run ./codeexport -out ../.website/src/data/codes.json
 
 # Build and serve the documentation site, including its Pagefind index.
 site-preview:
-    cd website && npm run build && npm run preview
+    cd .website && npm run build && npm run preview
 
 # Start the documentation site's component explorer at http://localhost:6006.
 site-storybook:
-    cd website && ./node_modules/.bin/storybook dev -p 6006
+    cd .website && ./node_modules/.bin/storybook dev -p 6006
 
 # Build and deploy the documentation site to its main branch.
 site-deploy:
-    cd website && npm run build && ./node_modules/.bin/wrangler pages deploy dist --project-name vulkan --branch main
+    cd .website && npm run build && ./node_modules/.bin/wrangler pages deploy dist --project-name vulkan --branch main
 
 # Freeze a release site at a permanent version alias; aliases never change.
 site-freeze slug:
-    cd website && npm run build && ./node_modules/.bin/wrangler pages deploy dist --project-name vulkan --branch {{ slug }}
+    cd .website && npm run build && ./node_modules/.bin/wrangler pages deploy dist --project-name vulkan --branch {{ slug }}

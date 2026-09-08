@@ -9,7 +9,7 @@ The original end-to-end query also joined ids without topic identity and
 selected the first group, so its multi-topic/group latency is not valid.
 Historical readings remain below; use fresh runs with corrected accounting.
 
-Read with `docs/decisions/0711`. This is the first workload the reliability
+Read with `.docs/decisions/0711`. This is the first workload the reliability
 lab ran as a benchmark, and it was run to set the method, not to publish a
 number: single runs, no rep, thirty-second rungs. Raw records: one line per
 run in `results/multitopic-{1,4,16}/runs.jsonl`, the scenario declared in

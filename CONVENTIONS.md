@@ -4,9 +4,9 @@ Codebase-wide rules. Violations are bugs, not style nits.
 
 Five parts, each a reader's question: where code lives, how it reads,
 how it persists, how it reports, and what sits outside the library. A
-rule ending in `(checked)` is enforced by a test in `tools/conventions`
+rule ending in `(checked)` is enforced by a test in `.tools/conventions`
 (`just verify`); every other rule is enforced by review. The why behind
-a rule lives in `docs/decisions/`, indexed by `docs/DECISION_MAP.md`;
+a rule lives in `.docs/decisions/`, indexed by `.docs/DECISION_MAP.md`;
 this file states only the rule.
 
 # Part 1 -- Where code lives
@@ -25,17 +25,17 @@ this file states only the rule.
 
 ## Tooling
 
-- Repository-only developer tooling lives under `tools/`: programs,
+- Repository-only developer tooling lives under `.tools/`: programs,
   convention checks, local service configuration, and the scripts those
   tools invoke. Go tooling lives in dev-only modules there (own go.mod,
   never tagged, outside the root test surface). Production code never
-  imports, embeds, or invokes anything under tools/.
-- `tools/conventions` runs the machine-checkable rules of this file as
+  imports, embeds, or invokes anything under .tools/.
+- `.tools/conventions` runs the machine-checkable rules of this file as
   tests, via `just verify`. It reads library source as data, so its
   tests run with `-count=1` or a pass caches across library edits.
-- `tools/compat` is its own nested module so its go.mod can pin a prior
+- `.tools/compat` is its own nested module so its go.mod can pin a prior
   vulkan release; `just compat-lab` drives it.
-- `tools/codeexport` and `tools/conventions` link every root that
+- `.tools/codeexport` and `.tools/conventions` link every root that
   declares codes; a new declaring root is added to both.
 
 ## Package layout
@@ -689,7 +689,7 @@ its length with a ten-digit topic id. (checked)
   removal is the two-release shape: first a release whose binaries stop
   reading the column, shipping an empty bump; then the DROP step declaring
   MinCompatibleVersion = that bump's version.
-- `just compat-lab` (tools/compat) is the empirical check at release
+- `just compat-lab` (.tools/compat) is the empirical check at release
   checkpoints: the pinned prior release must match the registry's declared
   verdict.
 
@@ -756,7 +756,7 @@ arbitrary attached application values are not deep-copied.
 - Land the docs page (…/errors/VK0005, headed by the verbatim problem
   text) in the same change -- readers and agents find it by pasting the
   message into search. Pages are hand-written under
-  website/src/content/docs/errors/ (never generated); a change to a
+  .website/src/content/docs/errors/ (never generated); a change to a
   declaration's problem, recovery, or fix updates its page in the same
   change, and the page title stays the verbatim problem text.
 - A declaration that carries diagnose queries points at `vulkan explain`
@@ -1044,7 +1044,7 @@ trailing `help` attribute, so the line itself points at its explanation.
 
 ## Playground examples
 
-- Runnable user examples live under `.example/`, in their own dev-only module.
+- Runnable user examples live under `.examples/`, in their own dev-only module.
 - Create each topic handle once and reuse it for registration and operations.
 - Handles use domain names (`uploads`, `transcoder`); registered instances use
   activity names (`producer`, `consumer`, `scheduler`). Qualify instance names
@@ -1057,7 +1057,7 @@ trailing `help` attribute, so the line itself points at its explanation.
 
 ## Documentation
 
-Rules for the doc site (website/) and all user-facing prose.
+Rules for the doc site (.website/) and all user-facing prose.
 
 - Docs describe the real API only: every code sample compiles against the
   shipped library. A capability that does not exist yet is marked as
@@ -1068,10 +1068,10 @@ Rules for the doc site (website/) and all user-facing prose.
   a proposed capability is never a checkmark.
 - Docs speak the API's own nouns in their plainest form. The ## Vocabulary
   registry governs docs prose exactly as it governs code.
-- The website/ tree carries its own rule file, website/CONVENTIONS.md --
+- The .website/ tree carries its own rule file, .website/CONVENTIONS.md --
   this file's sibling for frontend code. Its preamble names the sections
   here that bind there by reference; it never restates them.
-- AI-drafted site prose writes against website/VOICE.md (samples, rules,
+- AI-drafted site prose writes against .website/VOICE.md (samples, rules,
   and a revision checklist run as its own pass) -- read it before
-  drafting any website/ prose, even when no file in that tree is open
+  drafting any .website/ prose, even when no file in that tree is open
   yet.
