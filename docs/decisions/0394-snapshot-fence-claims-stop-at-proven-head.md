@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded
 date: 2026-08-01
 phase: "14"
 ---
@@ -11,3 +11,7 @@ phase: "14"
 **Decision.** Each poll reads `MAX(id)` and the snapshot's `xmax` in one statement (one snapshot, so the pair is sound: any transaction that could own an id at or below head was already running, hence its txid < xmax), taken before the claim transaction's first write so our own txid isn't in the waited-on set. The claim's `gate` CTE takes the best of the cached `settled_head`, the fresh (head, xmax) pair, and the stored pair — a pair proves out when the current statement's snapshot `xmin` passes its xmax: every transaction that could own an id at or below it has finished, so each row is visible or its id is a permanent gap. Three new cursor columns carry the state: `settled_head`, `pending_head`, `pending_xmax xid8` (migration edited in place).
 
 **Consequences.** Claims lag the raw head by the lifetime of the oldest overlapping produce transaction — a long-held `ProduceInTx` holds claims back for its duration — accepted as the honest floor, since those ids aren't provably safe to seal over. Measured (cursorbench): idle at parity; claiming pays one extra round trip (+74µs at 10 partitions, +12% at 500, amortized across up to `limit` messages), still well under the old two-MAX shape at 500 partitions. **Rejected:** an advisory-lock fence producers must cooperate with — topic-wide produce stalls queued behind one slow `ProduceInTx`. **Rejected:** an internal outbox/inbox table — write amplification plus a group registry. **Rejected:** row-level `xmin` filters — only visible rows can be examined, and txid order != id order under `ProduceInTx` (live counterexample constructed). **Rejected:** lag windows — timing assumptions.
+
+Superseded by [0714](0714-consumer-observations-allocate-transaction-ids.md):
+active observations must allocate their own transaction id; snapshot xmax
+does not bound all already-running producers.

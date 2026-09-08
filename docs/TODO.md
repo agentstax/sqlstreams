@@ -232,8 +232,12 @@ untracked-so-far `runs.jsonl` files before they are first committed.
   Full second-run evidence is retained under
   bench/reliability/results/throughput/evidence/20260908T020110Z/.
   Serial producer batches avoided missing calls in two diagnostics, but
-  still failed latency/backlog at 32k. Exact cause not established;
-  isolate claim visibility/cursor advancement before a library fix.
+  still failed latency/backlog at 32k. [0714] fixes a deterministic
+  reproduction of skipped ids on both consumer paths and commits empty
+  claims so later polls can use their observations. Two repeated 32k/s
+  runs handled all 1.92m messages without missing/duplicate deliveries,
+  but backlog still grew. Diagnose remaining stalls before resuming
+  configuration sweeps.
   See bench/reliability/results/throughput/RESULTS.md.
   Long runs also need bounded recording/import storage; the current
   all-records/all-messages method exceeds 20 GiB before 15m at high rates.

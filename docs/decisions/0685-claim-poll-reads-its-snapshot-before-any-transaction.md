@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded
 date: 2026-09-06
 phase: "pre-v1"
 ---
@@ -62,3 +62,7 @@ statement itself runs in 29µs, so its shape is not where time goes.
   statement's snapshot, so an id issued in between by a transaction with
   xid >= xmax escapes the fence). Collapsing the fresh claim to one
   pipelined batch is parked in ROADMAP with its prototype.
+
+Superseded by [0714](0714-consumer-observations-allocate-transaction-ids.md):
+active observations must allocate their own transaction id; snapshot xmax
+does not bound all already-running producers.

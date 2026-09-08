@@ -185,12 +185,12 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0386 2026-08-01 accepted (phase 14) — The abandoned-routine Add/Remove race is fixed structurally with a reaper goroutine
 - 0387 2026-08-01 accepted (phase 14) — A missing cursor row errors loudly, detected by restructuring the claim query instead of adding an existence check
 - 0388 2026-08-01 accepted (phase 14) — The cursor-claim query locks the cursor row with FOR UPDATE in the old_values read
-- 0389 2026-08-01 accepted (phase 14) — FanOut tracks a per-group high-water mark on the cursor table; LIFECYCLE groups register cursor rows and pin retention
+- 0389 2026-08-01 superseded (phase 14) — FanOut tracks a per-group high-water mark on the cursor table; LIFECYCLE groups register cursor rows and pin retention
 - 0390 2026-08-01 accepted (phase 14) — FanOut delivers eagerly past the proven head; only the mark waits for proof
 - 0391 2026-08-01 accepted (phase 14) — FanOut's scan bound is a scalar subquery, not a join on old_values
 - 0392 2026-08-01 accepted (phase 14) — cursor claimed advances via GREATEST so a group running both paths cannot regress its frontier
 - 0393 2026-08-01 accepted (phase 14) — Binding changes are forward-only; history the FanOut mark has passed stays as routed
-- 0394 2026-08-01 accepted (phase 14) — Cursor claims stop at a proven head via a snapshot fence, not the visible MAX(id)
+- 0394 2026-08-01 superseded (phase 14) — Cursor claims stop at a proven head via a snapshot fence, not the visible MAX(id)
 - 0395 2026-08-01 accepted (phase 14) — The pending (head, xmax) pair is stored unconditionally on every poll
 - 0396 2026-08-01 accepted (phase 14) — An idle poll short-circuits after the read-only snapshot statement
 - 0397 2026-08-01 accepted (phase 14) — No index on deliveries status for v1; reopen only on measured evidence, and prefer a partial index then
@@ -437,7 +437,7 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0682 2026-09-06 accepted (pre-v1) — Metrics export uses an OTel producer and source-read health
 - 0683 2026-09-06 superseded (pre-v1) — Alert pending duration is derived from measurement history
 - 0684 2026-09-06 superseded (pre-v1) — Collector progress contract and bounded history
-- 0685 2026-09-06 accepted (pre-v1) — A claim poll reads its snapshot before any transaction and opens the reclaim transaction only on an expired lease
+- 0685 2026-09-06 superseded (pre-v1) — A claim poll reads its snapshot before any transaction and opens the reclaim transaction only on an expired lease
 - 0686 2026-09-06 superseded (pre-v1) — History-based pending belongs to the shared alert framework
 - 0687 2026-09-06 accepted (pre-v1) — The reliability lab is a ledger and a checker, with scenarios written as Go and printed, never parsed
 - 0688 2026-09-06 superseded (pre-v1) — Shared alert history evaluation contract
@@ -466,3 +466,4 @@ in `docs/DECISION_MAP.md` routes a question to its records.
 - 0711 2026-09-07 accepted (pre-v1) — The reliability lab is the benchmark harness, and a benchmark is a scenario
 - 0712 2026-09-07 accepted (pre-v1) — Documentation starts with a runnable example and separates progress from delivery outcomes
 - 0713 2026-09-07 accepted (pre-v1) — Sustainable throughput keeps both producer and consumer queues bounded
+- 0714 2026-09-07 accepted (pre-v1) — Consumer observations allocate transaction ids before advancing cursors

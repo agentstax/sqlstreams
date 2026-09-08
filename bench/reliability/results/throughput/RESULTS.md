@@ -61,10 +61,73 @@ transaction-start timestamps. Reading the final compressed raw handler
 file independently also counted 959,943 calls and none of those examples.
 
 The missing messages are durable but their group has advanced past them.
-The exact library cause is not established. Overlapping producer
-transactions are implicated by the serial comparison; claim visibility
-and cursor advancement need a deterministic concurrency test before a fix
-is proposed. No library code was changed during this exploration.
+A later two-message regression reproduced a claim skipping an unfinished
+producer whose transaction id is at or above snapshot xmax. This confirms
+an unsafe visibility bound in the library; see the correction below. The
+historical failing runs did not record statement-level transaction ordering,
+so their exact interleavings cannot be reconstructed.
+
+## Confirmed empty-claim rollback
+
+A controlled fixture called the real ClaimMessagesWithCursor three times
+with visible message ids 1 and 2 while another transaction kept the
+visibility proof pending. Each call returned no range. After every call,
+pending_head remained 0 and pending_xmax remained NULL, instead of
+persisting the observed head 2 and its transaction fence.
+
+In fresh_claim.go, the cursor update writes this state, but the low == high
+return bypasses Commit; deferred Rollback discards the update. This breaks
+the documented ability to reuse a previous poll's observation under
+continuous traffic. Its contribution to measured latency has not been isolated. Committing
+the observation fixes this state-loss defect; the repeats below show that
+large stalls remain.
+
+The library now commits the cursor transaction before returning an empty
+claim and propagates any commit error. The regression proves persistence
+and a later successful claim while newer transactions are still open.
+
+## Corrected transaction bound and repeats
+
+The consumer treated snapshot xmax as the next unissued transaction id.
+PostgreSQL actually uses latestCompletedXid + 1. An already-running producer
+can have an xid at or above that value and own a message below the visible
+head. The regression allocates A's xid, then B's xid; B inserts message 1,
+A inserts message 2 and commits, and B remains open. Before the fix, the
+real claim returned range (0,2] with only message 2.
+
+Both cursor claims and fan-out now allocate an observation transaction id
+in the statement that reads the head, and wait for every older transaction
+to finish. The observation finishes before the claiming transaction starts.
+Caught-up polls still allocate no xid. See
+[0714](../../../../docs/decisions/0714-consumer-observations-allocate-transaction-ids.md)
+for the proof, PostgreSQL sources, and existing-state limitations.
+
+Two repeats used the original 30s, 32k/s, batch 100, concurrency 4 setup:
+
+| UTC checker start | Committed | Handled | Missing / duplicate | Hold achieved/s | Hold p99 | Backlog slope/s |
+| --- | ---: | ---: | --- | ---: | ---: | ---: |
+| 02:48:23 | 960,000 | 960,000 | 0 / 0 | 31,870 | 41.94s | +16,336 |
+| 02:50:57 | 960,000 | 960,000 | 0 / 0 | 31,937 | 39.71s | +15,233 |
+
+Both pass every delivery check and fail the backlog guard. Neither meets
+our latency target. The fixes prevent the reproduced skip; they do not
+establish sustainable 32k/s throughput or explain all remaining stalls.
+Checker imports share the database with still-draining consumers, so the
+post-production tail also includes checker interference.
+
+A final 30s baseline at 16k/s (02:55:08 UTC checker start) passed all
+checks: 480,000 committed and handled, no missing or duplicate deliveries,
+p99 end-to-end 248.5ms across the full run. This remains a short probe,
+not the required sustained validation.
+
+The tested library diff is retained in ignored evidence/consumer-fix/library.patch,
+SHA-256 89245d2e7e916b1f6f565565e20bc74488c6c38d8b3cc9da36586bbc71e5a318.
+The run fingerprints identify base 03dcb58d146718a8c53a0e34537c28b3037dac9a,
+dirty. Four database regressions pass on PostgreSQL 17.10 and 18.4: empty-claim
+persistence, claim/fan-out visibility, and no xid allocation while caught up.
+The two original claim regressions failed before the fixes. Reclaim and
+routing labs pass on isolated PostgreSQL 17.10; root build, targeted consumer
+vet/race checks, and the documentation build also pass.
 
 ## Storage and verification
 
@@ -72,7 +135,8 @@ At 8k/s, PGDATA including checker imports used 1,105,544 KiB and raw
 records 160,672 KiB. The largest observed PGDATA footprint was 4,358,172
 KiB; raw records stayed below 650,000 KiB. Host free space stayed above
 70 GiB in observed checks. Disposable benchmark volumes were removed
-between runs; about 358 MiB of compressed diagnostic evidence was retained.
+between runs; the retained diagnostic evidence now totals about 545 MiB, including
+the corrected repeats. Final host free space is about 77 GiB.
 
 This harness retains all messages and writes/imports every record. Linear
 extrapolation of the 8k probe is about 36 GiB for a 15-minute run at only
@@ -88,6 +152,6 @@ fail completion checks without success audit rows. Removing one actual
 handler record from the 2k probe failed with exactly one undelivered
 message. Imported record tables are analyzed before verification queries.
 
-Next: isolate the delivery discrepancy, then resume configuration tuning.
+Next: diagnose remaining stalls and resume configuration tuning.
 Native comparison, stricter fixed-window throughput/backlog judgments,
 recording/storage changes, and three 15-minute validation runs remain open.

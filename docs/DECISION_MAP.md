@@ -5,7 +5,7 @@ then the records that settled it (`NNNN-NNNN` is a range and may hold a
 stray). Bodies live at `docs/decisions/NNNN-<slug>.md`; status and title
 are in `docs/DECISIONS.md`. A new record adds its number to its line.
 
-- claim, lease, cursor, claimed/committed, reclaim, snapshot fence, FOR UPDATE SKIP LOCKED: 0001-0005 0041-0047 0061-0067 0101-0107 0141-0145 0161-0166 0387-0396 0616 0685 0710
+- claim, lease, cursor, claimed/committed, reclaim, snapshot fence, FOR UPDATE SKIP LOCKED: 0001-0005 0041-0047 0061-0067 0101-0107 0141-0145 0161-0166 0387-0396 0616 0685 0710 0714
 - retry, backoff, dead-letter, exception path, work timeout, panic, abandoned goroutine: 0042-0043 0181-0192 0281-0294 0399-0400 0614-0615 0670
 - routing key, bindings, fan-out, wildcard, binding_log TTL: 0201-0208 0242 0389-0393 0511 0573
 - partitions, retention, janitor, create-ahead, heal, drop floor: 0221-0227 0378-0384 0428 0512-0513 0620 0659-0660 0662-0663

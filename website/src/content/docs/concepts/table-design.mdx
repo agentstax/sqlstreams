@@ -116,6 +116,25 @@ Suffix `1` throughout — the topic's id from the catalog.
   [routing](/concepts/routing/) patterns, and the append-only trail of
   every declaration attempt.
 
+## Waiting for earlier producers
+
+A consumer must wait for unfinished producers before advancing past their
+message ids. For `orders` and its `processor` group, producer A can take an
+earlier transaction id, then producer B inserts message 1 and stays open.
+A inserts message 2 and commits. Seeing message 2 does not make it safe to
+claim through 2: message 1 is still invisible.
+
+An active poll reads the visible head and allocates its own transaction
+id in the same statement. That statement finishes before the claim starts.
+The claim waits until every transaction older than that observation has
+finished. PostgreSQL's snapshot `xmax` does not provide this bound: an
+already-running producer can have an id at or above it.
+
+An empty claim saves its observation for the next poll. Caught-up polls
+remain read-only; active polls allocate a transaction id. The same rule
+applies when fan-out creates delivery rows. Existing skipped deliveries
+need reconciliation; changing the claim rule does not replay them.
+
 ## The deliberate absences
 
 - **No `topic_id` column anywhere in the family.** The table name is

@@ -1,5 +1,13 @@
 # Cursor claim: where a claim's time goes
 
+The hand-copied snapshot-xmax queries and one-batch prototype below are
+historical. A deterministic concurrent-producer test exposed an unsafe
+transaction bound; [0714](../../docs/decisions/0714-consumer-observations-allocate-transaction-ids.md)
+replaces it in the library. Only the real datastore calls use that fix.
+These old microbenchmarks do not establish current throughput or delivery
+correctness; use the reliability scenario for both.
+
+
 `go run ./claim` from `bench/`, against the running dev database
 (`just database-*`). Registers its own topic, seeds 20,000 rows at
 PartitionSize 500 (41 partitions), then times each statement of the
