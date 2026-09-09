@@ -72,7 +72,7 @@ type VideoUploaded struct {
 func (VideoUploaded) SchemaVersion() int { return 1 } // increment on breaking changes
 ```
 
-[Produce](.examples/01-produce-only/).
+[Produce](.examples/01-produce-only/)
 
 ```go
 ctx, stop := vulkan.LifecycleContext(nil)
@@ -88,7 +88,7 @@ producer, _ := uploads.Producer().Register(ctx, nil)
 producer.Produce(ctx, &VideoUploaded{VideoId: "video-42"}, nil)
 ```
 
-[Consume](.examples/02-consume-only/).
+[Consume](.examples/02-consume-only/)
 
 ```go
 transcoder := uploads.Consumer("transcoder")
@@ -99,26 +99,14 @@ consumer.Consume(ctx, func(ctx context.Context, video *VideoUploaded) error {
 }, nil)
 ```
 
-[Transactional outbox](.examples/04-produce-in-tx/).
+[Metrics](.examples/11-metrics-read/)
 
 ```go
-producer.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*VideoUploaded, error) {
-	if _, err := tx.Exec(ctx, "INSERT INTO videos (id) VALUES ($1)", "video-43"); err != nil {
-		return nil, err
-	}
-	return &VideoUploaded{VideoId: "video-43"}, nil
-}, nil)
+snapshot, _ := transcoder.Metrics().Snapshot(ctx)
+fmt.Println("backlog", snapshot.Cursor.Backlog, "dead", snapshot.Exceptions.Dead)
 ```
 
-[Produce on a schedule](.examples/10-schedule-produce/).
-
-```go
-scheduler, _ := client.Scheduler("usage.reports.nightly").Register(ctx,
-	"usage.reports.requested", "0 2 * * *", &UsageReportRequested{}, nil)
-scheduler.Schedule(ctx)
-```
-
-[Consume built-in alerts](.examples/12-alert-consumer/).
+[Consume built-in alerts](.examples/12-alert-consumer/)
 
 ```go
 alerts := client.Topic[vulkan.Alert](vulkan.AlertTopicName)
@@ -130,14 +118,7 @@ alertConsumer.Consume(ctx, func(ctx context.Context, alert *vulkan.Alert) error 
 }, nil)
 ```
 
-[Metrics](.examples/11-metrics-read/).
-
-```go
-snapshot, _ := transcoder.Metrics().Snapshot(ctx)
-fmt.Println("backlog", snapshot.Cursor.Backlog, "dead", snapshot.Exceptions.Dead)
-```
-
-Retries, dead letters, ordering, compaction and the rest are in [`.examples/`](.examples/).
+Retries, dead letters, transactional produce, idempotent produce, keyed ordering, schedules, compaction and the rest are in [`.examples/`](.examples/).
 
 ### CLI
 
