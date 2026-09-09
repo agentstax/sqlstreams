@@ -283,11 +283,10 @@ function noCursor(groupId: number): Error {
 // own produce statement -- that path is the page's claim, so it stays verbatim
 async function seed(db: PGlite): Promise<void> {
 	await db.query(`INSERT INTO system_config DEFAULT VALUES`);
-	await db.query(`INSERT INTO stream_config (system_id, name, partition_size) VALUES ($1, $2, $3)`, [
-		1,
-		demoStreamName,
-		demoPartitionSize,
-	]);
+	await db.query(
+		`INSERT INTO stream_config (system_id, name, partition_size) VALUES ($1, $2, $3)`,
+		[1, demoStreamName, demoPartitionSize],
+	);
 
 	for (const [index, description] of seedOrders.entries()) {
 		const orderId = firstOrderId + index;

@@ -1,4 +1,4 @@
-module github.com/agentstax/vulkan/.tools/compat
+module github.com/agentstax/sqlstreams/.tools/compat
 
 go 1.27.0
 
@@ -8,8 +8,11 @@ go 1.27.0
 //
 // The require below is the whole point of this module: it pins the vulkan
 // this lab drives, independent of the working tree. Until two releases
-// exist, the replace points at the working tree, making the run a dry-run
-// of the harness itself. At a release checkpoint the driver repoints it at
+// exist, the harness is dormant. Its Vulkan API predates the SQLStreams
+// rename: the working-tree replace below cannot serve that old API. Before
+// running this harness, repoint the dependency at a matching prior checkout
+// (and update the pin and driver for the release under test), never at the
+// renamed working tree. At a release checkpoint the driver repoints it at
 // a worktree of the prior tag:
 //   git worktree add .compat/<prior-tag> <prior-tag>
 //   cd .tools/compat && go mod edit -replace github.com/agentstax/vulkan=../../.compat/<prior-tag>
@@ -19,7 +22,7 @@ go 1.27.0
 // old enough to predate PostgresConnectionConfig.Schema instead lands in
 // whatever its connection defaults to, and the working tree has to migrate
 // there for the two to meet:
-//   go run ./cmd/vulkan migrate up --schema public --database-url <url>
+//   go run ./cmd/sqlstreams migrate up --schema public --database-url <url>
 
 require github.com/agentstax/vulkan v0.0.0
 

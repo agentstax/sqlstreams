@@ -29,7 +29,7 @@
 		{@const { children: _children, ...storyProps } = args}
 		<ErrorPost {...storyProps}>
 			{#snippet actions()}
-				<CopyButton label="Copy link" text="https://vulkan-5ss.pages.dev/errors/VK0005/" />
+				<CopyButton label="Copy link" text="https://vulkan-5ss.pages.dev/errors/SS0005/" />
 			{/snippet}
 			<p>As it arrives in your log or error chain — the values are your call's own.</p>
 		</ErrorPost>

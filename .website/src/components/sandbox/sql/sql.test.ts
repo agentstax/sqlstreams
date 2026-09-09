@@ -50,7 +50,8 @@ function goLiterals(source: string, owner: string): string[] {
 	const literals: string[] = [];
 	for (let index = 1; index < parts.length; index += 2) {
 		const literal = parts[index];
-		if (literal !== undefined && literal.includes(`-- sqlstreams: ${owner}`)) literals.push(literal);
+		if (literal !== undefined && literal.includes(`-- sqlstreams: ${owner}`))
+			literals.push(literal);
 	}
 	return literals;
 }

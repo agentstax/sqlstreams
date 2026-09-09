@@ -2603,6 +2603,24 @@ untracked-so-far `runs.jsonl` files before they are first committed.
   maximum throughput. No production query, index or timeout changes made.
   Successful20k smoke proves cleanup works at light load, not an8min
   sustained ceiling. Larger-run storage stabilization remains unproven.
+- Interim retention configuration trial2026-09-09 (user chose optionA;
+  whole-partition retention with explicit maximum timestamps added to
+  ROADMAP Next as optionC). Planned janitor polling30s and cleanup
+  timeout30s, keeping query semantics and repository defaults unchanged.
+  Isolated archived build initially set SystemManager's JanitorConfig,
+  but active consumer constructs a separate provisioner with default5s:
+  scratch_143404 startup proved effective poll30s/timeout5s. This polling-
+  only run still timed out, was stopped, archived and excluded. Consumer
+  construction in the isolated build now also passes CleanupTimeout30s;
+  build, fmt, vet and race compile checks passed (no test files).
+  Combined trial retention_relaxed_both_143744/scratch_143745 did not
+  reach load: concurrent project rename changed live runner to
+  sqlstreams.stream_config while frozen binary created vulkan.topic_config.
+  Setup failed. User previously instructed stopping on broken code during
+  rename: PAUSED awaiting their signal; do not work around naming changes
+  or claim30s timeout has been runtime-validated. Both failed databases
+  removed, native PG durable baseline restored. No library defaults changed;
+  isolated constructor configuration deltas and source archives retained.
 - [ ] Choose retention from measured storage, then validate finalists.
 - [ ] Record comparison and sustainable result with evidence.
 
@@ -2720,30 +2738,26 @@ lease, schedule and system; this rename does not change their semantics.
 
 ### 3. Library, storage and operator interfaces
 
-Implementation progress 2026-09-09: mechanical rename prepared in
-`/tmp/sqlstreams-rename-work`, not applied to shared Go files while the
-other sessions' edit coordination is pending. Snapshot hashes and path map
-are `/tmp/sqlstreams-rename-baseline.json` and
-`/tmp/sqlstreams-rename-paths.json`; reconcile newer source/rules before
-applying. The active testing session is adding `vulkantest` and new test
-conventions, so include their final names in the rename once settled.
+Implementation progress 2026-09-09: applied the mechanical rename to the
+shared tree after the user confirmed other sessions will adjust. Latest
+concurrent source and testing-rule edits were preserved; backups are in
+`/tmp/sqlstreams-before-apply` and the applied path map is
+`/tmp/sqlstreams-applied-paths.json`.
 
-- Isolated root, CLI, otel and .tools build/vet/race checks passed; .e2e
-  and .examples build/vet passed. Benchmark build/vet passed; reliability
-  tests passed after regenerating renamed scenario fixtures (the previously
-  passing packages plus a targeted scenarios rerun).
-- Table-name and SQL-owner scanners rejected deliberately wrong inputs in
-  renamed stream files; restored-source checks passed. CLI alignment fixtures
-  were adjusted for the longer `stream` label.
-- Isolated site build and 20 diagnostic-page/placeholder tests passed.
-  Existing lowercase vk0100-vk0104 filenames are normalized to SS names.
-  SQL sandbox parity still has three baseline failures also reproduced in
-  the shared tree: missing system DDL statements and claim/fresh-claim
-  examples behind the current Go source. Reconcile when its owner is ready.
-- Fresh-DB e2e, live metrics/alerts, old-route inspection, downstream-module
-  validation and compatibility-harness handling remain unverified. Existing
-  .tools/compat still exercises the old API and was not rewritten into the
-  renamed build. No shared database reset performed.
+- All seven current Go modules pass build/vet/format. Root, CLI, otel and
+  .tools race tests pass. Isolated reliability tests and two deliberate
+  convention-scanner sabotage checks passed before application.
+- Website static checks and all 127 unit tests pass. Updated the SQL sandbox
+  to the current Go statements. All 24 Chromium/Firefox/WebKit flows pass
+  against the built site; Astro preview exits before ready in this environment,
+  so browser verification used a temporary static server.
+- Full fresh-database e2e is running in its own disposable PostgreSQL
+  container; the shared database is untouched. Live telemetry, downstream
+  module use and old-route verification remain in progress.
+- `.tools/compat` retains its old Vulkan dependency/API intentionally. Its
+  own module name is updated, but the existing working-tree replacement
+  cannot supply that old API. Pin a matching old checkout before release
+  validation; no cross-version compatibility is claimed for this reset.
 
 - [ ] Rename topic-derived declarations at their owning roots, then public
   aliases/handles, packages, files, methods, configs, owners, worker names,

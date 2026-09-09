@@ -7,8 +7,9 @@ import { claimLeaseTable, consumerGroupCursorTable, messageLogTable } from './ta
 export const claimSnapshotSqlTemplate = `
 		-- sqlstreams: messageconsumer.readClaimSnapshot
 		SELECT
-			(SELECT COALESCE(MAX(id), 0) FROM %[1]s.%[2]s) AS head,
-			pg_snapshot_xmax(pg_current_snapshot())::text AS xmax,
+			h.head,
+			CASE WHEN h.head = c.pending_head AND c.pending_head = c.settled_head AND c.claimed = c.settled_head
+				THEN '0' ELSE pg_current_xact_id()::text END AS xmax,
 			c.claimed,
 			c.settled_head,
 			c.pending_head,
@@ -18,6 +19,7 @@ export const claimSnapshotSqlTemplate = `
 					AND l.expires_at < now()
 			) AS reclaimable
 		FROM %[1]s.%[3]s c
+		CROSS JOIN (SELECT COALESCE(MAX(id), 0) AS head FROM %[1]s.%[2]s) h
 		WHERE c.consumer_group_id = $1;
 	`;
 

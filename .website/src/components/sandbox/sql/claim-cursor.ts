@@ -30,57 +30,14 @@ export const claimCursorSqlTemplate = `
 			FOR UPDATE
 		),
 		gate AS (
-			-- gate = how far claimed may advance this poll.
-			--
-			-- the raw MAX(id) is unsafe: BIGSERIAL issues ids at INSERT time,
-			-- txns commit in any order, and nothing re-reads below claimed:
-			--
-			-- EX:
-			--
-			--   producer A: INSERT id=8, txn stays open
-			--   producer B: INSERT id=9, commits
-			--   claim to MAX(id)=9 -> reads (0,9], 8 is invisible, skipped
-			--   producer A commits -> 8 < claimed forever -> LOST
-			--
-			-- the fix: claimed only advances to a head PROVEN to have nothing
-			-- invisible at or below it. the proof works on a (head, xmax)
-			-- pair -- MAX(id) (head) and the next-unissued txid (max), read together
-			-- in one EARLIER snapshot (readClaimSnapshot, or a prior poll that
-			-- stored its pair in pending_head/pending_xmax).
-			--
-			-- EX: proving the pair (head=9, xmax=103) from readClaimSnapshot:
-			--
-			--   1. the pair says:  every txn that can own an id <= 9 has txid < 103
-			--                      (all ids <= 9 were INSERTed before txid 103 was issued)
-			--   2. since then:     txns have kept finishing, so xmin -- the oldest
-			--                      txid still running -- rises toward 103 as they do
-			--   3. this query:     if it sees xmin >= 103, every txid < 103 is finished
-			--   4. therefore:      every txn that can own an id <= 9 is finished --
-			--                      anything committing at or below 9 already has, so
-			--                      claiming through 9 skips nothing
-			--
-			-- gate takes the best proven head available:
-			--   settled_head     -- wins when neither pair proves (a txn seen by
-			--                       both snapshots is still open, e.g. one that
-			--                       produced with ProduceInTx and has not
-			--                       committed) -- claims hold at the last proven
-			--                       head until it closes
-			--   the fresh pair   -- $3/$4, wins when everything running at
-			--                       readClaimSnapshot finished before this query ran --
-			--                       the quiet path, claims land in the same poll
-			--                       as the produce
-			--   the stored pair  -- wins under nonstop traffic: the fresh pair is
-			--                       only microseconds old, too young for its fenced
-			--                       txns to have finished, but the stored pair has
-			--                       had a full poll interval for that -- xmin has
-			--                       passed its xmax. claiming through it claims up
-			--                       to where the log stood a poll ago, so fresh
-			--                       messages wait one more poll if this is used
+			-- Each pair's xid was allocated after its head's snapshot began.
+			-- xmin >= that xid proves all possible producers below the head finished.
+			-- A saved pair allows progress while newer producers remain active.
 			SELECT (
 				SELECT MAX(pair.head)
 				FROM (VALUES
 					(o.settled_head, NULL::xid8),    -- already proven, no fence to pass
-					($3::bigint, $4::xid8),          -- the fresh pair: snapshot.Head, snapshot.Xmax
+					($3::bigint, $4::xid8),          -- the fresh observation: snapshot.Head, snapshot.Xmax
 					(o.pending_head, o.pending_xmax) -- the stored pair
 				) AS pair(head, xmax)
 				-- a pair is proven once xmin has passed its xmax

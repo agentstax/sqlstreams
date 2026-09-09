@@ -15,8 +15,8 @@
 		{@const { children: _children, ...storyProps } = args}
 		<ThreadPost {...storyProps}>
 			<p>
-				Every queue makes you trust its dashboard. SQLStreams is Postgres, so you can just look — the
-				tables below are the ones the library creates.
+				Every queue makes you trust its dashboard. SQLStreams is Postgres, so you can just look —
+				the tables below are the ones the library creates.
 			</p>
 		</ThreadPost>
 	{/snippet}
