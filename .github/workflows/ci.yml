@@ -10,24 +10,10 @@ permissions:
   contents: read
 
 jobs:
+  # The integration tests in .tests/ start their own Postgres through
+  # testcontainers on the runner's Docker daemon; no service is declared.
   verify:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: sqlstreams
-          POSTGRES_PASSWORD: sqlstreams
-          POSTGRES_DB: sqlstreams
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U sqlstreams"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      SQLSTREAMS_TEST_DATABASE_URL: postgres://sqlstreams:sqlstreams@localhost:5432/sqlstreams
     steps:
       - uses: actions/checkout@v7
 
@@ -39,7 +25,7 @@ jobs:
       - uses: extractions/setup-just@v3
 
       # go.work is gitignored; the nested modules resolve the root library through it.
-      - run: go work init . ./.e2e ./.examples ./.bench ./cmd/sqlstreams ./otel ./.tools
+      - run: go work init . ./.e2e ./.examples ./.bench ./cmd/sqlstreams ./otel ./.tools ./.tests
 
       # The justfile sets dotenv-required for the compose recipes; verify
       # reads nothing from it.

@@ -1039,40 +1039,51 @@ trailing `help` attribute, so the line itself points at its explanation.
 
 Every test is exactly one of three kinds, named by footprint:
 
-- A **pure test** runs in one process with no I/O and no wait on the
-  clock: no connection, no `time.Sleep`, no goroutine blocked on a timer
-  outside a `testing/synctest` bubble.
-- A **database test** runs in one process against a real Postgres, in a
-  schema the fixture creates for it and drops at cleanup.
-- An **e2e test** is a program under `.e2e/`, and exists only because a
-  database test cannot observe the behavior: a second process, a signal,
-  a killed backend, or a controlled Postgres server.
+- A **unit test** lives beside the code in a `_test.go` file, runs in one
+  process with no I/O and no wait on the clock -- no connection, no
+  `time.Sleep`, no goroutine blocked on a timer outside a
+  `testing/synctest` bubble -- and runs under `go test ./...` from the
+  root with nothing installed.
+- An **integration test** lives under `.tests/`, a dev-only module, and
+  runs against a real Postgres that the test binary starts in Docker.
+  `just test-integration` runs them all.
+- An **e2e test** is a program under `.e2e/`, and exists only because an
+  integration test cannot observe the behavior: a second process, a
+  signal, a killed backend, or a controlled Postgres server.
 
-Pure and database tests live in `_test.go` files beside the code they
-test and run under `go test ./...`; a database test skips with a visible
-message when `SQLSTREAMS_TEST_DATABASE_URL` is unset, never through a build
-tag. The reliability lab (`.bench/reliability`) is the whole-system
-layer and keeps its own rules; `.tools/conventions` tests the rule
-sheet, not the library.
+There is no fourth kind. A single-process scenario that touches Postgres
+is an integration test, never a `_test.go` beside the code and never a
+new e2e program. The reliability lab (`.bench/reliability`) is the
+whole-system layer and keeps its own rules; `.tools/conventions` tests
+the rule sheet, not the library.
 
 - The lowest kind that can observe the behavior is the kind. A behavior a
   higher kind catches with no lower kind failing gets the lower test
   written; a higher test that duplicates a lower one is deleted.
 - Postgres is never faked, mocked, or stood in for: the behavior under
   test is the lock manager and MVCC, and no in-memory datastore exists.
-- `testing/synctest` is for pure tests of in-process timing (a flush
+- `testing/synctest` is for unit tests of in-process timing (a flush
   timer, the suppression window, a retry curve). A goroutine blocked on
   Postgres is never durably blocked, so a bubble cannot host a database
   call; a loop's body is a synchronous function a test calls directly.
+
+## What an integration test is about
+
+An integration test's subject is a domain's datastore, driven through
+its verbs, because the datastore is where the SQL promises live.
+Controllers get none: a controller is guards and adapters over its
+datastore, and the rare controller that owns a multi-statement invariant
+is tested through the datastore method that holds the transaction.
+Assemblers and the client get none for now.
 
 ## What a test earns its place by
 
 A test states, in its name or its first comment, which of four reasons
 it exists for:
 
-- behavior -- a caller or operator can observe the outcome at a public
-  boundary: a `sqlstreams` handle verb, a controller verb, a log line's
-  level and code, a CLI exit status.
+- behavior -- a caller or operator can observe the outcome at a
+  boundary: a datastore verb, a log line's level and code, a CLI exit
+  status.
 - invariant -- a fact SQL enforces that a rewrite could silently lose:
   no loss, one live lease, the monotonic cursor, the snapshot fence,
   per-key order, idempotent produce, crash consistency.
@@ -1083,78 +1094,80 @@ it exists for:
 A test is deleted, not fixed, when it restates the code (asserts a call
 sequence, matches error text, compares a whole internal row), guards a
 constructor nil check or a Validate branch with no constraint math,
-cannot name its invariant, or flakes. A flaky test is skipped the day it
-flakes with the reason in the skip text, and made deterministic or
-deleted within the milestone. There is no coverage target.
+round-trips an adapter, counts a catalog, cannot name its invariant, or
+flakes. A flaky test is skipped the day it flakes with the reason in the
+skip text, and made deterministic or deleted within the milestone. There
+is no coverage target.
 
 ## Test shape
 
-One shape per kind, the same in every module.
+One shape for both kinds, the same in every module.
 
-- `testing` from the standard library and nothing else: no assertion
-  library, mock generator, container library, clock library, or leak
-  checker, in any module.
+- A test body is three captioned sections in order -- `// setup`,
+  `// test`, `// verify` -- one blank line between them and none inside.
+  Setup builds state and fails only through helpers; test is the call or
+  action under test; verify reads outcomes and owns every failure line.
+  A narrative repeats test and verify, never setup.
+- `testing` from the standard library and nothing else in a unit test:
+  no assertion library, mock generator, clock library, or leak checker,
+  in any module. `.tests/` adds testcontainers and `x/sync`, and nothing
+  else.
 - A failure line reads got-before-want and names the verb and its
   input: `Verb(%v) = %v, want %v`. Structs compare with
   `reflect.DeepEqual` and print with `%+v`. Errors branch with
   `errors.Is` against the `Err*` variable, never message text.
 - `t.Fatal` for setup and for any step later steps depend on; `t.Error`
   for independent checks in one case; never either from a goroutine the
-  test spawned -- send to a channel the test reads.
+  test spawned -- send to a channel the test reads, or run the goroutines
+  under an `errgroup` whose `Wait` the test checks.
+- Goroutines appear only in a test whose named invariant is about
+  concurrency. Every other test is sequential.
 - A closed set is table-driven under `t.Run` with a name per case,
-  never an index. A multi-step database narrative (claim, hold a
-  transaction, claim again) is one sequential test with no table.
+  never an index. A multi-step narrative (claim, hold a transaction,
+  claim again) is one sequential test with no table.
 - A test name is a sentence in the repo's nouns:
   `TestEmptyClaimPersistsPendingObservation`.
 - A helper takes `testing.TB`, calls `t.Helper()`, registers teardown
   with `t.Cleanup`, and fails only for setup. Assertion helpers are not
   written: the failure line belongs in the test function.
-- A test never sleeps for work to happen. It reads a channel the handler
-  closes, or polls through the fixture's `WaitFor`, whose deadline fails
-  with the last error.
-- A database test is in-package by default; one that needs the real
-  table set is an external test package (`package datastore_test`)
-  built through the fixture, reaching internals through
-  `export_test.go`. Tests create tables only through the real
-  registration verbs, never a copy of `CREATE TABLE` text -- the DDL
-  sibling of "tests call the real datastore methods, never a copy of
-  their SQL".
-- Time is config: a test sets intervals and lease durations short and
-  observes through `WaitFor`; there is no clock seam.
+- A test never sleeps for work to happen. Expiry is produced by moving
+  `expires_at` into the past with an UPDATE, not by a short ttl and a
+  wait.
+- Setup goes through the real registration verbs -- a system, stream, or
+  consumer group is registered, never built from copied `CREATE TABLE`
+  text -- the DDL sibling of "tests call the real datastore methods,
+  never a copy of their SQL".
 - No `t.Parallel()`; no goroutine-count assertions.
 
-## The fixture package
+## The .tests module
 
-`pkg/sqlstreamstest` is the one fixture, published so a user's handler tests
-use what the library's own tests use. A fixture verb is the constructor it
-stands for, with `t` in place of `ctx` and the fixture's own pool in place
-of the caller's; it skips when `SQLSTREAMS_TEST_DATABASE_URL` is unset and
-fails through `t`, never by returning an error.
+`.tests/` is a nested dev-only module (`github.com/agentstax/sqlstreams/.tests`),
+resolved through the repo-root `go.work` like `.e2e/`, never tagged or
+published. It reaches the library's exported surface only.
 
-- `NewDatastore(t, cfg)` -- `datastore.NewPostgresDatastore` over a fresh
-  schema in the database the variable names, dropped at cleanup; the
-  fixture owns `cfg.Schema`.
-- `NewClient(t, ds, cfg)` -- `sqlstreams.NewClient` over `ds`'s pool and
-  schema plus system registration, so tables come from the migration
-  registry.
-- `DatabaseURL(t)` -- the variable's value, for a subject that takes a URL
-  rather than a pool (the CLI).
-- `WaitFor(t, condition)` -- the deadline poller.
-- `NewCountingLogger()` -- the `logging.Logger` that counts by level and
-  code, the one shape for log assertions.
-
-It holds test verbs only, declares no codes, owns no SQL beyond the
-schema create and drop, and is the only package that reads a
-`SQLSTREAMS_TEST_*` variable. Its exported names are supported surface
-under ## Supported public API.
+- `.tests/postgres` is the one Docker seam. `postgres.Start(t)` returns a
+  `*datastore.PostgresDatastore` over a fresh schema, dropped when the
+  test ends, in a Postgres container the test binary starts on first
+  use; the reaper removes the container when the process exits.
+  `SQLSTREAMS_TEST_DATABASE_URL`, when set, names a server to use instead
+  of a container, and `.tests/postgres` is its only reader.
+- One directory per domain root, mirroring `pkg/<root>`
+  (`.tests/worker`, `.tests/consume`, `.tests/stream`), package named for
+  the root, holding only `_test.go` files: one `setup_test.go` with that
+  domain's setup helpers (`newWorkerDatastore(t)`, `declareWorker(t, ...)`)
+  and one test file per subject. No helper is shared across domains
+  beyond `postgres.Start`.
+- The module holds test files and the seam, declares no codes, and owns
+  no SQL beyond the schema create and drop.
 
 ## Running tests
 
-- `go test ./...` with no variable set runs every pure test and skips
-  every database test visibly; with `SQLSTREAMS_TEST_DATABASE_URL` set it
-  runs both. Per change, the test cache stays on.
+- `go test ./...` from the root runs every unit test and needs nothing
+  installed. Per change, the test cache stays on.
+- `just test-integration` runs `.tests/` with `-race -count=1`; it needs
+  Docker, or `SQLSTREAMS_TEST_DATABASE_URL` naming a disposable server.
 - `just verify` runs `go test -race -count=1 -shuffle=on` in every
-  module that has tests, against the dev Postgres; CI provides one.
+  module that has tests, `.tests/` included.
 - `-race` is on everywhere; a test whose memory makes that impossible
   moves to a no-race lane by name.
 
@@ -1167,9 +1180,10 @@ under ## Supported public API.
   and exiting 1; `must`, `die`, `assert`, and the pool from
   `SQLSTREAMS_TEST_DATABASE_URL` come from `.e2e/common`, never a private
   copy.
-- A new single-process scenario is a database test, not an e2e program.
-- E2E tests assert on log events by level and attributes through the
-  fixture's counting logger, never by matching message substrings.
+- A new single-process scenario is an integration test, not an e2e
+  program.
+- E2E tests assert on log events by level and attributes through a
+  counting logger, never by matching message substrings.
 - An e2e test that hand-copies a production query (EXPLAIN demos) goes
   silently stale when the real query changes -- grep e2e tests for
   mirrors whenever a production query moves. Prefer driving the real

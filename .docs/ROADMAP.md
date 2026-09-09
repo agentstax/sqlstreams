@@ -47,44 +47,32 @@ the item is removed.
   - bench mark tests should be done on at least postgres 18 as there 
     could be performance gains, specifically with uuidv7
 
-- **Test suite: kinds, `sqlstreamstest`, TEST.md transcription, e2e
-  conversion** (14c) — rules settled in [0730] [0731]; the research and
-  the entry-by-entry map of .docs/TEST.md are `TEST_EXPLORATION.md` at
-  root (deleted at close-out). CONVENTIONS Part 5's fixture section is
-  the spec; the site gets a reference page only when the package ships.
-  The rename [0725] has landed; build the fixture against SQLStreams. Order of work: build `pkg/sqlstreamstest`
-  (`NewDatastore`, `NewClient`, `WaitFor`, `NewCountingLogger`), collapse
-  the four `*_TEST_*` env vars into `SQLSTREAMS_TEST_DATABASE_URL`, move
-  `claim_test.go` onto the fixture as an external test package; CI gains a
-  Postgres service in that change and `just verify` runs
-  `-race -count=1 -shuffle=on` in every module with tests (cmd/sqlstreams and
-  otel included). Then transcribe TEST.md (single-process cases become
-  database tests in pkg/producer and pkg/consumer, SQLSTATE tables become
-  pure tests in pkg/common, signal and killed-server cases stay e2e) and
-  delete the file. Existing `.e2e/` programs convert opportunistically,
-  and every single-process one is converted before this item closes; the
-  60 private `must`/`die`/`assert` copies collapse into `.e2e/common`.
-  `(checked)` candidates for .tools/conventions, each sabotaged before
-  trusted: no third-party import in a `_test.go`; no `time.Sleep` in a
-  `_test.go` outside a `synctest` bubble; no `CREATE TABLE` text in a
-  `_test.go`; one `SQLSTREAMS_TEST_*` name read only by `sqlstreamstest`;
-  no e2e program declaring its own `must`.
-  - Done 2026-09-09: `pkg/sqlstreamstest`, the one env var, `claim_test.go`
-    on the fixture, `verify` and CI, and the TEST.md transcription: the
-    lifecycle cases are database tests in pkg/sqlstreams (producer_test.go,
-    consumer_test.go), the SQLSTATE tables are pure tests in pkg/common.
-    Dropped with the API that moved: producer lifecycle-context cases (a
-    producer no longer registers a lifecycle), Register-twice and
-    Consume-before-Register, the goroutine-count baseline, the live 53300
-    trigger (a full pool queues, it never raises the code) and the live
-    57014 trigger (a cancel must land mid-statement; timing-bound).
-  - Pending e2e program `.e2e/signal`, the four TEST.md cases with no home
-    yet: a producer under SIGKILL leaves no prepared transaction or
-    ungranted lock; a producer under SIGTERM through `LifecycleContext`
-    exits 0 with the in-flight message committed; a consumer under SIGTERM
-    exits 0 promptly; a second SIGTERM past a hung handler force-exits with
-    status 128 plus the signal, never waiting out Timeout plus TimeoutGrace.
-  - Pending database test: `DropExpiredPartitions` called twice succeeds
+- **Test suite: unit/integration split, `.tests` module, e2e conversion**
+  (14c) -- rules in CONVENTIONS Part 5, settled in [0736] (superseding
+  [0730] [0731]). Unit tests beside the code; integration tests under
+  `.tests/`, one directory per domain root, over testcontainers; the
+  subject of an integration test is a domain's datastore. Working one
+  domain at a time from an approved promise list: worker first (12
+  promises listed 2026-09-09; #1 landed as `.tests/worker/instance_test.go`),
+  then consume (`claim_test.go` moves), stream (the janitor sweep and
+  idempotency tests move), schedule, alert, metric. `TEST_EXPLORATION.md`
+  at root holds the research and is deleted at close-out.
+  - Pending: delete `pkg/sqlstreamstest` once `.bench/scratchnative` and
+    the janitor tests no longer import it; `cmd/sqlstreams` conn_test and
+    `.bench/reliability` measure_test read the env var directly.
+  - Pending: `(checked)` candidates for .tools/conventions, each sabotaged
+    before trusted: no `_test.go` under `pkg/` imports pgx or opens a
+    connection; no `time.Sleep` in a `_test.go` outside a `synctest`
+    bubble; no `CREATE TABLE` text in a `_test.go`; `SQLSTREAMS_TEST_*`
+    read only by `.tests/postgres` and `.e2e/common`; no e2e program
+    declaring its own `must`.
+  - Pending e2e program `.e2e/signal`, the four cases with no home yet: a
+    producer under SIGKILL leaves no prepared transaction or ungranted
+    lock; a producer under SIGTERM through `LifecycleContext` exits 0 with
+    the in-flight message committed; a consumer under SIGTERM exits 0
+    promptly; a second SIGTERM past a hung handler force-exits with status
+    128 plus the signal, never waiting out Timeout plus TimeoutGrace.
+  - Pending integration test: `DropExpiredPartitions` called twice succeeds
     (a retry after an ambiguous commit), once a droppable-partition fixture
     exists.
 
@@ -106,6 +94,8 @@ the item is removed.
 ## Next
 
 - **Whole-partition retention with explicit maximum-timestamp metadata.**
+  - Reassess after [0734]: user accepts approximate id/timestamp order;
+    evaluate the oldest-row sweep precheck before this larger redesign.
   Replace repeated per-row expiry scans with partition lifecycle management
   that drops sealed partitions only when their greatest message timestamp
   has expired and consumer cursors permit deletion. User selected this as

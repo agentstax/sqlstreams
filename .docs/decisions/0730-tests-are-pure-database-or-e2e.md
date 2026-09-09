@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded by [0736]
 date: 2026-09-09
 phase: pre-v1
 ---

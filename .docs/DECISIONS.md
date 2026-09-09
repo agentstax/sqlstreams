@@ -482,7 +482,13 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 - 0727 2026-09-09 superseded in part by 0728 and 0732 (pre-v1) — SQLStreams technical identity follows the product name
 - 0728 2026-09-09 accepted (pre-v1) — Rename proposal review stays off the live website
 - 0729 2026-09-09 accepted (pre-v1) — SQLStreams wordmark ends with an amber semicolon
-- 0730 2026-09-09 accepted (pre-v1) — Tests are pure, database, or e2e, and a database test runs against Postgres itself
-- 0731 2026-09-09 accepted (pre-v1) — vulkantest is one published fixture package with a schema per test
+- 0730 2026-09-09 superseded by 0736 (pre-v1) — Tests are pure, database, or e2e, and a database test runs against Postgres itself
+- 0731 2026-09-09 superseded by 0736 (pre-v1) — vulkantest is one published fixture package with a schema per test
 - 0732 2026-09-09 accepted (pre-v1) — Diagnostic codes use the SQL prefix
 - 0733 2026-09-09 accepted (pre-v1) — Claim observations use xid
+
+- 0734 2026-09-09 accepted (pre-v1) — Janitor probes oldest row before sweeping
+
+- 0735 2026-09-09 accepted (pre-v1) — Idempotency expiry uses timestamp order
+
+- 0736 2026-09-09 accepted (pre-v1) — Integration tests live in a nested .tests module over testcontainers

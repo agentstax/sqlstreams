@@ -5,6 +5,32 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-09 — Idempotency expiry uses timestamp order [0735]
+
+Idempotency cleanup now orders expired candidates by created_at, using its
+existing timestamp index without a new probe or schema change. Young keys
+and caller-supplied UUIDs retain their existing expiry behavior.
+
+Validation: targeted janitor database race tests, build and vet passed.
+The million-row query experiment measured about 0.08ms with ordering versus
+32ms without it before manual ANALYZE. The separate lease-index experiment
+showed substantial write overhead, so that index remains deferred. Evidence
+is retained in the decision's referenced scratch runs; their DBs were deleted.
+
+## 2026-09-09 — Janitor probes before row expiry scans [0734]
+
+Row-sweep batches stop when the partition is empty or its lowest-id row
+has not expired, avoiding full scans of young partitions and the remainder
+after partial cleanup. Existing consumer protection and deletion predicates
+remain. This uses the accepted approximate id/timestamp ordering; dead
+index entries can still make probes expensive until vacuum cleans them.
+
+Validation: targeted janitor database race tests, build and vet. Five warm
+million-row sweeps averaged0.314ms intact and0.295ms after a1000-row expired
+prefix was cleaned. Evidence: .bench/scratchnative/results/evidence/native18/
+scratch_janitor_222603. Paired throughput with janitor enabled is not yet
+validated; scratch databases were deleted.
+
 ## 2026-09-09 — Claim observations use xid [0733]
 
 Renamed the claim observation to xid / Xid and its stored cursor column to

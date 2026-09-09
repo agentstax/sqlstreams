@@ -2811,6 +2811,157 @@ untracked-so-far `runs.jsonl` files before they are first committed.
   Native peaks46.416 /45.208GB, host free minima82.396 /83.547GB; both DBs
   dropped, zero scratch DBs, native post8.633GB,6GB baseline restored.
   Janitor inactive means no bounded-storage steady-state capacity claim.
+- Janitor oldest-row probe evaluation 2026-09-09, scratch_probe_221720:
+  user accepts existing approximate id/timestamp ordering; exact maximum
+  timestamp/sealing redesign is not required solely for that approximation.
+  No janitor implementation changes. Dedicated production-shaped orders
+  partition (stream4),1m directly inserted unexpired rows, fixed timestamp
+  and cutoff, ~1KB JSON payload; three alternating EXPLAIN ANALYZE BUFFERS
+  comparisons. SELECT created_at ORDER BY id ASC LIMIT1 used PK Index Scan
+  under Limit:0.032/0.040/0.031ms,4 shared-buffer hits. Existing DELETE with
+  expired-row subquery took155.435/119.309/147.939ms; planner chose Seq Scan,
+  rejected1m rows,142,861 buffer hits in first run, deleted0. All buffer
+  accesses were cache hits: no cold-cache or end-to-end throughput claim.
+  Explicit caveat check: deleting IDs0..899999, with fixture-table
+  autovacuum temporarily disabled to preserve dead entries, made the probe
+  take134.952ms and133,493 buffer hits. Explicit VACUUM ANALYZE restored
+  0.039ms/4hits; first surviving ID900000 verified. This proves the cheap
+  probe has a dead-prefix limitation, not an unconditional O(1) guarantee.
+  Recommend intact-partition precheck as a small candidate; retain existing
+  cursor-protected cleanup and evaluate sweep/vacuum interaction before
+  claiming the janitor problem solved. Raw plans, exact SQL, driver and
+  summary retained. Scratch DB dropped; zero scratch DBs remain. Existing
+  production cluster settings and library code unchanged.
+- Oldest-row precheck implemented [0734], 2026-09-09. Each sweepBatch
+  probes the partition's first visible id before reading the consumer floor
+  or executing DELETE; empty/young partitions stop, including the first
+  batch after an expired prefix has drained. Existing expiry predicate,
+  cursor protection and transactional associated-row deletion remain.
+  Evidence scratch_janitor_222603: database race test covers empty stream,
+  mixed timestamps, expired-but-uncommitted row, batch boundaries and
+  repeated no-op sweeps. Build/vet/race passed. Real datastore benchmark,
+  five timed warm sweeps each:1m young messages0.314ms/sweep; after actual
+  cleanup of1000 expired leading messages0.295ms/sweep. All expected rows
+  retained. Fixture autovacuum enabled; this does not replace the separate
+  900k-dead-prefix caveat or prove end-to-end capacity. First benchmark
+  attempt222509 hit default partition bounds; corrected explicit2m
+  partition fixture, reran successfully; both scratch DBs deleted.
+  No full throughput run yet; next validate janitor enabled under paired
+  load, with idempotency-key cleanup still a separate possible bottleneck.
+- Remaining stream-janitor sweep plans 2026-09-09, scratch_sweeps_223445
+  and223540: current source-extracted DELETEs on1m unexpired rows per
+  table, existing registration DDL, candidates only in disposable DBs.
+  Idempotency already has(created_at) index: before manual ANALYZE,
+  31.4/32.2ms,6370buffer hits; after ANALYZE0.069–0.079ms/3hits.
+  Candidate ORDER BY created_at ASC before LIMIT used that existing index
+  before manual ANALYZE:0.080–0.087ms/3hits. No extra probe or new index
+  needed for this candidate. Empty compaction-head expiry already uses
+  partial(updated_at,compaction_key) WHERE message_id IS NULL: empty pass
+  ~0.06–0.19ms; leave it alone. Message-key leases have no expires_at index:
+  analyzed empty pass36.7–44.3ms/8334hits; scratch-only(expires_at) index
+  0.074–0.113ms/3pages, reproduced across both fixtures. Recommendation:
+  order idempotency expiry by created_at; evaluate lease expiry index's
+  write cost and migration separately; no redundant boundary probes.
+  These are query-cost results, not concurrency safety or sustained-load
+  validation. Keyless throughput baseline has no large lease population.
+  Both scratch DBs dropped; no library/schema changes to retained DBs.
+- Remaining sweep follow-through [0735], 2026-09-09: added ORDER BY
+  created_at ASC to idempotency expiry, reusing its existing timestamp
+  index. Database race test confirms UUID order does not determine expiry,
+  multiple batches drain old keys, repeat passes retain young keys, and
+  later expiry removes the remainder. Both janitor tests/build/vet passed;
+  evidence scratch_janitor_224058; scratch DB deleted. No schema change.
+  Lease-index cost control scratch_leasecost_224005, 100k rows, off/on/off:
+  insert152/222/147ms and WAL18.45/24.92/18.45MB; three bulk renewals
+  614/720/581ms total, WAL74.52/94.17/74.52MB. Empty sweep6.85/0.075/6.70ms.
+  Thus index adds35% insert WAL and26% renewal WAL; defer adoption pending
+  real keyed-workload net benefit. These are bulk SQL diagnostics, not
+  application capacity measurements. Keyless steady benchmark does not
+  carry a large lease table. Empty compaction-head sweep remains unchanged.
+  No retained database changes; no migration added. Record the evidence
+  rather than adding a write-costly index solely to improve an empty pass.
+- Janitor-enabled paired180s diagnostic 2026-09-09, janitor_active_224655 /
+  scratch_224655: frozen prior app plus [0734]/[0735], binaryf8cb206b,
+  default5s cleanup timeout restored in both constructors, polling5s,
+  retention/idempotency120s, no manual ANALYZE assist. Four callers x250,
+  pools8, GOMAXPROCS4 each, producer/consumer profiles on, durability on.
+  19,225,250 produced/consumed exactly once, message errors/duplicates0;
+  average106,804/s; final60 production79,957 /consumption79,776;
+  consumer p99264ms, backlog max52,263, no growing message-backlog trend.
+  MAINTENANCE FAILED: first real expiry pass logged5s timeouts in row
+  sweep and idempotency sweep at~135s; no empty-pass timeout before expiry.
+  Eight partitions dropped across~140–179s. DB peaked21.35GB then fell
+  to15.31GB, but idempotency allocation grew1.465 ->1.960GB during final
+  minute. Successful key DELETEs1120k rows/1144calls/6.061s aggregate SQL;
+  observed final-minute deletion18.9k/s, below incoming~80k/s. Counters can
+  lag; this is not exact live-expired backlog. Host swap-outs10,684pages.
+  The fixes removed the earlier empty-scan failure but do not yet make
+  normal cleanup keep up. Capacity-ineligible despite successful identity
+  checks; no longer extension. Next bounded investigation: actual deletion
+  batch size/per-pass deadline and scheduling, keeping expiry semantics.
+  Native peak36.37GB, hostfree>=91.38GB, scratch DB deleted,0 remain;
+  PG baseline restored, native post8.633GB. All source/driver/query/wait/
+  retention evidence archived; no repository code edits for this run.
+- Janitor configuration tuning 2026-09-09, three guarded paired runs,
+  normal durability/2min TTLs and application settings unchanged. Scratch
+  constructors only adjust CleanupTimeout; DB metadata sets batch/poll;
+  effective metadata and startup logs verified. Repository defaults unchanged.
+  10k batch/30s deadline/1s poll,180s: janitor_tuning_225550/scratch_225550,
+  20,465,750 messages once, late60 production77,243/consumption76,838,
+  no observed cleanup timeout; short screen only. Five-minute extension
+  janitor_tuned_long_230028/scratch_230029:27,323,250 once, late60
+  63,633/64,052, key cleanup30s timeouts. Final exact retained keys16,993,250,
+  of which8,955,000 were expired at producer stop. Key DELETEs10.33m rows,
+  70.29s cumulative SQL time; per deleted row6.80us. Message backlog no
+  growing trend, but key backlog means capacity NOT established.
+  Next50k batch/60s deadline/1s poll,300s:
+  janitor_batch50k_230647/scratch_230647,18,924,000 once, late60
+  38,033/39,097; key cleanup60s timeout. Retained keys17,224,000, expired
+  at producer stop11,809,250. Key DELETEs1.70m/108.28s (~63.7us/row).
+  Handler backlog max904,518, positive trend462/s; p99 exceeded histogram
+  range. Host swap-outs103,732pages vs0 in both10k runs; cannot assign the
+  slowdown solely to batch size. No winner or bounded-storage capacity.
+  Plans captured during10k run for key batches1k/10k/50k all used timestamp
+  and PK index scans. Message-plan attempts raced partition drops and
+  final50k key-plan attempt raced DB cleanup; errors archived, NOT evidence
+  of any query plan. Next: focused actual key-delete batch cost comparison
+  under matched conditions, before another deadline/poll sweep. Longer
+  deadlines alone did not solve the backlog; sequential cleanup scheduling
+  also needs to be accounted for. No kernel/storage-device investigation.
+  All66,713,000 messages across three runs verified once, zero message
+  errors/duplicates; maintenance verdicts separately mark ineligible runs.
+  Peak native36.98/35.32/33.20GB, free>=90.59GB. Every scratch DB deleted,
+  zero remain per driver, PG baseline restored, native post~8.633GB.
+  Evidence includes source archives, effective settings, exact post-load
+  key backlog counts (cutoff fixed at producer stop), raw waits and SQL.
+- Controlled idempotency deletion diagnosis 2026-09-09:
+  scratch_keydelete_231738, actual frozen JanitorDatastore method on fresh
+ 2m-row UUIDv7 fixtures (500k expired/1.5m young), VACUUM ANALYZE before
+  each trial; normal committed batch transactions; no producers/consumers.
+  Batch order1k/10k/50k/50k/10k/1k: total cleanup0.872/4.132/1.081/1.076/
+  4.066/0.648s.1k used nested-loop PK lookup;10k and50k used a hash join
+  scanning the full target table for each batch.10k repeats50 scans versus
+  50k10scans. Prepared cleanup remained custom-planned, not a generic-plan
+  switch. Zero physical shared-block reads and zero swap-outs during all
+  deletion intervals; WAL~27.03MB for1k/10k,28.16MB for50k.
+  Causal control scratch_keyplan_231915,10k batch default/hashjoin-off/
+  default on identical rebuilt fixtures:4.101/0.496/4.064s, about122k/
+  1,008k/123k deleted keys/s. Exactly27,025,480 WAL bytes in all three;
+  zero physical reads/swap-outs. SET enable_hashjoin=off applied only to
+  the one-connection scratch cleanup process; no global settings changed.
+  This demonstrates a plan-driven cost in this fixture, not a physical
+  deletion-throughput ceiling or proof it caused every long-run slowdown.
+  Prior live~20m-key plans for10k/50k used nested loops, so keep that limit
+  explicit. Next evaluate deletion SQL that bounds target-row lookup cost,
+  then revalidate under paired load. No partitioning implementation yet,
+  and no recommendation to disable hash joins globally.
+  Every trial deleted exactly500k keys and retained1.5m young keys;
+  4.5m expired keys deleted across9 trials, both scratch DBs removed.
+  Source/SQL plans/WAL/I/O/VM/prepared-plan counts and drivers archived.
+- Scratch idempotency deletion candidate (`scratch_keyctid_232632`, 2026-09-09): PostgreSQL 18's documented `WITH ... SELECT ctid ... FOR UPDATE LIMIT ... DELETE USING` pattern, unchanged planner settings, identical fresh 2m-row fixtures with 500k expired keys. Batch 1k: 0.500/0.501s; 10k: 0.402/0.410s; 50k: 2.099/2.090s. All six removed exactly 500k and preserved 1.5m young keys, zero physical shared-block reads. 1k/10k use timestamp-index selection plus Tid Scan; 50k still chooses a hash join/full target scan. Cleanup WAL rises from ~27MB to ~55MB because selection locks rows before deletion. Candidate remains scratch-only pending paired-load evaluation; no general claim that ctid forces bounded target access. Evidence includes exact source, plans, SQL counters and cleanup confirmation. Five-minute paired run `scratch_232726` uses 10k batches, 30s cleanup timeout, 1s poll, both TTLs 2m, baseline app configuration and durable native PG settings.
+- Candidate paired result (`janitor_ctid_long_232726` / `scratch_232726`): 300s, 25,937,500 produced and consumed exactly once, zero app errors/duplicate identities, exception consumer target 0. Last60s producer/consumer 61,574/61,372 msg/s (prior ordered-key query 63,633/64,052); consumer whole-run p99 3038ms. Candidate deleted 15,909,250 keys in 66.071s SQL (4.15us/key), versus 10,330,000 in 70.289s (6.80us/key): 54% more deleted, 39% less SQL time/key. WAL 2.694GB / 169bytes per deleted key versus 1.191GB / 115bytes; no cleanup deadline failures observed, but janitor tick overruns remained (up to 54.2s). Final retained keys 10,028,250, of which 2,142,000 expired at producer stop minus TTL, versus prior 8,955,000 expired. Estimated expired backlog at 150/180/210/240/270/299s: 1.96/2.44/4.34/2.38/4.45/2.07m; these are delayed table-counter estimates, not exact row-age samples. Sawtooth backlog and lower database size are encouraging, but three minutes of active expiry cannot establish long-term boundedness. 10,272 swapout pages (~168MB) versus zero in prior run confound throughput comparison. Native footprint peak35.46GB, host free minimum88.29GB, total-footprint guard stayed below100GB. Database deleted, baseline durable PG restored, native footprint back8.63GB. No new library change: retain this scratch candidate for a longer active-retention confirmation before adopting; do not claim throughput improvement or conclude partitioning is necessary. Full verdict and trend JSON saved alongside source and SQL counters. Small helper build around second116 is documented; late-window rates exclude that interval.
+- Candidate concurrency check (`scratch_keyrace_233320`): real candidate datastore, batch1, real registered tables. Hold an expired key in a transaction, observe cleanup blocked through `pg_blocking_pids`, then (a) commit delete/reinsert of the same UUID, (b) commit refresh to a young timestamp, or (c) roll back the refresh. All three preserve exactly the expected young rows and drain other expired keys; no clock sleeps. Source/results retained, disposable DB removed. This checks row-location safety; no public API or schema change is proposed.
+- Longer candidate validation in progress (`scratch_233728`, 600s): same 10k cleanup batches / 30s timeout / 1s poll, both TTLs2m, unpaced four callers x250, pools8/8, GOMAXPROCS4 each, durable native PG18 baseline. Identity validation ceiling alone raised40m to200m in isolated scratch build to prevent early completion; code and build hash archived. Runner captures exact final expired count before database removal; 100GB total-footprint and40GiB free-space guards retained. Earlier startup `scratch_233611` rejected200m against the old binary ceiling before load; database removed, not a throughput sample.
 - [ ] Choose retention from measured storage, then validate finalists.
 - [ ] Record comparison and sustainable result with evidence.
 

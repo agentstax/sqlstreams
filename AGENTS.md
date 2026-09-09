@@ -78,15 +78,17 @@ Doc site:
 ## Verification
 
 - Per change: foreground targeted checks only -- build, `go test -race` on
-  touched packages with `SQLSTREAMS_TEST_DATABASE_URL` set (source ./.env) so
-  database tests run rather than skip, directly affected e2e tests. `just
-  verify` is the whole-repo check (root plus every nested module plus
-  .tools/); per change, build and test the touched module only. Use
+  touched packages, `just test-integration` (or `go test` in the touched
+  `.tests/` directory, which needs Docker) when a datastore or its tests
+  changed, directly affected e2e tests. `just verify` is the whole-repo
+  check (root plus every nested module plus .tools/ and .tests/); per
+  change, build and test the touched module only. Use
   `go fmt ./...`, not the system gofmt, which may predate the go.mod
   toolchain.
 - A new test is the lowest kind that can observe the behavior (CONVENTIONS
-  Part 5: pure, database, e2e); a single-process scenario is never a new
-  e2e program. A test names the behavior or invariant it pins, or it is
+  Part 5: unit beside the code, integration under `.tests/`, e2e); a
+  single-process scenario is never a new e2e program, and a test that
+  touches Postgres is never a `_test.go` beside the code. A test names the behavior or invariant it pins, or it is
   not written.
 - A failing test is never edited to pass in the same change that touches
   the code it covers unless the report says so and why; the fix lands

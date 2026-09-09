@@ -8,7 +8,7 @@ are in `.docs/DECISIONS.md`. A new record adds its number to its line.
 - claim, lease, cursor, claimed/committed, reclaim, snapshot fence, FOR UPDATE SKIP LOCKED: 0001-0005 0041-0047 0061-0067 0101-0107 0141-0145 0161-0166 0387-0396 0616 0685 0710 0714 0715 0733
 - retry, backoff, dead-letter, exception path, work timeout, panic, abandoned goroutine: 0042-0043 0181-0192 0281-0294 0399-0400 0614-0615 0670
 - routing key, bindings, fan-out, wildcard, binding_log TTL: 0201-0208 0242 0389-0393 0511 0573
-- partitions, retention, janitor, create-ahead, heal, drop floor: 0221-0227 0378-0384 0428 0512-0513 0620 0659-0660 0662-0663
+- partitions, retention, janitor, create-ahead, heal, drop floor: 0221-0227 0378-0384 0428 0512-0513 0620 0659-0660 0662-0663 0734 0735
 - topic catalog, schema version, rename, alter, per-topic tables, table names: 0241-0248 0348-0353 0401-0411 0570-0572 0611 0613 0618 0624 0628 0667 0668 0669
 - compaction, message key, rank, ordered/exclusive/parallel, key lease, deadlock: 0261-0273 0403 0463 0574 0612 0617 0659-0660 0691
 - produce, ProduceInTx, batch, idempotency key, uuid: 0021-0023 0283-0284 0321-0323 0376 0525 0622-0623 0634
@@ -26,6 +26,6 @@ are in `.docs/DECISIONS.md`. A new record adds its number to its line.
 - doc site: board, sandbox, versioning, voice, cookie, errors, links, page size, reference board: 0581-0610 0651 0677 0679 0712 0721
 - rejected/reverted (do not re-suggest): 0270 latest_key backfill, 0379 PartitionsAhead, 0591 pglite prefetch, 0594 byte ceilings, 0672 mandatory named client results, 0673 0675 scheduled time as a message_log column / sent_at, 0323 a library retry inside InTransaction, 0536 a never-nil MessageOptions (NULLIF/COALESCE reshape), 0578 any fillfactor change without measured HOT-ratio degradation, 0626 strict declaration forms (RequireMatch, a stale-build gate)
 - playground, examples, e2e, handler placement, handle and instance names: 0674 0718-0720
-- tests: pure/database/e2e kinds, when a test earns its place, no fake datastore, sqlstreamstest fixture, schema per test, SQLSTREAMS_TEST_DATABASE_URL, e2e conversion: 0328 0719 0730 0731
+- tests: unit/integration/e2e kinds, .tests module, testcontainers, when a test earns its place, no fake datastore, schema per test, setup/test/verify, SQLSTREAMS_TEST_DATABASE_URL, e2e conversion: 0328 0719 0730 0731 0736
 - rule files, record-keeping surface, citations, (checked) markers: 0681 0721-0723
 - project name, SQLStreams, Vulkan rename, topic to stream, brand, logo, disposable database cutover, temporary docs origin, local proposal review, SQL diagnostic prefix: 0725 0726 0727 0728 0729 0732

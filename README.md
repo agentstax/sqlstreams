@@ -40,7 +40,7 @@ I'd love to use Kafka for my [billion dollar, AI powered TODO app](https://githu
     <img alt="INTRODUCING" src=".website/public/introducing-light.svg" width="140" height="28">
   </picture>
   <br />
-  <b>SQLStreams</b> for when you barely know what a Stream is but know Kafka is good...
+  <b>SQLStreams</b> for when you barely know what a Topic is but know Kafka is good...
   <br />
   <em>for some reason or another.</em>
 </p>
