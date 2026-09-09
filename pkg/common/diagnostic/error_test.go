@@ -131,7 +131,7 @@ func TestNewErrorRejectsDuplicateCode(t *testing.T) {
 }
 
 func TestNewErrorRejectsMalformedCode(t *testing.T) {
-	for _, code := range []string{"", "SS1", "SS12345", "XX0001", "SS00a1", "ss0001"} {
+	for _, code := range []string{"", "SQL1", "SQL12345", "XX0001", "SQL00a1", "sql0001"} {
 		expectPanic(t, func() {
 			NewDiagnosticError(code, RecoveryPermanent, "malformed code attempt", "")
 		})

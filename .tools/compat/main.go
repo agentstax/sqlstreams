@@ -2,7 +2,7 @@ package main
 
 // compat lab: the PINNED release's side of the cross-version compatibility
 // matrix. This module's vulkan dependency is whatever go.mod pins -- the
-// prior release at a checkpoint, the working tree in dry-runs -- while the
+// prior release checkout at a checkpoint -- while the
 // database it runs against was migrated by the working tree. It drives ONLY
 // the public API: the compatibility surface is the public surface.
 //

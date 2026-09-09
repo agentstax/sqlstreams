@@ -1,5 +1,4 @@
 <script lang="ts">
-	import PixelVolcano from '../../../../components/pixel-volcano/pixel-volcano.svelte';
 	import MemberPersonalText from '../member-personal-text/member-personal-text.svelte';
 
 	type Props = {
@@ -28,7 +27,7 @@
 				{/each}
 			</span>
 			<span class="member-role">{role}</span>
-			<span class="avatar"><PixelVolcano width={88} /></span>
+			<span class="avatar"><img src="/sqlstreams-avatar.svg" width="88" height="88" alt="" /></span>
 		</div>
 		<dl class="facts">
 			<dt>Joined</dt>

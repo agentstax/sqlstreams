@@ -2669,6 +2669,39 @@ untracked-so-far `runs.jsonl` files before they are first committed.
   cleanup timeout. PG restored,DB removed,evidence archived;no commits.
   Continue producer/consumer tuning with24h scratch janitor polling;
   whole-partition retention work stays ROADMAP Next per user direction.
+- Unpaced concurrency with janitor24h,2026-09-09:
+  parked_concurrency_150839, scratch_150839/151250/151655; callers4/8/4,
+ 180s each, same frozen f25735a5 binary and settings as parked80k test.
+ 18,544,000/15,400,500/12,583,750 messages verified once,46,528,250 total,
+  zero producer/consumer errors/duplicates; actual batches250 and retained
+  rows verified, no measured cleanup statements. Final60s production
+ 90,616/73,025/70,870 and consumption90,447/73,093/71,109 messages/s.
+  Consumer p99<=1591/4476/5238ms; handler backlog slopes-20.8/-168.1/
+ +97.1 messages/s. First4-call advantage did not repeat. No concurrency
+  winner or maximum established; short-run variability remains material.
+  Each run dropped its DB; driver asserted0 scratch databases and recorded
+  post-removal native footprint. PG baseline restored between studies.
+  Next running: five-minute unpaced4-call baseline, not a claimed winner,
+  same100GBguard and40m identity ceiling; do not score if ceiling reached.
+- Five-minute unpaced baseline2026-09-09, parked_long_152127 /
+  scratch_152127: frozen f25735a5, four callers/batch250/pools8, janitor24h,
+  remaining settings unchanged.300.019s,24,646,250 consumed once,0 errors
+  or duplicates, retained rows/identities/batches250 verified. No measured
+  cleanup statements, no drops, no key deletions;40m cap not reached.
+  Average82,149/s includes fast opening. Final120s produced63,991/
+  consumed63,938; final60s60,085/60,112; final30s60,950/60,779. Handler
+  backlog max38,869,mean12,129,slope-18.54/s; consumer p99<=882ms.
+  Four checkpoints. Committed-ID distance median57,784,first/last30
+  medians83,431/52,812,not exact message counts. Paired rates match,
+  but no sustainable maximum or repeatable4vs8 advantage established.
+  Peak DB31.923GB,native46.075GB,hostfree>=83.163GB; total benchmark
+  storage guard active. Host swapouts26,172 pages observed; variability
+  is material, no isolated-machine claim. Current source baseline includes
+  user consumer changes; no comparison against earlier binaries implied.
+  Combined this round71,174,500 messages verified once over three180s
+  screens and one300s validation. All four DBs removed; post-removal
+  native footprints and zero-scratch-DB checks saved in study directories.
+  PG baseline restored. Janitor fixes remain deferred by user; no commits.
 - [ ] Choose retention from measured storage, then validate finalists.
 - [ ] Record comparison and sustainable result with evidence.
 
@@ -2713,10 +2746,18 @@ untracked-so-far `runs.jsonl` files before they are first committed.
   the two ROADMAP items removed; root `_bench-design.md` and
   `_bench-methodology.html` deleted.
 
-## SQL diagnostic prefix [0732]
+## Rename consistency follow-up [0732]
 
-- [x] Replace SS with SQL while retaining all 105 numeric serials. Update
-  validator, declarations, CLI, examples, website pages and exported data.
-  Build/vet/format and targeted race checks pass; 127 website tests pass.
-- [ ] Deploy the rebuilt website with approval, verify SQL0005 on the live
-  site, then remove this completed task. No old-prefix redirects.
+- [x] SQL-prefix site deployed with approval (`d8fa16a9`); live branding,
+  diagnostic page, search, sandbox, favicon and manifest checks passed.
+- [x] Audit modules/imports, SQL/storage/JSON names, CLI/config/release paths,
+  diagnostic validation/export/page parity, internal site routes and artwork.
+  Fixed stale planning/rule/recipe names and malformed-code test inputs.
+  Historical records, benchmark paths, current Pages URL and old-release
+  harness remain intentional exceptions. Seven current modules build/vet;
+  targeted race/convention checks, 127 site tests and site build pass.
+- [x] Replace remaining volcano avatars on threads/member profiles with the
+  approved semicolon asset; delete the unused component/story/style/tokens.
+  Type/lint checks and desktop/mobile avatar checks pass with no overflow.
+- [ ] Deploy the avatar correction with approval, verify live profiles and
+  threads, then remove this completed follow-up. No commits by this session.

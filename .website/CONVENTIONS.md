@@ -260,7 +260,7 @@ preprocessor, no utility framework, no third-party token pack.
   Troubleshooting (code lookup), Compare, Decision records. A thread
   joins the board of its kind; one that fits two boards is two threads.
 - Page size has mechanical triggers, not taste [0679]: a guide or
-  concept thread splits past six H2s or roughly 1,500 words; a stream
+  concept thread splits past six H2s or roughly 1,500 words; a section
   under three sentences folds into its neighbor; a reference thread may
   run long but never mixes kinds. A thread that has become several kinds
   of page (a tutorial, an explanation, a reference, a changelog) splits

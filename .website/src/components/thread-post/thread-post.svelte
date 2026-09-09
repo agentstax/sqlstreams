@@ -1,6 +1,5 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import PixelVolcano from '../pixel-volcano/pixel-volcano.svelte';
 	import PostFrame from '../post-frame/post-frame.svelte';
 	import type { PostHeader } from './types';
 
@@ -48,7 +47,9 @@
 		{/each}
 	</span>
 	<span class="author-role">{role}</span>
-	<a class="avatar" href={`/members/${author}/`}><PixelVolcano width={44} /></a>
+	<a class="avatar" href={`/members/${author}/`}
+		><img src="/sqlstreams-avatar.svg" width="44" height="44" alt={`${author} profile`} /></a
+	>
 	{#if postCount !== null}
 		<span class="post-count">Posts: {postCount}</span>
 	{/if}

@@ -7,7 +7,7 @@ nothing. The compaction_head candidate is NOT here — it reruns
 
 ## What a cell does
 
-Pre-fill a fresh topic (2M unkeyed messages, 3 producers / 128 goroutines,
+Pre-fill a fresh stream (2M unkeyed messages, 3 producers / 128 goroutines,
 same shape as .bench/compaction), then drain it through real
 `ConsumerInstance.Consume` calls — no SQL mirrors. Consumption starts
 against a quiet log, so the fillfactor signal isn't muddied by co-tenant
@@ -18,7 +18,7 @@ runs out mid-window.
 Fillfactor is applied with `ALTER TABLE ... SET (fillfactor)` on the fresh,
 empty tables before any rows land — the library DDL stays untouched until a
 measured win adopts it (adoption then edits the baseline CREATE TABLEs in
-pkg/topic/controller/datastore/tables.go, pre-v1 in-place rule).
+pkg/stream/controller/datastore/tables.go, pre-v1 in-place rule).
 
 ## What each axis exercises
 

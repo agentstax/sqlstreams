@@ -14,8 +14,20 @@ digits; old prefixes are rejected. No compatibility aliases or redirects.
 
 Validation: seven current Go modules build/vet/format; diagnostic, common,
 CLI, OTel and tooling race tests; 127 website tests; code-export parity and
-`sqlstreams explain SQL0005 --output json`. The website deployment is pending
-separate approval; historical records keep the prefix used at the time.
+`sqlstreams explain SQL0005 --output json`. Deployed with user approval:
+`https://d8fa16a9.vulkan-5ss.pages.dev`, serving the main origin. Live title,
+wordmark, sandbox, search, stream reference, SQL0005, favicon and manifest
+checks passed. Historical records keep the prefix used at the time.
+
+The follow-up consistency audit found stale names in the recipe heading,
+agent rules and active planning notes, plus malformed-code tests still using
+the old prefix. Those are corrected. Source/module/storage/JSON/telemetry
+searches found no unexplained old names; all 105 code pages and internal
+Markdown routes match the build. Seven current Go modules build/vet, targeted
+race/convention checks and 127 website tests pass. The old compatibility
+harness remains pending a real prior-checkout pin. The remaining volcano
+avatars were replaced locally with the approved semicolon asset and checked
+at desktop/mobile widths; their deployment is pending.
 
 ## 2026-09-09 — SQLStreams and stream vocabulary [0725] [0726] [0727] [0729]
 

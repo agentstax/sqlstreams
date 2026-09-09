@@ -32,7 +32,7 @@ I use Kafka, you use Kafka, your mom uses Kafka. *Kafka is great.*
 
 **Buuuuuut....** running and maintaing a Kafka cluster is not fun.
 
-I'd love to use Kafka for my [agentic powered TODO app](https://github.com/agentstax/tomorrows-todo-today) but my mental state cannot handle another `"no brokers available"` error.
+I'd love to use Kafka for my [billion dollar, AI powered TODO app](https://github.com/agentstax/tomorrows-todo-today) but my mental state cannot handle another `"no brokers available"` error.
 
 <p>
   <picture>

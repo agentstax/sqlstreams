@@ -183,7 +183,7 @@ exclusive-e2e:
 key-lease-e2e:
     go run ./.e2e/keylease/main.go
 
-### E2E TESTS: TOPICS, RETENTION, AND SCHEMA ###
+### E2E TESTS: STREAMS, RETENTION, AND SCHEMA ###
 
 # Verify partitions prune claim reads to the relevant message-id range.
 partition-e2e:

@@ -62,7 +62,7 @@ Public surface:
   write it, review it with the user, then build. The site documents shipped
   behavior only; anything ahead of the library is labeled Proposed and
   doubles as that work's spec (the rule is CONVENTIONS ## Documentation).
-- Public API shapes are judged by concept count (Vulkan ideas held before
+- Public API shapes are judged by concept count (SQLStreams ideas held before
   domain code), traps (does the obvious thing work), consistency across
   packages, and whether each explicit param is a real seam. Line count is
   a symptom, never the measure.

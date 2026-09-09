@@ -230,7 +230,7 @@ documentation; the latter want a surface that has stopped moving.
 - **Dead-lettered messages: list + retry on the consumer handle** -- a
   dead row sits in exception_queue_<stream_id> with status dead,
   last_error, and attempts, and the client has no verb to read it or put
-  it back; today the read is the VK0028 diagnose query in psql and the
+  it back; today the read is the SQL0028 diagnose query in psql and the
   write is a hand-written UPDATE. Add `Consumer(...).Exceptions(ctx,
   status, limit)` returning the rows and `Retry(ctx, messageId)` setting
   dead -> ready, with CLI `group exceptions list|retry` and a docs page.
@@ -332,7 +332,7 @@ documentation; the latter want a surface that has stopped moving.
   carried as the "Reading the outcome back" aside in concepts/api-shape.mdx.
   Cut from the [0625] chunk 12 build, and the strict form it was built
   beside is rejected outright ([0626], parking lot), so this is now the
-  whole of what chunk 12 might still be worth. VK0059 already reports an
+  whole of what chunk 12 might still be worth. SQL0059 already reports an
   overwrite as a Warn and the value bought is reporting only — an API
   for what the log says. One thing to settle before it is worth
   building: where a schedule's outcome would live, since
@@ -358,7 +358,7 @@ documentation; the latter want a surface that has stopped moving.
 
 - **"Schema version" for a migration version** — deferred 2026-09-01
   during [0629], which gave `schema` one meaning everywhere else.
-  VK0022/VK0023's problem lines, `ErrSchemaOlderThanBuild` /
+  SQL0022/SQL0023's problem lines, `ErrSchemaOlderThanBuild` /
   `ErrSchemaNewerThanBuild`, and roughly 8 files of prose still say
   "schema version" about a migration version. The rule if it is taken
   up: `migration_log.version` reads "migration version" and
@@ -577,7 +577,7 @@ prerequisite if quorum-as-a-fraction wins.
   without a version stamp plus a hand-kept field->version registry. The
   dropped field is source code -- it comes back the moment the newer
   build declares again. What stands instead: newest-wins with the
-  differing-overwrite warn (VK0059) naming the change. Re-examine only
+  differing-overwrite warn (SQL0059) naming the change. Re-examine only
   with a concrete workload where the warn was not enough, and any strict
   form must ship with the verb that unlocks it.
 
@@ -648,7 +648,7 @@ prerequisite if quorum-as-a-fraction wins.
   request block as CLI); an OBS-loganalyzer-style script diagnosing common
   misconfigurations from any pasted log — feasible exactly because [0558]
   fixed the key registry and static messages; a piped-log annotate mode
-  joining VK codes to their declarations (journalctl -x shape) extending
+  joining SQL codes to their declarations (journalctl -x shape) extending
   `sqlstreams explain`.
 - **Debug-buffer extensions** ([0559]) — AutoFlushDuration (.NET log
   buffering: after a drain, forward live for N seconds — the aftermath is
@@ -981,7 +981,7 @@ prerequisite if quorum-as-a-fraction wins.
   (stream, consumer, limit). A diagnosis ends by naming the alert or metric
   that should clear and re-reading it. Rung 0 before building: point an
   agent at a broken e2e test deployment with only the CLI and record where it
-  goes wrong; VK codes, fix text, and alert hints may already be enough.
+  goes wrong; SQL codes, fix text, and alert hints may already be enough.
   Evidence 2026-09-07: Supabase MCP exfiltration and Kiro prod delete
   (credential scope, not prompts); kubectl-ai #628 (no-execute mode);
   HolmesGPT #2438 (unscoped reads); Confluent MCP hands-on (fell back to
