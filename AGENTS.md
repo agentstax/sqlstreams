@@ -78,7 +78,7 @@ Doc site:
 ## Verification
 
 - Per change: foreground targeted checks only -- build, `go test -race` on
-  touched packages with `VULKAN_TEST_DATABASE_URL` set (source ./.env) so
+  touched packages with `SQLSTREAMS_TEST_DATABASE_URL` set (source ./.env) so
   database tests run rather than skip, directly affected e2e tests. `just
   verify` is the whole-repo check (root plus every nested module plus
   .tools/); per change, build and test the touched module only. Use

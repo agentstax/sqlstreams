@@ -36,7 +36,10 @@ export default defineConfig({
 		'/why-vulkan/': '/why-sqlstreams/',
 		'/reference/topic/': '/reference/stream/',
 		...Object.fromEntries(
-			Object.keys(codes.codes).map((code) => [`/errors/VK${code.slice(2)}`, `/errors/${code}`]),
+			Object.keys(codes.codes).flatMap((code) => [
+				[`/errors/VK${code.slice(2)}`, `/errors/${code}`],
+				[`/errors/vk${code.slice(2)}`, `/errors/${code}`],
+			]),
 		),
 		'/guides/client/': '/reference/',
 		'/guides/consumer-group-config/': '/concepts/consumer-group-config/',

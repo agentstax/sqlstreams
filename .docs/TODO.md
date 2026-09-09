@@ -2621,6 +2621,30 @@ untracked-so-far `runs.jsonl` files before they are first committed.
   or claim30s timeout has been runtime-validated. Both failed databases
   removed, native PG durable baseline restored. No library defaults changed;
   isolated constructor configuration deltas and source archives retained.
+- Resumed after rename2026-09-09: current renamed scratch build succeeds.
+  Captured /private/tmp/sqlstreams-retention-104755 with current library
+  source (including existing consumer datastore changes), runner and source
+  state; new baseline, not directly comparable to frozen643f90a3. Isolated
+  consumer and systemmanager constructors both pass CleanupTimeout30s;
+  repository library defaults unchanged. fmt/build/vet/race compile passed.
+  Frozen runner prevents concurrent rename edits changing a live run.
+  renamed_retention30_144832/scratch_144832: target80k/s,240s planned,
+  pool8/four callers/batch250, claim16k/queue64k/poll100ms,2min message
+  and idempotency TTL,1m partitions. Active stream_janitor startup log
+  verifies rate30s and cleanup_timeout30s. Still timed out sweeping
+  partitions; tick36.991s, first warning~175s. Stopped201.647s.
+  Final producer15,046,000 with1 stop-induced cancellation error;
+  consumer15,046,250,0 errors/duplicates,p99<=3179ms. A committed batch
+  can outlive its canceled call; no full identity verification, no valid
+  throughput claim. Stream0 partition dropped139.6s; only one observed
+  drop. Peak database18.119GB; final20.45s grew87.4MB/s, no observed
+  key deletions in that interval; live-key estimate13.732m/dead1m.
+  Combined30s deadline/poll is not a demonstrated mitigation. Increasing
+  timeouts again would require another measured trial, not assuming success.
+  Failed evidence, query stats and source archive retained; DB removed,
+  native durable baseline restored. Whole-partition retention remains
+  ROADMAP Next. App CPU summary name filter missed the renamed scratch
+  binary; full host process snapshots retained, no app CPU claim here.
 - [ ] Choose retention from measured storage, then validate finalists.
 - [ ] Record comparison and sustainable result with evidence.
 
@@ -2751,72 +2775,101 @@ concurrent source and testing-rule edits were preserved; backups are in
   to the current Go statements. All 24 Chromium/Firefox/WebKit flows pass
   against the built site; Astro preview exits before ready in this environment,
   so browser verification used a temporary static server.
-- Full fresh-database e2e is running in its own disposable PostgreSQL
-  container; the shared database is untouched. Live telemetry, downstream
-  module use and old-route verification remain in progress.
+- All 50 fresh-database e2e programs passed against an isolated PostgreSQL
+  17 container, including live Prometheus scraping and alert evaluation.
+  Linux/arm64 binaries were built from the renamed tree and run sequentially;
+  the shared database was not reset. Results: `/tmp/sqlstreams-e2e-logs`.
+  Host-side database race tests passed against a second isolated container.
+- Downstream module build/vet/run passed with GOWORK=off and a local replace;
+  this verifies imports/API, not remote publication. CLI version/help and
+  SS0005 JSON explain passed; all 105 diagnostic serials are unchanged.
+  Chromium followed old product/topic and upper/lowercase VK URLs to the
+  new pages. Browser storage keys are now sqlstreams-board:*; existing
+  style choices/read markers reset once at cutover.
 - `.tools/compat` retains its old Vulkan dependency/API intentionally. Its
   own module name is updated, but the existing working-tree replacement
   cannot supply that old API. Pin a matching old checkout before release
   validation; no cross-version compatibility is claimed for this reset.
 
-- [ ] Rename topic-derived declarations at their owning roots, then public
+- [x] Rename topic-derived declarations at their owning roots, then public
   aliases/handles, packages, files, methods, configs, owners, worker names,
   migration scopes, SQL catalog/column/index names, row tags and JSON/log
   attributes. Update current vocabulary rules alongside the implementation.
-- [ ] Preserve already-neutral names: message_log_<id> and the other
+- [x] Preserve already-neutral names: message_log_<id> and the other
   per-stream table families, plus __system.metrics/alerts/schedules.
   Rename their topic-qualified Go identifiers. Keep the advisory-lock
   numeric namespace; account for changed resource literals in the cutover.
-- [ ] Rename brand/module references across all eight Go modules, workspace
+- [x] Rename brand/module references across all eight Go modules, workspace
   setup, public entry package, CLI path, version detection and path-aware
   tooling. Coordinate any entry-package relocation as its separately
   scoped ROADMAP item rather than silently bundling it here.
-- [ ] Update CLI commands/flags/help/completions, environment names, defaults,
+- [x] Update CLI commands/flags/help/completions, environment names, defaults,
   JSON, recipes, examples, e2e/benchmark fixtures and local configuration
   references. Never rewrite an operator's explicit schema or DSN for branding.
-- [ ] Replace the VK prefix across errors, events, metrics and alerts while
+- [x] Replace the VK prefix across errors, events, metrics and alerts while
   preserving every numeric serial. Update registry validation, explain,
   fix text/placeholders, test codes and documentation links together.
-- [ ] Update metric names/units/attributes, stored measurement identity,
+- [x] Update metric names/units/attributes, stored measurement identity,
   reserved prefixes, OTel meter scope and Prometheus validation. Verify
   exported series and active alert evaluation so silent empty dashboards
   are covered by observed behavior, not just migration prose.
 
 ### 4. Website implementation and continuity
 
-- [ ] Update site/repository origins, branding, navigation, titles, prose,
+- [x] Update site/repository origins, branding, navigation, titles, prose,
   API samples, topic-related slugs and why-vulkan. Review against the
   website CONVENTIONS and VOICE; shipped pages describe shipped behavior.
-- [ ] Update executable documentation: PGlite schemas/SQL, sandbox controls,
+- [x] Update executable documentation: PGlite schemas/SQL, sandbox controls,
   examples, SQL parity tests, diagnostic data/types and generated code data.
   Reuse existing exports/checks; no new rename infrastructure by default.
-- [ ] Update error-code pages, internal links, redirects for published old
+- [x] Update error-code pages, internal links, redirects for published old
   routes/codes, canonical URLs, sitemap/robots and version manifests.
   Include frozen-version links to the live manifest and old binaries'
   diagnostic URLs in the continuity review.
-- [ ] Replace README/site artwork, favicon and relevant introductory/share
+- [x] Replace README/site artwork, favicon and relevant introductory/share
   assets; inspect light/dark and desktop/mobile rendering. Review browser
   storage keys and document any preference/read-tracking reset.
+- [x] GitHub repository renamed by the user to `agentstax/sqlstreams`.
+  Local origin updated for fetch/push and `git ls-remote` verified access.
+  This check does not publish the local rename changes.
 - [ ] Update Cloudflare project/deployment configuration and inspect external
   domain/repository settings as needed. Prepare reviewable artifacts first;
   ask before `just site-deploy`.
 
 ### 5. Distribution, verification and close-out
 
-- [ ] Update release workflows, GoReleaser, binary/archive names, nested
-  module tag paths, Homebrew/Chocolatey metadata and installation docs;
-  verify which external listings actually exist before planning cutover.
-- [ ] Per chunk: affected-module build/vet, `go fmt ./...`, targeted race
+- [x] Audit release workflows, GoReleaser, binary/archive names, nested
+  module tag paths, Homebrew/Chocolatey metadata and installation docs.
+  GitHub has no releases or root/CLI/OTel version tags; the configured
+  Homebrew tap is not accessible (404), and the SQLStreams Chocolatey page
+  returns 404. READMEs now give the verified workspace installation command
+  rather than advertise unavailable package-manager/versioned installs.
+  Display metadata uses SQLStreams; package/binary identifiers stay lowercase.
+  GoReleaser 2.18.1 config validation and an unpublished snapshot passed:
+  Darwin/Linux/Windows × amd64/arm64, six archives with the expected binary,
+  license, README and matching checksums. The native binary reports the
+  injected snapshot version; Homebrew cask generation names the renamed repo.
+  Artifacts: `/tmp/sqlstreams-goreleaser-audit/dist`. Chocolatey packaging was
+  skipped on macOS and still needs the Windows release-runner check.
+- [ ] Before release: buy/configure the permanent docs domain, publish the
+  root module, pin its real version in CLI/OTel go.mod files, and publish
+  `cmd/sqlstreams/vX.Y.Z` and `otel/vX.Y.Z` tags. Set up the Homebrew tap/token
+  and Chocolatey account/key if those channels are wanted. CI still targets
+  `main-fake` on push; restore `main` when enabling it. No release tags,
+  packages or binaries were published by this audit.
+- [x] Per chunk: affected-module build/vet, `go fmt ./...`, targeted race
   tests and directly affected e2e tests. Verify alias closure and convention
   discovery; sabotage affected discovery checks before trusting green.
-- [ ] Verify a downstream consumer outside the workspace, version reporting,
+- [x] Verify a downstream consumer outside the workspace, version reporting,
   CLI help/JSON/explain, site build, sandbox parity, telemetry and URL/asset
   rendering. Audit remaining old-name matches, preserving historical records
   and the user's writing rather than blindly replacing them.
-- [ ] At review-ready: full fresh-DB e2e suite. At release: pinned prior-tag
-  compatibility lab against the declared verdict, migration compatibility
-  table and HISTORY entry citing e2e outcomes. Keep the old side of the
-  compatibility harness exercising the old API.
+- [x] Review-ready fresh-DB suite: 50/50 passed; HISTORY records the rename
+  and test outcome. Concurrent claim work after the binary build is outside
+  this run's verification snapshot.
+- [ ] At release: pin the compatibility lab to the prior tag, verify the
+  declared verdict and update the migration compatibility table. Keep the
+  old side exercising its actual old API; this rename is a pre-v1 reset.
 - [ ] Fold accepted exploration into the fixed record-keeping surface,
   remove the root exploration document and completed TODO/ROADMAP lines
   at close-out. Leave all work uncommitted and report git status.

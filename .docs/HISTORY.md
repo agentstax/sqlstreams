@@ -5,6 +5,36 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-09 — SQLStreams and stream vocabulary [0725] [0726] [0727] [0729]
+
+The project is SQLStreams: module `github.com/agentstax/sqlstreams`, entry
+package `pkg/sqlstreams`, CLI `sqlstreams`, and stream throughout the API,
+storage catalog, JSON, diagnostics and telemetry. `SS` replaces `VK` without
+changing any of the 105 diagnostic serials. The default schema and environment
+prefix are `sqlstreams` and `SQLSTREAMS_`. Neutral per-stream table families,
+reserved system stream names and the advisory-lock numeric namespace remain.
+Existing databases are disposable; this is a pre-v1 reset, not a migration.
+
+Docs and executable SQL use the new names, old routes redirect, and the
+approved wordmark ends with an amber semicolon, with SQL also amber. Browser
+preference/read-tracking keys change to `sqlstreams-board:*` and reset once.
+The current generated Cloudflare origin remains; deployment, repository
+publication and the permanent domain before binary release are still pending.
+
+Validation: seven current Go modules build/vet/format; root, CLI, OTel and
+.tools race tests; affected database race tests; downstream module build/vet;
+127 website unit tests and 24 browser flows. All 50 fresh-DB e2e programs
+passed on isolated PostgreSQL 17, including Prometheus scraping and alert
+classification/resolution. The shared database was untouched. The old-API
+compatibility harness needs its prior-checkout pin before release validation.
+
+Distribution audit: GoReleaser configuration and an unpublished six-target
+snapshot passed, including archive contents/checksums, native version output
+and Homebrew cask generation. Chocolatey packaging remains a Windows-runner
+check. With no release/module tags or available package listings, READMEs
+now describe the verified workspace installation command. No artifacts were
+published; permanent-domain and module-version pins remain release gates.
+
 ## 2026-09-09 — The metric root is singular [0724]
 
 `pkg/metrics` is `pkg/metric`, and the machinery built on it follows:

@@ -4,7 +4,7 @@
 # exists (skip_publish is a plain bool here, so it cannot gate on the env).
 #
 # Local dry run (needs the repo go.work):
-#   goreleaser release --snapshot --clean --skip=publish
+#   goreleaser release --snapshot --clean --skip=publish,chocolatey
 version: 2
 
 project_name: sqlstreams
@@ -68,7 +68,7 @@ homebrew_casks:
     binaries:
       - sqlstreams
     homepage: https://vulkan-5ss.pages.dev
-    description: CLI for sqlstreams, the Postgres-backed message log
+    description: CLI for SQLStreams, the Postgres-backed message log
     license: Apache-2.0
     repository:
       owner: agentstax
@@ -90,7 +90,7 @@ chocolateys:
       - sqlstreams
     package_source_url: https://github.com/agentstax/sqlstreams
     owners: agentstax
-    title: sqlstreams
+    title: SQLStreams
     authors: agentstax
     project_url: https://vulkan-5ss.pages.dev
     license_url: https://github.com/agentstax/sqlstreams/blob/main/LICENSE
@@ -99,10 +99,10 @@ chocolateys:
     docs_url: https://vulkan-5ss.pages.dev
     bug_tracker_url: https://github.com/agentstax/sqlstreams/issues
     tags: "sqlstreams postgres messaging cli"
-    summary: CLI for sqlstreams, the Postgres-backed message log
+    summary: CLI for SQLStreams, the Postgres-backed message log
     description: |
       {{ .ProjectName }} installer package.
-      CLI for sqlstreams, the Postgres-backed message log.
+      CLI for SQLStreams, the Postgres-backed message log.
     release_notes: "https://github.com/agentstax/sqlstreams/releases/tag/{{ .Tag }}"
     api_key: '{{ envOrDefault "CHOCOLATEY_API_KEY" "" }}'
     source_repo: "https://push.chocolatey.org/"

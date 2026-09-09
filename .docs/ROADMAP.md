@@ -18,10 +18,10 @@ the item is removed.
 
 - **Benchmark-recording pipeline** (14c) — decide where lab throughput
   numbers get saved so regressions are visible over time. First real
-  workload: a thorough multi-topic throughput/latency benchmark under high
+  workload: a thorough multi-stream throughput/latency benchmark under high
   concurrency, pushed to real DB limits (connection pool, lock table, I/O)
-  rather than the library's own bottleneck. Single-topic skip-vs-claim was
-  already measured in .bench/idempotency/RESULTS.md; multi-topic contention
+  rather than the library's own bottleneck. Single-stream skip-vs-claim was
+  already measured in .bench/idempotency/RESULTS.md; multi-stream contention
   is still open. Also measure the debug buffer's overhead here
   (WithLogBuffer + BufferLogger cost per operation, healthy path) — a
   published number is the adoption gate for always-on capture ([0559]).
@@ -53,7 +53,9 @@ the item is removed.
   new logo sheet. Recreate disposable databases and keep a generated
   Cloudflare origin until a permanent domain is bought before binary
   release [0726]. Public proposal and technical identity approved [0727];
-  local logo sheet (`SQLSTREAMS_LOGO_SHEET.html`) is ready for review.
+  semicolon logo approved [0729]; local rename and 50/50 fresh-DB e2e
+  are complete. Repository renamed and local origin updated. Remaining: publication, domain
+  before binary release, deployment approval and plan close-out.
 
 - **Test suite: kinds, `sqlstreamstest`, TEST.md transcription, e2e
   conversion** (14c) — rules settled in [0730] [0731]; the research and
@@ -66,7 +68,7 @@ the item is removed.
   the four `*_TEST_*` env vars into `SQLSTREAMS_TEST_DATABASE_URL`, move
   `claim_test.go` onto the fixture as an external test package; CI gains a
   Postgres service in that change and `just verify` runs
-  `-race -count=1 -shuffle=on` in every module with tests (cmd/vulkan and
+  `-race -count=1 -shuffle=on` in every module with tests (cmd/sqlstreams and
   otel included). Then transcribe TEST.md (single-process cases become
   database tests in pkg/producer and pkg/consumer, SQLSTATE tables become
   pure tests in pkg/common, signal and killed-server cases stay e2e) and
@@ -100,7 +102,7 @@ the item is removed.
     concurrent transactions and NOW() transaction timestamps can invert
     their order. Resolve that correctness risk explicitly; timeout tuning
     does not fix it.
-  - Define partition sealing/rotation for low-volume and idle topics, safe
+  - Define partition sealing/rotation for low-volume and idle streams, safe
     maximum-timestamp maintenance under concurrent/late commits, and the
     extra retention beyond TTL caused by whole-partition deletion. Surface
     retained bytes, expiry backlog, oldest retained age and cleanup failures
@@ -119,7 +121,7 @@ the item is removed.
   Bench an idle fleet at 100 / 1k / 10k worker rows x 1-3 replicas:
   Postgres CPU, QPS, where the curve hurts. Result picks a rung on the
   settled fix ladder (cheapest first, don't skip rungs): (1) per-row
-  poll_rate already exists in worker metadata — coarsen quiet topics' rows,
+  poll_rate already exists in worker metadata — coarsen quiet streams' rows,
   document; (2) idle backoff inside the instance tick runner only — no
   progress backs off toward a cap (~10x poll_rate), any progress snaps
   back; cost is a committed-staleness spike on wake, janitor side covered
@@ -133,26 +135,30 @@ the item is removed.
   the CLI release path and Dependabot end to end, then turn on the package
   managers. `.goreleaser.yaml`, `.github/workflows/release.yml`,
   `.github/workflows/ci.yml`, and `.github/dependabot.yml` (all drafted
-  2026-09-08, uncommitted). Two tests, each a repo-settings step plus a
+  2026-09-08). Two tests, each a repo-settings step plus a
   push that proves it:
   1. Release: push a prerelease tag (`v0.1.0-rc.1`) and confirm the
      release job is green with no secrets set -- the Homebrew and
      Chocolatey steps skip themselves while `HOMEBREW_TAP_TOKEN` /
      `CHOCOLATEY_API_KEY` are unset. Download one archive from the
-     Release and check `vulkan --version` prints the tag.
+     Release and check `sqlstreams --version` prints the tag.
   2. Dependabot: under Settings > Code security, turn on Dependabot
      alerts, security updates, and grouped security updates, then commit
      the config. Verify three things: Insights > Dependency graph >
      Dependabot lists all three ecosystems with no parse error and a
      "last checked" time; "Check for updates" on the gomod entry opens
      nothing or exactly one grouped PR; the alerts tab shows the nested
-     modules' manifests (cmd/vulkan, otel) even though only the root is
+     modules' manifests (cmd/sqlstreams, otel) even though only the root is
      in the config. Record the outcome here before trimming the item.
-  - Blocked on the rename item in Later: the tap name, cask name, and
-    Chocolatey package id are public once pushed, like the module path.
-  - `.e2e/` and `.examples/` are untracked, so a clean checkout cannot run
-    `just verify`; commit them before the first CI run.
-  - The nested cmd/vulkan module has no `require` on the root, so
+  - SQLStreams identity is locked and the GitHub repository is renamed.
+    Binary release waits for the permanent domain; do not push a release
+    tag before replacing the temporary docs origin.
+  - Distribution audit 2026-09-09: GitHub reports no releases or root/CLI/OTel
+    version tags. The configured `agentstax/homebrew-tap` is not accessible
+    (404), and the SQLStreams Chocolatey page returns 404. No public listing
+    was found to migrate. READMEs now describe installation from the local
+    workspace until versioned distribution is available.
+  - The nested cmd/sqlstreams module has no `require` on the root, so
     `go install ...@version` still needs the three-module tag story its
     go.mod comment describes; the workflow builds through a generated
     go.work instead and pins `GORELEASER_CURRENT_TAG` so a nested-module
@@ -165,7 +171,7 @@ the item is removed.
   - Dependabot volume: monthly grouped version updates per ecosystem with
     a seven-day cooldown, so the steady state is at most three PRs a
     month; security updates ignore both. Only the root gomod is listed;
-    cmd/vulkan, otel, and the dev modules join once the root is published
+    cmd/sqlstreams, otel, and the dev modules join once the root is published
     and their go.mod carries a real require on it.
   - Homebrew needs an `agentstax/homebrew-tap` repo and a PAT with write
     access to it; Chocolatey needs an account and API key, and its first
@@ -190,7 +196,7 @@ documentation; the latter want a surface that has stopped moving.
   partition. A green run proves 720 heartbeats and nothing about the
   question the janitor poses -- does a drop or sweep ever take a row a
   lagging group has not been delivered. `--time-scale` scales phases, not
-  TTLs, so it cannot help. Fix: the scenario's `[input]` topic line carries
+  TTLs, so it cannot help. Fix: the scenario's `[input]` stream line carries
   `RetentionTTL`, `PartitionSize`, and `IdempotencyKeyTTL`, `Scaled`
   scales the two durations with the phases, and the quiet run declares
   `RetentionTTL 5m PartitionSize 10000 IdempotencyKeyTTL 5m` -- 72
@@ -205,16 +211,16 @@ documentation; the latter want a surface that has stopped moving.
   every delivery, before turning retention on.
 
 - **Claim stall Warn** -- a produce inside a caller-owned transaction
-  holds every consumer group on the topic at that message id until the
+  holds every consumer group on the stream at that message id until the
   commit, and today the only symptom is lag. Add a declared Warn event on
   the consumer side when a claim has waited on an uncommitted message
-  longer than a threshold, carrying topic, group, the message id it is
+  longer than a threshold, carrying stream, group, the message id it is
   held at, and the stall duration. Surfaced by playground scenario 04;
   the guide (transactional-produce) states the rule in prose, this is the
   observability half.
 
 - **Dead-lettered messages: list + retry on the consumer handle** -- a
-  dead row sits in exception_queue_<topic_id> with status dead,
+  dead row sits in exception_queue_<stream_id> with status dead,
   last_error, and attempts, and the client has no verb to read it or put
   it back; today the read is the VK0028 diagnose query in psql and the
   write is a hand-written UPDATE. Add `Consumer(...).Exceptions(ctx,
@@ -232,7 +238,7 @@ documentation; the latter want a surface that has stopped moving.
   key handle wrapping the three steps and setting MessageKey + Compaction
   itself (the JetStream KV shape: Get returns the revision, Update is the
   conditional write), plus a declared Warn when a keyed, uncompacted
-  message lands on a topic whose compaction_head already holds that key.
+  message lands on a stream whose compaction_head already holds that key.
   CONCERN: the Warn needs a compaction_head lookup on the produce path,
   which is hot -- extra latency per keyed produce is the cost, so it
   ships only if the lookup rides a statement produce already runs, never
@@ -244,7 +250,7 @@ documentation; the latter want a surface that has stopped moving.
   a changed Start changes nothing and logs nothing, since Start is not part
   of the stored config. Two halves: (1) a declared Warn at Register when
   the supplied Start names a position other than where the existing cursor
-  sits -- once per Register, off the hot path, carrying topic, group, the
+  sits -- once per Register, off the hot path, carrying stream, group, the
   requested position, and the committed id; (2) the rewind verb the replay
   guide (website guides/replay, marked Proposed) already specs, with
   `AtMessageId` / `AtTime` positions, which is the only way to move an
@@ -295,19 +301,19 @@ documentation; the latter want a surface that has stopped moving.
   controller's `openWaiters`); `Log(ctx, limit)` set-change history
   newest first (a new query
   without DISTINCT ON -- the first `_config_log` listing verb, so it
-  sets the shape topic_config_log / worker_config_log would copy);
+  sets the shape stream_config_log / worker_config_log would copy);
   `Matches(ctx, routingKey)` an `EXISTS ... ~ pattern_regex` read on
   binding_config, the claim query's own predicate -- client-side
-  matching would be a second mechanism for the same fact. Per-topic
-  `TopicHandle.Bindings(ctx)` beside `Consumers` if a caller
-  wants it (the datastore already reads per topic). Never `Declare` /
+  matching would be a second mechanism for the same fact. Per-stream
+  `StreamHandle.Bindings(ctx)` beside `Consumers` if a caller
+  wants it (the datastore already reads per stream). Never `Declare` /
   `Clear`: [0511] removed them -- with live instances an admin declare
   waits forever, with none the app's next Register overwrites it.
 - **Metrics handles for consumer, producer, and possibly scheduler** — after
-  the System / Topic / Consumer metrics surface settles, evaluate metrics on the
+  the System / Stream / Consumer metrics surface settles, evaluate metrics on the
   running `ConsumerInstance`, `ProducerInstance`, and `SchedulerInstance`.
   These must expose facts owned by that process or session, not duplicate the
-  Consumer / Topic snapshots or give a second path to stored metric history.
+  Consumer / Stream snapshots or give a second path to stored metric history.
   Consumer session counters already provide a candidate; producer metrics need
   a settled lifecycle, and scheduler earns a handle only if it has meaningful
   instance-local facts rather than fleet state that belongs to System. Specify
@@ -333,8 +339,8 @@ documentation; the latter want a surface that has stopped moving.
   outcome and the instance carrying it — so the shape is known.
 
 - **Diagnose queries filled from the values a raise attached** — today a
-  declared query renders with its `{topic_id}`/`{schema}` placeholders
-  literal, in `vulkan explain <code>` and on the error pages, and the
+  declared query renders with its `{stream_id}`/`{schema}` placeholders
+  literal, in `sqlstreams explain <code>` and on the error pages, and the
   reader substitutes. `Error.Fill` already exists and runs on the fix;
   pointing it at `Query.Sql` and rendering the result in
   `renderErrorBlock` would hand an operator a query they can paste
@@ -352,7 +358,7 @@ documentation; the latter want a surface that has stopped moving.
   guides/schema-versions.mdx, which is about payloads, never moves.
 
 - **`schedule_config` declaration trail** — surfaced by the 2026-08-30
-  init-model rethink (guides/consumer-group-config.mdx): topic, worker,
+  init-model rethink (guides/consumer-group-config.mdx): stream, worker,
   and binding declarations all keep a `_config_log` trail;
   schedule_config has none, so a redeclared cron expression leaves no
   history. Decide whether it earns a `schedule_config_log` on the same
@@ -384,7 +390,7 @@ documentation; the latter want a surface that has stopped moving.
   schema / Temporal's data converter are the precedents. Not before
   the skip behavior has been lived with.
   - The key reads have the same gap from the other side [0646]:
-    `Topic[OrderV1].Key(k).CompactionHead` on a key whose head is V2
+    `Stream[OrderV1].Key(k).CompactionHead` on a key whose head is V2
     decodes the V2 payload into the V1 struct silently. "not found"
     is the wrong word for it; the answer is whatever the upcaster
     decides, so it waits here with it.
@@ -394,13 +400,13 @@ documentation; the latter want a surface that has stopped moving.
   [0612], but the deep mechanics — compaction_head, rank rules,
   retention interplay — still have no page) and a workers/maintenance-fleet
   page (the fleet is a table in concepts/architecture plus one
-  quickstart caution; `vulkan manager run` and schedules have no home).
+  quickstart caution; `sqlstreams manager run` and schedules have no home).
 
-- **`vulkan explain --run`** (or a `vulkan diagnose` verb) — execute a
+- **`sqlstreams explain --run`** (or a `sqlstreams diagnose` verb) — execute a
   declaration's diagnose queries against the operator's own database, since
   the CLI already holds a connection. The queries themselves shipped
   2026-08-25 [0589]; placeholders named by attribute key keep this reachable
-  without a redesign, and the CLI would take `--topic-id`-style flags.
+  without a redesign, and the CLI would take `--stream-id`-style flags.
 
 - **Vocabulary walker** — enforce the CONVENTIONS.md ## Vocabulary registry
   mechanically: a .tools/conventions test that greps code, comments, and
@@ -422,7 +428,7 @@ documentation; the latter want a surface that has stopped moving.
     ticks + M cumulative, exception retries counting), open state gating
     claims/retries/buffered work; state read from an atomic refreshed by its
     own async ticker, never a hot-path query.
-  - Shared breaker row + globalization: (topic_id, group) row, guarded
+  - Shared breaker row + globalization: (stream_id, group) row, guarded
     CLOSED->OPEN with a generation counter; settle quorum K here (small
     absolute vs presence-backed fraction — if fraction wins, presence
     heartbeat rows become a prerequisite; see parking lot).
@@ -461,8 +467,8 @@ prerequisite if quorum-as-a-fraction wins.
   upstream's retry horizon (a day). Split them: a `caller_supplied`
   column on the claim row (a caller's UUID string is stored verbatim and
   cannot be told from a minted v7), minted claims swept after minutes,
-  caller claims kept for the topic's TTL, two sweep predicates in the
-  topic janitor. Pick up only if a real caller-key workload shows the
+  caller claims kept for the stream's TTL, two sweep predicates in the
+  stream janitor. Pick up only if a real caller-key workload shows the
   24h default (restored 2026-09-05 to [0283]'s value from an unrecorded
   1h) costing measurable WAL or sweep time past the 10M-row bench floor.
 
@@ -628,14 +634,14 @@ prerequisite if quorum-as-a-fraction wins.
   wording ("every lifetime counter the instance keeps") already covers
   counter-less lines until then.
 - **Log-viewing as product** (post-v1 rungs from the logging research,
-  [0558]): a `vulkan tail`-style verb with --topic/--consumer/--level filters
+  [0558]): a `sqlstreams tail`-style verb with --stream/--consumer/--level filters
   (Laravel Pail / heroku logs -t precedent); a per-delivery "full story"
   CLI view assembled from delivery_log + deliveries (Telescope/Rails
   request block as CLI); an OBS-loganalyzer-style script diagnosing common
   misconfigurations from any pasted log — feasible exactly because [0558]
   fixed the key registry and static messages; a piped-log annotate mode
   joining VK codes to their declarations (journalctl -x shape) extending
-  `vulkan explain`.
+  `sqlstreams explain`.
 - **Debug-buffer extensions** ([0559]) — AutoFlushDuration (.NET log
   buffering: after a drain, forward live for N seconds — the aftermath is
   usually the interesting part) and the Warn-as-drain-trigger revisit
@@ -775,7 +781,7 @@ prerequisite if quorum-as-a-fraction wins.
   River and Oban both commit to pgx for the same reasons.
 - **Dynamic partition bounds** (11.5b; shape settled 2026-07-24 — unlocks
   the immutable PartitionSize). Today every partition-math call site assumes
-  one constant width for the topic's life. The fix: Postgres already stores
+  one constant width for the stream's life. The fix: Postgres already stores
   every partition's true bounds — the math is just a cache of the catalog.
   KEEP sequential `message_log_<id>_<n>` naming; reads walk pg_inherits +
   pg_get_expr(relpartbound) and use the (relname, lower, upper) triples;
@@ -786,7 +792,7 @@ prerequisite if quorum-as-a-fraction wins.
   only append at the top; cache the partition map in memory, re-read only
   when head crosses the cached max upper bound. Resulting semantics:
   PartitionSize = width of FUTURE partitions only (Kafka segment.bytes) —
-  a freely-alterable topic-row UPDATE via AlterConfig's sparse-patch
+  a freely-alterable stream-row UPDATE via AlterConfig's sparse-patch
   machinery.
 - **Consumer lifecycle extension point** (13b) — decide whether the
   startup -> poll -> shutdown sequence becomes an overridable public
@@ -797,17 +803,17 @@ prerequisite if quorum-as-a-fraction wins.
   ConsumerGroupHandler vs River's internal loop are the two defensible
   answers.
 - **RLS & chaos-testing surfaces** (13c) — both additive post-v1. RLS: most
-  likely a topic.Config toggle provisioning Postgres RLS policies + a
+  likely a stream.Config toggle provisioning Postgres RLS policies + a
   least-privilege role so a compromised consumer credential can't reach
-  outside its topic; decide the config field, which tables carry policies,
-  role-to-topic mapping, RegisterTopic-rides vs separate admin verb.
+  outside its stream; decide the config field, which tables carry policies,
+  role-to-stream mapping, RegisterStream-rides vs separate admin verb.
   Chaos/fixture: internal seed/inject helpers first (seed ready/inflight/
   dead, inject failures), then decide public testing package vs
   internal-only (River's rivertest precedent).
 - **Presence: heartbeat rows for live producer/consumer instances** (13d;
   design shaped in discussion, not built; prerequisite for the circuit
   breaker's quorum-as-a-fraction). Nothing records what's connected to a
-  topic — operators can't answer "what exists right now, idle or active",
+  stream — operators can't answer "what exists right now, idle or active",
   and Destroy finds out the hard way (a live producer's missing-partition
   self-heal resurrects partitions mid-drain).
   - One presence row per instance, three timestamps, two mechanisms:
@@ -819,20 +825,20 @@ prerequisite if quorum-as-a-fraction wins.
     (collapse "nothing registered" and "registered but idle"); piggybacking
     on the Consume loop rejected (breaks symmetry, misses janitor-only
     instances).
-  - Register(ctx) inserts the row, validates the topic's PARENT tables via
+  - Register(ctx) inserts the row, validates the stream's PARENT tables via
     to_regclass (parents only — partitions come and go by design), starts
     the heartbeat. The shipped three-state gate keeps presence honest:
     producing implies alive becomes an invariant.
   - First consumer — a Destroy gate: refuse while any producer is ALIVE (not
     merely active; idle-but-alive can wake mid-drain), refusal naming
-    instances and last-seen times; force override; deleteTopic's bounded
+    instances and last-seen times; force override; deleteStream's bounded
     drop loop stays the hard backstop (check-then-drain has an unavoidable
     TOCTOU window). RabbitMQ queue.delete(if-unused) precedent.
   - Second consumer — the breaker's globalization quorum as a fraction of
     ALIVE instances. Also the natural substrate for alerts that name
     instances ("destroy blocked: producer X seen 2s ago").
   - Third consumer — automatic consumer-group expiration
-    (topic.Config.GroupExpiration): janitor-style reap of a group idle past
+    (stream.Config.GroupExpiration): janitor-style reap of a group idle past
     the threshold, deleting the same rows as the manual destroy verb.
     Mechanism settled 2026-07-29: idleness computed DYNAMICALLY —
     now() - GREATEST(newest heartbeat, group registered_at) — never a
@@ -847,7 +853,7 @@ prerequisite if quorum-as-a-fraction wins.
     max(RetentionTTL, 7d) vs industry-standard OFF (Pulsar/NATS opt-in;
     Kafka the lone always-on at 7d) — re-settle at build; needs an explicit
     never value (0-as-unset vs 0-as-never collide). Retention-forever
-    topics never expire groups. Expiry is recoverable by design: a returning
+    streams never expire groups. Expiry is recoverable by design: a returning
     group re-seeds and REPLAYS what retention holds — duplicate work, not
     data loss. Stakes: with allow_drop_past_committed=false (default) an
     abandoned group's cursor pins partition drops. Hard rules: expiry must
@@ -877,7 +883,7 @@ prerequisite if quorum-as-a-fraction wins.
     settled under the old maintenance-tier names; rides the worker
     backoff's fenced failure UPDATE): one SHARED append-only table, failed
     worker runs only —
-    `worker_run_log (id BIGSERIAL PK, worker, topic_id, consumer_group,
+    `worker_run_log (id BIGSERIAL PK, worker, stream_id, consumer_group,
     error TEXT, attempts INT, created_at)`; NO success/recovery rows
     (absence IS success). The write rides the backoff UPDATE's fence as one
     data-modifying CTE, so an instance that lost its claim mid-run can't
@@ -888,10 +894,10 @@ prerequisite if quorum-as-a-fraction wins.
   want) — abstract the fence read into an async ticker with claimers
   reading a shared in-memory value; the query is cheap so the poll rate can
   be much faster, and the complex logic gets one home.
-- **Exception claiming revamp onto topic/cursor machinery** (really want) —
+- **Exception claiming revamp onto stream/cursor machinery** (really want) —
   exception claiming is queue-based today and carries a lot of custom logic.
   Converting it needs the async ordered-index claim table (see 12b): a
-  failed retry is produced to an unordered topic, materialized as a new
+  failed retry is produced to an unordered stream, materialized as a new
   attempt near the front of the ordered index, picked up soon after because
   materialization runs only slightly ahead of claiming.
 - **Delivery rows delete on completion** instead of persisting as 'done' —
@@ -926,12 +932,12 @@ prerequisite if quorum-as-a-fraction wins.
   into drops. Benchmark-gated: create-ahead must ride the producer's
   partition self-heal, and the hot claim table takes on partitioned-table
   planner overhead.
-- **topic_config_log / worker_config_log retention** — both are unbounded
+- **stream_config_log / worker_config_log retention** — both are unbounded
   today; rows append only on actual config change, so growth tracks change
   frequency, not traffic. Revisit whether they want a TTL sweep like
   binding_config_log's ([0573]) once real deployments show the volume.
 - **BRIN indexes** — look into using them for different tables.
-- **DeadLetterTopic consumer** — consume on events to the DLQ.
+- **DeadLetterStream consumer** — consume on events to the DLQ.
 - **Shadow/Mirror functionality** — watch exactly the same cursor as another
   group (message-by-message mirroring would be better if possible; probably
   not).
@@ -946,8 +952,8 @@ prerequisite if quorum-as-a-fraction wins.
   alternative. https://github.com/durable-streams/durable-streams for a
   potential protocol.
 - **WorkerManager split into WorkerScheduler + WorkerSpawner** — scheduler
-  acts like the schedule producer but submits 'spawn'/'destroy' topic requests
-  (reconciler logic); spawner reads the topic and spawns or destroys
+  acts like the schedule producer but submits 'spawn'/'destroy' stream requests
+  (reconciler logic); spawner reads the stream and spawns or destroys
   instances.
 - **Antithesis** (https://antithesis.com) for production hardening and bug
   hunting.
@@ -958,13 +964,13 @@ prerequisite if quorum-as-a-fraction wins.
 
 - **Agent operator** -- a skill set that lets a coding agent (Claude Code
   or similar) diagnose a running deployment through the existing CLI.
-  Delivery is skill files over `vulkan --output json` and `vulkan explain`,
+  Delivery is skill files over `sqlstreams --output json` and `sqlstreams explain`,
   not an MCP server: users drop MCP servers for CLI-plus-skills on token
   cost and keep MCP only for auth brokering or a hard allowlist, and the
   allowlist here is a read-only Postgres role. Read-only by construction:
   the operator runs read verbs, prints the write command (suspend, run,
   migrate) for a human to paste, never runs it. Every read carries a scope
-  (topic, consumer, limit). A diagnosis ends by naming the alert or metric
+  (stream, consumer, limit). A diagnosis ends by naming the alert or metric
   that should clear and re-reading it. Rung 0 before building: point an
   agent at a broken e2e test deployment with only the CLI and record where it
   goes wrong; VK codes, fix text, and alert hints may already be enough.
