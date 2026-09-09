@@ -471,6 +471,72 @@ One shape per kind, and the sameness is enforced rather than reviewed:
 - The doc page for `sqlstreamstest` shows the one pattern, and the
   library's own tests are its examples.
 
+## 9. Session state, 2026-09-09 (read this first when resuming)
+
+Everything below is in the working tree, uncommitted; the user commits.
+The project was renamed to SQLStreams mid-session by another session
+[0725]: module `github.com/agentstax/sqlstreams`, `pkg/sqlstreams`,
+`pkg/stream`, `pkg/sqlstreamstest`, `SQLSTREAMS_TEST_DATABASE_URL`.
+Records 0730/0731 keep the older `vulkantest` spelling as history.
+
+Landed:
+
+- Rules: CONVENTIONS Part 5 "How code is tested" (Part 6 is now
+  "Outside the library"); AGENTS Verification (source .env so database
+  tests run; lowest kind wins; a failing test is never edited to pass in
+  the same change without saying so); records 0730, 0731; DECISION_MAP
+  tests line; the ROADMAP Now item "Test suite: kinds, sqlstreamstest,
+  TEST.md transcription, e2e conversion" with a Done sub-bullet and two
+  Pending sub-bullets.
+- `pkg/sqlstreamstest`: `NewDatastore(t, cfg)`, `NewClient(t, ds, cfg)`,
+  `DatabaseURL(t)`, `WaitFor(t, condition)`, `NewCountingLogger()`. One
+  pool per test binary (MaxConns 8, `application_name`
+  `sqlstreamstest_<pid>`), schema `test_<binary>_<pid>_<n>` dropped at
+  cleanup. `NewCountingLogger()` returns no error, a deliberate deviation
+  from the `New<Struct>` rule; the user accepted it.
+- Tests on the fixture: `claim_test.go` (external package, real
+  registration), `pkg/sqlstreams/client_test.go` (+ `export_test.go`),
+  worker `instance_log_test.go`, CLI `conn_test.go`, reliability
+  `measure_test.go`. New: `pkg/sqlstreams/producer_test.go` (5),
+  `pkg/sqlstreams/consumer_test.go` (10), SQLSTATE tables in
+  `pkg/common/retry_datastore_test.go` (34 codes).
+- `just verify` runs `-race -count=1 -shuffle=on` in root, cmd/sqlstreams,
+  otel; CI exports the one variable (Postgres service already existed);
+  `.env.example` and DEVELOPING.md say how to run database tests.
+- `.docs/TEST.md` deleted (`git rm`, so the deletion is staged).
+- Library fix found by the tests: `SystemManager.Run` returned
+  `context canceled` when the cancel landed during its startup owner
+  read; now a cancel there is a requested stop (nil), matching Consume.
+- The site page `/reference/vulkantest/` was written, then deleted by the
+  user ("not a valid user document"); CONVENTIONS Part 5's fixture
+  section is the spec. The api-shape aside says "Not built; a reference
+  page lands with the package".
+
+Verified at the end of the session: root suite 392 tests pass under race
+and shuffle across 82 packages with the variable set; lifecycle tests pass
+three times in a row; conventions checks pass; gofmt and vet clean.
+
+Open notes:
+
+- `TestClaimWaitsForProducerBeyondSnapshotXmax` checks a premise any other
+  package's write can break while packages run in parallel against one
+  server. Passed in every parallel run so far; if it flakes, `-p 1` on the
+  root module in `verify` is the cheap fix.
+- Every fresh-schema stream registration logs WARN "could not run
+  register-time alert pass ... alert evidence is insufficient". Library
+  noise on fresh schemas, not a test problem; worth a separate look.
+- Dev Postgres: `set -a; source ./.env; set +a; docker compose -f
+  .tools/database/docker-compose.yaml up -d postgres`; the test URL is the
+  `.env.example` value.
+
+Next step: the e2e conversion pass. Every single-process `.e2e/` program
+becomes a database test before the item closes (fork B); `.e2e/common`
+gains `Must`/`Die`/`Assert` and the pool from the env var; the pending
+`.e2e/signal` program and the `DropExpiredPartitions` double-drop test are
+listed in the ROADMAP item. Then the `(checked)` candidates in
+`.tools/conventions`, each sabotaged before trusted. At close-out this
+file is deleted.
+
 ## Sources
 
 - Go release notes 1.24 to 1.27, `testing`, `testing/synctest` docs and

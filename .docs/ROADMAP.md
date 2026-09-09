@@ -69,6 +69,24 @@ the item is removed.
   `_test.go` outside a `synctest` bubble; no `CREATE TABLE` text in a
   `_test.go`; one `SQLSTREAMS_TEST_*` name read only by `sqlstreamstest`;
   no e2e program declaring its own `must`.
+  - Done 2026-09-09: `pkg/sqlstreamstest`, the one env var, `claim_test.go`
+    on the fixture, `verify` and CI, and the TEST.md transcription: the
+    lifecycle cases are database tests in pkg/sqlstreams (producer_test.go,
+    consumer_test.go), the SQLSTATE tables are pure tests in pkg/common.
+    Dropped with the API that moved: producer lifecycle-context cases (a
+    producer no longer registers a lifecycle), Register-twice and
+    Consume-before-Register, the goroutine-count baseline, the live 53300
+    trigger (a full pool queues, it never raises the code) and the live
+    57014 trigger (a cancel must land mid-statement; timing-bound).
+  - Pending e2e program `.e2e/signal`, the four TEST.md cases with no home
+    yet: a producer under SIGKILL leaves no prepared transaction or
+    ungranted lock; a producer under SIGTERM through `LifecycleContext`
+    exits 0 with the in-flight message committed; a consumer under SIGTERM
+    exits 0 promptly; a second SIGTERM past a hung handler force-exits with
+    status 128 plus the signal, never waiting out Timeout plus TimeoutGrace.
+  - Pending database test: `DropExpiredPartitions` called twice succeeds
+    (a retry after an ambiguous commit), once a droppable-partition fixture
+    exists.
 
 - **Move the public entry package out of pkg/** — follow through on [0665]
   and [0670] once its destination is selected. Update imports and path-aware

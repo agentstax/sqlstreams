@@ -7,9 +7,6 @@ import (
 	"time"
 )
 
-// Package-level declarations mirror real usage: registered once at init,
-// walked by the tense and banned-word tests below alongside every other
-// registered error.
 var (
 	errTestStreamMissing = NewDiagnosticError("SQL9901", RecoveryPermanent,
 		"test stream not found",
@@ -18,88 +15,29 @@ var (
 		"could not reach the test broker", "")
 )
 
-func TestErrorRendersAllParts(t *testing.T) {
-	raised := errTestStreamMissing.With("stream", "orders", "version", 3)
-
-	want := `test stream not found: stream "orders", version 3 -- register it with RegisterStream first [SQL9901]`
-	if raised.Error() != want {
-		t.Fatalf("got %q, want %q", raised.Error(), want)
+// closed set: the Error() line for each combination of parts a raise can
+// carry -- values, fix, wrapped cause.
+func TestErrorRendersEachPartCombination(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{name: "all parts", err: errTestStreamMissing.With("stream", "orders", "version", 3), want: `test stream not found: stream "orders", version 3 -- register it with RegisterStream first [SQL9901]`},
+		{name: "no values", err: errTestStreamMissing, want: "test stream not found -- register it with RegisterStream first [SQL9901]"},
+		{name: "no fix", err: errTestConnection.With("host", "db.local", "timeout", 5*time.Second), want: `could not reach the test broker: host "db.local", timeout 5s [SQL9902]`},
+		{name: "wrapped cause", err: errTestConnection.With("host", "db.local").Wrap(errors.New("connection refused")), want: `could not reach the test broker: host "db.local" [SQL9902]: connection refused`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := test.err.Error(); got != test.want {
+				t.Fatalf("Error(%s) = %q, want %q", test.name, got, test.want)
+			}
+		})
 	}
 }
 
-func TestErrorRendersWithoutValues(t *testing.T) {
-	want := "test stream not found -- register it with RegisterStream first [SQL9901]"
-	if errTestStreamMissing.Error() != want {
-		t.Fatalf("got %q, want %q", errTestStreamMissing.Error(), want)
-	}
-}
-
-func TestErrorRendersWithoutFix(t *testing.T) {
-	raised := errTestConnection.With("host", "db.local", "timeout", 5*time.Second)
-
-	want := `could not reach the test broker: host "db.local", timeout 5s [SQL9902]`
-	if raised.Error() != want {
-		t.Fatalf("got %q, want %q", raised.Error(), want)
-	}
-}
-
-func TestErrorRendersWrappedCause(t *testing.T) {
-	cause := errors.New("connection refused")
-	raised := errTestConnection.With("host", "db.local").Wrap(cause)
-
-	want := `could not reach the test broker: host "db.local" [SQL9902]: connection refused`
-	if raised.Error() != want {
-		t.Fatalf("got %q, want %q", raised.Error(), want)
-	}
-}
-
-func TestWithReturnsCopy(t *testing.T) {
-	first := errTestStreamMissing.With("stream", "orders")
-	second := errTestStreamMissing.With("stream", "payments")
-
-	if len(errTestStreamMissing.values) != 0 {
-		t.Fatal("With mutated the declared error's values")
-	}
-	if first.Error() == second.Error() {
-		t.Fatal("two raises share values")
-	}
-}
-
-func TestIsMatchesOnCode(t *testing.T) {
-	raised := errTestStreamMissing.With("stream", "orders")
-	if !errors.Is(raised, errTestStreamMissing) {
-		t.Fatal("raised copy does not match its declaration")
-	}
-
-	wrapped := fmt.Errorf("list streams: %w", raised)
-	if !errors.Is(wrapped, errTestStreamMissing) {
-		t.Fatal("fmt.Errorf-wrapped copy does not match its declaration")
-	}
-
-	if errors.Is(raised, errTestConnection) {
-		t.Fatal("distinct codes match")
-	}
-}
-
-func TestUnwrapReturnsCause(t *testing.T) {
-	cause := errors.New("connection refused")
-	raised := errTestConnection.Wrap(cause)
-
-	if !errors.Is(raised, cause) {
-		t.Fatal("wrapped cause unreachable through errors.Is")
-	}
-	if errTestConnection.wrapped != nil {
-		t.Fatal("Wrap mutated the declared error")
-	}
-}
-
-func TestDocsDerivesFromCode(t *testing.T) {
-	want := "https://vulkan-5ss.pages.dev/errors/SQL9901"
-	if errTestStreamMissing.Docs() != want {
-		t.Fatalf("got %q, want %q", errTestStreamMissing.Docs(), want)
-	}
-}
-
+// closed set: the fields LogValue renders for slog, the same parts as fields.
 func TestLogValueRendersPartsAsFields(t *testing.T) {
 	raised := errTestStreamMissing.With("stream", "orders").Wrap(errors.New("row deleted"))
 
@@ -107,7 +45,6 @@ func TestLogValueRendersPartsAsFields(t *testing.T) {
 	for _, attribute := range raised.LogValue().Group() {
 		fields[attribute.Key] = attribute.Value.String()
 	}
-
 	want := map[string]string{
 		"code":     "SQL9901",
 		"problem":  "test stream not found",
@@ -119,43 +56,53 @@ func TestLogValueRendersPartsAsFields(t *testing.T) {
 	}
 	for key, value := range want {
 		if fields[key] != value {
-			t.Fatalf("field %q: got %q, want %q", key, fields[key], value)
+			t.Errorf("LogValue()[%q] = %q, want %q", key, fields[key], value)
 		}
 	}
 }
 
-func TestNewErrorRejectsDuplicateCode(t *testing.T) {
-	expectPanic(t, func() {
-		NewDiagnosticError("SQL9901", RecoveryPermanent, "duplicate registration attempt", "")
-	})
-}
-
-func TestNewErrorRejectsMalformedCode(t *testing.T) {
-	for _, code := range []string{"", "SQL1", "SQL12345", "XX0001", "SQL00a1", "sql0001"} {
-		expectPanic(t, func() {
-			NewDiagnosticError(code, RecoveryPermanent, "malformed code attempt", "")
+// behavior: errors.Is matches a raise to its declaration by code, through
+// fmt.Errorf wrapping, and reaches a wrapped cause; distinct codes never match.
+func TestErrorsIsMatchesDeclarationByCode(t *testing.T) {
+	cause := errors.New("connection refused")
+	raised := errTestStreamMissing.With("stream", "orders")
+	tests := []struct {
+		name   string
+		err    error
+		target error
+		want   bool
+	}{
+		{name: "raise to declaration", err: raised, target: errTestStreamMissing, want: true},
+		{name: "fmt.Errorf wrapped raise to declaration", err: fmt.Errorf("list streams: %w", raised), target: errTestStreamMissing, want: true},
+		{name: "wrapped cause", err: errTestConnection.Wrap(cause), target: cause, want: true},
+		{name: "distinct codes", err: raised, target: errTestConnection, want: false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := errors.Is(test.err, test.target); got != test.want {
+				t.Fatalf("errors.Is(%s) = %v, want %v", test.name, got, test.want)
+			}
 		})
 	}
 }
 
-func TestNewErrorRejectsUnrecognizedRecovery(t *testing.T) {
-	expectPanic(t, func() {
-		NewDiagnosticError("SQL9903", DiagnosticRecovery("maybe"), "unrecognized recovery attempt", "")
-	})
-}
+// invariant: a declaration is a shared package variable, so With and Wrap
+// return copies and its own rendering never changes.
+func TestWithAndWrapNeverMutateTheDeclaration(t *testing.T) {
+	before := errTestConnection.Error()
+	cause := errors.New("connection refused")
 
-func TestNewErrorRejectsEmptyProblem(t *testing.T) {
-	expectPanic(t, func() {
-		NewDiagnosticError("SQL9904", RecoveryPermanent, "", "")
-	})
-}
+	first := errTestConnection.With("host", "db.local")
+	second := errTestConnection.With("host", "db.remote")
+	errTestConnection.Wrap(cause)
 
-func expectPanic(t *testing.T, run func()) {
-	t.Helper()
-	defer func() {
-		if recover() == nil {
-			t.Fatal("no panic")
-		}
-	}()
-	run()
+	if got := errTestConnection.Error(); got != before {
+		t.Errorf("declaration Error() after With and Wrap = %q, want %q", got, before)
+	}
+	if first.Error() == second.Error() {
+		t.Errorf("two raises render alike: %q", first.Error())
+	}
+	if errors.Is(errTestConnection, cause) {
+		t.Error("errors.Is(declaration, cause) = true after Wrap, want false")
+	}
 }

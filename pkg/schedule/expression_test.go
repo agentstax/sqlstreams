@@ -6,65 +6,67 @@ import (
 	"time"
 )
 
-func TestParseExpressionDefaultsToUTC(t *testing.T) {
-	sched, err := ParseExpression("0 9 * * *")
+// behavior: an expression without a TZ prefix is read in UTC, whatever zone
+// the caller's time carries.
+func TestParseExpressionReadsUnzonedExpressionsInUTC(t *testing.T) {
+	schedule, err := ParseExpression("0 9 * * *")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// from 08:00 UTC expressed in a non-UTC zone: a UTC schedule comes due at
-	// 09:00 UTC; a zone-following schedule would fire at 09:00+05:30
-	start := time.Date(2026, 3, 2, 13, 30, 0, 0, time.FixedZone("IST", 5*3600+1800))
-	next := sched.Next(start)
-	expected := time.Date(2026, 3, 2, 9, 0, 0, 0, time.UTC)
-	if !next.Equal(expected) {
-		t.Errorf("expected %v, got %v", expected, next)
+	// 08:00 UTC expressed in a +05:30 zone: the next 09:00 is 09:00 UTC, not
+	// 09:00 in the caller's zone
+	after := time.Date(2026, 3, 2, 13, 30, 0, 0, time.FixedZone("IST", 5*3600+1800))
+	want := time.Date(2026, 3, 2, 9, 0, 0, 0, time.UTC)
+	if got := schedule.Next(after); !got.Equal(want) {
+		t.Fatalf("Next(%v) = %v, want %v", after, got, want)
 	}
 }
 
-func TestMinRate(t *testing.T) {
-	unbounded := time.Duration(math.MaxInt64)
-	cases := []struct {
-		expr     string
-		expected time.Duration
+// closed set: the shortest gap between scheduled times, including the
+// fall-back day of a zoned daily schedule and a schedule too rare to measure.
+func TestMinRateBySchedule(t *testing.T) {
+	tests := []struct {
+		name string
+		expr string
+		want time.Duration
 	}{
-		{"* * * * *", time.Minute},
-		{"*/5 * * * *", 5 * time.Minute},
-		{"@hourly", time.Hour},
-		{"0 0 * * *", 24 * time.Hour}, // UTC daily -- no DST, constant rate
-		{"@every 90s", 90 * time.Second},
-
-		// 23h fall-back day is the min rate across a year of NY daily scheduled times
-		{"TZ=America/New_York 0 0 * * *", 23 * time.Hour},
-
-		// recurs once every 4 years -- one scheduled time inside the 400d horizon at most
-		{"0 0 29 2 *", unbounded},
+		{name: "every minute", expr: "* * * * *", want: time.Minute},
+		{name: "every five minutes", expr: "*/5 * * * *", want: 5 * time.Minute},
+		{name: "hourly descriptor", expr: "@hourly", want: time.Hour},
+		{name: "daily in UTC", expr: "0 0 * * *", want: 24 * time.Hour},
+		{name: "every descriptor", expr: "@every 90s", want: 90 * time.Second},
+		{name: "daily in New York on the fall-back day", expr: "TZ=America/New_York 0 0 * * *", want: 23 * time.Hour},
+		{name: "leap day recurs once in four years", expr: "0 0 29 2 *", want: time.Duration(math.MaxInt64)},
 	}
-	for _, c := range cases {
-		sched, err := ParseExpression(c.expr)
-		if err != nil {
-			t.Errorf("%q: %v", c.expr, err)
-			continue
-		}
-		if sched.MinRate() != c.expected {
-			t.Errorf("%q: expected min rate %v, got %v", c.expr, c.expected, sched.MinRate())
-		}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			schedule, err := ParseExpression(test.expr)
+			if err != nil {
+				t.Fatalf("ParseExpression(%q) = %v, want nil", test.expr, err)
+			}
+			if got := schedule.MinRate(); got != test.want {
+				t.Fatalf("ParseExpression(%q).MinRate() = %v, want %v", test.expr, got, test.want)
+			}
+		})
 	}
 }
 
-func TestParseExpressionRejectsUnschedulable(t *testing.T) {
-	cases := []struct {
+// closed set: the expressions ParseExpression refuses -- malformed, faster
+// than the producer's one-minute resolution, or never coming due.
+func TestParseExpressionRejectsUnschedulableExpressions(t *testing.T) {
+	tests := []struct {
 		name string
 		expr string
 	}{
 		{name: "malformed", expr: "not a cron expr"},
-		{name: "faster than scheduler resolution", expr: "@every 30s"},
-		{name: "never comes due", expr: "0 0 30 2 *"}, // Feb 30 does not exist
+		{name: "faster than one minute", expr: "@every 30s"},
+		{name: "never comes due", expr: "0 0 30 2 *"},
 	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			if _, err := ParseExpression(c.expr); err == nil {
-				t.Errorf("%q: expected an error", c.expr)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if _, err := ParseExpression(test.expr); err == nil {
+				t.Fatalf("ParseExpression(%q) = nil, want error", test.expr)
 			}
 		})
 	}

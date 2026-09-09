@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -84,6 +85,9 @@ func testPool(t testing.TB) *pgxpool.Pool {
 			return
 		}
 		config.MaxConns = poolMaxConns
+		// one name per binary, so a test can find this pool's own backends in
+		// pg_stat_activity through current_setting('application_name')
+		config.ConnConfig.RuntimeParams["application_name"] = "sqlstreamstest_" + strconv.Itoa(os.Getpid())
 		sharedPool, sharedPoolErr = pgxpool.NewWithConfig(context.Background(), config)
 	})
 	if sharedPoolErr != nil {

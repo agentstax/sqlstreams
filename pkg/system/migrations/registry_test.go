@@ -6,10 +6,10 @@ import (
 	"github.com/agentstax/sqlstreams/pkg/migrate"
 )
 
-// The real registry must always be valid, so an out-of-order or gapped step
-// added later fails the build's tests, not production.
-func TestRegistryValid(t *testing.T) {
+// invariant: the shipped system registry passes Validate, so a gapped or
+// reordered step fails here and never reaches a migrate command.
+func TestSystemRegistryIsValid(t *testing.T) {
 	if err := migrate.Validate(Registry); err != nil {
-		t.Fatalf("system migrations registry invalid: %v", err)
+		t.Fatalf("Validate(Registry) = %v, want nil", err)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
@@ -20,81 +21,137 @@ var (
 		"test stream not found", "")
 )
 
-func TestIsTransientDatastoreError(t *testing.T) {
-	if !IsTransientDatastoreError(errTestConnection.With("host", "db.local")) {
-		t.Fatal("Transient recovery not transient")
+// closed set: what IsTransientDatastoreError concludes for each kind of
+// error it can meet -- a declared recovery wins over a wrapped cause, a bare
+// SQLSTATE speaks for itself, and our own cancellation is never transient
+// even though the driver reports it with the retryable 57014.
+func TestIsTransientDatastoreErrorByErrorKind(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{name: "transient recovery", err: errTestConnection.With("host", "db.local"), want: true},
+		{name: "permanent recovery", err: errTestStreamMissing.With("stream", "orders"), want: false},
+		{name: "transient recovery under fmt.Errorf", err: fmt.Errorf("list streams: %w", errTestConnection), want: true},
+		{name: "permanent recovery over a wrapped deadlock", err: errTestStreamMissing.Wrap(&pgconn.PgError{Code: "40P01"}), want: false},
+		{name: "bare deadlock", err: &pgconn.PgError{Code: "40P01"}, want: true},
+		{name: "bare query_canceled", err: &pgconn.PgError{Code: "57014"}, want: true},
+		{name: "own cancellation", err: fmt.Errorf("claim: %w", context.Canceled), want: false},
+		{name: "unclassified", err: errors.New("no classification anywhere"), want: false},
 	}
-	if IsTransientDatastoreError(errTestStreamMissing.With("stream", "orders")) {
-		t.Fatal("Permanent recovery transient")
-	}
-	if !IsTransientDatastoreError(fmt.Errorf("list streams: %w", errTestConnection)) {
-		t.Fatal("fmt.Errorf-wrapped Transient recovery not transient")
-	}
-
-	// recovery wins over the wrapped cause's own classification
-	if IsTransientDatastoreError(errTestStreamMissing.Wrap(&pgconn.PgError{Code: "40P01"})) {
-		t.Fatal("Permanent recovery lost to its wrapped deadlock")
-	}
-
-	if !IsTransientDatastoreError(&pgconn.PgError{Code: "40P01"}) {
-		t.Fatal("bare deadlock not transient")
-	}
-	if IsTransientDatastoreError(errors.New("no classification anywhere")) {
-		t.Fatal("bare unclassifiable error transient")
-	}
-}
-
-func TestRetryDatastoreStopsOnUnclassifiedError(t *testing.T) {
-	retryDatastore := newTestRetryDatastore(t)
-
-	attempts := 0
-	err := retryDatastore.Wrap(context.Background(), func() error {
-		attempts++
-		return errors.New("no classification anywhere")
-	})
-	if err == nil || attempts != 1 {
-		t.Fatalf("unclassifiable error retried: %d attempts", attempts)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := IsTransientDatastoreError(test.err); got != test.want {
+				t.Fatalf("IsTransientDatastoreError(%s) = %v, want %v", test.name, got, test.want)
+			}
+		})
 	}
 }
 
-func TestRetryDatastoreStopsOnPermanentRecovery(t *testing.T) {
-	retryDatastore := newTestRetryDatastore(t)
-
-	attempts := 0
-	err := retryDatastore.Wrap(context.Background(), func() error {
-		attempts++
-		return errTestStreamMissing.With("stream", "orders")
-	})
-
-	if !errors.Is(err, errTestStreamMissing) {
-		t.Fatalf("declared error lost through Wrap: %v", err)
+// behavior: Wrap retries a transient error through the whole curve and
+// returns the declared error, and stops at the first attempt on a permanent
+// or unclassified one.
+func TestWrapRetriesOnlyTransientErrors(t *testing.T) {
+	tests := []struct {
+		name         string
+		err          error
+		wantAttempts int
+	}{
+		{name: "transient recovery", err: errTestConnection.With("host", "db.local"), wantAttempts: 3},
+		{name: "permanent recovery", err: errTestStreamMissing.With("stream", "orders"), wantAttempts: 1},
+		{name: "unclassified", err: errors.New("no classification anywhere"), wantAttempts: 1},
 	}
-	if attempts != 1 {
-		t.Fatalf("Permanent recovery retried: %d attempts", attempts)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				retryDatastore := newTestRetryDatastore(t)
+
+				attempts := 0
+				err := retryDatastore.Wrap(t.Context(), func() error {
+					attempts++
+					return test.err
+				})
+				if !errors.Is(err, test.err) {
+					t.Fatalf("Wrap(%s) = %v, want the returned error", test.name, err)
+				}
+				if attempts != test.wantAttempts {
+					t.Fatalf("Wrap(%s) attempts = %d, want %d", test.name, attempts, test.wantAttempts)
+				}
+			})
+		})
 	}
 }
 
-func TestRetryDatastoreRetriesOnTransientRecovery(t *testing.T) {
-	retryDatastore := newTestRetryDatastore(t)
-
-	attempts := 0
-	err := retryDatastore.Wrap(context.Background(), func() error {
-		attempts++
-		return errTestConnection.With("host", "db.local")
-	})
-
-	if !errors.Is(err, errTestConnection) {
-		t.Fatalf("declared error lost through Wrap: %v", err)
+// closed set: the SQLSTATEs Wrap retries. A first attempt failing with the
+// code and a second succeeding is the whole recovery.
+func TestWrapRetriesTransientSqlStates(t *testing.T) {
+	codes := []string{
+		"40P01", "40001",
+		"08001", "08003", "53300",
+		"57014",
+		"08000", "08006", "08007", "40003",
+		"57P01", "57P02", "57P03", "57P05",
 	}
-	if attempts != 3 {
-		t.Fatalf("Transient recovery did not use the expression: %d attempts", attempts)
+	for _, code := range codes {
+		t.Run(code, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				retryDatastore := newTestRetryDatastore(t)
+
+				attempts := 0
+				err := retryDatastore.Wrap(t.Context(), func() error {
+					attempts++
+					if attempts == 1 {
+						return &pgconn.PgError{Code: code}
+					}
+					return nil
+				})
+				if err != nil || attempts != 2 {
+					t.Fatalf("Wrap(%s) = %v after %d attempts, want nil after 2", code, err, attempts)
+				}
+			})
+		})
 	}
 }
 
-func newTestRetryDatastore(t *testing.T) *RetryDatastore {
+// closed set: the SQLSTATEs Wrap never retries -- listed deliberately rather
+// than left to the switch's default, so a code moving between the two tables
+// is a visible edit.
+func TestWrapStopsOnPermanentSqlStates(t *testing.T) {
+	codes := []string{
+		"08004", "08P01",
+		"40002",
+		"53000", "53100", "53200", "53400",
+		"57P04",
+		"58000", "58030", "58P01", "58P02",
+		"XX000", "XX001", "XX002",
+		"25P02",
+		"42P01", "42P07", "23514", "23505",
+	}
+	for _, code := range codes {
+		t.Run(code, func(t *testing.T) {
+			retryDatastore := newTestRetryDatastore(t)
+
+			attempts := 0
+			cause := &pgconn.PgError{Code: code}
+			err := retryDatastore.Wrap(t.Context(), func() error {
+				attempts++
+				return cause
+			})
+			if !errors.Is(err, cause) || attempts != 1 {
+				t.Fatalf("Wrap(%s) = %v after %d attempts, want the error after 1", code, err, attempts)
+			}
+		})
+	}
+}
+
+// ***************
+// *** HELPERS ***
+// ***************
+
+func newTestRetryDatastore(t testing.TB) *RetryDatastore {
 	t.Helper()
-
-	policy := &RetryPolicy{MaxRetries: 3, BaseDelay: time.Millisecond, MaxDelay: time.Millisecond, Exponent: 1}
+	policy := &RetryPolicy{MaxRetries: 3, BaseDelay: time.Second, MaxDelay: time.Second, Exponent: 1}
 	retryDatastore, err := NewRetryDatastore(policy, logging.NewDefaultLogger(io.Discard))
 	if err != nil {
 		t.Fatal(err)

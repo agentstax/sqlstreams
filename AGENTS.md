@@ -146,8 +146,8 @@ file) and README/CLAUDE.md stay at root:
   the current max.
 - .docs/THOUGHTS.md -- the user's scratch: ideas not yet promoted to the
   ROADMAP. Never edited by agents.
-- Tabled drafts a ROADMAP item names by path (.docs/TEST.md, and at root
-  bench-design.md with bench-methodology.html) stay where that item
+- Tabled drafts a ROADMAP item names by path (at root bench-design.md
+  with bench-methodology.html) stay where that item
   names them until it ships, then are folded into the surface and deleted.
 - .docs/archive/ -- source material, never edited: explain-it-back.md (the
   user's own writing; some decision rationale exists only there).

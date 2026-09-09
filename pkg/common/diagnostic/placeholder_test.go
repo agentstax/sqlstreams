@@ -10,36 +10,31 @@ var errTestFixSubstitutes = NewDiagnosticError("SQL9903", RecoveryPermanent,
 	"test schema version is older than this build requires",
 	"migrate the {owner_kind} schema up from {version} to {build_version}")
 
-func TestErrorFillsFixFromAttachedValues(t *testing.T) {
-	raised := errTestFixSubstitutes.With("owner_kind", "stream", "version", 4, "build_version", 7)
-
-	want := `test schema version is older than this build requires: owner_kind "stream", version 4, build_version 7 -- migrate the stream schema up from 4 to 7 [SQL9903]`
-	if raised.Error() != want {
-		t.Fatalf("got %q, want %q", raised.Error(), want)
-	}
-}
-
-func TestFixSubstitutionKeepsTheValueRaw(t *testing.T) {
-	declared := NewDiagnosticError("SQL9904", RecoveryPermanent,
+// closed set: how a fix placeholder renders -- filled raw from an attached
+// value, left literal when nothing attached its name.
+func TestFixPlaceholdersFillFromAttachedValues(t *testing.T) {
+	errTestFixQuoted := NewDiagnosticError("SQL9904", RecoveryPermanent,
 		"test stream not found",
 		`register "{stream}" with RegisterStream first`)
-	raised := declared.With("stream", "orders")
-
-	want := `test stream not found: stream "orders" -- register "orders" with RegisterStream first [SQL9904]`
-	if raised.Error() != want {
-		t.Fatalf("got %q, want %q", raised.Error(), want)
+	tests := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{name: "every placeholder attached", err: errTestFixSubstitutes.With("owner_kind", "stream", "version", 4, "build_version", 7), want: `test schema version is older than this build requires: owner_kind "stream", version 4, build_version 7 -- migrate the stream schema up from 4 to 7 [SQL9903]`},
+		{name: "value goes in raw inside the fix's own quotes", err: errTestFixQuoted.With("stream", "orders"), want: `test stream not found: stream "orders" -- register "orders" with RegisterStream first [SQL9904]`},
+		{name: "unattached placeholder stays literal", err: errTestFixSubstitutes.With("owner_kind", "stream"), want: `test schema version is older than this build requires: owner_kind "stream" -- migrate the stream schema up from {version} to {build_version} [SQL9903]`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := test.err.Error(); got != test.want {
+				t.Fatalf("Error(%s) = %q, want %q", test.name, got, test.want)
+			}
+		})
 	}
 }
 
-func TestUnattachedPlaceholderStaysLiteral(t *testing.T) {
-	raised := errTestFixSubstitutes.With("owner_kind", "stream")
-
-	want := `test schema version is older than this build requires: owner_kind "stream" -- migrate the stream schema up from {version} to {build_version} [SQL9903]`
-	if raised.Error() != want {
-		t.Fatalf("got %q, want %q", raised.Error(), want)
-	}
-}
-
+// behavior: the slog surface fills the fix the same way Error() does.
 func TestLogValueFillsTheFix(t *testing.T) {
 	raised := errTestFixSubstitutes.With("owner_kind", "system", "version", 1, "build_version", 2)
 
@@ -49,35 +44,42 @@ func TestLogValueFillsTheFix(t *testing.T) {
 			filled = attribute.Value.String()
 		}
 	}
-
-	want := "migrate the system schema up from 1 to 2"
-	if filled != want {
-		t.Fatalf("got %q, want %q", filled, want)
+	if want := "migrate the system schema up from 1 to 2"; filled != want {
+		t.Fatalf("LogValue()[\"fix\"] = %q, want %q", filled, want)
 	}
 }
 
+// closed set: the placeholder names a declaration reports, once each, in
+// order; none for a static fix.
 func TestFixPlaceholdersListsEachNameOnce(t *testing.T) {
-	declared := NewDiagnosticError("SQL9905", RecoveryPermanent,
+	errTestFixRepeats := NewDiagnosticError("SQL9905", RecoveryPermanent,
 		"test stream not found",
 		"register {stream} again, or destroy {stream} first")
-
-	want := []string{"stream"}
-	if got := declared.FixPlaceholders(); !slices.Equal(got, want) {
-		t.Fatalf("got %v, want %v", got, want)
+	tests := []struct {
+		name     string
+		declared *DiagnosticError
+		want     []string
+	}{
+		{name: "three names", declared: errTestFixSubstitutes, want: []string{"owner_kind", "version", "build_version"}},
+		{name: "repeated name", declared: errTestFixRepeats, want: []string{"stream"}},
+		{name: "static fix", declared: errTestStreamMissing, want: []string{}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := test.declared.FixPlaceholders(); !slices.Equal(got, test.want) {
+				t.Fatalf("FixPlaceholders(%s) = %v, want %v", test.name, got, test.want)
+			}
+		})
 	}
 }
 
-func TestFixPlaceholdersIsEmptyForAStaticFix(t *testing.T) {
-	if got := errTestStreamMissing.FixPlaceholders(); len(got) != 0 {
-		t.Fatalf("got %v, want none", got)
-	}
-}
-
-// a jsonb containment literal in a query, a Go composite literal in a fix
+// regression: a JSONB containment literal in a diagnose query, or a Go
+// composite literal in a fix, is a brace run and not a placeholder.
 func TestFillLeavesANonAttributeBraceRunAlone(t *testing.T) {
 	values := []slog.Attr{slog.String("stream", "orders")}
+	text := `payload @> '{}'`
 
-	if got := fillPlaceholders(`payload @> '{}'`, values); got != `payload @> '{}'` {
-		t.Fatalf("got %q, want the text unchanged", got)
+	if got := fillPlaceholders(text, values); got != text {
+		t.Fatalf("fillPlaceholders(%q) = %q, want the text unchanged", text, got)
 	}
 }

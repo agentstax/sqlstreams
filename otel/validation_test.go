@@ -9,7 +9,11 @@ import (
 	"github.com/agentstax/sqlstreams/pkg/metric"
 )
 
-func TestRejectedFamilies(t *testing.T) {
+// closed set: the metric families an export collection rejects -- names that
+// collide once translated to Prometheus, conflicting kinds or units, reserved
+// names and labels -- and that a rejection never takes an eligible family
+// with it. Each set is checked in both row orders.
+func TestRejectedFamiliesByCollision(t *testing.T) {
 	tests := []struct {
 		name         string
 		measurements []metric.Measurement
@@ -81,23 +85,32 @@ func TestRejectedFamilies(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var rows []*common.StoredMessage[metric.Measurement]
+			rows := make([]*common.StoredMessage[metric.Measurement], 0, len(test.measurements))
 			for _, measurement := range test.measurements {
 				measurement.At = time.Now()
 				rows = append(rows, &common.StoredMessage[metric.Measurement]{Message: &measurement})
 			}
-			for range 2 {
+
+			for _, order := range []string{"declared order", "reversed order"} {
 				families := make(map[string][]*common.StoredMessage[metric.Measurement])
 				for _, row := range rows {
 					families[row.Message.Name] = append(families[row.Message.Name], row)
 				}
 				rejected := rejectedFamilies(families)
-				if len(rejected) != len(test.want) {
-					t.Fatalf("rejected = %v; want %v", rejected, test.want)
+
+				got := make([]string, 0, len(rejected))
+				for name := range rejected {
+					got = append(got, name)
 				}
-				for _, name := range test.want {
-					if rejected[name] == "" {
-						t.Fatalf("no reason for rejected family %q", name)
+				want := slices.Clone(test.want)
+				slices.Sort(got)
+				slices.Sort(want)
+				if !slices.Equal(got, want) {
+					t.Errorf("rejectedFamilies(%s, %s) = %v, want %v", test.name, order, got, want)
+				}
+				for name, reason := range rejected {
+					if reason == "" {
+						t.Errorf("rejectedFamilies(%s, %s)[%q] = %q, want a reason", test.name, order, name, reason)
 					}
 				}
 				slices.Reverse(rows)

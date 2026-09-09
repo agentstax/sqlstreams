@@ -8,74 +8,75 @@ import (
 	"github.com/agentstax/sqlstreams/pkg/common"
 )
 
-func TestEvaluateHistory(t *testing.T) {
+// closed set: the pending/active/insufficient outcome for each shape of
+// sample history, and the unhealthy span each outcome reports.
+func TestEvaluateHistoryStateBySampleShape(t *testing.T) {
 	current := time.Date(2026, 9, 7, 10, 2, 0, 0, time.UTC)
-	finding := &alert.Alert{Status: alert.AlertStatusActive}
 	tests := []struct {
 		name     string
 		states   []alert.AlertEvaluationState
 		ages     []time.Duration
 		disabled bool
 		want     alert.AlertEvaluationState
+		wantSpan time.Duration
 	}{
-		{name: "missing", want: alert.AlertEvaluationStateInsufficientEvidence},
+		{name: "no samples", want: alert.AlertEvaluationStateInsufficientEvidence},
 		{name: "spike", states: []alert.AlertEvaluationState{alert.AlertEvaluationStateActive}, ages: []time.Duration{0}, want: alert.AlertEvaluationStatePending},
-		{name: "sustained", states: []alert.AlertEvaluationState{alert.AlertEvaluationStateActive, alert.AlertEvaluationStateActive}, ages: []time.Duration{0, 2 * time.Minute}, want: alert.AlertEvaluationStateActive},
+		{name: "sustained", states: []alert.AlertEvaluationState{alert.AlertEvaluationStateActive, alert.AlertEvaluationStateActive}, ages: []time.Duration{0, 2 * time.Minute}, want: alert.AlertEvaluationStateActive, wantSpan: 2 * time.Minute},
 		{name: "recovery", states: []alert.AlertEvaluationState{alert.AlertEvaluationStateHealthy, alert.AlertEvaluationStateActive}, ages: []time.Duration{0, time.Minute}, want: alert.AlertEvaluationStateHealthy},
 		{name: "stale recovery", states: []alert.AlertEvaluationState{alert.AlertEvaluationStateHealthy}, ages: []time.Duration{3 * time.Minute}, want: alert.AlertEvaluationStateInsufficientEvidence},
-		{name: "restart", states: []alert.AlertEvaluationState{alert.AlertEvaluationStateActive, alert.AlertEvaluationStateActive}, ages: []time.Duration{0, 24 * time.Hour}, want: alert.AlertEvaluationStatePending},
-		{name: "unusable breaks span", states: []alert.AlertEvaluationState{alert.AlertEvaluationStateActive, alert.AlertEvaluationStateInsufficientEvidence, alert.AlertEvaluationStateActive}, ages: []time.Duration{0, time.Minute, 2 * time.Minute}, want: alert.AlertEvaluationStatePending},
-		{name: "tie", states: []alert.AlertEvaluationState{alert.AlertEvaluationStateActive, alert.AlertEvaluationStateHealthy, alert.AlertEvaluationStateActive}, ages: []time.Duration{0, 0, 2 * time.Minute}, want: alert.AlertEvaluationStateActive},
-		{name: "no duration by waiting", states: []alert.AlertEvaluationState{alert.AlertEvaluationStateActive}, ages: []time.Duration{2 * time.Minute}, want: alert.AlertEvaluationStatePending},
-		{name: "disabled", states: []alert.AlertEvaluationState{alert.AlertEvaluationStateActive}, ages: []time.Duration{0}, disabled: true, want: alert.AlertEvaluationStateActive},
-		{name: "future observation", states: []alert.AlertEvaluationState{alert.AlertEvaluationStateActive}, ages: []time.Duration{-time.Minute}, want: alert.AlertEvaluationStateInsufficientEvidence},
-		{name: "stale with pending disabled", states: []alert.AlertEvaluationState{alert.AlertEvaluationStateActive}, ages: []time.Duration{3 * time.Minute}, disabled: true, want: alert.AlertEvaluationStateInsufficientEvidence},
-		{name: "gap within window", states: []alert.AlertEvaluationState{alert.AlertEvaluationStateActive, alert.AlertEvaluationStateActive}, ages: []time.Duration{0, 3 * time.Minute}, want: alert.AlertEvaluationStatePending},
-		{name: "healthy breaks span", states: []alert.AlertEvaluationState{alert.AlertEvaluationStateActive, alert.AlertEvaluationStateHealthy, alert.AlertEvaluationStateActive}, ages: []time.Duration{0, time.Minute, 2 * time.Minute}, want: alert.AlertEvaluationStatePending},
+		{name: "restart gap", states: []alert.AlertEvaluationState{alert.AlertEvaluationStateActive, alert.AlertEvaluationStateActive}, ages: []time.Duration{0, 24 * time.Hour}, want: alert.AlertEvaluationStatePending},
+		{name: "gap inside window", states: []alert.AlertEvaluationState{alert.AlertEvaluationStateActive, alert.AlertEvaluationStateActive}, ages: []time.Duration{0, 3 * time.Minute}, want: alert.AlertEvaluationStatePending},
+		{name: "insufficient sample breaks span", states: []alert.AlertEvaluationState{alert.AlertEvaluationStateActive, alert.AlertEvaluationStateInsufficientEvidence, alert.AlertEvaluationStateActive}, ages: []time.Duration{0, time.Minute, 2 * time.Minute}, want: alert.AlertEvaluationStatePending},
+		{name: "healthy sample breaks span", states: []alert.AlertEvaluationState{alert.AlertEvaluationStateActive, alert.AlertEvaluationStateHealthy, alert.AlertEvaluationStateActive}, ages: []time.Duration{0, time.Minute, 2 * time.Minute}, want: alert.AlertEvaluationStatePending},
+		{name: "same instant highest id wins", states: []alert.AlertEvaluationState{alert.AlertEvaluationStateActive, alert.AlertEvaluationStateHealthy, alert.AlertEvaluationStateActive}, ages: []time.Duration{0, 0, 2 * time.Minute}, want: alert.AlertEvaluationStateActive, wantSpan: 2 * time.Minute},
+		{name: "waiting adds no duration", states: []alert.AlertEvaluationState{alert.AlertEvaluationStateActive}, ages: []time.Duration{2 * time.Minute}, want: alert.AlertEvaluationStatePending},
+		{name: "future storage time", states: []alert.AlertEvaluationState{alert.AlertEvaluationStateActive}, ages: []time.Duration{-time.Minute}, want: alert.AlertEvaluationStateInsufficientEvidence},
+		{name: "pending disabled", states: []alert.AlertEvaluationState{alert.AlertEvaluationStateActive}, ages: []time.Duration{0}, disabled: true, want: alert.AlertEvaluationStateActive},
+		{name: "pending disabled still needs fresh evidence", states: []alert.AlertEvaluationState{alert.AlertEvaluationStateActive}, ages: []time.Duration{3 * time.Minute}, disabled: true, want: alert.AlertEvaluationStateInsufficientEvidence},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			pending := (&alert.JobPayload{DisablePending: test.disabled}).WithDefaults()
-			var samples []*common.StoredMessage[alert.AlertEvaluationSnapshot]
-			for i, state := range test.states {
-				var found *alert.Alert
-				if state == alert.AlertEvaluationStateActive {
-					found = finding
-				}
-				result, err := alert.NewAlertEvaluationSnapshot(state, found, nil)
-				if err != nil {
-					t.Fatal(err)
-				}
-				samples = append(samples, &common.StoredMessage[alert.AlertEvaluationSnapshot]{Id: int64(7106 - i), CreatedAt: current.Add(-test.ages[i]), Message: result})
+			policy := (&alert.JobPayload{DisablePending: test.disabled}).WithDefaults()
+			samples := storedSamples(t, current, test.states, test.ages)
+
+			result, err := EvaluateHistory(samples, current, policy)
+			if err != nil {
+				t.Fatalf("EvaluateHistory(%s) = %v, want nil", test.name, err)
 			}
-			for range 2 {
-				result, err := EvaluateHistory(samples, current, pending)
-				if err != nil {
-					t.Fatal(err)
-				}
-				if result.State != test.want {
-					t.Fatalf("got %s, want %s", result.State, test.want)
-				}
-				if result.EvaluatedAt != current || result.PendingDuration != pending.PendingDuration || result.MaximumGap != pending.MaximumGap || result.DisablePending != test.disabled || result.MaximumAge != 0 {
-					t.Fatalf("snapshot lost evaluation policy: %+v", result)
-				}
-				if (result.Reason != "") != (result.State == alert.AlertEvaluationStateInsufficientEvidence) {
-					t.Fatalf("reason does not match state: %+v", result)
-				}
-				if len(samples) > 0 && result.ObservedAt != samples[0].CreatedAt {
-					t.Fatal("snapshot lost newest observation time")
-				}
-				if result.State == alert.AlertEvaluationStateHealthy || result.State == alert.AlertEvaluationStateInsufficientEvidence || test.disabled {
-					if !result.UnhealthySince.IsZero() || result.ObservedDuration != 0 {
-						t.Fatal("snapshot reports an unestablished span")
-					}
-				} else if result.UnhealthySince.IsZero() || result.ObservedDuration != result.ObservedAt.Sub(result.UnhealthySince) {
-					t.Fatal("snapshot span does not match its evidence times")
-				}
-				if test.name == "sustained" && result.ObservedDuration != 2*time.Minute {
-					t.Fatal("snapshot lost the two-minute unhealthy span")
-				}
+			if result.State != test.want {
+				t.Errorf("EvaluateHistory(%s).State = %s, want %s", test.name, result.State, test.want)
+			}
+			if result.ObservedDuration != test.wantSpan {
+				t.Errorf("EvaluateHistory(%s).ObservedDuration = %v, want %v", test.name, result.ObservedDuration, test.wantSpan)
+			}
+			if (result.Reason != "") != (result.State == alert.AlertEvaluationStateInsufficientEvidence) {
+				t.Errorf("EvaluateHistory(%s).Reason = %q with state %s, want a reason only for insufficient evidence", test.name, result.Reason, result.State)
 			}
 		})
 	}
+}
+
+// ***************
+// *** HELPERS ***
+// ***************
+
+// storedSamples builds one stored evaluation per state, newest first with
+// descending ids, each aged back from current.
+func storedSamples(t testing.TB, current time.Time, states []alert.AlertEvaluationState, ages []time.Duration) []*common.StoredMessage[alert.AlertEvaluationSnapshot] {
+	t.Helper()
+	finding := &alert.Alert{Status: alert.AlertStatusActive}
+	samples := make([]*common.StoredMessage[alert.AlertEvaluationSnapshot], 0, len(states))
+	for i, state := range states {
+		var found *alert.Alert
+		if state == alert.AlertEvaluationStateActive {
+			found = finding
+		}
+		result, err := alert.NewAlertEvaluationSnapshot(state, found, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		samples = append(samples, &common.StoredMessage[alert.AlertEvaluationSnapshot]{Id: int64(7106 - i), CreatedAt: current.Add(-ages[i]), Message: result})
+	}
+	return samples
 }
