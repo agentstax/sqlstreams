@@ -1,7 +1,6 @@
 # Contributing
 
-Setup is in [DEVELOPING.md](DEVELOPING.md). Code rules are in
-[CONVENTIONS.md](CONVENTIONS.md) and are enforced in review. Vulkan is
+Setup is in [DEVELOPING.md](DEVELOPING.md). Vulkan is
 pre-v1, so the public API can change between releases.
 
 ## Bugs
