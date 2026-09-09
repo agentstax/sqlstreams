@@ -148,6 +148,10 @@ the item is removed.
   - SQLStreams identity is locked and the GitHub repository is renamed.
     Binary release waits for the permanent domain; do not push a release
     tag before replacing the temporary docs origin.
+  - Source-publication audit 2026-09-09: remote main at `9538b149` still
+    declares `github.com/agentstax/vulkan`. Publish the reviewed SQLStreams
+    source before expecting its import/install paths to resolve remotely;
+    the repository rename alone does not publish the local source changes.
   - Distribution audit 2026-09-09: GitHub reports no releases or root/CLI/OTel
     version tags. The configured `agentstax/homebrew-tap` is not accessible
     (404), and the SQLStreams Chocolatey page returns 404. No public listing
@@ -552,7 +556,7 @@ prerequisite if quorum-as-a-fraction wins.
 - **Custom user metric definitions** — let applications declare the name,
   kind, unit, description, and attribute keys of their own metrics so
   `System().Metrics().Definitions()` can discover them before the first
-  measurement. The first-class metrics work deliberately lists Vulkan
+  measurement. The first-class metrics work deliberately lists SQLStreams
   built-ins only; user measurements remain self-describing and discoverable
   through `Latest(ctx)` in the meantime. Do not infer a definition from an
   observed measurement: pickup must settle durable registration, ownership,
@@ -611,7 +615,7 @@ prerequisite if quorum-as-a-fraction wins.
     (liked, unscoped).
 
 - **Doc-site mechanisms considered and not taken** (2026-08-23 brainstorm;
-  revive only if the site needs them): a Vulkan-powered real forum behind
+  revive only if the site needs them): a SQLStreams-powered real forum behind
   the board skin (deferred as premature — the board is a static skin
   [0583]); tier 2 of the SQL console, running Go wasm against PGlite
   through a pgconn DialFunc bridge on one flagship page ([0584]); the

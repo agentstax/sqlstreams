@@ -26,6 +26,6 @@ are in `.docs/DECISIONS.md`. A new record adds its number to its line.
 - doc site: board, sandbox, versioning, voice, cookie, errors, links, page size, reference board: 0581-0610 0651 0677 0679 0712 0721
 - rejected/reverted (do not re-suggest): 0270 latest_key backfill, 0379 PartitionsAhead, 0591 pglite prefetch, 0594 byte ceilings, 0672 mandatory named client results, 0673 0675 scheduled time as a message_log column / sent_at, 0323 a library retry inside InTransaction, 0536 a never-nil MessageOptions (NULLIF/COALESCE reshape), 0578 any fillfactor change without measured HOT-ratio degradation, 0626 strict declaration forms (RequireMatch, a stale-build gate)
 - playground, examples, e2e, handler placement, handle and instance names: 0674 0718-0720
-- tests: pure/database/e2e kinds, when a test earns its place, no fake datastore, vulkantest fixture, schema per test, VULKAN_TEST_DATABASE_URL, e2e conversion: 0328 0719 0730 0731
+- tests: pure/database/e2e kinds, when a test earns its place, no fake datastore, sqlstreamstest fixture, schema per test, SQLSTREAMS_TEST_DATABASE_URL, e2e conversion: 0328 0719 0730 0731
 - rule files, record-keeping surface, citations, (checked) markers: 0681 0721-0723
 - project name, SQLStreams, Vulkan rename, topic to stream, brand, logo, disposable database cutover, temporary docs origin, local proposal review, SQL diagnostic prefix: 0725 0726 0727 0728 0729 0732

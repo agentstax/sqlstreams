@@ -2745,19 +2745,3 @@ untracked-so-far `runs.jsonl` files before they are first committed.
   harness, guards as checks, the record and rep shape); HISTORY entry;
   the two ROADMAP items removed; root `_bench-design.md` and
   `_bench-methodology.html` deleted.
-
-## Rename consistency follow-up [0732]
-
-- [x] SQL-prefix site deployed with approval (`d8fa16a9`); live branding,
-  diagnostic page, search, sandbox, favicon and manifest checks passed.
-- [x] Audit modules/imports, SQL/storage/JSON names, CLI/config/release paths,
-  diagnostic validation/export/page parity, internal site routes and artwork.
-  Fixed stale planning/rule/recipe names and malformed-code test inputs.
-  Historical records, benchmark paths, current Pages URL and old-release
-  harness remain intentional exceptions. Seven current modules build/vet;
-  targeted race/convention checks, 127 site tests and site build pass.
-- [x] Replace remaining volcano avatars on threads/member profiles with the
-  approved semicolon asset; delete the unused component/story/style/tokens.
-  Type/lint checks and desktop/mobile avatar checks pass with no overflow.
-- [ ] Deploy the avatar correction with approval, verify live profiles and
-  threads, then remove this completed follow-up. No commits by this session.

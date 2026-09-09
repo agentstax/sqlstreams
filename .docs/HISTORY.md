@@ -26,8 +26,19 @@ searches found no unexplained old names; all 105 code pages and internal
 Markdown routes match the build. Seven current Go modules build/vet, targeted
 race/convention checks and 127 website tests pass. The old compatibility
 harness remains pending a real prior-checkout pin. The remaining volcano
-avatars were replaced locally with the approved semicolon asset and checked
-at desktop/mobile widths; their deployment is pending.
+avatars use the approved semicolon asset, verified at desktop/mobile widths
+and deployed with approval as `2636c430`. Live thread/profile avatars and
+SQL0005 returned successfully.
+
+A second Vulkan-to-SQLStreams sweep corrected the decision-index fixture/env
+keywords and active roadmap/test-plan names. Historical inventory and run
+records retain their original names. Obsolete local CLI/reclaim binaries,
+release archives/cask and generated schema diagrams were retained under
+`/tmp/sqlstreams-pre-rename-artifacts-6nf6j77b`; `.bin/sqlstreams` was rebuilt
+and its module metadata and SQL0005 JSON explain checked. The remaining
+Vulkan references in current source are the intentional Pages origin and
+old-release compatibility harness. Remote main still declares the Vulkan
+module; publishing the reviewed source remains a separate step.
 
 ## 2026-09-09 — SQLStreams and stream vocabulary [0725] [0726] [0727] [0729]
 

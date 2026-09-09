@@ -1,10 +1,13 @@
 # Testing: exploration
 
+Current names follow the SQLStreams rename; section 1 retains the original
+inventory names as observed before the rename.
+
 2026-09-09. Research and the rule sheet behind the ROADMAP item "Test
-suite: kinds, vulkantest, TEST.md transcription, e2e conversion". The
+suite: kinds, sqlstreamstest, TEST.md transcription, e2e conversion". The
 rules landed the same day as CONVENTIONS Part 5, an AGENTS Verification
 edit, records [0730] and [0731], and the proposed page
-`/reference/vulkantest/`. This file keeps the research, the invariant
+`/reference/sqlstreamstest/`. This file keeps the research, the invariant
 table, and the entry-by-entry map of `.docs/TEST.md` (section 5) until
 that work closes, then is deleted. Nothing in it is built.
 
@@ -93,7 +96,7 @@ Spelled in the repo's own nouns rather than Google's sizes:
 | Kind | Footprint | Where | Runs in |
 | --- | --- | --- | --- |
 | **pure test** | one process, no I/O, no sleep, no goroutine wait on the clock | `_test.go` beside the code | `go test ./...` always |
-| **database test** | one process plus a real Postgres it owns a schema in | `_test.go` beside the code | `go test ./...` when `VULKAN_TEST_DATABASE_URL` is set, else a visible SKIP |
+| **database test** | one process plus a real Postgres it owns a schema in | `_test.go` beside the code | `go test ./...` when `SQLSTREAMS_TEST_DATABASE_URL` is set, else a visible SKIP |
 | **e2e test** | more than one process, a signal, a killed backend, or a controlled Postgres | `.e2e/<name>/main.go`, `just <name>-e2e` [0719] | review-ready checkpoints |
 | **reliability lab** | the ledger-and-checker harness under load and faults | `.bench/reliability`, `just reliability-lab` | release checkpoints [0711] |
 
@@ -152,7 +155,7 @@ A test earns its place by one of four reasons, and names it in the
 test name or its first comment:
 
 - **behavior** -- a caller or operator could observe the outcome at a
-  public boundary (a `vulkan` handle verb, a controller verb, a log
+  public boundary (a `sqlstreams` handle verb, a controller verb, a log
   line's level and code, a CLI exit). The Beyoncé rule: a behavior the
   project relies on has a test or may be broken by anyone.
 - **invariant** -- one of the rows in 2.2, or a SQL fact a rewrite could
@@ -236,15 +239,15 @@ never a per-change gate.
   deadline passes (never hangs). The deadline is 3s locally and 10s
   under CI.
 
-### 3.5 The fixture package: `pkg/vulkantest`
+### 3.5 The fixture package: `pkg/sqlstreamstest`
 
-The ROADMAP's `vulkantest` item and the database-test fixture are one
+The ROADMAP's `sqlstreamstest` item and the database-test fixture are one
 package. It is published (the `net/http/httptest` precedent) so a user
 can test their handlers with the same three verbs the library's own
 tests use. One import, one style.
 
 - `NewDatastore(t testing.TB) *datastore.PostgresDatastore` -- reads
-  `VULKAN_TEST_DATABASE_URL`, skips with a visible message when unset,
+  `SQLSTREAMS_TEST_DATABASE_URL`, skips with a visible message when unset,
   opens one lazily built pool per package with a capped `MaxConns`,
   creates `test_<package>_<n>` as the schema, returns a datastore
   bound to it, and drops the schema in `t.Cleanup` under
@@ -253,7 +256,7 @@ tests use. One import, one style.
   rollback isolation hides exactly the cross-session locking a queue
   is about. Storj measured a schema at ~20ms against ~140ms per
   database and 1.6s+ per container.
-- `NewClient(t testing.TB) *vulkan.Client` -- `NewDatastore` plus
+- `NewClient(t testing.TB) *sqlstreams.Client` -- `NewDatastore` plus
   `RegisterSystem` through the public client, so tables come from the
   registry. This is the ROADMAP's 50-line estimate.
 - `WaitFor(t testing.TB, condition func() error)` -- the deadline
@@ -264,7 +267,7 @@ tests use. One import, one style.
 
 Rules the package carries: it holds test verbs only, declares no codes,
 owns no SQL beyond `CREATE SCHEMA` / `DROP SCHEMA`, and is the one
-package allowed to read a `VULKAN_TEST_*` env var. The alias-closure
+package allowed to read a `SQLSTREAMS_TEST_*` env var. The alias-closure
 test treats it as reachable surface.
 
 ### 3.6 Time
@@ -282,11 +285,11 @@ test treats it as reachable surface.
 ### 3.7 Running and CI
 
 - `go test ./...` with no env var runs every pure test and skips every
-  database test visibly. With `VULKAN_TEST_DATABASE_URL` set it runs
+  database test visibly. With `SQLSTREAMS_TEST_DATABASE_URL` set it runs
   both. One env var name repo-wide; the four current names collapse
   into it.
 - `just verify` runs `go test -race -count=1 -shuffle=on ./...` in
-  every module that has tests (adding `cmd/vulkan` and `otel`), against
+  every module that has tests (adding `cmd/sqlstreams` and `otel`), against
   the dev Postgres, and prints the shuffle seed. Per-change loops keep
   the test cache (drop `-count=1`) because a cached green is what makes
   an agent loop cheap.
@@ -379,16 +382,16 @@ container control live here and never in the main module.
 
 ### 5.2 Code and tooling
 
-- Collapse the four env var names into `VULKAN_TEST_DATABASE_URL`
+- Collapse the four env var names into `SQLSTREAMS_TEST_DATABASE_URL`
   (four files plus `.bench`).
 - `claim_test.go`: replace the hand-written DDL with
-  `vulkantest.NewClient` and an external test package; keep every
+  `sqlstreamstest.NewClient` and an external test package; keep every
   narrative unchanged. It is otherwise the model database test.
-- Add `pkg/vulkantest` (doc page first, per the ROADMAP item; the
+- Add `pkg/sqlstreamstest` (doc page first, per the ROADMAP item; the
   page is the spec).
 - `.e2e/common`: add `Must`, `Die`, `Assert`, and the pool from the
   env var; delete the 60 copies as programs are touched.
-- `just verify`: `-count=1 -shuffle=on`, run `cmd/vulkan` and `otel`
+- `just verify`: `-count=1 -shuffle=on`, run `cmd/sqlstreams` and `otel`
   tests, require the env var. CI: Postgres service.
 - `.docs/TEST.md` is deleted when 5.1 lands; its retry catalogue's
   reasoning moves into one comment per synthetic case.
@@ -437,8 +440,8 @@ container control live here and never in the main module.
 
 ## 7. Forks, settled 2026-09-09
 
-- **A. `pkg/vulkantest` published.** An in-package `_test.go` cannot
-  import a fixture that imports `pkg/vulkan` (import cycle), and only
+- **A. `pkg/sqlstreamstest` published.** An in-package `_test.go` cannot
+  import a fixture that imports `pkg/sqlstreams` (import cycle), and only
   the registration path may create tables. So the fixture is one
   published package, and library tests that need real tables are
   external test packages (`package datastore_test`) reaching internals
@@ -455,17 +458,17 @@ container control live here and never in the main module.
 
 One shape per kind, and the sameness is enforced rather than reviewed:
 
-- Every database test opens with `vulkantest.NewClient(t)` (or
+- Every database test opens with `sqlstreamstest.NewClient(t)` (or
   `NewDatastore(t)` when no tables are needed); every wait goes through
   `WaitFor`; every log assertion through the counting logger; every
   e2e program through `.e2e/common`.
 - `(checked)` candidates for `.tools/conventions`: no import outside
   the standard library and this repo in a `_test.go`; no `time.Sleep`
   in a `_test.go` outside a `synctest` bubble; no `CREATE TABLE` text
-  in a `_test.go`; exactly one `VULKAN_TEST_*` env var name, read only
-  by `vulkantest`; no e2e program declaring its own `must` / `die` /
+  in a `_test.go`; exactly one `SQLSTREAMS_TEST_*` env var name, read only
+  by `sqlstreamstest`; no e2e program declaring its own `must` / `die` /
   `assert`.
-- The doc page for `vulkantest` shows the one pattern, and the
+- The doc page for `sqlstreamstest` shows the one pattern, and the
   library's own tests are its examples.
 
 ## Sources
