@@ -15,9 +15,10 @@ prefix are `sqlstreams` and `SQLSTREAMS_`. Neutral per-stream table families,
 reserved system stream names and the advisory-lock numeric namespace remain.
 Existing databases are disposable; this is a pre-v1 reset, not a migration.
 
-Docs and executable SQL use the new names, old routes redirect, and the
+Docs and executable SQL use the new names, and the
 approved wordmark ends with an amber semicolon, with SQL also amber. Browser
 preference/read-tracking keys change to `sqlstreams-board:*` and reset once.
+No rename redirects are needed before public release.
 The current generated Cloudflare origin remains; deployment, repository
 publication and the permanent domain before binary release are still pending.
 

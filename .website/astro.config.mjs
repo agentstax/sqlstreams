@@ -8,7 +8,6 @@ import svelte from '@astrojs/svelte';
 import { remarkDecisionRecords } from './src/helpers/decision-records.ts';
 import { isSearchEngineIndexable } from './src/search-engine-index.ts';
 import { siteUrl } from './src/site.ts';
-import codes from './src/data/codes.json' with { type: 'json' };
 
 // named keyword families only -- keyword.operator stays ink
 const keywordScopes = [
@@ -31,20 +30,6 @@ const keywordScopes = [
 // https://astro.build/config
 export default defineConfig({
 	site: siteUrl,
-	// threads that moved boards or split [0679]; the old URL keeps working
-	redirects: {
-		'/why-vulkan/': '/why-sqlstreams/',
-		'/reference/topic/': '/reference/stream/',
-		...Object.fromEntries(
-			Object.keys(codes.codes).flatMap((code) => [
-				[`/errors/VK${code.slice(2)}`, `/errors/${code}`],
-				[`/errors/vk${code.slice(2)}`, `/errors/${code}`],
-			]),
-		),
-		'/guides/client/': '/reference/',
-		'/guides/consumer-group-config/': '/concepts/consumer-group-config/',
-		'/guides/handler-outcomes/': '/concepts/handler-outcomes/',
-	},
 	vite: {
 		build: {
 			// Vite 8's baseline-widely-available list, pinned -- the default

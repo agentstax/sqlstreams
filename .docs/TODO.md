@@ -2645,6 +2645,30 @@ untracked-so-far `runs.jsonl` files before they are first committed.
   native durable baseline restored. Whole-partition retention remains
   ROADMAP Next. App CPU summary name filter missed the renamed scratch
   binary; full host process snapshots retained, no app CPU claim here.
+- Janitor polling deferred by user2026-09-09: set stream janitor rows
+  to24h in scratch; startup immediate pass remains on an empty database,
+  subsequent passes fall outside the run. Snapshot runner supports86400s,
+  captures measured cleanup statements and requires retained row count
+  equal to total production. Repository library defaults unchanged.
+  janitor_parked_150037/scratch_150037, frozen renamed SHA f25735a5,
+  four callers/batch250/pools8, claim16k/queue64k/poll100ms,80k/s target,
+  240.006s,2min TTLs retained but janitor inactive during measured load.
+  18,617,750 messages consumed once,0 producer/consumer errors/duplicates;
+  actual SQL batches250 and retained rows18,617,750 verified. No measured
+  cleanup statements, no partition drops,0 idempotency deletions. Average
+  77,572/s; final60s produced76,754/consumed76,754; final120s76,443/
+  76,433; consumer p99<=612ms. Six checkpoints completed. Handler backlog
+  max178,053,mean9057,fitted slope+5.69/s; committed-ID distance median
+  47,250 and first/last30 medians47,750/46,832 (not message count).
+  Paired rates closely matched over4min,not maximum or bounded-storage
+  capacity. Database peak23.901GB,native root32.816GB,hostfree>=98.024GB;
+  other benchmark roots included in100GB guard. Storage grew~99MB/s.
+  Host swapouts15,076 pages observed; no isolated-machine claim.172 startup
+  liveness warnings about internal metrics janitor, ending~28s into load;
+  no warning-free claim. No producer/consumer runtime error or janitor
+  cleanup timeout. PG restored,DB removed,evidence archived;no commits.
+  Continue producer/consumer tuning with24h scratch janitor polling;
+  whole-partition retention work stays ROADMAP Next per user direction.
 - [ ] Choose retention from measured storage, then validate finalists.
 - [ ] Record comparison and sustainable result with evidence.
 
@@ -2783,8 +2807,8 @@ concurrent source and testing-rule edits were preserved; backups are in
 - Downstream module build/vet/run passed with GOWORK=off and a local replace;
   this verifies imports/API, not remote publication. CLI version/help and
   SS0005 JSON explain passed; all 105 diagnostic serials are unchanged.
-  Chromium followed old product/topic and upper/lowercase VK URLs to the
-  new pages. Browser storage keys are now sqlstreams-board:*; existing
+  Rename redirects were removed at the user's request: nothing is public or
+  official yet. Browser storage keys are now sqlstreams-board:*; existing
   style choices/read markers reset once at cutover.
 - `.tools/compat` retains its old Vulkan dependency/API intentionally. Its
   own module name is updated, but the existing working-tree replacement
@@ -2822,19 +2846,22 @@ concurrent source and testing-rule edits were preserved; backups are in
 - [x] Update executable documentation: PGlite schemas/SQL, sandbox controls,
   examples, SQL parity tests, diagnostic data/types and generated code data.
   Reuse existing exports/checks; no new rename infrastructure by default.
-- [x] Update error-code pages, internal links, redirects for published old
-  routes/codes, canonical URLs, sitemap/robots and version manifests.
-  Include frozen-version links to the live manifest and old binaries'
-  diagnostic URLs in the continuity review.
+- [x] Update error-code pages, internal links, canonical URLs, sitemap/robots
+  and version manifests. No old-route or diagnostic-code redirects: the user
+  confirmed nothing is public or official yet.
 - [x] Replace README/site artwork, favicon and relevant introductory/share
   assets; inspect light/dark and desktop/mobile rendering. Review browser
   storage keys and document any preference/read-tracking reset.
 - [x] GitHub repository renamed by the user to `agentstax/sqlstreams`.
   Local origin updated for fetch/push and `git ls-remote` verified access.
   This check does not publish the local rename changes.
-- [ ] Update Cloudflare project/deployment configuration and inspect external
-  domain/repository settings as needed. Prepare reviewable artifacts first;
-  ask before `just site-deploy`.
+- [x] Verify Cloudflare deployment target: existing project `vulkan` serves
+  `vulkan-5ss.pages.dev`; no project recreation or origin change is needed.
+  Production build, 127 site tests and generated code/compatibility data
+  parity pass. Rename redirects removed per the user's pre-release scope.
+- [ ] Deploy the prepared SQLStreams site to the existing main origin after
+  explicit approval (`AGENTS.md`: ask before `just site-deploy`), then verify
+  live branding, diagnostic pages, version manifest and sandbox.
 
 ### 5. Distribution, verification and close-out
 
