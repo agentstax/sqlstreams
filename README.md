@@ -48,27 +48,104 @@ I'd love to use Kafka for my [agentic powered TODO app](https://github.com/agent
 **SQLStreams is a pure SQL library that uses Postgres as its broker.**
 
 - It's a log, not a queue, and it does [N msgs/s](.bench/) on my laptop 😎.
-- You get consumer groups, replay, ordering and compaction without running a single broker.
-- Dead letters are `WHERE status = 'dead'`. There's no admin UI because it's Postgres.
+- You get consumer groups, replay, retention and compaction without running a single broker.
+- Dead letters are `WHERE status = 'dead'`. There’s no admin UI. Just write some SQL.
 - Every error has a code, and `vulkan explain VK0022` will hand you the fix because I don't like thinking either.
 
 ## Usage
 
 ### Go Library
 
-few commands for starting project and installing dependency
+Add it to your module. You need a Postgres, any Postgres.
 
-then show basically the producer/consumer-only playgrounds
+```sh
+go get github.com/agentstax/vulkan
+```
 
-link to other playground examples
+A message is a struct with a schema version.
+
+```go
+type VideoUploaded struct {
+	VideoId string `json:"video_id"`
+}
+
+func (VideoUploaded) SchemaVersion() int { return 1 }
+```
+
+Produce.
+
+```go
+ctx, stop := vulkan.LifecycleContext(nil)
+defer stop()
+
+pool, _ := vulkan.NewPostgresPool(ctx, "user", "password", "localhost", "db", nil)
+client, _ := vulkan.NewClient(ctx, pool, nil)
+
+uploads := client.Topic[VideoUploaded]("videos.uploaded")
+uploads.Register(ctx, nil)
+
+producer, _ := uploads.Producer().Register(ctx, nil)
+producer.Produce(ctx, &VideoUploaded{VideoId: "video-42"}, nil)
+```
+
+Consume. Blocks until you Ctrl-C.
+
+```go
+consumer, _ := uploads.Consumer("transcoder").Register(ctx, nil)
+consumer.Consume(ctx, func(ctx context.Context, video *VideoUploaded) error {
+	fmt.Println("transcoding", video.VideoId)
+	return nil
+}, nil)
+```
+
+Retries, dead letters, ordering, schedules, compaction and the rest are in [`.examples/`](.examples/).
 
 ### CLI
 
-How to install: homebrew, linux (curl | sh), choco
+macOS
 
-Few starting out commands 
+```sh
+brew install --cask agentstax/tap/vulkan
+```
 
-Then get into fun ones like code explain and metrics
+Windows
+
+```sh
+choco install vulkan
+```
+
+Linux, or anywhere with Go
+
+```sh
+go install github.com/agentstax/vulkan/cmd/vulkan@latest
+```
+
+Point it at your database.
+
+```sh
+export VULKAN_ADMIN_DATABASE_URL=postgres://user:password@localhost/db
+vulkan topic list
+vulkan topic get videos.uploaded
+```
+
+Every error has a code. Ask about it offline.
+
+```sh
+vulkan explain VK0022
+```
+
+Metrics and alerts are already there, no agent to install.
+
+```sh
+vulkan metrics list
+vulkan alert list
+```
+
+Want Prometheus? Run the manager with a port.
+
+```sh
+vulkan manager run --metrics-address :9464
+```
 
 ## Development
 
