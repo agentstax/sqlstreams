@@ -72,7 +72,7 @@ type VideoUploaded struct {
 func (VideoUploaded) SchemaVersion() int { return 1 } // increment on breaking changes
 ```
 
-Produce.
+[Produce](.examples/01-produce-only/).
 
 ```go
 ctx, stop := vulkan.LifecycleContext(nil)
@@ -88,17 +88,56 @@ producer, _ := uploads.Producer().Register(ctx, nil)
 producer.Produce(ctx, &VideoUploaded{VideoId: "video-42"}, nil)
 ```
 
-Consume. Blocks until you Ctrl-C.
+[Consume](.examples/02-consume-only/).
 
 ```go
-consumer, _ := uploads.Consumer("transcoder").Register(ctx, nil)
+transcoder := uploads.Consumer("transcoder")
+consumer, _ := transcoder.Register(ctx, nil)
 consumer.Consume(ctx, func(ctx context.Context, video *VideoUploaded) error {
 	fmt.Println("transcoding", video.VideoId)
 	return nil
 }, nil)
 ```
 
-Retries, dead letters, ordering, schedules, compaction and the rest are in [`.examples/`](.examples/).
+[Transactional outbox](.examples/04-produce-in-tx/).
+
+```go
+producer.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*VideoUploaded, error) {
+	if _, err := tx.Exec(ctx, "INSERT INTO videos (id) VALUES ($1)", "video-43"); err != nil {
+		return nil, err
+	}
+	return &VideoUploaded{VideoId: "video-43"}, nil
+}, nil)
+```
+
+[Produce on a schedule](.examples/10-schedule-produce/).
+
+```go
+scheduler, _ := client.Scheduler("usage.reports.nightly").Register(ctx,
+	"usage.reports.requested", "0 2 * * *", &UsageReportRequested{}, nil)
+scheduler.Schedule(ctx)
+```
+
+[Consume built-in alerts](.examples/12-alert-consumer/).
+
+```go
+alerts := client.Topic[vulkan.Alert](vulkan.AlertTopicName)
+pager := alerts.Consumer("pager")
+alertConsumer, _ := pager.Register(ctx, nil)
+alertConsumer.Consume(ctx, func(ctx context.Context, alert *vulkan.Alert) error {
+	fmt.Println(alert.Status, alert.Name, alert.Message, alert.Hint)
+	return nil
+}, nil)
+```
+
+[Metrics](.examples/11-metrics-read/).
+
+```go
+snapshot, _ := transcoder.Metrics().Snapshot(ctx)
+fmt.Println("backlog", snapshot.Cursor.Backlog, "dead", snapshot.Exceptions.Dead)
+```
+
+Retries, dead letters, ordering, compaction and the rest are in [`.examples/`](.examples/).
 
 ### CLI
 
