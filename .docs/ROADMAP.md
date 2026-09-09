@@ -526,7 +526,7 @@ prerequisite if quorum-as-a-fraction wins.
     ```go
     token := uuid.NewV7()
     batch := &pgx.Batch{}
-    batch.Queue(claimSql, groupId, limit, snapshot.Head, snapshot.Xmax, leaseSeconds, token)
+    batch.Queue(claimSql, groupId, limit, snapshot.Head, snapshot.Xid, leaseSeconds, token)
     batch.Queue(readSql, token, groupId, schemaVersion)
     results := pool.SendBatch(ctx, batch)      // one round trip, one implicit transaction
     low, high, leased := results.QueryRow()    // claimSql; zero rows = no cursor row
@@ -902,7 +902,7 @@ prerequisite if quorum-as-a-fraction wins.
     (watch-and-propose only): SQL Server's MIN_ACTIVE_ROWVERSION() is a
     cheap first-class read of the low-water mark across in-flight
     transactions — exactly what the snapshot fence
-    (pending_head/pending_xmax cursor columns) answers by hand. A core
+    (pending_head/pending_xid cursor columns) answers by hand. A core
     primitive would let claim fences poll a system value instead of carrying
     tracking columns.
   - Read for hot-path ideas once the API stops moving:

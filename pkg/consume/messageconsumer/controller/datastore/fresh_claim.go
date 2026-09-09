@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 	"github.com/jackc/pgx/v5"
 )
 
-// snapshot is the (head, xmax) pair the cursorSql gate CTE proves against,
+// snapshot pairs the visible head with its observation transaction id,
 // read by readClaimSnapshot in an earlier statement than this transaction.
-func (d *MessageConsumerGroupDatastore) freshClaimMessagesWithCursor(ctx context.Context, topicId int64, groupId int64, schemaVersion int64, limit int, leaseDuration time.Duration, snapshot ClaimSnapshotRow) (*ClaimedRange, error) {
+func (d *MessageConsumerGroupDatastore) freshClaimMessagesWithCursor(ctx context.Context, streamId int64, groupId int64, schemaVersion int64, limit int, leaseDuration time.Duration, snapshot ClaimSnapshotRow) (*ClaimedRange, error) {
 	tx, err := d.Datastore.Pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, err
@@ -20,13 +20,13 @@ func (d *MessageConsumerGroupDatastore) freshClaimMessagesWithCursor(ctx context
 	defer tx.Rollback(ctx)
 
 	cursorSql := fmt.Sprintf(`
-		-- vulkan: messageconsumer.freshClaimMessagesWithCursor
+		-- sqlstreams: messageconsumer.freshClaimMessagesWithCursor
 		WITH old_values AS ( -- PG18+ has old / new syntax in returning but we want older version compatibility so use CTE
 			SELECT
 				claimed,
 				settled_head,
 				pending_head,
-				pending_xmax
+				pending_xid
 			FROM %[1]s.%[2]s
 			WHERE consumer_group_id = $1
 			-- must FOR UPDATE, get race if using a basic snapshot read
@@ -45,62 +45,24 @@ func (d *MessageConsumerGroupDatastore) freshClaimMessagesWithCursor(ctx context
 			FOR UPDATE
 		),
 		gate AS (
-			-- gate = how far claimed may advance this poll.
+			-- The gist of this CTE is to find the highest message id (head)
+			-- we can safely claim to without skipping messages from producers
+			-- who haven't finished committing or aborting their transactions yet.
 			--
-			-- the raw MAX(id) is unsafe: BIGSERIAL issues ids at INSERT time,
-			-- txns commit in any order, and nothing re-reads below claimed:
-			--
-			-- EX:
-			--
-			--   producer A: INSERT id=8, txn stays open
-			--   producer B: INSERT id=9, commits
-			--   claim to MAX(id)=9 -> reads (0,9], 8 is invisible, skipped
-			--   producer A commits -> 8 < claimed forever -> LOST
-			--
-			-- the fix: claimed only advances to a head PROVEN to have nothing
-			-- invisible at or below it. the proof works on a (head, xmax)
-			-- pair -- MAX(id) (head) and the next-unissued txid (max), read together
-			-- in one EARLIER snapshot (readClaimSnapshot, or a prior poll that
-			-- stored its pair in pending_head/pending_xmax).
-			--
-			-- EX: proving the pair (head=9, xmax=103) from readClaimSnapshot:
-			--
-			--   1. the pair says:  every txn that can own an id <= 9 has txid < 103
-			--                      (all ids <= 9 were INSERTed before txid 103 was issued)
-			--   2. since then:     txns have kept finishing, so xmin -- the oldest
-			--                      txid still running -- rises toward 103 as they do
-			--   3. this query:     if it sees xmin >= 103, every txid < 103 is finished
-			--   4. therefore:      every txn that can own an id <= 9 is finished --
-			--                      anything committing at or below 9 already has, so
-			--                      claiming through 9 skips nothing
-			--
-			-- gate takes the best proven head available:
-			--   settled_head     -- wins when neither pair proves (a txn seen by
-			--                       both snapshots is still open, e.g. one that
-			--                       produced with ProduceInTx and has not
-			--                       committed) -- claims hold at the last proven
-			--                       head until it closes
-			--   the fresh pair   -- $3/$4, wins when everything running at
-			--                       readClaimSnapshot finished before this query ran --
-			--                       the quiet path, claims land in the same poll
-			--                       as the produce
-			--   the stored pair  -- wins under nonstop traffic: the fresh pair is
-			--                       only microseconds old, too young for its fenced
-			--                       txns to have finished, but the stored pair has
-			--                       had a full poll interval for that -- xmin has
-			--                       passed its xmax. claiming through it claims up
-			--                       to where the log stood a poll ago, so fresh
-			--                       messages wait one more poll if this is used
+			-- We associate each head we compare with a transaction id (xid).
+			-- We then check xmin >= xid. That tells us all transactions with
+			-- ids below xid have finished, so their messages have either
+			-- committed or been rolled back.
 			SELECT (
 				SELECT MAX(pair.head)
 				FROM (VALUES
 					(o.settled_head, NULL::xid8),    -- already proven, no fence to pass
-					($3::bigint, $4::xid8),          -- the fresh pair: snapshot.Head, snapshot.Xmax
-					(o.pending_head, o.pending_xmax) -- the stored pair
-				) AS pair(head, xmax)
-				-- a pair is proven once xmin has passed its xmax
-				WHERE pair.xmax IS NULL
-					OR pg_snapshot_xmin(pg_current_snapshot()) >= pair.xmax
+					($3::bigint, $4::xid8),          -- the fresh observation: snapshot.Head, snapshot.Xid
+					(o.pending_head, o.pending_xid) -- the stored old pair
+				) AS pair(head, xid)
+				-- a pair is proven once xmin has passed its xid
+				WHERE pair.xid IS NULL
+					OR pg_snapshot_xmin(pg_current_snapshot()) >= pair.xid
 			) AS head
 			FROM old_values o
 		),
@@ -116,7 +78,7 @@ func (d *MessageConsumerGroupDatastore) freshClaimMessagesWithCursor(ctx context
 				-- have finished by then, making it the next provable head.
 				-- GREATEST so a racing peer's older pair can't overwrite a newer one
 				pending_head = GREATEST(c.pending_head, $3),
-				pending_xmax = GREATEST(c.pending_xmax, $4::xid8) -- also skips the initial NULL
+				pending_xid = GREATEST(c.pending_xid, $4::xid8) -- also skips the initial NULL
 			FROM old_values, gate
 			WHERE c.consumer_group_id = $1
 			RETURNING
@@ -133,8 +95,8 @@ func (d *MessageConsumerGroupDatastore) freshClaimMessagesWithCursor(ctx context
 		--                                                       snapshot read it -> error
 		--
 		SELECT u.low, u.high FROM updated u;
-	`, d.Datastore.Schema, topic.ConsumerGroupCursorTable(topicId), topic.ConsumerGroupCursorTable(topicId))
-	cursorRows, err := tx.Query(ctx, cursorSql, groupId, limit, snapshot.Head, snapshot.Xmax)
+	`, d.Datastore.Schema, stream.ConsumerGroupCursorTable(streamId), stream.ConsumerGroupCursorTable(streamId))
+	cursorRows, err := tx.Query(ctx, cursorSql, groupId, limit, snapshot.Head, snapshot.Xid)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +106,7 @@ func (d *MessageConsumerGroupDatastore) freshClaimMessagesWithCursor(ctx context
 		if errors.Is(err, pgx.ErrNoRows) {
 			// if we didnt error a consumer with no cursor row would otherwise
 			// poll forever looking caught up while messages accumulate
-			return nil, fmt.Errorf("no cursor for group %d on topic %d -- was Register called?", groupId, topicId)
+			return nil, fmt.Errorf("no cursor for group %d on stream %d -- was Register called?", groupId, streamId)
 		}
 
 		return nil, err
@@ -152,22 +114,23 @@ func (d *MessageConsumerGroupDatastore) freshClaimMessagesWithCursor(ctx context
 
 	// at the proven head of message_log ie no messages to process
 	if claimedRange.Low == claimedRange.High {
-		return nil, nil
+		// The next poll needs the observation even when this poll cannot advance.
+		return nil, tx.Commit(ctx)
 	}
 
-	return d.claimMessages(ctx, tx, topicId, groupId, schemaVersion, claimedRange.Low, claimedRange.High, leaseDuration)
+	return d.claimMessages(ctx, tx, streamId, groupId, schemaVersion, claimedRange.Low, claimedRange.High, leaseDuration)
 }
 
 // low and high come from the cursor statement above, never from a caller --
 // this guard catches a cursor row that went backwards, not bad input.
-func (d *MessageConsumerGroupDatastore) claimMessages(ctx context.Context, tx pgx.Tx, topicId int64, groupId int64, schemaVersion int64, low int64, high int64, leaseDuration time.Duration) (*ClaimedRange, error) {
+func (d *MessageConsumerGroupDatastore) claimMessages(ctx context.Context, tx pgx.Tx, streamId int64, groupId int64, schemaVersion int64, low int64, high int64, leaseDuration time.Duration) (*ClaimedRange, error) {
 	if low >= high {
 		return nil, fmt.Errorf("claimed range must advance: low %d, high %d", low, high)
 	}
 
 	// get new lease associated with range
 	leaseSql := fmt.Sprintf(`
-		-- vulkan: messageconsumer.claimMessages
+		-- sqlstreams: messageconsumer.claimMessages
 		INSERT INTO %[1]s.%[2]s (consumer_group_id, low, high, expires_at)
 		VALUES (
 			$1,
@@ -182,7 +145,7 @@ func (d *MessageConsumerGroupDatastore) claimMessages(ctx context.Context, tx pg
 			high,
 			expires_at,
 			reclaims;
-	`, d.Datastore.Schema, topic.ClaimLeaseTable(topicId))
+	`, d.Datastore.Schema, stream.ClaimLeaseTable(streamId))
 	leaseRows, err := tx.Query(ctx, leaseSql, groupId, low, high, leaseDuration.Seconds())
 	if err != nil {
 		return nil, err
@@ -193,7 +156,7 @@ func (d *MessageConsumerGroupDatastore) claimMessages(ctx context.Context, tx pg
 		return nil, err
 	}
 
-	messages, err := d.readMessages(ctx, tx, topicId, groupId, schemaVersion, low, high)
+	messages, err := d.readMessages(ctx, tx, streamId, groupId, schemaVersion, low, high)
 	if err != nil {
 		return nil, err
 	}

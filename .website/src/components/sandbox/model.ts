@@ -8,7 +8,7 @@ export type ProducedRow = { id: number };
 
 export type SnapshotRow = {
 	head: number;
-	xmax: string;
+	xid: string;
 	claimed: number;
 	settled_head: number;
 	pending_head: number;

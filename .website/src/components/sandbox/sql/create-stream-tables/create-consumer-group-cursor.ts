@@ -14,7 +14,7 @@ export const createConsumerGroupCursorSqlTemplate = `
 			-- MAX(id) can sit above uncommitted lower ids -- see FreshClaimMessagesWithCursor
 			settled_head BIGINT NOT NULL DEFAULT 0, -- highest id proven to have nothing uncommitted at or below it
 			pending_head BIGINT NOT NULL DEFAULT 0, -- candidate head awaiting that proof
-			pending_xmax XID8                       -- txid fence read in the same snapshot as pending_head
+			pending_xid XID8                        -- transaction id bound for pending_head
 		);
 	`;
 

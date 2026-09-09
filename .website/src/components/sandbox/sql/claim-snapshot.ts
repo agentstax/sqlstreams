@@ -8,8 +8,13 @@ export const claimSnapshotSqlTemplate = `
 		-- sqlstreams: messageconsumer.readClaimSnapshot
 		SELECT
 			h.head,
-			CASE WHEN h.head = c.pending_head AND c.pending_head = c.settled_head AND c.claimed = c.settled_head
-				THEN '0' ELSE pg_current_xact_id()::text END AS xmax,
+			CASE
+			  -- for idle polling: if visible head, previously observed head, proven-safe head
+				-- and claimed position ALL agree -> no need to get pg_current_xact_id()
+				WHEN h.head = c.pending_head AND c.pending_head = c.settled_head AND c.claimed = c.settled_head
+				THEN '0'
+				ELSE pg_current_xact_id()::text END
+			AS xid,
 			c.claimed,
 			c.settled_head,
 			c.pending_head,
@@ -19,7 +24,7 @@ export const claimSnapshotSqlTemplate = `
 					AND l.expires_at < now()
 			) AS reclaimable
 		FROM %[1]s.%[3]s c
-		CROSS JOIN (SELECT COALESCE(MAX(id), 0) AS head FROM %[1]s.%[2]s) h
+		CROSS JOIN (SELECT COALESCE(MAX(id), 0) AS head FROM %[1]s.%[2]s) h -- allow us to return current head of log
 		WHERE c.consumer_group_id = $1;
 	`;
 

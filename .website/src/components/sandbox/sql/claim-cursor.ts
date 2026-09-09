@@ -11,7 +11,7 @@ export const claimCursorSqlTemplate = `
 				claimed,
 				settled_head,
 				pending_head,
-				pending_xmax
+				pending_xid
 			FROM %[1]s.%[2]s
 			WHERE consumer_group_id = $1
 			-- must FOR UPDATE, get race if using a basic snapshot read
@@ -30,19 +30,24 @@ export const claimCursorSqlTemplate = `
 			FOR UPDATE
 		),
 		gate AS (
-			-- Each pair's xid was allocated after its head's snapshot began.
-			-- xmin >= that xid proves all possible producers below the head finished.
-			-- A saved pair allows progress while newer producers remain active.
+			-- The gist of this CTE is to find the highest message id (head)
+			-- we can safely claim without skipping messages whose producers
+			-- haven't finished committing or aborting their transactions yet.
+			--
+			-- We associate each head we compare with a transaction id (xid).
+			-- We then check xmin >= xid. That tells us all transactions with
+			-- ids below xid have finished, so their messages have either
+			-- committed or been rolled back.
 			SELECT (
 				SELECT MAX(pair.head)
 				FROM (VALUES
 					(o.settled_head, NULL::xid8),    -- already proven, no fence to pass
-					($3::bigint, $4::xid8),          -- the fresh observation: snapshot.Head, snapshot.Xmax
-					(o.pending_head, o.pending_xmax) -- the stored pair
-				) AS pair(head, xmax)
-				-- a pair is proven once xmin has passed its xmax
-				WHERE pair.xmax IS NULL
-					OR pg_snapshot_xmin(pg_current_snapshot()) >= pair.xmax
+					($3::bigint, $4::xid8),          -- the fresh observation: snapshot.Head, snapshot.Xid
+					(o.pending_head, o.pending_xid) -- the stored old pair
+				) AS pair(head, xid)
+				-- a pair is proven once xmin has passed its xid
+				WHERE pair.xid IS NULL
+					OR pg_snapshot_xmin(pg_current_snapshot()) >= pair.xid
 			) AS head
 			FROM old_values o
 		),
@@ -58,7 +63,7 @@ export const claimCursorSqlTemplate = `
 				-- have finished by then, making it the next provable head.
 				-- GREATEST so a racing peer's older pair can't overwrite a newer one
 				pending_head = GREATEST(c.pending_head, $3),
-				pending_xmax = GREATEST(c.pending_xmax, $4::xid8) -- also skips the initial NULL
+				pending_xid = GREATEST(c.pending_xid, $4::xid8) -- also skips the initial NULL
 			FROM old_values, gate
 			WHERE c.consumer_group_id = $1
 			RETURNING

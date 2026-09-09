@@ -167,7 +167,7 @@ func run() error {
 
 	cursorSql := fmt.Sprintf(`
 		WITH old_values AS (
-			SELECT claimed, settled_head, pending_head, pending_xmax
+			SELECT claimed, settled_head, pending_head, pending_xid
 			FROM %[1]s.%[2]s
 			WHERE consumer_group_id = $1
 			FOR UPDATE
@@ -176,7 +176,7 @@ func run() error {
 			SELECT GREATEST(
 				o.settled_head,
 				CASE WHEN pg_snapshot_xmin(pg_current_snapshot()) >= $4::xid8 THEN $3 ELSE 0 END,
-				CASE WHEN o.pending_xmax IS NOT NULL AND pg_snapshot_xmin(pg_current_snapshot()) >= o.pending_xmax THEN o.pending_head ELSE 0 END
+				CASE WHEN o.pending_xid IS NOT NULL AND pg_snapshot_xmin(pg_current_snapshot()) >= o.pending_xid THEN o.pending_head ELSE 0 END
 			) AS head
 			FROM old_values o
 		),
@@ -186,7 +186,7 @@ func run() error {
 				claimed = LEAST(c.claimed + $2, gate.head),
 				settled_head = gate.head,
 				pending_head = GREATEST(c.pending_head, $3),
-				pending_xmax = GREATEST(c.pending_xmax, $4::xid8)
+				pending_xid = GREATEST(c.pending_xid, $4::xid8)
 			FROM old_values, gate
 			WHERE c.consumer_group_id = $1
 			RETURNING old_values.claimed AS low, c.claimed AS high
@@ -426,7 +426,7 @@ func run() error {
 
 	fusedSql := fmt.Sprintf(`
 		WITH old_values AS (
-			SELECT claimed, settled_head, pending_head, pending_xmax
+			SELECT claimed, settled_head, pending_head, pending_xid
 			FROM %[1]s.%[2]s
 			WHERE consumer_group_id = $1
 			FOR UPDATE
@@ -435,7 +435,7 @@ func run() error {
 			SELECT GREATEST(
 				o.settled_head,
 				CASE WHEN pg_snapshot_xmin(pg_current_snapshot()) >= $4::xid8 THEN $3 ELSE 0 END,
-				CASE WHEN o.pending_xmax IS NOT NULL AND pg_snapshot_xmin(pg_current_snapshot()) >= o.pending_xmax THEN o.pending_head ELSE 0 END
+				CASE WHEN o.pending_xid IS NOT NULL AND pg_snapshot_xmin(pg_current_snapshot()) >= o.pending_xid THEN o.pending_head ELSE 0 END
 			) AS head
 			FROM old_values o
 		),
@@ -445,7 +445,7 @@ func run() error {
 				claimed = LEAST(c.claimed + $2, gate.head),
 				settled_head = gate.head,
 				pending_head = GREATEST(c.pending_head, $3),
-				pending_xmax = GREATEST(c.pending_xmax, $4::xid8)
+				pending_xid = GREATEST(c.pending_xid, $4::xid8)
 			FROM old_values, gate
 			WHERE c.consumer_group_id = $1
 			RETURNING old_values.claimed AS low, c.claimed AS high

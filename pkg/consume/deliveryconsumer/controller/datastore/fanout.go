@@ -50,7 +50,7 @@ func (d *DeliveryConsumerGroupDatastore) fanOut(ctx context.Context, streamId in
 	scanSql := fmt.Sprintf(`
 		-- sqlstreams: deliveryconsumer.fanOut
 		WITH old_values AS (
-			SELECT committed, pending_head, pending_xmax
+			SELECT committed, pending_head, pending_xid
 			FROM %[1]s.%[4]s                                             -- [4] = consumer_group_cursor table
 			WHERE consumer_group_id = $1
 			-- FOR UPDATE so a racing same-group peer's committed advance is
@@ -129,8 +129,8 @@ func (d *DeliveryConsumerGroupDatastore) fanOut(ctx context.Context, streamId in
 				o.committed,
 				CASE WHEN pg_snapshot_xmin(pg_current_snapshot()) >= $4::xid8 -- $4 is snapshotXmax
 					THEN $3 ELSE 0 END,                                         -- $3 is snapshotHead
-				CASE WHEN o.pending_xmax IS NOT NULL
-						AND pg_snapshot_xmin(pg_current_snapshot()) >= o.pending_xmax
+				CASE WHEN o.pending_xid IS NOT NULL
+						AND pg_snapshot_xmin(pg_current_snapshot()) >= o.pending_xid
 					THEN o.pending_head ELSE 0 END
 			) AS head
 			FROM old_values o
@@ -162,7 +162,7 @@ func (d *DeliveryConsumerGroupDatastore) fanOut(ctx context.Context, streamId in
 			-- finished by then, making it the next provable head.
 			-- GREATEST so a racing peer's older pair can't overwrite a newer one
 			pending_head = GREATEST(c.pending_head, $3),
-			pending_xmax = GREATEST(c.pending_xmax, $4::xid8) -- also skips the initial NULL
+			pending_xid = GREATEST(c.pending_xid, $4::xid8) -- also skips the initial NULL
 		FROM mark
 		WHERE c.consumer_group_id = $1;
 	`, d.Datastore.Schema, stream.ExceptionQueueTable(streamId), stream.MessageLogTable(streamId), stream.ConsumerGroupCursorTable(streamId), stream.BindingConfigTable(streamId), stream.CompactionHeadTable(streamId))

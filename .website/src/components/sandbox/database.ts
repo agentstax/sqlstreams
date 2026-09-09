@@ -180,7 +180,7 @@ export class SQLStreamsDatabase {
 				group.id,
 				batchLimit,
 				pair.head,
-				pair.xmax,
+				pair.xid,
 			]);
 			const range = advanced.rows[0];
 			if (range === undefined) throw noCursor(group.id);

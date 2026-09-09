@@ -64,10 +64,10 @@ type Outcome struct {
 }
 
 // ClaimSnapshotRow is one poll's read of the cursor row beside the log's
-// visible head and observation transaction id (Xmax); caught-up polls use zero.
+// visible head and observation transaction id (Xid); caught-up polls use zero.
 type ClaimSnapshotRow struct {
 	Head        int64  `db:"head"`
-	Xmax        string `db:"xmax"`
+	Xid         string `db:"xid"`
 	Claimed     int64  `db:"claimed"`
 	SettledHead int64  `db:"settled_head"`
 	PendingHead int64  `db:"pending_head"`

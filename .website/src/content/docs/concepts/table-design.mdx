@@ -105,7 +105,7 @@ Suffix `1` throughout — the stream's id from the catalog.
   more than one (a claim handed back at a busy key gate, then the run).
 - **`consumer_group_cursor_1`** — one row per group (`consumer_group_id UNIQUE`):
   `claimed` and `committed`, plus the snapshot-fence columns
-  (`settled_head`, `pending_head`, `pending_xmax`) that keep claims
+  (`settled_head`, `pending_head`, `pending_xid`) that keep claims
   from reading past ids whose producing transactions haven't committed.
 - **`claim_lease_1`** — range claims: `(low, high)`, an expiry, and a
   `reclaims` counter that quarantines a range reclaimed too often.

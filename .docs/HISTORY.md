@@ -5,6 +5,18 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-09 — Claim observations use xid [0733]
+
+Renamed the claim observation to xid / Xid and its stored cursor column to
+pending_xid across the library, website sandbox, SQL callers, and current
+docs. PostgreSQL snapshot xmax references retain their meaning. Existing
+cursor tables need the column renamed or recreated before using this code.
+
+Validation: root, e2e, and benchmark modules format/build/vet; claim datastore
+database race tests; 24 sandbox tests including SQL parity; Astro and Svelte
+type checks; changed website files pass Prettier. No e2e scenarios run for
+this mechanical rename.
+
 ## 2026-09-09 — Diagnostic codes use SQL [0732]
 
 SQL replaces SS in diagnostic declarations, validation, CLI explain, website

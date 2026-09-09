@@ -6,32 +6,32 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 	"github.com/jackc/pgx/v5"
 )
 
 // ClaimMessagesWithCursor tries to pick up a crashed range (an expired lease)
 // and only claims fresh work from the frontier if there's nothing to reclaim --
 // so crashed ranges drain first.
-func (d *MessageConsumerGroupDatastore) ClaimMessagesWithCursor(ctx context.Context, topicId int64, groupId int64, schemaVersion int64, limit int, maxRangeReclaims int, leaseDuration time.Duration, deliveryLogMode topic.DeliveryLogMode) (*ClaimedRange, error) {
+func (d *MessageConsumerGroupDatastore) ClaimMessagesWithCursor(ctx context.Context, streamId int64, groupId int64, schemaVersion int64, limit int, maxRangeReclaims int, leaseDuration time.Duration, deliveryLogMode stream.DeliveryLogMode) (*ClaimedRange, error) {
 	var claimed *ClaimedRange
 	err := d.DatastoreRetry.Wrap(ctx, func() error {
 		var err error
-		claimed, err = d.claimMessagesWithCursor(ctx, topicId, groupId, schemaVersion, limit, maxRangeReclaims, leaseDuration, deliveryLogMode)
+		claimed, err = d.claimMessagesWithCursor(ctx, streamId, groupId, schemaVersion, limit, maxRangeReclaims, leaseDuration, deliveryLogMode)
 		return err
 	})
 	return claimed, err
 }
 
-func (d *MessageConsumerGroupDatastore) claimMessagesWithCursor(ctx context.Context, topicId int64, groupId int64, schemaVersion int64, limit int, maxRangeReclaims int, leaseDuration time.Duration, deliveryLogMode topic.DeliveryLogMode) (*ClaimedRange, error) {
-	snapshot, err := d.readClaimSnapshot(ctx, topicId, groupId)
+func (d *MessageConsumerGroupDatastore) claimMessagesWithCursor(ctx context.Context, streamId int64, groupId int64, schemaVersion int64, limit int, maxRangeReclaims int, leaseDuration time.Duration, deliveryLogMode stream.DeliveryLogMode) (*ClaimedRange, error) {
+	snapshot, err := d.readClaimSnapshot(ctx, streamId, groupId)
 	if err != nil {
 		return nil, err
 	}
 
 	// the reclaim transaction only opens when the snapshot saw an expired lease
 	if snapshot.Reclaimable {
-		reclaimed, err := d.reclaimWithCursor(ctx, topicId, groupId, schemaVersion, maxRangeReclaims, leaseDuration, deliveryLogMode)
+		reclaimed, err := d.reclaimWithCursor(ctx, streamId, groupId, schemaVersion, maxRangeReclaims, leaseDuration, deliveryLogMode)
 		if err != nil {
 			return nil, err
 		}
@@ -47,20 +47,23 @@ func (d *MessageConsumerGroupDatastore) claimMessagesWithCursor(ctx context.Cont
 		return nil, nil
 	}
 
-	return d.freshClaimMessagesWithCursor(ctx, topicId, groupId, schemaVersion, limit, leaseDuration, snapshot)
+	return d.freshClaimMessagesWithCursor(ctx, streamId, groupId, schemaVersion, limit, leaseDuration, snapshot)
 }
 
-// readClaimSnapshot reads the (head, xmax) pair the cursor gate proves
-// against, in its own read-only statement before any write of this poll.
-// A write first would put this poll's own txid below xmax, and that txid
-// cannot finish until the claim transaction does -- the fresh pair would
-// never prove inside its own poll.
-func (d *MessageConsumerGroupDatastore) readClaimSnapshot(ctx context.Context, topicId int64, groupId int64) (ClaimSnapshotRow, error) {
+// The observation allocates its xid after taking the statement snapshot and
+// finishes before the claim transaction, so all possible earlier producers have smaller xids.
+func (d *MessageConsumerGroupDatastore) readClaimSnapshot(ctx context.Context, streamId int64, groupId int64) (ClaimSnapshotRow, error) {
 	sql := fmt.Sprintf(`
-		-- vulkan: messageconsumer.readClaimSnapshot
+		-- sqlstreams: messageconsumer.readClaimSnapshot
 		SELECT
-			(SELECT COALESCE(MAX(id), 0) FROM %[1]s.%[2]s) AS head,
-			pg_snapshot_xmax(pg_current_snapshot())::text AS xmax,
+			h.head,
+			CASE
+			  -- for idle polling: if visible head, previously observed head, proven-safe head
+				-- and claimed position ALL agree -> no need to get pg_current_xact_id()
+				WHEN h.head = c.pending_head AND c.pending_head = c.settled_head AND c.claimed = c.settled_head
+				THEN '0'
+				ELSE pg_current_xact_id()::text END
+			AS xid,
 			c.claimed,
 			c.settled_head,
 			c.pending_head,
@@ -70,8 +73,9 @@ func (d *MessageConsumerGroupDatastore) readClaimSnapshot(ctx context.Context, t
 					AND l.expires_at < now()
 			) AS reclaimable
 		FROM %[1]s.%[3]s c
+		CROSS JOIN (SELECT COALESCE(MAX(id), 0) AS head FROM %[1]s.%[2]s) h -- allow us to return current head of log
 		WHERE c.consumer_group_id = $1;
-	`, d.Datastore.Schema, topic.MessageLogTable(topicId), topic.ConsumerGroupCursorTable(topicId), topic.ClaimLeaseTable(topicId))
+	`, d.Datastore.Schema, stream.MessageLogTable(streamId), stream.ConsumerGroupCursorTable(streamId), stream.ClaimLeaseTable(streamId))
 	rows, err := d.Datastore.Pool.Query(ctx, sql, groupId)
 	if err != nil {
 		return ClaimSnapshotRow{}, err
@@ -82,17 +86,17 @@ func (d *MessageConsumerGroupDatastore) readClaimSnapshot(ctx context.Context, t
 		if errors.Is(err, pgx.ErrNoRows) {
 			// a consumer with no cursor row would otherwise poll forever
 			// looking caught up while messages accumulate
-			return ClaimSnapshotRow{}, fmt.Errorf("no cursor for group %d on topic %d -- was Register called?", groupId, topicId)
+			return ClaimSnapshotRow{}, fmt.Errorf("no cursor for group %d on stream %d -- was Register called?", groupId, streamId)
 		}
 		return ClaimSnapshotRow{}, err
 	}
 	return snapshot, nil
 }
 
-// readMessages reads topicId's message_log rows in (low, high], ordered by id.
-func (d *MessageConsumerGroupDatastore) readMessages(ctx context.Context, tx pgx.Tx, topicId int64, groupId int64, schemaVersion int64, low int64, high int64) ([]MessageLogRow, error) {
+// readMessages reads streamId's message_log rows in (low, high], ordered by id.
+func (d *MessageConsumerGroupDatastore) readMessages(ctx context.Context, tx pgx.Tx, streamId int64, groupId int64, schemaVersion int64, low int64, high int64) ([]MessageLogRow, error) {
 	sql := fmt.Sprintf(`
-		-- vulkan: messageconsumer.readMessages
+		-- sqlstreams: messageconsumer.readMessages
 		SELECT
 			m.id,
 			m.payload,
@@ -136,7 +140,7 @@ func (d *MessageConsumerGroupDatastore) readMessages(ctx context.Context, tx pgx
 		-- rows MUST come back in id order or a batch LIMIT could
 		-- return an arbitrary subset and the cursor would advance past unread offsets
 		ORDER BY m.id;
-	`, d.Datastore.Schema, topic.MessageLogTable(topicId), topic.BindingConfigTable(topicId), topic.BindingConfigTable(topicId), topic.CompactionHeadTable(topicId))
+	`, d.Datastore.Schema, stream.MessageLogTable(streamId), stream.BindingConfigTable(streamId), stream.BindingConfigTable(streamId), stream.CompactionHeadTable(streamId))
 
 	rows, err := tx.Query(ctx, sql, low, high, groupId, schemaVersion)
 	if err != nil {

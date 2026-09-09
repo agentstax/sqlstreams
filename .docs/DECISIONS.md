@@ -485,3 +485,4 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 - 0730 2026-09-09 accepted (pre-v1) — Tests are pure, database, or e2e, and a database test runs against Postgres itself
 - 0731 2026-09-09 accepted (pre-v1) — vulkantest is one published fixture package with a schema per test
 - 0732 2026-09-09 accepted (pre-v1) — Diagnostic codes use the SQL prefix
+- 0733 2026-09-09 accepted (pre-v1) — Claim observations use xid
