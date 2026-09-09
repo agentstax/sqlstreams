@@ -14,7 +14,7 @@ import (
 	"github.com/agentstax/vulkan/pkg/consume/cursoradvancer"
 	consumejanitor "github.com/agentstax/vulkan/pkg/consume/janitor"
 	"github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/metrics/collector"
+	"github.com/agentstax/vulkan/pkg/metric/collector"
 	migratecontroller "github.com/agentstax/vulkan/pkg/migrate/controller"
 	scheduleproducer "github.com/agentstax/vulkan/pkg/schedule/producer"
 	"github.com/agentstax/vulkan/pkg/system"
@@ -74,7 +74,7 @@ func NewSystemManager(ds *datastore.PostgresDatastore, cfg *SystemManagerConfig)
 		return nil, err
 	}
 
-	metricsCollectorProvisioner, err := collector.NewMetricsCollectorProvisioner(ds, nil, logger)
+	metricCollectorProvisioner, err := collector.NewMetricsCollectorProvisioner(ds, nil, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func NewSystemManager(ds *datastore.PostgresDatastore, cfg *SystemManagerConfig)
 		topicJanitorProvisioner,
 		consumerGroupJanitorProvisioner,
 		scheduleProducerProvisioner,
-		metricsCollectorProvisioner,
+		metricCollectorProvisioner,
 		cursorAdvancerProvisioner,
 		partitionCountProvisioner,
 		compactionReadCostProvisioner,

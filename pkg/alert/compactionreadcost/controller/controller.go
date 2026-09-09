@@ -5,13 +5,13 @@ import (
 
 	"github.com/agentstax/vulkan/pkg/common/logging"
 	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	metricscontroller "github.com/agentstax/vulkan/pkg/metrics/controller"
+	metricscontroller "github.com/agentstax/vulkan/pkg/metric/controller"
 )
 
 type CompactionReadCostController struct {
 	Logger logging.Logger
 
-	metrics *metricscontroller.MetricsController
+	metrics *metricscontroller.MetricController
 }
 
 func NewCompactionReadCostController(ds *iDatastore.PostgresDatastore, logger logging.Logger) (*CompactionReadCostController, error) {

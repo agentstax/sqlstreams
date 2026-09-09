@@ -7,7 +7,7 @@ import (
 
 	"github.com/agentstax/vulkan/pkg/alert"
 	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/metrics"
+	"github.com/agentstax/vulkan/pkg/metric"
 )
 
 func TestCompactionHistory(t *testing.T) {
@@ -36,12 +36,12 @@ func TestCompactionHistory(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			measurement, err := metrics.NewBuiltInMeasurement(metrics.MetricTopicPartitions, test.count, map[string]string{"topic": "orders"}, current)
+			measurement, err := metric.NewBuiltInMeasurement(metric.MetricTopicPartitions, test.count, map[string]string{"topic": "orders"}, current)
 			if err != nil {
 				t.Fatal(err)
 			}
 			measurement.Metadata = json.RawMessage(test.metadata)
-			history := &metrics.MeasurementHistory{EvaluatedAt: current, Messages: []*common.StoredMessage[metrics.Measurement]{
+			history := &metric.MeasurementHistory{EvaluatedAt: current, Messages: []*common.StoredMessage[metric.Measurement]{
 				{Id: 7106, CreatedAt: current, Message: measurement},
 				{Id: 7105, CreatedAt: current.Add(-2 * time.Minute), Message: measurement},
 			}}

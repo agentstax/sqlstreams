@@ -9,7 +9,7 @@ import (
 	"github.com/agentstax/vulkan/pkg/alert"
 	"github.com/agentstax/vulkan/pkg/alert/evaluation"
 	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/metrics"
+	"github.com/agentstax/vulkan/pkg/metric"
 	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
 )
 
@@ -35,7 +35,7 @@ func (c *PartitionCountController) Evaluate(ctx context.Context, owner *common.O
 		return nil, err
 	}
 
-	key := metrics.MeasurementKey(metrics.MetricTopicPartitions.Name, map[string]string{"topic": owner.Name})
+	key := metric.MeasurementKey(metric.MetricTopicPartitions.Name, map[string]string{"topic": owner.Name})
 	history, err := c.metrics.GetMeasurementHistory(ctx, key, policy.Window())
 	if err != nil {
 		return nil, err
@@ -43,7 +43,7 @@ func (c *PartitionCountController) Evaluate(ctx context.Context, owner *common.O
 	return c.evaluateHistory(owner, policy, ceiling, history)
 }
 
-func (c *PartitionCountController) evaluateHistory(owner *common.Owner, policy *alert.JobPayload, ceiling int64, history *metrics.MeasurementHistory) (*alert.AlertEvaluationSnapshot, error) {
+func (c *PartitionCountController) evaluateHistory(owner *common.Owner, policy *alert.JobPayload, ceiling int64, history *metric.MeasurementHistory) (*alert.AlertEvaluationSnapshot, error) {
 	threshold := policy.Threshold
 	if threshold == 0 {
 		threshold = ceiling / warnDivisor
@@ -59,11 +59,11 @@ func (c *PartitionCountController) evaluateHistory(owner *common.Owner, policy *
 	return evaluation.EvaluateHistory(samples, history.EvaluatedAt, policy)
 }
 
-func (c *PartitionCountController) evaluateMeasurement(owner *common.Owner, threshold int64, ceiling int64, measurement *metrics.Measurement, at time.Time) (*alert.AlertEvaluationSnapshot, error) {
+func (c *PartitionCountController) evaluateMeasurement(owner *common.Owner, threshold int64, ceiling int64, measurement *metric.Measurement, at time.Time) (*alert.AlertEvaluationSnapshot, error) {
 	// Check measurement identity and value.
-	if measurement.Name != metrics.MetricTopicPartitions.Name ||
-		measurement.Kind != metrics.MetricKindGauge ||
-		measurement.Unit != metrics.MetricUnit(metrics.MetricTopicPartitions.Unit) {
+	if measurement.Name != metric.MetricTopicPartitions.Name ||
+		measurement.Kind != metric.MetricKindGauge ||
+		measurement.Unit != metric.MetricUnit(metric.MetricTopicPartitions.Unit) {
 		return alert.NewAlertEvaluationSnapshot(alert.AlertEvaluationStateInsufficientEvidence, nil, nil)
 	}
 	value := measurement.Value

@@ -48,7 +48,7 @@ Every package is exactly one of three kinds:
 - **Domain** -- a `pkg/<root>` vocabulary root, its `controller` and
   `controller/datastore`, and the worker packages that maintain the
   domain's tables (template: topic, consume). A thing domain's root is
-  named for the resource (topic, system, worker, alert, metrics); an
+  named for the resource (topic, system, worker, alert, metric); an
   activity domain's root for the verb (schedule, migrate, compaction,
   consume, produce). The root's own controller and datastore are
   `<Root>Controller` / `<Root>Datastore` (ScheduleController); a worker

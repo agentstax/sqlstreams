@@ -12,8 +12,8 @@ import (
 	"github.com/agentstax/vulkan/pkg/common"
 	"github.com/agentstax/vulkan/pkg/common/logging"
 	"github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/metrics"
-	metricscontroller "github.com/agentstax/vulkan/pkg/metrics/controller"
+	"github.com/agentstax/vulkan/pkg/metric"
+	metricscontroller "github.com/agentstax/vulkan/pkg/metric/controller"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 )
@@ -26,7 +26,7 @@ type Metrics struct {
 	Config *MetricsConfig
 	Logger logging.Logger
 
-	measurements *metricscontroller.MetricsController
+	measurements *metricscontroller.MetricController
 }
 
 // NewMetrics pings pool using ctx and builds its own datastore.
@@ -75,21 +75,21 @@ func (m *Metrics) Produce(ctx context.Context) ([]metricdata.ScopeMetrics, error
 	return toCollection(accepted, len(rows), true), nil
 }
 
-func (m *Metrics) filterMeasurements(ctx context.Context, rows []*common.StoredMessage[metrics.Measurement]) []*common.StoredMessage[metrics.Measurement] {
+func (m *Metrics) filterMeasurements(ctx context.Context, rows []*common.StoredMessage[metric.Measurement]) []*common.StoredMessage[metric.Measurement] {
 	// Group observations by the original name: validation accepts or rejects a whole family.
-	families := make(map[string][]*common.StoredMessage[metrics.Measurement])
+	families := make(map[string][]*common.StoredMessage[metric.Measurement])
 	for _, row := range rows {
 		families[row.Message.Name] = append(families[row.Message.Name], row)
 	}
 	rejected := rejectedFamilies(families)
 
 	// Keep valid families and report why the others were omitted.
-	accepted := make([]*common.StoredMessage[metrics.Measurement], 0, len(rows))
+	accepted := make([]*common.StoredMessage[metric.Measurement], 0, len(rows))
 	for _, name := range slices.Sorted(maps.Keys(families)) {
 		family := families[name]
 		if reason, found := rejected[name]; found {
-			m.Logger.WarnContext(ctx, metrics.EventMeasurementsCannotBeExported.Message(),
-				"code", metrics.EventMeasurementsCannotBeExported.GetCode(),
+			m.Logger.WarnContext(ctx, metric.EventMeasurementsCannotBeExported.Message(),
+				"code", metric.EventMeasurementsCannotBeExported.GetCode(),
 				"metric_names", []string{name}, "detail", reason)
 			continue
 		}

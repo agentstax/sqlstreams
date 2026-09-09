@@ -20,7 +20,7 @@ func (a *MessageAdmin) TopicHealth(ctx context.Context, name string) ([]*topic.T
 		return nil, topic.ErrTopicNotFound.With("topic", name)
 	}
 
-	snapshots, err := a.metricsController.TopicSchemaVersionSnapshots(ctx, found.Id)
+	snapshots, err := a.metricController.TopicSchemaVersionSnapshots(ctx, found.Id)
 	if err != nil {
 		return nil, err
 	}

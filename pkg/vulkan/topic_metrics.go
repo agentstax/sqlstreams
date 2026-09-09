@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/agentstax/vulkan/pkg/common/diagnostic"
-	"github.com/agentstax/vulkan/pkg/metrics"
+	"github.com/agentstax/vulkan/pkg/metric"
 )
 
 // TopicMetricsHandle names one topic's metrics resource, holding no database
@@ -22,7 +22,7 @@ func (t *TopicHandle[Message]) Metrics() *TopicMetricsHandle {
 // Definitions returns the topic-scoped Vulkan metric definitions ordered by VK
 // code. It performs no I/O.
 func (t *TopicMetricsHandle) Definitions() []MetricDefinition {
-	return metrics.Definitions(diagnostic.MetricScopeTopic)
+	return metric.Definitions(diagnostic.MetricScopeTopic)
 }
 
 // Snapshot computes the topic's live metrics from its source tables.
@@ -32,17 +32,17 @@ func (t *TopicMetricsHandle) Snapshot(ctx context.Context) (*TopicSnapshot, erro
 
 // Compacted selects the topic's compacted-state series.
 func (t *TopicMetricsHandle) Compacted() *MetricHandle {
-	return t.metric(metrics.MetricTopicCompacted)
+	return t.metric(metric.MetricTopicCompacted)
 }
 
 // Partitions selects the topic's message-log partition-count series.
 func (t *TopicMetricsHandle) Partitions() *MetricHandle {
-	return t.metric(metrics.MetricTopicPartitions)
+	return t.metric(metric.MetricTopicPartitions)
 }
 
 // UnclaimedWorkers selects the unclaimed workers owned by the topic and its groups.
 func (t *TopicMetricsHandle) UnclaimedWorkers() *MetricHandle {
-	return t.metric(metrics.MetricTopicUnclaimedWorkers)
+	return t.metric(metric.MetricTopicUnclaimedWorkers)
 }
 
 func (t *TopicMetricsHandle) metric(declared *diagnostic.DiagnosticMetric) *MetricHandle {

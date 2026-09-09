@@ -11,7 +11,7 @@ import (
 
 	"github.com/agentstax/vulkan/pkg/common"
 	"github.com/agentstax/vulkan/pkg/common/logging"
-	metricscontroller "github.com/agentstax/vulkan/pkg/metrics/controller"
+	metricscontroller "github.com/agentstax/vulkan/pkg/metric/controller"
 	"github.com/agentstax/vulkan/pkg/system"
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 	"github.com/spf13/cobra"
@@ -79,11 +79,11 @@ messages).`,
 					userTopics = append(userTopics, found.Name)
 				}
 			}
-			metricsController, err := metricscontroller.NewMetricsController(ds, logging.NewDefaultLogger(os.Stderr, slog.LevelError))
+			metricController, err := metricscontroller.NewMetricsController(ds, logging.NewDefaultLogger(os.Stderr, slog.LevelError))
 			if err != nil {
 				return failOp("could not check for live workers: %v", err)
 			}
-			workers, err := metricsController.WorkerSnapshots(ctx)
+			workers, err := metricController.WorkerSnapshots(ctx)
 			if err != nil {
 				return translateAdminError(err)
 			}

@@ -11,9 +11,9 @@ import (
 	"github.com/agentstax/vulkan/pkg/alert/partitioncount"
 	"github.com/agentstax/vulkan/pkg/alert/workerliveness"
 	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/metrics"
-	"github.com/agentstax/vulkan/pkg/metrics/collector"
-	metricscontroller "github.com/agentstax/vulkan/pkg/metrics/controller"
+	"github.com/agentstax/vulkan/pkg/metric"
+	"github.com/agentstax/vulkan/pkg/metric/collector"
+	metricscontroller "github.com/agentstax/vulkan/pkg/metric/controller"
 	"github.com/agentstax/vulkan/pkg/migrate"
 	"github.com/agentstax/vulkan/pkg/schedule"
 	schedulecontroller "github.com/agentstax/vulkan/pkg/schedule/controller"
@@ -51,12 +51,12 @@ func (a *MessageAdmin) RegisterSystem(ctx context.Context, cfg *system.SystemCon
 	if err != nil {
 		return err
 	}
-	collectorProgressJob, err := collectorprogress.NewJob(cfg.MetricsCollectorProgressAlert)
+	collectorProgressJob, err := collectorprogress.NewJob(cfg.MetricCollectorProgressAlert)
 	if err != nil {
 		return err
 	}
-	metricsCollectorProvisioner, err := collector.NewMetricsCollectorProvisioner(a.ds, &collector.MetricsCollectorConfig{
-		PollRate: cfg.MetricsCollector.PollRate,
+	metricCollectorProvisioner, err := collector.NewMetricsCollectorProvisioner(a.ds, &collector.MetricCollectorConfig{
+		PollRate: cfg.MetricCollector.PollRate,
 	}, a.Logger)
 	if err != nil {
 		return err
@@ -67,7 +67,7 @@ func (a *MessageAdmin) RegisterSystem(ctx context.Context, cfg *system.SystemCon
 	}
 
 	// registerTopic, not RegisterTopic -- the latter guards the __system. prefix
-	if _, err := a.registerTopic(ctx, metrics.MetricsTopicName, metricscontroller.TopicConfig()); err != nil {
+	if _, err := a.registerTopic(ctx, metric.MetricTopicName, metricscontroller.TopicConfig()); err != nil {
 		return err
 	}
 	if _, err := a.registerTopic(ctx, alert.AlertTopicName, alertcontroller.TopicConfig()); err != nil {
@@ -91,7 +91,7 @@ func (a *MessageAdmin) RegisterSystem(ctx context.Context, cfg *system.SystemCon
 	if err != nil {
 		return err
 	}
-	if err := metricsCollectorProvisioner.Declare(ctx, owner); err != nil {
+	if err := metricCollectorProvisioner.Declare(ctx, owner); err != nil {
 		return err
 	}
 	for _, declarer := range a.alertDeclarers {
@@ -193,7 +193,7 @@ func (a *MessageAdmin) DestroySystem(ctx context.Context, options *DestroyOption
 // schema, and no user topic would be taken with it.
 func (a *MessageAdmin) assertSystemIdle(ctx context.Context) error {
 	// a running manager or consumer heartbeats its worker instances
-	workers, err := a.metricsController.WorkerSnapshots(ctx)
+	workers, err := a.metricController.WorkerSnapshots(ctx)
 	if err != nil {
 		return err
 	}

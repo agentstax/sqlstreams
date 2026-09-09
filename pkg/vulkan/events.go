@@ -6,7 +6,7 @@ package vulkan
 import (
 	"github.com/agentstax/vulkan/pkg/alert"
 	"github.com/agentstax/vulkan/pkg/consume"
-	"github.com/agentstax/vulkan/pkg/metrics"
+	"github.com/agentstax/vulkan/pkg/metric"
 	"github.com/agentstax/vulkan/pkg/produce"
 	"github.com/agentstax/vulkan/pkg/schedule"
 	"github.com/agentstax/vulkan/pkg/system"
@@ -27,8 +27,8 @@ var (
 	EventSlowDispatch                 = consume.EventSlowDispatch
 	EventQueuedRangeStale             = consume.EventQueuedRangeStale
 	EventStoredOptionsClamped         = consume.EventStoredOptionsClamped
-	EventGoRoutineEventsDropped       = metrics.EventGoRoutineEventsDropped
-	EventMeasurementsCannotBeExported = metrics.EventMeasurementsCannotBeExported
+	EventGoRoutineEventsDropped       = metric.EventGoRoutineEventsDropped
+	EventMeasurementsCannotBeExported = metric.EventMeasurementsCannotBeExported
 	EventPartitionCreatedOnInsert     = produce.EventPartitionCreatedOnInsert
 	EventPartitionNotCreatedAhead     = produce.EventPartitionNotCreatedAhead
 	EventSlowProduce                  = produce.EventSlowProduce

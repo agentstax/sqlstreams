@@ -8,9 +8,9 @@ import (
 var JobName = "alert." + alert.AlertMetricsCollectorProgress.Name
 
 // NewJob builds the collector-progress schedule with its consumed timing policy.
-func NewJob(cfg *alert.MetricsCollectorProgressAlertConfig) (*alertcontroller.Job, error) {
+func NewJob(cfg *alert.MetricCollectorProgressAlertConfig) (*alertcontroller.Job, error) {
 	if cfg == nil {
-		cfg = &alert.MetricsCollectorProgressAlertConfig{}
+		cfg = &alert.MetricCollectorProgressAlertConfig{}
 	}
 	cfg.WithDefaults()
 	if err := cfg.Validate(); err != nil {

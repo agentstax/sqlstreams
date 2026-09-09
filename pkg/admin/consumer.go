@@ -84,7 +84,7 @@ func (a *MessageAdmin) DestroyConsumer(ctx context.Context, topicName string, co
 func (a *MessageAdmin) assertConsumerGroupIdle(ctx context.Context, topicId int64, consumerGroupId int64, consumerName string) error {
 	// a running consumer heartbeats its worker instances -- any live
 	// instance on a group-owned worker means someone is consuming
-	workers, err := a.metricsController.WorkerSnapshots(ctx)
+	workers, err := a.metricController.WorkerSnapshots(ctx)
 	if err != nil {
 		return err
 	}
@@ -95,7 +95,7 @@ func (a *MessageAdmin) assertConsumerGroupIdle(ctx context.Context, topicId int6
 	}
 
 	// every delivery row is a failure that needs a retry or a dead-letter record
-	consumerGroup, err := a.metricsController.ConsumerGroupSnapshot(ctx, topicId, consumerGroupId, consumerName)
+	consumerGroup, err := a.metricController.ConsumerGroupSnapshot(ctx, topicId, consumerGroupId, consumerName)
 	if err != nil {
 		return err
 	}

@@ -8,12 +8,12 @@ import (
 
 	"github.com/agentstax/vulkan/pkg/alert"
 	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/metrics"
+	"github.com/agentstax/vulkan/pkg/metric"
 )
 
 // The crossing decision is the caller's -- an alert built from no unclaimed
 // rows is a bug.
-func newWorkerLivenessAlert(owner *common.Owner, unclaimed []*metrics.UnclaimedWorkerMetadata, at time.Time) (*alert.Alert, error) {
+func newWorkerLivenessAlert(owner *common.Owner, unclaimed []*metric.UnclaimedWorkerMetadata, at time.Time) (*alert.Alert, error) {
 	if len(unclaimed) == 0 {
 		return nil, errors.New("unclaimed must not be empty")
 	}
@@ -44,7 +44,7 @@ func newWorkerLivenessAlert(owner *common.Owner, unclaimed []*metrics.UnclaimedW
 
 // unclaimedByOwner renders the rows as "<owner> (<worker>, <worker>)" so one
 // dark consumer group reads as one entry, not four.
-func unclaimedByOwner(unclaimed []*metrics.UnclaimedWorkerMetadata) string {
+func unclaimedByOwner(unclaimed []*metric.UnclaimedWorkerMetadata) string {
 	owners := make([]string, 0, len(unclaimed))
 	workers := map[string][]string{}
 	for _, snapshot := range unclaimed {

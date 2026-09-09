@@ -5,23 +5,23 @@ import (
 
 	"github.com/agentstax/vulkan/pkg/common"
 	"github.com/agentstax/vulkan/pkg/common/diagnostic"
-	"github.com/agentstax/vulkan/pkg/metrics"
+	"github.com/agentstax/vulkan/pkg/metric"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/instrumentation"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 )
 
-func toCollection(accepted []*common.StoredMessage[metrics.Measurement], measurementCount int, readSucceeded bool) []metricdata.ScopeMetrics {
+func toCollection(accepted []*common.StoredMessage[metric.Measurement], measurementCount int, readSucceeded bool) []metricdata.ScopeMetrics {
 	current := time.Now()
 	var collected []metricdata.Metrics
 	if readSucceeded {
 		collected = toMetrics(accepted, current)
 		collected = append(collected,
-			toCollectionGauge(metrics.MetricOTelSourceReadSuccess, 1, current),
-			toCollectionGauge(metrics.MetricOTelMeasurementsRejected, float64(measurementCount-len(accepted)), current),
+			toCollectionGauge(metric.MetricOTelSourceReadSuccess, 1, current),
+			toCollectionGauge(metric.MetricOTelMeasurementsRejected, float64(measurementCount-len(accepted)), current),
 		)
 	} else {
-		collected = []metricdata.Metrics{toCollectionGauge(metrics.MetricOTelSourceReadSuccess, 0, current)}
+		collected = []metricdata.Metrics{toCollectionGauge(metric.MetricOTelSourceReadSuccess, 0, current)}
 	}
 	return []metricdata.ScopeMetrics{{
 		Scope:   instrumentation.Scope{Name: meterScopeName},
@@ -38,7 +38,7 @@ func toCollectionGauge(declared *diagnostic.DiagnosticMetric, value float64, cur
 	}
 }
 
-func toMetrics(rows []*common.StoredMessage[metrics.Measurement], current time.Time) []metricdata.Metrics {
+func toMetrics(rows []*common.StoredMessage[metric.Measurement], current time.Time) []metricdata.Metrics {
 	positions := make(map[[3]string]int)
 	collected := make([]metricdata.Metrics, 0)
 	for _, row := range rows {
@@ -60,7 +60,7 @@ func toMetrics(rows []*common.StoredMessage[metrics.Measurement], current time.T
 			Value:      measurement.Value,
 		}
 		switch measurement.Kind {
-		case metrics.MetricKindCounter:
+		case metric.MetricKindCounter:
 			// Retained totals have no established start time; exporter startup is not a reset.
 			sum, _ := collected[position].Data.(metricdata.Sum[float64])
 			sum.Temporality = metricdata.CumulativeTemporality

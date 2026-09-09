@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/agentstax/vulkan/pkg/common/diagnostic"
-	"github.com/agentstax/vulkan/pkg/metrics"
+	"github.com/agentstax/vulkan/pkg/metric"
 )
 
 // MetricHandle is one exact measurement series, holding no database row.
@@ -17,7 +17,7 @@ type MetricHandle struct {
 func newMetricHandle(client *Client, declared *diagnostic.DiagnosticMetric, name string, attributes map[string]string) *MetricHandle {
 	return &MetricHandle{
 		declared:   declared,
-		messageKey: metrics.MeasurementKey(name, attributes),
+		messageKey: metric.MeasurementKey(name, attributes),
 		client:     client,
 	}
 }

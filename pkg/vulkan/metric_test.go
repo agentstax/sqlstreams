@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/agentstax/vulkan/pkg/common/diagnostic"
-	"github.com/agentstax/vulkan/pkg/metrics"
+	"github.com/agentstax/vulkan/pkg/metric"
 )
 
 func TestMetricSelectorsCoverResourceScopedCatalog(t *testing.T) {
@@ -19,36 +19,36 @@ func TestMetricSelectorsCoverResourceScopedCatalog(t *testing.T) {
 		declared   *diagnostic.DiagnosticMetric
 		attributes map[string]string
 	}{
-		{"CollectorCompletedTimestamp", systemMetrics.CollectorCompletedTimestamp(), metrics.MetricCollectorCompletedTimestamp, nil},
-		{"UnclaimedWorkers", systemMetrics.UnclaimedWorkers(), metrics.MetricUnclaimedWorkers, nil},
-		{"OldestUnclaimedAge", systemMetrics.OldestUnclaimedAge(), metrics.MetricOldestUnclaimedAge, nil},
-		{"FailingWorkers", systemMetrics.FailingWorkers(), metrics.MetricFailingWorkers, nil},
-		{"OverdueSchedules", systemMetrics.OverdueSchedules(), metrics.MetricOverdueSchedules, nil},
-		{"OldestDueAge", systemMetrics.OldestDueAge(), metrics.MetricOldestDueAge, nil},
-		{"SuspendedSchedules", systemMetrics.SuspendedSchedules(), metrics.MetricSuspendedSchedules, nil},
-		{"ActiveAlerts", systemMetrics.ActiveAlerts(), metrics.MetricActiveAlerts, nil},
-		{"ResolvedAlerts", systemMetrics.ResolvedAlerts(), metrics.MetricResolvedAlerts, nil},
-		{"CheckTopicsEvaluated", systemMetrics.CheckTopicsEvaluated("partition_count"), metrics.MetricCheckTopicsEvaluated, map[string]string{"alert": "partition_count"}},
-		{"CheckTopicsFailed", systemMetrics.CheckTopicsFailed("partition_count"), metrics.MetricCheckTopicsFailed, map[string]string{"alert": "partition_count"}},
-		{"CheckPublishedAlerts", systemMetrics.CheckPublishedAlerts("partition_count"), metrics.MetricCheckPublishedAlerts, map[string]string{"alert": "partition_count"}},
-		{"CheckResolvedAlerts", systemMetrics.CheckResolvedAlerts("partition_count"), metrics.MetricCheckResolvedAlerts, map[string]string{"alert": "partition_count"}},
-		{"Compacted", topicMetrics.Compacted(), metrics.MetricTopicCompacted, map[string]string{"topic": "orders"}},
-		{"Partitions", topicMetrics.Partitions(), metrics.MetricTopicPartitions, map[string]string{"topic": "orders"}},
-		{"TopicUnclaimedWorkers", topicMetrics.UnclaimedWorkers(), metrics.MetricTopicUnclaimedWorkers, map[string]string{"topic": "orders"}},
-		{"CursorHead", groupMetrics.CursorHead(), metrics.MetricCursorHead, map[string]string{"topic": "orders", "group": "billing"}},
-		{"CursorClaimed", groupMetrics.CursorClaimed(), metrics.MetricCursorClaimed, map[string]string{"topic": "orders", "group": "billing"}},
-		{"CursorCommitted", groupMetrics.CursorCommitted(), metrics.MetricCursorCommitted, map[string]string{"topic": "orders", "group": "billing"}},
-		{"CursorBacklog", groupMetrics.CursorBacklog(), metrics.MetricCursorBacklog, map[string]string{"topic": "orders", "group": "billing"}},
-		{"CursorInflight", groupMetrics.CursorInflight(), metrics.MetricCursorInflight, map[string]string{"topic": "orders", "group": "billing"}},
-		{"ReadyExceptions", groupMetrics.ReadyExceptions(), metrics.MetricReadyExceptions, map[string]string{"topic": "orders", "group": "billing"}},
-		{"InflightExceptions", groupMetrics.InflightExceptions(), metrics.MetricInflightExceptions, map[string]string{"topic": "orders", "group": "billing"}},
-		{"DeferredExceptions", groupMetrics.DeferredExceptions(), metrics.MetricDeferredExceptions, map[string]string{"topic": "orders", "group": "billing"}},
-		{"DeadExceptions", groupMetrics.DeadExceptions(), metrics.MetricDeadExceptions, map[string]string{"topic": "orders", "group": "billing"}},
-		{"OldestUnresolvedAge", groupMetrics.OldestUnresolvedAge(), metrics.MetricOldestUnresolvedAge, map[string]string{"topic": "orders", "group": "billing"}},
-		{"OpenLeases", groupMetrics.OpenLeases(), metrics.MetricOpenLeases, map[string]string{"topic": "orders", "group": "billing"}},
-		{"AbandonedRoutinesOutstanding", groupMetrics.AbandonedRoutinesOutstanding(), metrics.MetricAbandonedOutstanding, map[string]string{"topic": "orders", "group": "billing"}},
-		{"AbandonedRoutinesTotal", groupMetrics.AbandonedRoutinesTotal(), metrics.MetricAbandonedTotal, map[string]string{"topic": "orders", "group": "billing"}},
-		{"AbandonedRoutinesSelfClearLatencyAverage", groupMetrics.AbandonedRoutinesSelfClearLatencyAverage(), metrics.MetricAbandonedSelfClearLatencyAvg, map[string]string{"topic": "orders", "group": "billing"}},
+		{"CollectorCompletedTimestamp", systemMetrics.CollectorCompletedTimestamp(), metric.MetricCollectorCompletedTimestamp, nil},
+		{"UnclaimedWorkers", systemMetrics.UnclaimedWorkers(), metric.MetricUnclaimedWorkers, nil},
+		{"OldestUnclaimedAge", systemMetrics.OldestUnclaimedAge(), metric.MetricOldestUnclaimedAge, nil},
+		{"FailingWorkers", systemMetrics.FailingWorkers(), metric.MetricFailingWorkers, nil},
+		{"OverdueSchedules", systemMetrics.OverdueSchedules(), metric.MetricOverdueSchedules, nil},
+		{"OldestDueAge", systemMetrics.OldestDueAge(), metric.MetricOldestDueAge, nil},
+		{"SuspendedSchedules", systemMetrics.SuspendedSchedules(), metric.MetricSuspendedSchedules, nil},
+		{"ActiveAlerts", systemMetrics.ActiveAlerts(), metric.MetricActiveAlerts, nil},
+		{"ResolvedAlerts", systemMetrics.ResolvedAlerts(), metric.MetricResolvedAlerts, nil},
+		{"CheckTopicsEvaluated", systemMetrics.CheckTopicsEvaluated("partition_count"), metric.MetricCheckTopicsEvaluated, map[string]string{"alert": "partition_count"}},
+		{"CheckTopicsFailed", systemMetrics.CheckTopicsFailed("partition_count"), metric.MetricCheckTopicsFailed, map[string]string{"alert": "partition_count"}},
+		{"CheckPublishedAlerts", systemMetrics.CheckPublishedAlerts("partition_count"), metric.MetricCheckPublishedAlerts, map[string]string{"alert": "partition_count"}},
+		{"CheckResolvedAlerts", systemMetrics.CheckResolvedAlerts("partition_count"), metric.MetricCheckResolvedAlerts, map[string]string{"alert": "partition_count"}},
+		{"Compacted", topicMetrics.Compacted(), metric.MetricTopicCompacted, map[string]string{"topic": "orders"}},
+		{"Partitions", topicMetrics.Partitions(), metric.MetricTopicPartitions, map[string]string{"topic": "orders"}},
+		{"TopicUnclaimedWorkers", topicMetrics.UnclaimedWorkers(), metric.MetricTopicUnclaimedWorkers, map[string]string{"topic": "orders"}},
+		{"CursorHead", groupMetrics.CursorHead(), metric.MetricCursorHead, map[string]string{"topic": "orders", "group": "billing"}},
+		{"CursorClaimed", groupMetrics.CursorClaimed(), metric.MetricCursorClaimed, map[string]string{"topic": "orders", "group": "billing"}},
+		{"CursorCommitted", groupMetrics.CursorCommitted(), metric.MetricCursorCommitted, map[string]string{"topic": "orders", "group": "billing"}},
+		{"CursorBacklog", groupMetrics.CursorBacklog(), metric.MetricCursorBacklog, map[string]string{"topic": "orders", "group": "billing"}},
+		{"CursorInflight", groupMetrics.CursorInflight(), metric.MetricCursorInflight, map[string]string{"topic": "orders", "group": "billing"}},
+		{"ReadyExceptions", groupMetrics.ReadyExceptions(), metric.MetricReadyExceptions, map[string]string{"topic": "orders", "group": "billing"}},
+		{"InflightExceptions", groupMetrics.InflightExceptions(), metric.MetricInflightExceptions, map[string]string{"topic": "orders", "group": "billing"}},
+		{"DeferredExceptions", groupMetrics.DeferredExceptions(), metric.MetricDeferredExceptions, map[string]string{"topic": "orders", "group": "billing"}},
+		{"DeadExceptions", groupMetrics.DeadExceptions(), metric.MetricDeadExceptions, map[string]string{"topic": "orders", "group": "billing"}},
+		{"OldestUnresolvedAge", groupMetrics.OldestUnresolvedAge(), metric.MetricOldestUnresolvedAge, map[string]string{"topic": "orders", "group": "billing"}},
+		{"OpenLeases", groupMetrics.OpenLeases(), metric.MetricOpenLeases, map[string]string{"topic": "orders", "group": "billing"}},
+		{"AbandonedRoutinesOutstanding", groupMetrics.AbandonedRoutinesOutstanding(), metric.MetricAbandonedOutstanding, map[string]string{"topic": "orders", "group": "billing"}},
+		{"AbandonedRoutinesTotal", groupMetrics.AbandonedRoutinesTotal(), metric.MetricAbandonedTotal, map[string]string{"topic": "orders", "group": "billing"}},
+		{"AbandonedRoutinesSelfClearLatencyAverage", groupMetrics.AbandonedRoutinesSelfClearLatencyAverage(), metric.MetricAbandonedSelfClearLatencyAvg, map[string]string{"topic": "orders", "group": "billing"}},
 	}
 
 	seen := make(map[*diagnostic.DiagnosticMetric]int, len(selectors))
@@ -56,14 +56,14 @@ func TestMetricSelectorsCoverResourceScopedCatalog(t *testing.T) {
 		if selector.handle.declared != selector.declared {
 			t.Errorf("%s resolved %p, want %p", selector.name, selector.handle.declared, selector.declared)
 		}
-		wantedMessageKey := metrics.MeasurementKey(selector.declared.Name, selector.attributes)
+		wantedMessageKey := metric.MeasurementKey(selector.declared.Name, selector.attributes)
 		if selector.handle.messageKey != wantedMessageKey {
 			t.Errorf("%s message key = %q, want %q", selector.name, selector.handle.messageKey, wantedMessageKey)
 		}
 		seen[selector.handle.declared]++
 	}
 
-	definitions := metrics.Definitions(
+	definitions := metric.Definitions(
 		diagnostic.MetricScopeSystem,
 		diagnostic.MetricScopeTopic,
 		diagnostic.MetricScopeConsumerGroup,
@@ -87,7 +87,7 @@ func TestMetricHandleConstructorsPerformNoIO(t *testing.T) {
 	client := &Client{}
 
 	systemMetrics := client.System().Metrics()
-	if len(systemMetrics.Definitions()) != len(metrics.Definitions()) {
+	if len(systemMetrics.Definitions()) != len(metric.Definitions()) {
 		t.Fatal("system definitions do not expose the complete catalog")
 	}
 	if len(client.Topic[RawPayload]("orders").Metrics().Definitions()) != 3 {
@@ -97,8 +97,8 @@ func TestMetricHandleConstructorsPerformNoIO(t *testing.T) {
 		t.Fatal("group definitions do not expose the consumer-group catalog")
 	}
 
-	known := systemMetrics.Metric(metrics.MetricCursorBacklog.Name, map[string]string{"topic": "orders", "group": "billing"})
-	if known.declared != metrics.MetricCursorBacklog {
+	known := systemMetrics.Metric(metric.MetricCursorBacklog.Name, map[string]string{"topic": "orders", "group": "billing"})
+	if known.declared != metric.MetricCursorBacklog {
 		t.Fatal("arbitrary selector did not bind its registered definition")
 	}
 	custom := systemMetrics.Metric("checkout.request.duration", map[string]string{"region": "us-east-1"})

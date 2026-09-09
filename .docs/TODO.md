@@ -1394,16 +1394,16 @@ untracked-so-far `runs.jsonl` files before they are first committed.
   deeper-investigation-restored.json records29.42GB retained and130.92GB
   free. No application throughput maximum is established by these
   storage-only tests under `.bench/scratchnative`.
-- [ ] Native WAL alignment comparison: build matched PG18.6 with16KiB
+- [x] Native WAL alignment comparison: build matched PG18.6 with16KiB
   data pages and16KiB WAL blocks, versus existing16KiB data/8KiB WAL.
   Run8/16/16/8KiB WAL order,60s each, WAL no-cache enabled, fixed
   producer and durability settings. This tests alignment cost in real
   production; it does not assume alignment explains all long stalls.
-- [ ] Follow WAL alignment repeats with one60s16KiB WAL comparison
+- [x] Follow WAL alignment repeats with one60s16KiB WAL comparison
   using fsync_writethrough (F_FULLFSYNC on macOS), keeping WAL no-cache
   and all durability settings on. This changes synchronous-open writes
   into explicit durable flushes; compare write and fsync latency separately.
-- [ ] SSD ceiling sanity check requested by user: confirmed MacBook Air
+- [x] SSD ceiling sanity check requested by user: confirmed MacBook Air
   Mac16,13/M4/24GB, internal APPLE SSD AP0512Z512GB, revision2914.80,
   TRIM enabled. Published512GB M4 Air Blackmagic results around3-3.5GB/s
   are short sequential tests, not durable database ceilings. Prior849MiB/s
@@ -1426,6 +1426,843 @@ untracked-so-far `runs.jsonl` files before they are first committed.
   windows/settings in page_builds/wal-block-comparison.json and runs.jsonl.
   bench moved during first run; a temporary compatibility symlink let
   that run archive into .bench, then was removed before later runs.
+- [x] storage_ceiling_205218: unpaced single aligned1MiB O_DSYNC+
+  F_NOCACHE writer, PG stopped,16GiB prefilled overwrite file,120s.
+  Short intervals reached2.9GB/s but mean944MB/s (900MiB/s); driver
+  30s windows1221/1108/728/715MB/s, max sampled write533ms,
+  75 sampled intervals exceeded20ms. Composite temperature45-48C
+  early versus43-44C late, with no health warning. This is a measured
+  workload-specific result, not a universal SSD physical ceiling.
+  Earlier850MiB/s capped trials establish a lower bound only. Published
+  comparison:512GB M4 Air Blackmagic3456.2MB/s write, source/provenance
+  in page_builds/ssd-reference.json and ssd-hardware.txt. Short sequential
+  benchmark throughput cannot be equated to mixed durable database I/O.
+  Synthetic file removed; run/config/script/health recorded in runs.jsonl.
+- [x] scratch_205451 fsync_writethrough comparison completed105.0k/s
+  over60s: first20s132-136k/s, last20s53-67k/s. WAL write means
+  stayed0.38-0.59ms but explicit flush means3.7->8.1-9.4ms;
+  relation extension cost also rose. Stronger explicit flush did not
+  cure collapse. All row/batch/semantics checks passed, zero errors or
+  duplicates, no consumer/worker instances, scratch DB removed.
+  wal-sync-comparison.json contains detailed windows; runs.jsonl has
+  configuration, source/binary hashes and validation evidence.
+- [x] Restored Homebrew PG18.6 baseline8KiB data/8KiB WAL, original
+  open_datasync, cache bypass off, all durability/autovacuum settings on.
+  All three custom clusters stopped. wal-and-ceiling-restored.json
+  records38.22GB retained,121.85GB free, no synthetic .bin files.
+  Kernel tracing remains the concrete missing discriminator: user-side
+  administrator execution is required by macOS; no password available
+  to sudo -n. Do not label NAND cache exhaustion/GC as proven or claim
+  the current database throughput is an unavoidable physical maximum.
+- [x] Prepared .bench/scratchnative/capture_kernel.py for user Terminal
+  execution. sudo -n remains blocked by a required password. The script
+  authenticates with sudo in Terminal, runs the existing storage-only
+  writers as the normal user, and captures a10s two-process spindump
+  after a sampled write exceeds100ms. Three-minute workload,16GiB
+  footprint, storage/free-space guards, cleanup and PG restoration.
+  Only tracing uses root. Syntax checked; live privileged capture remains
+  pending user execution. No kernel-stack finding claimed yet.
+- [x] User captured storage_kernel_20260908_210430 successfully.
+  Trace17:05:18.789-17:05:28.779: WAL writer972/999 samples in
+  buf_biowait below APFS/cluster_write (97.3%),0.063s CPU. Data
+  writer470/999 samples in vnode_waitforwrites from pwrite plus47
+  from fsync;378 samples are intentional pacing. Source shows waits
+  for buffered I/O completion / outstanding vnode writes, not evidence
+  of producer thread starvation. Trace driver530MB/s write,87MB/s
+  read,9.67ms mean write completion; exact kernel-thread cause remains
+  outside this two-process trace.
+  Important confounder:16.54GB swap-outs and5.71GB swap-ins across
+  run,0.84GB swap-outs during trace. Unrelated Python40943 read17.8GB;
+  exited before command inspection. Asked user what else was running.
+  Prior storage_ceiling_205218 and storage_wal_cache_160503 stalled
+  with zero swap-out growth, so swapping is not a universal explanation.
+  Counts/windows/source references in run/kernel-analysis.json. Do not
+  use this memory-contended capture as a clean physical SSD ceiling.
+- [x] Updated capture_kernel.py for next user Terminal run: adds
+  kernel_task (PID0) to the two writers so downstream service threads
+  are sampled. Requires <=16MiB swap-in+out over10s before workload
+  and before triggering; records swap throughout and labels captures
+  with >64MiB swapping across collection as contaminated. Captures
+  PID/PPID/RSS/executable names at trigger to identify competing jobs.
+  Syntax and live swap-counter reader checked; previous trace replay
+  exceeds guard at907.6MB swapped in observed trace interval. The
+  new privileged capture remains pending user Terminal execution.
+- [x] Clean kernel capture storage_kernel_20260908_215802 analyzed.
+  Trace17:59:19.577-17:59:29.578,1000 samples/thread, includes
+  kernel_task. Capture guard recorded1.44MB swapped; host-aligned
+  trace interval0.52MB swap-ins/zero swap-outs,0.52MB/s disk reads.
+  Entire182.7s host observation had zero swap-outs. WAL/data maxima
+  during trace343/285ms; driver639MB/s writes,5.85ms mean completion.
+  WAL writer589/1000 samples sleeping in buf_biowait. NVMe controller
+  completion thread0x451 used0.133s CPU,990/1000 samples in workloop
+  wait (8 marked runnable),6 in completion handling,2 waiting on VM
+  lock. Second controller and ANS2 RTBuddy threads wait throughout.
+  This excludes heavy swapping and host completion-thread CPU saturation
+  as necessary causes. Downstream completion delay is the leading
+  interpretation, not proof of SSD firmware/NAND mechanism or queue
+  occupancy; request issue/completion timestamps are absent. No physical
+  throughput maximum claimed. Run/kernel-analysis.json and aligned-
+  windows.json retain counts, timing, source and explicit limitations.
+- [x] Prepared capture_kernel.py --disk-io: same bounded mixed scratch
+  workload and swap guards, replaces stack sampling with20s fs_usage
+  -w -f diskio after a stall. System-wide disk events retain competing
+  traffic; output stays local in disk-io.txt. Purpose: examine individual
+  request durations, sizes and overlap, rather than infer queue behavior
+  from a sleeping completion thread. Disk-event timing is not a direct
+  measurement of internal NAND service time. Local man page verified
+  mode, timeout and root requirement; collector syntax checked.
+  sudo -n fs_usage -t1 still requires a password, so live capture needs
+  user Terminal execution. No request-level conclusion claimed yet.
+- [x] Disk request trace storage_diskio_20260908_225705 analyzed:
+  all15,278 lines parsed; no lost-event/overflow notice found. Capture
+  swap traffic29.61MB passes guard. WAL file2470 disk writes, all1MiB:
+  median0.852ms, p9926.719ms, mean5.940ms, max479.752ms;10
+  exceed100ms and consume2.841s of14.671s summed request duration.
+  Data file10,881 writes, max488.083ms,78 exceed100ms. Other disk
+  event bytes68.26MB versus12.44GB benchmark writes (about0.55%).
+  Concrete case18:58:27.455430/27.935405: consecutive WAL1MiB
+  requests479.288/479.752ms; nearby data1MiB request476.047ms.
+  Following WAL requests return to0.24-0.28ms. Long delays are visible
+  in disk events themselves, not solely above request submission.
+  Inferred overlap is1 WAL/8 data requests, assuming printed timestamps
+  are completions; this is NOT physical NVMe queue occupancy. Disk-event
+  latency includes queueing and does not identify NAND/firmware cause.
+  Together with clean kernel capture, evidence establishes intermittent
+  shared disk-completion stalls as the proximal storage bottleneck;
+  a universal throughput ceiling or exact firmware mechanism is unproven.
+  Run/disk-request-analysis.json and frozen disk-request-analyzer.py
+  retain metrics, complete parser coverage and limitations.
+- [x] Test data-write queue contribution with matched cached mixed
+  storage A/B/A: data ordinary write versus O_DSYNC,90s each,250+600
+  MiB/s targets, aligned1MiB requests,8+8GiB files. Stronger data
+  synchronization forces each data syscall to wait; it may change both
+  queueing and achieved rate. Compare achieved rates and WAL tails;
+  do not attribute an improvement to queue depth if data rate also falls.
+- [x] Data-sync A/B/A completed90s each: ordinary/synchronous/ordinary
+  data writes, runs storage_datasync_231133/231307/231443. WAL rates
+  208.2/191.0/97.9MiB/s; data530.1/355.8/353.4MiB/s. WAL maximum
+  sampled writes496/234/552ms; intervals with >20ms writes21/58/75.
+  All three had zero swap-outs. Synchronous data prevents the same
+  asynchronous caller backlog but does not eliminate long shared stalls.
+  At similar achieved data rate, middle run has better WAL throughput
+  than final control; chronology and changed synchronization semantics
+  prevent assigning a precise queueing benefit. No universal cure or
+  physical throughput maximum established. Native PG restored, test
+  files deleted; settings/results/source in data-sync-comparison.json,
+  data-sync-runner.py and each run, indexed in runs.jsonl.
+- [x] Same-file load threshold intervention: keep WAL250MiB/s and
+  switch data600/100/600/100MiB/s every60s,240s total. Same cached
+  aligned1MiB writes,1s data fsync, fixed8+8GiB files; no catch-up.
+  Earlier separate-file600/300/600 tests were confounded by chronology.
+  This lowers aggregate target850->350MiB/s without recreating files,
+  pausing, or changing synchronization. Measure recovery timing and
+  tails in both low phases to test whether overload is necessary.
+- [x] storage_loadswitch_231837 completed240s, same files throughout:
+  data targets600/100/600/100MiB/s; achieved588.1/98.6/365.5/96.7.
+  WAL target250 throughout; achieved241.8/243.3/99.7/237.8MiB/s.
+  Second high phase had48 sampled WAL intervals>20ms, max595ms;
+  final low had6, max536ms. Lower write pressure restores sustained
+  WAL throughput on the same files, but does not eliminate isolated
+  shared latency spikes: last low-phase WAL284ms spike at226.8s,
+  about47s after lowering data load. Thus instantaneous aggregate
+  overload alone does not explain every stall. First low phase's long
+  writes ended near63s, but final low recovery was not an immediate
+  complete cure. Phase boundaries use nearest1s samples; exact rate
+  switches and all evidence are retained in run/phase-analysis.json,
+  phase-analyzer.py and runner.py, and runs.jsonl. Original PG restored;
+  synthetic files removed. No application sustainable maximum claimed.
+- [x] NVMe driver telemetry discovered and sampled via libIOReport,
+  storage_nvme_232712,180s high mixed load. Tier0-3 BW Scale Factor
+  stayed100; all four Throttle Time counters stayed0; elapsed counter
+  advances, all power-residency growth is ACTIVE. Mac on AC, Low Power
+  Mode off. WAL172.4MiB/s, max520ms,82 intervals>20ms; data492.1MiB/s,
+  max484ms. Thus stalls occur with no exposed tier-throttle or power
+  transition indication. Channel availability does not guarantee every
+  firmware/thermal mechanism is instrumented; no NAND mechanism proven.
+  Sample gaps, swap deltas and raw residency units in nvme-analysis.json;
+  raw channels in nvme.jsonl, reader/source and runner retained. Normal
+  user can read these counters; no additional sudo Terminal capture.
+  Asked user whether an external SSD is available for a physical-device
+  comparison, the remaining clean fence between this SSD and shared OS
+  behavior. Original PG restored; test files removed. No root-cause
+  completion or universal maximum claimed.
+- [x] Same-file data fsync cadence1/30/1/30s,60s phases, completed
+  storage_flushswitch_233813. WAL target250/data600MiB/s, aligned1MiB
+  writes, fixed8+8GiB files, PostgreSQL stopped. WAL248.6/179.3/122.5/
+  118.0MiB/s; data590.1/486.9/418.3/349.5. WAL max552ms; data2.451s.
+  Explicit per-write timings show103 of125 WAL writes>100ms do not
+  overlap a data fsync call. Zero swap-outs,17.2MB swap-ins. Explicit
+  data fsync overlap is not necessary; returning to1s does not restore
+  throughput. Deferred background writeback remains possible, and
+  chronological phases cannot assign a precise cadence effect.
+  Source, runner, flush-analyzer.py, flush-analysis.json and raw timings
+  retained; runs.jsonl indexed. Original PG restored, both files removed.
+  Exact lower-driver/controller/firmware mechanism still unproven; a
+  second physical device comparison remains the next clean discriminator.
+- [x] User has no second SSD; continue same-device discrimination.
+  storage_extents_234556,180s, PostgreSQL stopped, aligned1MiB writes,
+  WAL250/data600MiB/s targets,8+8GiB fixed files. F_LOG2PHYS_EXT maps
+  every30s: all six WAL maps unchanged345 extents; all five fully
+  allocated data maps unchanged160 extents. Sampling0.17-0.53ms each.
+  WAL133.9/data404.9MiB/s, max544/500ms, zero swap-outs. No data-volume
+  snapshots. Progressive sampled extent relocation/fragmentation is not
+  necessary; transient changes between samples/metadata work remain possible.
+  Added aligned F_NOCACHE1MiB reads targeting10MiB/s during final~86s;
+  process disk-read delta838MB.819 reads overlapping workload,p995.94ms,
+  two >200ms.290 reads started during long WAL writes,p995.03ms,max219ms;
+  286 fit entirely inside a WAL stall, max5.03ms.117 WAL stalls during
+  probe, median240ms,max544ms. Thus reads often proceed while writes
+  wait; cannot claim every read remains fast or a firmware cause is proven.
+  Probe adds load and shares WAL file; no causal throughput comparison.
+  Evidence extent-analysis.json/read-analysis.json, frozen analyzers/probe,
+  allocation-preflight.json, source, runner, raw counters; runs.jsonl indexed.
+  PG restored with durability ON; probes exited, both disposable files gone.
+- [x] Observer control storage_observer_235312,240s: expensive host
+  sampling off/on/off/on at60s parent-clock boundaries; iostat stopped
+  in off phases, ps/proc_pid_rusage/ioreg/vm_stat omitted. One initial
+  full host sample, free-space guard and writer logs remain. WAL244.8/
+  186.3/120.2/117.1MiB/s in main phases; second off phase53 writes>100ms,
+  max496ms. Data591.9/509.5/416.8/411.2MiB/s. Zero swap-outs,20.1MB
+  swap-ins. Slowdown persists without expensive observers. Final~2s off
+  tail comes from prefill shifting writer/parent clocks; analyzer uses
+  actual switches, includes tail separately. Observer overhead not a cure.
+  Evidence observer-analysis.json, frozen analyzer/source/runner, raw data;
+  indexed in runs.jsonl. Baseline restored and disposable files removed.
+  Next storage_datapause_235751 stops+fsyncs data entirely at60/180s,
+  resumes at120s, while WAL250MiB/s remains synchronous. This removes
+  remaining100MiB/s data traffic from the prior rate reduction control.
+- [x] Data pause storage_datapause_235751 completed: data600/0/600/0
+  MiB/s60s phases with successful fsync before each pause; WAL remains
+  synchronous250MiB/s. WAL248.3/249.9/160.9/249.4MiB/s. Second loaded
+  phase41 writes>100ms,max578ms; both paused phases0 writes>100ms.
+  Data pause flush1.86/16.20ms. Loaded slowdown has zero swap-outs;
+  heavy swapping occurs only after final pause (914.9MB in/643.7MB out).
+  Therefore preserve phase-level evidence, not a whole-run no-swap label.
+  Clean-preflight repeat storage_datapause_000316 started to confirm.
+  Frozen pause-analyzer.py, pause-analysis.json, source/runner/raw evidence;
+  indexed in runs.jsonl. PG restored and files removed between runs.
+- [ ] Storage-driver event discriminator prepared as capture_kernel.py
+  --storage-events:20s ktrace,64MiB buffer, storage-only subclasses
+  S0x0302/S0x0520/S0x0601 (installed kdebug.h + ktrace man page).
+  This tests availability of driver events beyond fs_usage disk requests;
+  no promise the release NVMe driver exports submission/completion events.
+  Captures raw NDJSON; event identities/pairing must be validated before
+  interpreting durations. No controller service-time result exists yet.
+  Native ktrace attempt exits77 requiring root; sudo -n exits1 requiring
+  password. This is OS credential availability, not auto-review rejection.
+  Existing Terminal collector authenticates locally, bounds storage,
+  waits for a quiet-swap stall, restores PostgreSQL and removes test files.
+- [x] Clean data-pause repeat storage_datapause_000316 completed240s:
+  WAL249.3/249.9/149.1/249.9MiB/s across data600/0/600/0MiB/s phases.
+  Second loaded phase49 WAL writes>100ms,max586ms. Final data pause
+  fsync1.57ms, then no >100ms WAL writes for60s; max4.27ms among
+  samples fully inside pause (first pause max7.74ms). Zero swap-outs
+  throughout,1.69MB swap-ins. This repeats the causal recovery when
+  concurrent data-write pressure is removed, without previous swap
+  contamination. Same files, WAL rate/sync, process counts unchanged.
+  Physical driver/SSD mechanism still unproven; pending narrower storage
+  event capture requires the user's local sudo authentication. No second
+  SSD required. Source/runner/analyzer, pause-analysis.json, raw evidence
+  retained and runs.jsonl indexed. Original PG restored, durability ON,
+  disposable files gone; syntax/scoped whitespace checks passed.
+- [x] User ran storage-events capture storage_events_20260909_001325.
+  30,395 JSON events, all filesystem subclass0x0302; no0x0520 IOKit
+  storage or0x0601 storage-driver events. Blank final line only; no parse
+  failures.15,192 start/done buffer-token pairs,2 unmatched completions/
+  9 starts at boundaries; no token reuse while outstanding, pair flags
+  equal except DONE.486 unnamed pairs excluded from read/write analysis.
+  3,000 matched1MiB WAL writes:median0.286ms,p9923.23ms,max471.79ms,
+  14>100ms; one outstanding WAL request. Next issue after long completions
+  median0.247ms,max0.351ms. Data max472.09ms,106>100ms; up to10 named
+  requests overlap at filesystem layer, not a measured hardware queue.
+  413 named reads start and finish inside long WAL requests. Of8.390s
+  summed WAL-request excess over4ms pacing budget,42.0% arises from
+  >100ms requests;58.0% from shorter delays. This is a request-level
+  lower bound, not a complete wall-time decomposition. Do not focus only
+  on rare spikes. Trace swap activity4.0MB, guard marks capture usable.
+  No deeper driver boundary captured; no NAND/firmware cause established.
+  Do not ask for the identical trace again without a new event source.
+  storage-event-analysis.json and frozen storage-event-analyzer.py retain
+  exact matching, exclusions, timing and limits; runs.jsonl indexed.
+- [ ] Steady-state return, user approved: native18 producer+active cursor
+  consumer; no delivery/exception consumers, failures, or durability changes.
+  Passive-I/O microbenchmark prepared but deferred, not launched.
+  Fixed1000-byte payload/no-op successful handler; keep semantics fixed.
+  Lever inventory: producer automatic MaxSize/ConcurrencyLimit versus
+  explicit ProduceBatch callers (different controls); per-process offered
+  rate; producer and consumer process counts; consumer BatchLimit,
+  QueueSize, MessageConcurrency, ClaimPollRate; independent producer/
+  consumer pool MaxConns/MinConns, query mode/cache, connection lifetime/
+  idle/health settings; per-role GOMAXPROCS/GOGC/GOMEMLIMIT; OS thread
+  count/CPU/RSS and normal thread safety cap; topic partition size,
+  retention and idempotency lifetime; PostgreSQL shared/work/maintenance
+  memory, checkpoint/WAL size/timing, bgwriter, autovacuum, WAL compression,
+  I/O method/workers/concurrency, connection limits and transport. Persist
+  effective settings and observed resource use; vary only relevant knobs.
+  Semantic/timeouts/reclaim/lease bounds are correctness constraints,
+  not throughput shortcuts. fsync/full_page_writes/synchronous_commit/
+  checksums/autovacuum stay ON. CPU availability is shared host capacity;
+  GOMAXPROCS is scheduler parallelism, not an OS thread or CPU quota.
+  Findings in harness audit: POOL_CONNECTIONS previously producer-only;
+  consumer now has CONSUMER_POOL/MIN_POOL and CLAIM_POLL forwarding.
+  Paced explicit production added: per-process budget, no catchup after
+  reservation falls behind; report achieved rate so missed load cannot pass.
+  Smoke scratch_004847:20k/s10s,200k produced/handled once, errors0,
+  consumer p99<=71ms; actual independent pools8 verified. Build/vet/
+  race check passed. Exact committed-message backlog sampling added for
+  paired runs, separately timed; final drain never defines sustainability.
+  Begin short80k/120k probes, then extend promising candidates through
+  multiple checkpoints under the100GB aggregate retained-space budget.
+- [x] Paired screens scratch_005108/005253,80k/120k targets60s,
+  four explicit batch callers,batch1000, independent pools8,one producer/
+  one consumer,claims4000,queue16000,handlers4.80k achieved79.8k,
+  consumer p99<=82ms.120k averaged108.0k and fell below target late,
+  p99<=857ms. All11.27m messages handled once,errors0. However exact
+  committed-backlog COUNT queries reached1.30s at120k and caused enough
+  scanning to perturb the workload; neither run is an accepted tuning
+  comparison. Pool waits negligible, heap<73MB, GC CPU<0.6%; larger
+  pools/memory have no evidence of benefit at this point.
+  Removed repeated COUNT; added100ms atomic progress-only samples,
+  keeping expensive runtime statistics at1Hz. Live handler backlog uses
+  time-aligned counters with explicit interpolation/accounting limits;
+  cursor ID distance remains separate. Full DB/identity checks happen
+  after production. Corrected120k screen launched; record comparisons
+  only from matching instrumentation. Build/vet/race checks passed.
+- [x] Corrected120k screen scratch_005631 (lightweight100ms counters):
+  6.634m produced/handled once in60s,errors0; achieved110.5k/s,
+  consumer p99<=1671ms.10s production windows after warmup119.7/119.2/
+  117.3/89.9/97.6k/s; interpolated handler backlog peaked178k.
+  Pool wait producer19ms/consumer3ms total, heap<93MB,GC<0.6%.
+  PostgreSQL averaged1.62cores/apps1.78cores; producer waits dominated
+  by data writes/extensions. One checkpoint completed; backend relation
+  writes1.26GB took24.2 aggregate seconds, extensions8.58GB took8.3s.
+  Removing COUNT did not remove the late slowdown. This is a failed
+  120k offered-load screen, not a sustainable110k result. Next compare
+  eight callers and split producer processes with total pool budget fixed.
+- [x] Matched120k/60s process/concurrency screens, pools total8 producer/
+  8 consumer: scratch_010409 eight callers/one producer achieved116.2k/s,
+  but handler backlog peaked699k and p99<=6027ms. scratch_010554 two
+  producers/four callers each/four connections each achieved117.7k/s,
+  backlog peaked1.61m and consumer p99 overflowed the10s histogram.
+  Every message eventually handled once,errors0; neither passes steady
+  throughput. Process split did not fix the consumer stall.
+  Gate evidence in scratch_010409/gate-plateau.json: settled/claimed
+  remained6261442 for65 samples spanning6.318s. Pending fence moved
+  984226->985739 while observer xmin moved984202->985733, passing
+  discarded older fences. fresh_claim.go unconditionally replaces the
+  pending pair each poll; continuous producers can keep the newest pair
+  too young even though older observations would prove progress.
+  This is distinct from one long transaction or a busy consumer pool.
+  Testing CLAIM_POLL100ms versus20ms as a configuration-only mitigation;
+  no production SQL/library change. Observer snapshots are separate from
+  claim snapshots, so retain that limitation when interpreting the trace.
+- [x] Poll mitigation scratch_010750: same eight callers/one producer,
+  target120k/60s, CLAIM_POLL100ms instead of20ms. Achieved114.7k/s,
+  consumer p99<=925ms versus6027ms; max interpolated backlog109k
+  versus699k. Last10s producer102.1k/consumer102.5k, rather than the
+  20ms run's100.4k/30.0k. This supports the pending-fence starvation
+  mechanism and a configuration mitigation, not a durable120k result.
+  More polling delay raises normal queue latency (median backlog15-24k)
+  and may still fail with longer transactions or more consumer pollers.
+  CPU-parallelism comparison follows with both roles GOMAXPROCS4.
+- [x] Runtime screen scratch_010918: GOMAXPROCS4 for both roles,
+  otherwise same120k/60s/poll100ms setup.112.6k/s,p99<=391ms,
+  max handler backlog40k. Production40-50s fell79.4k then recovered
+  118.0k in50-60s; this is not proof that four beats ten. PG CPU mean
+  2.03cores/apps1.81cores; low pool waits/heap<103MB persisted.
+  Extending this candidate at100k/s for180s to test repeated writeback.
+- [x] Three-minute paired validation scratch_011048: offered100k/s,
+  eight explicit callers,batch1000,one producer/one consumer,pools8 each,
+  claim4000/queue16000/handlers4,poll100ms,GOMAXPROCS4 each,
+  GOGC400/GOMEMLIMIT2GiB; baseline durable native PG18.6 unchanged.
+  17.274m produced/handled once,errors0,duplicates0:95,959/s overall,
+  consumer p99<=349ms,three completed checkpoints. Time-aligned handler
+  backlog maximum34,259,slope-17.8messages/s after10s warmup. Durable
+  visible-head minus committed ID distance median62,898,slope-59.7ids/s,
+  first/last30s medians64,001/56,046 (IDs are not exact message counts).
+  Thus both consumption measures stayed bounded; production missed the
+  100k target, with10s dips80.5k and66.6k. This validates an observed
+  ~96k paired average for180s, not a fixed100k rate or absolute maximum.
+  PG CPU mean1.73cores/apps1.55cores; app heap<91MB,pool waits small.
+  Host snapshot:10cores/24GiB,11OS threads per app,existing6GiB swap.
+  Late19s sample:zero swap-ins/outs,508,513 compressed and528,345
+  decompressed16KiB pages. Memory compression churn is not ruled out;
+  this sample cannot establish its causal cost or whole-run swap behavior.
+  Native root peak34.1GB,host free minimum106.4GB; aggregate100GB guard
+  stayed clear. DB removed,raw evidence/analyses/index retained.
+  Next: repeat poll comparison in reverse order, then isolate PG memory
+  footprint/compression and producer write/extension costs. More consumer
+  processes may worsen the pending-fence churn; test before recommending.
+  Retention remains indefinite in these bounded runs, so a full retention
+  cycle and repeated finalist runs remain necessary before a maximum claim.
+- [x] Reverse-order polling confirmation scratch_012912/013039:
+ 120k offered60s,eight callers,batch1000,pools8 each,GOMAXPROCS10.
+ Poll100ms achieved112.9k/s,p99<=425ms,max handler backlog37,091;
+ returning to20ms achieved110.3k/s,p99<=8486ms,max backlog666,988.
+ Last10s consumption107.5k/s versus28.4k/s respectively. Together
+ with the earlier20->100 comparison, this supports a repeatable
+ consumer pending-fence starvation problem and polling mitigation.
+ Every message handled once,errors0; no library changes.
+ Added optional VM_STATS sampling without pg_buffercache queries and
+ retained exact runner source per new run; Python syntax checked.
+ Native buffer comparison3GB->6GB->3GB running with all durability
+ settings verified and baseline restoration in finally.
+- [x] Native memory bracket memory_screen_013212,3GB->6GB->3GB,
+ 120k offered60s,eight callers/pools8,claim100ms,GOMAXPROCS4:
+ scratch_013213116.9k/s,p99<=356ms;013327115.9k/s,p99<=431ms;
+ 013437105.7k/s,p99<=448ms. No repeatable throughput gain from3GB.
+ Whole-host compressed/decompressed pages (16KiB)301k/169k,
+ 1036k/774k,325k/288k; zero swap-outs,only96/32/20 swap-ins.
+ Smaller buffers reduced compression churn but foreground relation
+ writes increased3.26GB/52.1s and3.40GB/105.0s versus0.185GB/11.8s
+ at6GB (aggregate backend durations). This trades memory pressure for
+ writeback; neither "more memory always helps" nor compression alone
+ explains the observed rate. All messages handled once,errors0.
+ Driver/configs/VM samples/comparison retained;6GB baseline restored
+ and durability rechecked. Next unpaced paired120s run keeps6GB,
+ poll100ms andGOMAXPROCS4, to measure natural achieved throughput
+ without a producer rate ceiling; retain live backlog and drain exclusion.
+- [x] Unpaced paired120s screens,baseline6GB/poll100ms/GOMAXPROCS4:
+ scratch_013629 eight callers/pool8 produced15.888m,132.3k/s overall,
+ consumer p99<=1132ms,max backlog178k,slope-596messages/s.
+ Final50s averaged106.7k production/107.0k consumption: the overall
+ rate includes a faster opening burst, not a132k steady-state claim.
+ scratch_013919 sixteen callers/pool16 produced14.447m,120.3k/s,
+ consumer p99 overflowed10s,max backlog1.55m,slope+2599messages/s;
+ final40s production averaged75.5k. Extra transactions did not fix
+ the later write-limited region and worsened consumption. All messages
+ eventually handled once,errors0; retain8 callers/pool8.
+ SQL profile in013629 also exposed idempotency cleanup:22 calls,
+ zero rows deleted,11.6s execution,1.12m shared block hits. Investigating
+ prepared-plan selection rather than disabling maintenance or extending
+ cleanup intervals. Scratch exposes per-pool plan_cache_mode and logs
+ actual SHOW result; after-load plan probes run in rolled-back transactions
+ on the disposable DB. New binary control precedes config comparisons.
+ Build/vet/race compile check passed (scratch has no test files).
+- [x] Cleanup-plan control scratch_014530,new scratch binary with
+  SHOW plan_cache_mode logging,auto for both pools.8.864m/60s,
+ 147.5k/s overall,p99<=1641ms; not a sustainable rate claim.
+ After-load rolled-back EXPLAIN ANALYZE: generic368.7ms/custom249.9ms;
+ both scanned all8.864m rows,removed all by the expired-cutoff filter,
+ deleted0,and touched56,463blocks. Custom estimated2.95m qualifying
+ rows despite an empty expired set. Monitor confirms idempotency table
+ had no manual/auto analyze or vacuum during the run. Thus forcing
+ custom plans alone is not the demonstrated fix. Testing the existing
+ ANALYZE_INTERVAL10s diagnostic while keeping auto plan mode and
+ maintenance cadence intact; catalog/index/stats snapshot now retained.
+- [x] Statistics diagnostic scratch_014902: periodic broad ANALYZE
+  reduced cleanup cost13 calls/144.8ms versus control12/3879.4ms.
+  After-load generic/custom plans used created_at index for the expired
+  subquery,0.805/0.127ms versus368.7/249.9ms without statistics.
+  But production136.8k/s and consumer p99<=6928ms regressed; analysis
+  durations1.12/1.48/5.70/11.81s. Last analysis held xid1262647 for
+  >11.38s; observer xmin stayed1262647 and consumer settled/claimed
+  stayed7599694 while visible messages reached8217000. The broad
+  multi-statement maintenance transaction itself blocked the safe gate.
+  Do not adopt repeated broad ANALYZE as a throughput fix. Test one
+  early ANALYZE of idempotency created_at only; autovacuum and cleanup
+  remain enabled. This separates startup statistics from long refreshes.
+  Harness ANALYZE log reused the maintenance-process variable, raising
+  AttributeError during finally after workload/shutdown/SQL counts were
+  complete. Renamed the log variable; recovered normal verification,
+  rolled-back plan probes,DB removal,and evidence/index archival.
+  Recovery script/reason retained with the run.8.217m handled once,
+  message errors0; the harness finalization error is explicitly separate.
+- [x] Narrow startup-statistics test scratch_015354: one ANALYZE of
+  idempotency_key_4(created_at) at~1s took45ms; normal autovacuum,
+  cleanup cadence and auto plan selection retained. After-load generic/
+  custom cleanup probes touched3blocks each and took0.632/0.073ms,
+  versus56,463blocks and368.7/249.9ms without statistics. This identifies
+  and avoids the fresh-table cleanup scan without the long broad analysis
+  transaction.8.049m/60s,134.0k/s,p99<=802ms,all handled once/errors0.
+  It does not establish a throughput gain over the147.5k control; host
+  write variability remains material. Cleanup fell outside the top20 SQL
+  entries; add an explicit cleanup-profile capture so cheap work is still
+  measured. Normal finalization passed with the log-variable fix.
+  Next paired120s test raises claim4000->16000 and queue16000->64000,
+  preserving prefetch ratio and8 producer callers/pool8, to reduce claim
+  round trips without increasing producer contention.
+- [x] Larger claim candidate scratch_015640: claim16000/queue64000,
+  eight producer callers/pool8,consumer pool8,handlers4,poll100ms,
+  GOMAXPROCS4,one early narrow ANALYZE,otherwise baseline settings.
+  14.581m/120s=121.5k/s,p99<=635ms,handler backlogmax98,882,
+  slope-98.6messages/s; two completed checkpoints. Final50s averaged
+  109.3k production/108.7k consumption,so the overall average still
+  includes faster early production. All handled once,errors0.
+  Explicit cleanup profile:24calls,0.143251ms total,72block hits,
+  zero reads/deletes. Startup statistics remove the scan without
+  suppressing cleanup. This reduces waste but is not proof of a
+  corresponding overall throughput gain. Candidate validation at
+  110k offered for180s launched with identical configuration.
+  Next allowed database lever to inspect: WAL file zero initialization;
+  previous recycling experiments kept it ON. PG18 documents wal_init_zero
+  OFF as skipping prefill work potentially unnecessary on COW filesystems
+  (https://www.postgresql.org/docs/18/runtime-config-wal.html).
+  Not changed or tested yet; keep fsync/synchronous_commit/checksums/
+  full_page_writes intact and compare actual initialization bytes if tried.
+- [x] Candidate validation scratch_015954: offered110k/180s,
+  claim16000/queue64000,one early narrow ANALYZE,other settings unchanged.
+  17.393m handled once,errors0;96,605/s,p99<=679ms,three completed
+  checkpoints. Not a throughput improvement over the earlier95,959/s
+  three-minute result, and not a sustained110k rate. Handler backlog
+  stayed below45,981 (full-window slope+14messages/s); durable committed
+  ID distance first/last30s medians75,339/67,993,slope-32.7ids/s.
+  Cleanup remained cheap:36calls/0.167ms/107hits/zero reads. No swap-outs,
+ 176swap-in pages,3.78m compressed/3.44m decompressed16KiB pages;
+  whole-host pressure still present. Producer waits now emphasize relation
+  extension locks and buffer-content contention; PG~3.14cores/apps2.01.
+  Backend extensions22.64GB/46.05aggregate seconds and relation writes
+  1.33GB/35.09s; WAL initialization added10.47GB across backends/walwriter.
+  This supports investigating producer allocation/write work next, not
+  treating the consumer or pool capacity as the only remaining limit.
+  Native root peak37.14GB,host free minimum102.82GB; DB removed.
+  Current tuning-round comparison under evidence/native18/
+  steady_tuning_20260909/comparison.json covers12 runs,121.179m messages,
+  including explicit candidate/short-run limits and binary fingerprints.
+  No absolute maximum or retention-cycle throughput established.
+- [x] WAL zero-fill OFF/ON/OFF screen, native18.6, paired unpaced90s,
+  eight callers/batch1000/pools8,claim16000/queue64000,poll100ms,
+  GOMAXPROCS4 each and one early narrow ANALYZE unchanged.
+  scratch_022305/022502/022652:162.1/122.8/121.3k produced/s;
+  36.601m messages all handled once,errors0. Consumer p99 upper bounds
+  842/1413/3771ms; last30s production130.3/90.2/88.4k/s. Initial
+  OFF advantage did not reproduce; no causal throughput win established.
+  Effective setting verified after each restart and captured per run.
+  WAL initialization writes516/392/348,bytes516/6,576,668,672/348;
+  fsync counts match,aggregate init sync time3.34/5.61/8.52s. PostgreSQL
+  18.6 xlog.c confirms OFF writes one byte per new segment and retains
+  the subsequent fsync. Thus the lever takes, removes prefill, and still
+  suffers stalls; WAL zero-fill is not necessary for the slowdown.
+  Backend relation write time14.8/70.0/65.8aggregate seconds; extensions
+  28.4/27.4/25.1s. PostgreSQL logical I/O is not physical device traffic.
+  No swapouts; chronology, compression and retained WAL files remain
+  comparison limits. Normal baseline ON restored and verified afterward.
+  Evidence: native18/wal_zero_022305/{comparison.json,analyzer.py,
+  driver.py,plan.json,restored.txt}; per-run raw counters/settings retained.
+  Repeated OFF run also had a4.50s settled-head plateau at9548000;
+  62 consumer commit WALWrite lock samples. Pending fence stayed old
+  while observer xmin passed it, unlike the earlier continually replaced
+  pending-fence example. Do not infer the same gate diagnosis from p99.
+  Details in scratch_022652/longest-settled-plateau.json.
+- [x] OFF long validation scratch_022903:110k offered180s,actual
+  producer elapsed182.56s including completion of in-flight calls;
+  16.2m handled once,errors/duplicates0,88,736/s versus prior ON96,605/s.
+  Consumer p99<=1319ms; handler backlog maximum43,465,slope-15.5/s;
+  last60s production/consumption74.30/74.35k/s. Two checkpoints completed.
+  Failed110k offered load; no sustained-throughput improvement established.
+  WAL initialization1101writes/1101bytes,1101fsyncs/9.84aggregate seconds.
+  Backend relation writes3.67GB/153.58s and extensions21.00GB/51.58s;
+  producer DataFileWrite1471 and WALWrite-lock942 samples across1682
+  post-warmup frames. PG1.60cores/apps1.24: CPU is not fully occupied
+  while these writes stall. Consumer pool wait37.32aggregate seconds
+  warrants tracking despite bounded handler backlog; producer pool87ms.
+  No swapouts,664swapin pages; whole-host compression remains a limit
+  on attributing differences to one setting. Final native root35.31GB,
+  host free105.05GB; storage guards remained active and DB removed.
+  Binary SHA256 matches015954 and all three screens. Baseline ON and
+  all durability settings restored/verified; no library edits this round.
+  Evidence native18/wal_zero_validation_022903/comparison.json.
+  Decision: keep baseline WAL initialization ON; missing prefill is not
+  enough to remove the bottleneck. Next isolate insert concurrency versus
+  transaction batch size with equal aggregate in-flight messages, while
+  keeping active consumption and monitoring relation extension/WAL waits.
+- [x] Equal in-flight producer batch/concurrency screen completed:
+  native18/batch_concurrency_025113,60s unpaced per arm,
+  callers x messages/batch8x1000 ->4x2000 ->2x4000 ->8x1000.
+  All allow at most8000 messages in outstanding ProduceBatch calls;
+  producer/consumer pools stay8,one process each,GOMAXPROCS4 each,
+  claim16000/queue64000/poll100ms,one early narrow ANALYZE,baseline
+  WAL zero-fill/recycle ON and normal durability. Restart/fresh DB per
+  arm,retained WAL files,100GB aggregate guard. Frozen binary unchanged.
+  Explicit ProduceBatch calls bypass automatic batch scheduling; callers
+  govern simultaneous transactions here. Check actual transaction sizes
+  from message xmin after each run,not only the configuration printout.
+  Compare database extension/BufferContent/WAL waits and late production/
+  consumption/backlog; repeat control to expose chronological changes.
+  Runs025114/025229/025348/025510 achieved175.1/138.7/113.1/136.7k/s;
+  all33.853m messages handled once,errors/duplicates0. SQL xmin groups
+  confirm exactly1000/2000/4000/1000 messages per transaction. Consumer
+  p99 upper bounds549/412/589/1226ms; handler backlog maxima96.4/55.3/
+  40.1/65.6k,negative slopes in every run. One checkpoint completed each.
+  Last30s production164.9/118.5/93.3/95.2k/s: burst-inclusive averages
+  do not establish sustained rates. No swapouts; max native root25.30GB,
+  minimum host free114.77GB. All settings and binary hash retained.
+  Producer mean extension-lock waiters1.143/.243/.037/.807 and
+  BufferContent1.092/.176/.005/.774. Fewer transactions sharply reduce
+  sampled contention, but no repeatable throughput improvement proven:
+  control drift175.1->136.7k is larger than4-vs8 apparent difference.
+  Repeated control10-20s190.5k/s with0.16 WALWrite-lock waiters;
+  40-50s89.8k/s with3.42 waiters. Initial control same40-50s170.5k/s,
+  0.04 WALWrite waiters. This locates the changed waiting, not its deeper
+  device cause. Per-window rates/waits in comparison.json, analyzer saved.
+  Next4x2000/110k offered180s validation025654 completed below.
+- [x] Long4x2000 validation025654:17.724m handled once,errors/duplicates0,
+  180.025s,98,453/s average versus earlier8x1000/96,605/s. Consumer
+  p99<=973ms; handler backlog max81,708,slope-4.13messages/s. Three
+  checkpoints completed; final60s82.74k produced/82.65k consumed per
+  second,final30s80.33/80.27k. No stable98.5k or achieved110k claim:
+  production slows while consumption keeps up. The pacer skips missed
+  slots; this does not prove a110k capacity ceiling under another pacing
+  strategy. Actual SQL transactions8862,exactly2000 messages each.
+  Extension-lock/BufferContent mean waiters .043/.020: most of the
+  earlier insert contention is absent,without a material throughput win.
+  Backend relation writes0.581GB/18.99aggregate seconds,extensions22.879GB/
+  24.96s,normal WAL writes27.721GB/25.57s. WALWrite lock mean waiters.273.
+  PG1.41cores/apps1.32; producer pool wait7ms,consumer18.40aggregate
+  seconds. No swapouts,15swap-in pages; whole-host compression persists.
+  Native root peak37.20GB,host free minimum102.74GB; scratch DB removed,
+  baseline restored/verified. Evidence native18/batch_validation_025653/
+  comparison.json includes raw wait counts,per-window rates,CPU/pools,
+  actual batch verification,binary fingerprint,and analysis source.
+  Five runs this round51.577m messages,all handled once. Interpretation:
+  lock contention is tunable but eliminating most of it does not remove
+  the late throughput decline. Keep four and eight callers as candidates;
+  neither is a demonstrated sustainable winner. Next test smaller batches
+  at fixed callers/pool,then validate with unpaced longer windows to
+  separate paced-generator behavior from database capacity.
+- [x] Smaller-batch screen completed, native18/small_batch_030613:
+  eight callers and producer pool8 fixed; explicit batch1000 ->500 ->250
+  ->1000,60s unpaced each. Maximum outstanding messages8000/4000/2000/
+  8000; only batch size changes. Same frozen binary,consumer pool8,
+  claim16000/queue64000/poll100ms,GOMAXPROCS4 each,one early narrow
+  ANALYZE,native PG18.6 baseline and durability. Fresh DB/restart per arm,
+  active consumption throughout,100GB retained-space guard. Compare
+  verified SQL transaction sizes,commit/WAL waiting,backlog and late
+  rates. Repeat control before selecting a longer unpaced candidate.
+  Runs030613/030728/030847/031012:176.0/142.0/146.7/121.4k/s,
+  35.372m messages all handled once,errors/duplicates0; SQL confirms
+  exact1000/500/250/1000 messages per transaction. Producer p99 upper
+  bounds99/72/33/599ms; consumer456/428/272/1573ms. Handler backlog
+  max85.7/50.1/46.5/64.4k,negative slopes throughout. Last30s rates
+  164.9/106.8/128.4/103.5k/s; initial control176.0 versus repeated121.4k
+  prevents claiming a causal throughput gain from these short screens.
+  Smaller250 batch is a latency candidate; contention persists at eight
+  callers (BufferContent mean1.108,extension lock.874 for250).
+  Normal WAL write operations13,720/16,933/35,083 for first three runs;
+  these are PG logical operations,not one physical flush per transaction.
+  No swapouts,no identity limit reached,storage guards active. All settings,
+  fingerprints,verification,window waits and source in comparison.json.
+  Selected250 vs1000 for120s unpaced paired validation,with no pacer;
+  monitor identity cap20m and do not score a cap-limited run as full120s.
+- [x] Longer unpaced250/1000 comparison031151/031419 completed:
+  15.80625m/13.933m handled once,errors/duplicates0;120.019/120.084s,
+  no identity cap reached. Average131.7/116.0k/s,consumer p99 upper
+  bounds496/1478ms,handler backlog maxima49.9/187.2k with negative
+  slopes. But final30s production74.57/86.30k and consumption74.59/
+  86.02k: smaller batch is a latency candidate,not a proven higher
+  steady-state rate. Both completed two checkpoints. During250 run,
+  10-20s176.7k/s had.11 mean WALWrite lock waiters;90-100s66.9k/s
+  had3.99. Backend relation writes1.014GB/40.90aggregate seconds,
+  extensions20.484GB/31.46s. Producer pool wait.152s,consumer1.322s;
+  this unpaced decline does not require the offered-rate limiter.
+  No swapouts either run; fixed binary/config,verified batch sizes,
+  native root peak36.15GB,minimum host free103.70GB,DBs removed and
+  baseline restored. Evidence native18/small_batch_long_031150/
+  comparison.json includes per-window rates/waits and all qualifications.
+  Six runs this round65.11125m messages,all handled once. Most late
+  throughput loss remains downstream WAL/data write waiting; a universal
+  SSD ceiling or single deeper driver cause is still not established.
+- [x] Small storage-compression sanity probe after benchmarks: temporary
+  tables,1000 rows per case,all rolled back; not a throughput test.
+  Same1000-byte JSON shape with repeated or deterministic random padding:
+  default table target versus toast_tuple_target512/STORAGE MAIN/explicit
+  LZ4 both retain1020-byte stored JSONB,uncompressed. Session-local
+  default_toast_compression=LZ4 applied to BOTH variants. Positive
+  control2500-byte repeated JSON compresses to98bytes in both; every
+  value round-trips equal,zero out-of-line TOAST bytes. Thus LZ4 works,
+  but changing target does not engage compression for our small rows.
+  PG18.6 heapam.c:2334 checks tuple length>TOAST_TUPLE_THRESHOLD before
+  calling the TOAST machinery; heaptoast.h defines the separate trigger.
+  Source agrees with https://www.postgresql.org/docs/18/storage-toast.html
+  (normally about2kB). Do not spend full throughput runs on this setting
+  for the fixed1000-byte workload or enlarge messages to game compression.
+  Probe source/results retained as toast-probe.py/json in the long study;
+  no persistent database setting or library changes made.
+- [x] Five-minute achieved-rate/backlog validation completed under
+  native18/steady_floor_033104:250-message explicit batches,eight callers,
+  pools8,claim16000/queue64000/poll100ms,GOMAXPROCS4 each;80k then100k
+  offered for300s each,normal PG/durability and storage guards unchanged.
+  Goal is an observed steady operating rate,not another burst leaderboard;
+  report missed offered rate and late-window variation explicitly.
+  Scratch flag ceiling raised20m->40m only (identity bitset about5MB),
+  enabling24m/30m messages without truncating a five-minute run. Prechange
+  rebuild SHA256 exactly matches previous a6828be9... frozen binary;
+  new binary and source.zip/build.json retained. Build/vet/race compilation
+  passed (no scratch package test files). Smoke033105:200k messages
+  handled once,errors0,consumer p99<=211ms,40m bound accepted; DB removed.
+  No retention or payload semantics changed;100GB aggregate and40GiB
+  host-free guards remain in force. No claim of a sustainable maximum.
+- [x] Five-minute80k/100k offered runs033121/033710 completed,250-message
+  batches,eight callers/pools8,all45.3475m messages handled once,errors0.
+  80k achieved78,943/s;consumer p99<=227ms;final60s79,948 produced/
+  79,977 consumed per second. Handler backlog max17,611,slope-.31/s;
+  committed ID-distance first/last30s medians49,125/46,000,slope-4.27ids/s.
+  Seven checkpoints completed. Two10s production windows dipped to
+  66.2/65.7k,so this is an observed near79k operating run,not an exact
+  80k offered-load pass or a hard minimum rate guarantee.
+  100k achieved72,213/s;consumer p99<=1339ms;final60s63,105 produced/
+  63,169 consumed per second. Handler backlog max36,750,slope-.38/s;
+  committed ID-distance first/last30s55,239/65,250,slope+16.06ids/s.
+  Four checkpoints completed; no100k capacity claim. Producer pool waits
+  .023/.166s,consumer.038/99.57aggregate seconds; mean PG CPU1.08/1.04
+  cores,apps.96/.94. No swapouts,83/36swapin pages. Native peak42.91GB,
+  host free minimum96.76GB; DBs removed,baseline restored and verified.
+  New mechanism evidence: WAL initialization20/1244 files,0.336/20.871GB,
+  init sync.042/12.155aggregate seconds; normal backend WAL write time
+  52.02/110.87s. Producer mean WALWrite lock waiters.013/1.956. Higher
+  initialization work accompanies fewer completed checkpoints and lower
+  throughput; causality/order still needs the lower-rate repeat.
+  Whole-device iostat trace began132.8s into80k run; its remaining phase
+  averaged495.3 reported MB/s.100k full run averaged455.5,peak961.3.
+  These combine all reads/writes and other processes,not a physical SSD
+  ceiling or PG-only byte count. Raw trace/timestamps,device analyzer and
+  limitations archived. Tail rates now use exact final30/60s intervals,
+  avoiding whole-ten-second rounding in short prior-run summaries.
+  Follow-up80k/300s repeat034328 completed below.
+- [x] Lower-rate repeat034328:23.33425m handled once,errors/duplicates0,
+  300.004s,77,780/s achieved;consumer p99<=227ms. Handler backlog max
+  34,895,slope+.42messages/s;committed ID-distance first/last30s medians
+  47,500/40,000,slope-3.99ids/s. Seven checkpoints completed. Average
+  and latency largely recovered after100k offered, but final60s70,220
+  produced/70,091 consumed and final30s62,016/61,852 show another late
+  dip. Do not call this a guaranteed80k floor or flat sustained rate.
+  Last three10s windows63.3/67.1/55.8k;mean producer WALWrite lock
+  waiters1.46/1.20/2.37. Only five WAL files initialized,0.084GB/18.7ms
+  init sync: large WAL initialization is NOT necessary for these stalls.
+  This lowers its priority as a complete cure,while leaving additional
+  allocation work as a possible amplifier of the100k run's shortfall.
+  Native peak38.87GB,host free minimum100.72GB;no swapouts,20swapin pages.
+  Device trace starts51.5s into repeat,mean476.9 reported MB/s across
+  reads+writes,all processes;not a device saturation verdict. DB removed,
+  baseline restored,both device monitors exited. Three full runs plus
+  smoke68.88175m messages verified once; source/binary/commands preserved.
+  Combined evidence steady_floor_033104/round-comparison.json retains
+  all three runs,exact tail windows,backlog units and limitations.
+  Next evidence-led configuration candidate: increase min_wal_size
+  (minimum recycled WAL reserve) while retaining max_wal_size/checkpoint
+  target and durability,at100k offered. PG18 describes its role in
+  preserving reusable files at https://www.postgresql.org/docs/18/wal-configuration.html.
+  Measure actual initialization and late rate; do not credit a large
+  reserve with a throughput gain unless it reproduces. Not tested yet.
+- WAL minimum reserve comparison 2026-09-09, wal_reserve_113412:
+  scratch_113412/113747/114125, min_wal_size8GB/2GB/8GB,
+  max_wal_size8GB and checkpoint target0.9 fixed. Same frozen binary
+  e6246168, 8 callers x250, pools8, runtime4 cores each, 100k offered,
+  requested180s each (last actual181.022s), all durability unchanged.
+  Actual settings asserted per run; batches verified250 via transaction
+  counts. Achieved97,221/83,012/79,596 messages/s; final60s production
+  95,144/70,417/66,600 and consumption95,139/70,576/66,729.
+  All46,854,000 messages consumed once, zero errors/duplicates.
+  Handler backlog maxima26,827/22,936/101,385; slopes-1.87/-3.62/-18.46
+  messages/s. Consumer p99 upper bounds242/1050/1212ms; checkpoints
+  completed4/3/3. No growing backlog trend at achieved rates; pacer
+  skips missed slots, so this is not acceptance of100k offered.
+  Starting AND ending WAL inventory512 files/8GiB for every run.
+  WAL init8.137/8.171/5.570GB, normal WAL write time30.52/57.55/62.13
+  aggregate seconds. Repeat8GB initialized less yet ran slower: no
+  repeatable reserve benefit, no evidence that extra initialization
+  explains the main late slowdown. Minimum may not bind in this load;
+  existing files retained, so do not call this an initialization-free test.
+  Producer pool wait0.087/0.156/0.160 aggregate seconds; consumer
+  0.021/86.85/53.12s. Late repeat producer WALWrite lock observations
+  average about1.6-2.7 concurrent sessions per10s window. Consumer pool
+  waits matter to latency but consumer tracks producer output; adding
+  producer connections cannot remove waits already inside PostgreSQL.
+  PG mean CPU1.50/1.26/1.19 cores, apps1.40/1.19/1.14; no swapouts.
+  Native peak34.36GB, minimum host free105.20GB; storage guard remained
+  active. Whole-device means563.9/457.7/432.4 reported MB/s; first run
+  coverage begins12.6s, other runs near full; all-process traffic, not
+  proof of SSD physical saturation. Source, settings, inventory, device
+  trace, comparisons and verification retained in study directory.
+  Baseline min2GB/max8GB/target0.9 restored; databases removed and
+  device monitor stopped. Do not adopt larger minimum on this evidence.
+  Next: paired checkpoint target0.5 versus0.9, max8GB/min2GB fixed,
+  testing whether earlier checkpoint writes reduce foreground write
+  stalls and preserve late rate. Prior producer-only0.5-alone test had
+  no active checkpoint;2GB/0.5 long test faded, so no assumed win.
+- Paired checkpoint pacing comparison 2026-09-09,
+  checkpoint_pacing_114920: scratch_114921/115257/115628,
+  checkpoint_completion_target0.5/0.9/0.5, WAL max8GB/min2GB fixed.
+  Actual target and durability asserted per run; frozen e6246168 binary,
+  same8x250/pools8/runtime4 setup at100k offered,180s requested each
+  (last actual181.396s). Achieved98,087/84,643/81,804 messages/s;
+  exact final60s production96,315/71,478/67,014 and consumption
+  96,347/71,506/67,054. Final30s94,356/70,483/59,758 produced/s.
+  All47,731,250 messages consumed once, no errors/duplicates, actual
+  batches250. Handler backlog maxima21,605/22,341/23,294, slopes
+  -5.00/-10.12/-7.86 messages/s; small negative interpolated gap is
+  sampling skew. Consumer p99 upper bounds227/586/972ms. Durable
+  committed-ID gaps first/last30 medians57,626/59,858;59,000/46,434;
+  58,992/58,627, ID distances not exact counts. No growing backlog
+  trend at achieved rates; missed pacing slots are not queued, so no
+  claim of100k offered acceptance or established steady-state maximum.
+  Completed checkpoints3/3/2; WAL initialization12.231/6.744/11.056GB.
+  Normal WAL write time23.916/58.075/46.865 aggregate seconds.
+  Client normal relation writes0.121/0.044/0.587GB and4.396/2.440/28.600s;
+  extensions22.684/19.575/19.083GB and20.493/21.551/23.675s.
+  The0.5 repeat did not reduce foreground writes or restore throughput.
+  Late repeat WALWrite lock observations1.03-2.59 average concurrent
+  producer sessions per10s window. Producer pool waits0.123/0.145/0.335
+  aggregate seconds; consumer0.017/56.48/38.37s. PG CPU1.40/1.22/1.19
+  cores and apps1.37/1.18/1.13, no swapouts. Native peak35.71GB,
+  minimum host free103.75GB; storage guard active. Device means
+  579.9/455.0/453.0 reported MB/s across all host processes; first
+  trace starts14.2s, others nearly full; no physical saturation verdict.
+  No repeatable benefit: retain target0.9. Both recent configuration
+  comparisons have stronger first runs and weaker repeats; do not turn
+  chronological drift into a setting win. Fixed WAL size did not hold
+  checkpoint count or total I/O work constant. Evidence includes source,
+  settings, commands, raw counters, comparisons, device trace and identity
+  checks. Baseline restored, scratch DBs removed, monitor stopped.
+  Next investigation: one continuous paired workload, high-load conditioning
+  followed by lower admitted-rate steps and reversal, without DB restart
+  or recreation. Test whether reducing write pressure restores a stable
+  rate in the already-loaded system. Plan duration/storage first, preserve
+ 100GB guard, no-catchup pacing, identity and durable-cursor checks.
+- Continuous rate schedule 2026-09-09, continuous_rate_120421:
+  scratch-only main.go adds validated elapsed:rate schedule to existing
+  no-catchup admission pacer; run.py passes PRODUCER_RATE_SCHEDULE.
+  No library edits. Pre-edit rebuild exactly matches e6246168 baseline;
+  new frozen binary643f90a3f2fef787df8cea694a0a152dfa859dbaa24ebddffa9866b7d7a6726f.
+  go fmt/build/vet pass; race compile passes (no test files). Invalid
+  schedules rejected before DB connection. Smoke scratch_120421: four
+  3s phases20k/10k/15k/20k match measured rates;195,000 verified once.
+  scratch_120440 keeps one producer, consumer and DB running450s:
+  100k offered180s,60k90s,80k90s,100k90s. Same8x250/pools8/runtime4,
+  default min2GB/max8GB/checkpoint target0.9, durability unchanged.
+  Actual rate-change admission boundaries0.000015/180.002274/270.002179/
+  360.260446s; final transition delayed by active work, not a restart.
+  Phase production96,768/59,667/58,983/67,605 messages/s; consumption
+  96,694/59,686/58,925/67,628. Last30s production93,104/59,567/59,883/
+  64,783; consumption92,852/59,309/59,632/64,392. After-first5s rates
+  and backlog/window metrics retained in rate-phase-analysis.json.
+  All34,182,000 long-run messages consumed once (34,377,000 with smoke),
+  errors/duplicates zero. Actual450.012s, identity limit not reached,
+  batches250 verified. Nine checkpoints completed overall; phase nearest
+  1Hz deltas4/2/2/1. Overall handler backlog max23,758,slope-4.30/s;
+  committed-ID gap first/last30 medians58,495/58,202 (ID distance, not
+  exact message count). Overall consumer p99 upper bound654ms.
+  Mean producer WALWrite lock waiters per phase0.029/0.019/1.810/2.172;
+  normal WAL write time30.006/5.596/38.859/35.862 aggregate seconds.
+  Foreground normal relation write time4.597/4.413/0.104/0.022s:
+  later stalls do not require large foreground relation writes.
+  Relation extensions remain, as do background/checkpoint writes; do
+  not infer the whole storage path is idle. PG phase deltas use nearest
+  1Hz samples with exact sample spans saved, not exact boundary snapshots.
+  Producer pool wait0.201 aggregate seconds vs consumer39.01s; mean
+  CPU PG1.27cores/apps1.11. No swapouts;2661 swapin pages,whole-host
+  compression activity persists. Native peak55.98GB plus other guarded
+  roots about30.8GB,host free minimum83.32GB. Whole-device mean491.4
+  reported MB/s,first sample2.45s; all-process traffic,not physical ceiling.
+  Conclusion:60k tracked for90s while later80k and100k targets failed.
+  This removes restart/recreation as necessary explanations for the late
+  slowdown. It DOES NOT demonstrate recovery: initial100k phase was
+  still fast, and there was no final60k step after the measured stall.
+  Therefore no claim of causal60k threshold or sustainable maximum.
+  Next: continuous100k/60k/100k/60k, placing a low-rate phase AFTER the
+  late stall, retaining storage guard and identity checks. Need repeated
+  late comparisons before adopting an operating rate. Baseline restored,
+  databases removed, monitor stopped; raw phases/build/commands recorded.
 - [ ] Choose retention from measured storage, then validate finalists.
 - [ ] Record comparison and sustainable result with evidence.
 
@@ -1460,9 +2297,8 @@ untracked-so-far `runs.jsonl` files before they are first committed.
   profile, not a benchmark; it stays.
 - [ ] Root `.gitignore`: the stale `/.bench/*/driver/driver` and
   `/.bench/scale/projector/projector` rules go with their binaries.
-- [ ] Citations of the deleted `.bench/alertcadence` in HISTORY (2026-09-07
-  cadence entry), decision 0709, and `concepts/alert-history.mdx` are
-  reworded to state the measurement without the link.
+- [x] `concepts/alert-history.mdx` states the cadence measurement without the
+  deleted benchmark link. HISTORY and decision 0709 retain their recorded paths.
 - [ ] `concepts/reliability-lab.mdx` documents the shipped measurement,
   observer, fingerprint, and `runs.jsonl`; the Proposed chaos run stays
   Proposed.

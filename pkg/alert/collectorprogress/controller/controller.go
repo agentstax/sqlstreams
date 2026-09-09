@@ -5,14 +5,14 @@ import (
 
 	"github.com/agentstax/vulkan/pkg/common/logging"
 	"github.com/agentstax/vulkan/pkg/datastore"
-	metricscontroller "github.com/agentstax/vulkan/pkg/metrics/controller"
+	metricscontroller "github.com/agentstax/vulkan/pkg/metric/controller"
 	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
 )
 
 type CollectorProgressController struct {
 	Logger logging.Logger
 
-	metrics *metricscontroller.MetricsController
+	metrics *metricscontroller.MetricController
 	workers *workercontroller.WorkerController
 }
 

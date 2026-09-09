@@ -16,8 +16,8 @@ import (
 	consumecontroller "github.com/agentstax/vulkan/pkg/consume/controller"
 	consumejanitor "github.com/agentstax/vulkan/pkg/consume/janitor"
 	"github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/metrics/collector"
-	metricscontroller "github.com/agentstax/vulkan/pkg/metrics/controller"
+	"github.com/agentstax/vulkan/pkg/metric/collector"
+	metricscontroller "github.com/agentstax/vulkan/pkg/metric/controller"
 	migratecontroller "github.com/agentstax/vulkan/pkg/migrate/controller"
 	schedulecontroller "github.com/agentstax/vulkan/pkg/schedule/controller"
 	scheduleproducer "github.com/agentstax/vulkan/pkg/schedule/producer"
@@ -41,7 +41,7 @@ type MessageAdmin struct {
 	consumerController *consumecontroller.ConsumeController
 	scheduler          *scheduler.Scheduler
 	heads              *compactioncontroller.CompactionController
-	metricsController  *metricscontroller.MetricsController
+	metricController   *metricscontroller.MetricController
 	workerController   *workercontroller.WorkerController
 	migrateController  *migratecontroller.Controller
 	alertDeclarers     []worker.Declarer
@@ -73,13 +73,13 @@ func NewMessageAdmin(ds *datastore.PostgresDatastore, cfg *MessageAdminConfig) (
 		return nil, err
 	}
 
-	metricsCollectorProvisioner, err := collector.NewMetricsCollectorProvisioner(ds, nil, ds.Logger)
+	metricCollectorProvisioner, err := collector.NewMetricsCollectorProvisioner(ds, nil, ds.Logger)
 	if err != nil {
 		return nil, err
 	}
 
 	// a declarer here, never run -- admin creates manager rows, it doesn't claim them
-	managerProvisioner, err := manager.NewManagerProvisioner(ds, 1, nil, ds.Logger, topicJanitorProvisioner, scheduleProducerProvisioner, metricsCollectorProvisioner)
+	managerProvisioner, err := manager.NewManagerProvisioner(ds, 1, nil, ds.Logger, topicJanitorProvisioner, scheduleProducerProvisioner, metricCollectorProvisioner)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +109,7 @@ func NewMessageAdmin(ds *datastore.PostgresDatastore, cfg *MessageAdminConfig) (
 		return nil, err
 	}
 
-	metricsController, err := metricscontroller.NewMetricsController(ds, ds.Logger)
+	metricController, err := metricscontroller.NewMetricsController(ds, ds.Logger)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +176,7 @@ func NewMessageAdmin(ds *datastore.PostgresDatastore, cfg *MessageAdminConfig) (
 		scheduler:          alertScheduler,
 		consumerController: consumerController,
 		heads:              heads,
-		metricsController:  metricsController,
+		metricController:   metricController,
 		workerController:   workerController,
 		migrateController:  migrateController,
 		alertDeclarers:     []worker.Declarer{partitionCountProvisioner, compactionReadCostProvisioner, workerLivenessProvisioner, collectorProgressProvisioner},

@@ -19,7 +19,7 @@ import (
 	consumebase "github.com/agentstax/vulkan/pkg/consume/base"
 	"github.com/agentstax/vulkan/pkg/consume/deliveryconsumer/controller"
 	"github.com/agentstax/vulkan/pkg/datastore"
-	metricsproducer "github.com/agentstax/vulkan/pkg/metrics/producer"
+	metricsproducer "github.com/agentstax/vulkan/pkg/metric/producer"
 	"github.com/agentstax/vulkan/pkg/worker"
 )
 
@@ -36,7 +36,7 @@ type DeliveryConsumerProvisioner[Message common.Versioned] struct {
 }
 
 // cfg may be nil or sparse.
-func NewDeliveryConsumerProvisioner[Message common.Versioned](ds *datastore.PostgresDatastore, consumerFunc func(ctx context.Context, message *Message) error, schemaVersion int, metrics *metricsproducer.MetricsProducer, cfg *DeliveryConsumerConfig, logger logging.Logger) (*DeliveryConsumerProvisioner[Message], error) {
+func NewDeliveryConsumerProvisioner[Message common.Versioned](ds *datastore.PostgresDatastore, consumerFunc func(ctx context.Context, message *Message) error, schemaVersion int, metrics *metricsproducer.MetricProducer, cfg *DeliveryConsumerConfig, logger logging.Logger) (*DeliveryConsumerProvisioner[Message], error) {
 	if cfg == nil {
 		cfg = &DeliveryConsumerConfig{}
 	}

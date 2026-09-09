@@ -19,7 +19,7 @@ func TestAlertSelectorsCoverResourceScopedCatalog(t *testing.T) {
 		{"PartitionCount", topicAlerts.PartitionCount(), alert.AlertPartitionCount},
 		{"CompactionReadCost", topicAlerts.CompactionReadCost(), alert.AlertCompactionReadCost},
 		{"WorkerLiveness", topicAlerts.WorkerLiveness(), alert.AlertWorkerLiveness},
-		{"MetricsCollectorProgress", client.System().Alerts().MetricsCollectorProgress(), alert.AlertMetricsCollectorProgress},
+		{"MetricCollectorProgress", client.System().Alerts().MetricCollectorProgress(), alert.AlertMetricsCollectorProgress},
 	}
 
 	seen := make(map[*diagnostic.DiagnosticAlert]int, len(selectors))

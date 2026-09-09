@@ -216,8 +216,8 @@ scheduled check records recovery. The snapshot is not persisted.
 Collector progress uses manager lease history independently of completion
 measurements; see [collector progress](/concepts/metrics-export/#observe-collector-progress-independently).
 
-The [cadence cost checkpoint](https://github.com/agentstax/vulkan/blob/main/.bench/alertcadence/RESULTS.md)
-measures the existing reads and recording path on Postgres 18. One-minute
+A cadence cost checkpoint measured the existing reads and recording path on
+Postgres 18. One-minute
 checks increase both history reads and alert-head updates, including for
 unchanged conditions. Larger installations can supply a longer
 `ScheduleExpression` without changing collection. The metrics topic retains

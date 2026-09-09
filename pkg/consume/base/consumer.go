@@ -11,7 +11,7 @@ import (
 	"github.com/agentstax/vulkan/pkg/common/logging"
 	"github.com/agentstax/vulkan/pkg/consume"
 	"github.com/agentstax/vulkan/pkg/consume/base/controller"
-	metricsproducer "github.com/agentstax/vulkan/pkg/metrics/producer"
+	metricsproducer "github.com/agentstax/vulkan/pkg/metric/producer"
 	"github.com/agentstax/vulkan/pkg/topic"
 	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
 )
@@ -24,7 +24,7 @@ type BaseConsumer[Message common.Versioned] struct {
 	SchemaVersion int
 	Config        *BaseConsumerConfig
 	Logger        logging.Logger
-	Metrics       *metricsproducer.MetricsProducer
+	Metrics       *metricsproducer.MetricProducer
 	Workers       *workercontroller.WorkerController
 	KeyLeases     *controller.KeyLeaseController
 

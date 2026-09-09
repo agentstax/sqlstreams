@@ -476,3 +476,4 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 - 0721 2026-09-08 superseded by 0722 (pre-v1) — Repository-only roots are hidden
 - 0722 2026-09-08 superseded by 0723 (pre-v1) — Repository support and build-output roots are hidden
 - 0723 2026-09-08 accepted (pre-v1) — Repository support, build-output, and benchmark roots are hidden
+- 0724 2026-09-09 accepted (pre-v1) — The metric root is singular

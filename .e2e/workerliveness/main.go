@@ -25,8 +25,8 @@ import (
 	"github.com/agentstax/vulkan/pkg/alert/workerliveness"
 	"github.com/agentstax/vulkan/pkg/common"
 	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/metrics"
-	"github.com/agentstax/vulkan/pkg/metrics/collector"
+	"github.com/agentstax/vulkan/pkg/metric"
+	"github.com/agentstax/vulkan/pkg/metric/collector"
 	"github.com/agentstax/vulkan/pkg/schedule"
 	"github.com/agentstax/vulkan/pkg/topic"
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
@@ -103,7 +103,7 @@ func run() (err error) {
 	must(err)
 	must(client.System().Register(ctx, &vulkan.SystemConfig{
 		WorkerLivenessAlert: &alert.WorkerLivenessAlertConfig{DisablePending: true},
-		MetricsCollector:    &metrics.MetricsCollectorWorkerConfig{PollRate: 200 * time.Millisecond},
+		MetricCollector:     &metric.MetricCollectorWorkerConfig{PollRate: 200 * time.Millisecond},
 	}))
 	defer func() { must(client.System().Register(ctx, nil)) }()
 

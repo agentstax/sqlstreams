@@ -46,7 +46,7 @@ import (
 	"github.com/agentstax/vulkan/pkg/consume/messageconsumer"
 	messageconsumercontroller "github.com/agentstax/vulkan/pkg/consume/messageconsumer/controller"
 	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	metricsproducer "github.com/agentstax/vulkan/pkg/metrics/producer"
+	metricsproducer "github.com/agentstax/vulkan/pkg/metric/producer"
 	"github.com/agentstax/vulkan/pkg/topic"
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"

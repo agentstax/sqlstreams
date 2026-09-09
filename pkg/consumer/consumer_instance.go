@@ -13,7 +13,7 @@ import (
 	"github.com/agentstax/vulkan/pkg/consume"
 	consumecontroller "github.com/agentstax/vulkan/pkg/consume/controller"
 	"github.com/agentstax/vulkan/pkg/datastore"
-	metricsproducer "github.com/agentstax/vulkan/pkg/metrics/producer"
+	metricsproducer "github.com/agentstax/vulkan/pkg/metric/producer"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -25,7 +25,7 @@ type ConsumerInstance[Message common.Versioned] struct {
 	Logger logging.Logger  // bound to the group; every worker in the chain logs through it
 
 	ds           *datastore.PostgresDatastore
-	metrics      *metricsproducer.MetricsProducer
+	metrics      *metricsproducer.MetricProducer
 	consumers    *consumecontroller.ConsumeController
 	topicName    string
 	topicVersion int
@@ -38,7 +38,7 @@ type ConsumerInstance[Message common.Versioned] struct {
 // per-instance pipeline over the datastore's logger.
 // declaredAt is Register's declaration time; Consume re-attempts the
 // Config.Bindings declaration under it.
-func newConsumerInstance[Message common.Versioned](owner *common.Owner, ds *datastore.PostgresDatastore, metrics *metricsproducer.MetricsProducer, consumers *consumecontroller.ConsumeController, topicName string, topicVersion int, declaredAt time.Time, cfg *ConsumerConfig, logger logging.Logger) (*ConsumerInstance[Message], error) {
+func newConsumerInstance[Message common.Versioned](owner *common.Owner, ds *datastore.PostgresDatastore, metrics *metricsproducer.MetricProducer, consumers *consumecontroller.ConsumeController, topicName string, topicVersion int, declaredAt time.Time, cfg *ConsumerConfig, logger logging.Logger) (*ConsumerInstance[Message], error) {
 	if owner == nil {
 		return nil, errors.New("owner must not be nil")
 	}

@@ -117,7 +117,7 @@ every minute by default; collection keeps its independent 30-second interval.
 The collector records completion only after the whole pass succeeds. Read it
 through `System().Metrics().CollectorCompletedTimestamp()`. The attribute-free
 `vulkan.metrics.collector.completed_timestamp` gauge stores Unix seconds with
-unit `s`. `System().Alerts().MetricsCollectorProgress()` selects the alert.
+unit `s`. `System().Alerts().MetricCollectorProgress()` selects the alert.
 
 Completion follows all collection reads and writes, including concurrent topic
 work. Startup and partial passes do not refresh it. Rank-zero compaction and

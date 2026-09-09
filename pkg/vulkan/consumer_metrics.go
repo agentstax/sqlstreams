@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/agentstax/vulkan/pkg/common/diagnostic"
-	"github.com/agentstax/vulkan/pkg/metrics"
+	"github.com/agentstax/vulkan/pkg/metric"
 )
 
 // ConsumerMetricsHandle names one consumer group's metrics resource, holding no
@@ -23,7 +23,7 @@ func (h *ConsumerHandle[Message]) Metrics() *ConsumerMetricsHandle {
 // Definitions returns the consumer-group-scoped Vulkan metric definitions
 // ordered by VK code. It performs no I/O.
 func (h *ConsumerMetricsHandle) Definitions() []MetricDefinition {
-	return metrics.Definitions(diagnostic.MetricScopeConsumerGroup)
+	return metric.Definitions(diagnostic.MetricScopeConsumerGroup)
 }
 
 // Snapshot computes the consumer group's live metrics from its source tables.
@@ -33,75 +33,75 @@ func (h *ConsumerMetricsHandle) Snapshot(ctx context.Context) (*ConsumerGroupSna
 
 // CursorHead selects the group's topic-head series.
 func (h *ConsumerMetricsHandle) CursorHead() *MetricHandle {
-	return h.metric(metrics.MetricCursorHead)
+	return h.metric(metric.MetricCursorHead)
 }
 
 // CursorClaimed selects the group's claimed-cursor series.
 func (h *ConsumerMetricsHandle) CursorClaimed() *MetricHandle {
-	return h.metric(metrics.MetricCursorClaimed)
+	return h.metric(metric.MetricCursorClaimed)
 }
 
 // CursorCommitted selects the group's committed-cursor series.
 func (h *ConsumerMetricsHandle) CursorCommitted() *MetricHandle {
-	return h.metric(metrics.MetricCursorCommitted)
+	return h.metric(metric.MetricCursorCommitted)
 }
 
 // CursorBacklog selects the group's cursor-backlog series.
 func (h *ConsumerMetricsHandle) CursorBacklog() *MetricHandle {
-	return h.metric(metrics.MetricCursorBacklog)
+	return h.metric(metric.MetricCursorBacklog)
 }
 
 // CursorInflight selects the group's cursor-inflight series.
 func (h *ConsumerMetricsHandle) CursorInflight() *MetricHandle {
-	return h.metric(metrics.MetricCursorInflight)
+	return h.metric(metric.MetricCursorInflight)
 }
 
 // ReadyExceptions selects the group's ready-exception series.
 func (h *ConsumerMetricsHandle) ReadyExceptions() *MetricHandle {
-	return h.metric(metrics.MetricReadyExceptions)
+	return h.metric(metric.MetricReadyExceptions)
 }
 
 // InflightExceptions selects the group's inflight-exception series.
 func (h *ConsumerMetricsHandle) InflightExceptions() *MetricHandle {
-	return h.metric(metrics.MetricInflightExceptions)
+	return h.metric(metric.MetricInflightExceptions)
 }
 
 // DeferredExceptions selects the group's deferred-exception series.
 func (h *ConsumerMetricsHandle) DeferredExceptions() *MetricHandle {
-	return h.metric(metrics.MetricDeferredExceptions)
+	return h.metric(metric.MetricDeferredExceptions)
 }
 
 // DeadExceptions selects the group's dead-exception series.
 func (h *ConsumerMetricsHandle) DeadExceptions() *MetricHandle {
-	return h.metric(metrics.MetricDeadExceptions)
+	return h.metric(metric.MetricDeadExceptions)
 }
 
 // OldestUnresolvedAge selects the group's oldest-unresolved-exception-age
 // series.
 func (h *ConsumerMetricsHandle) OldestUnresolvedAge() *MetricHandle {
-	return h.metric(metrics.MetricOldestUnresolvedAge)
+	return h.metric(metric.MetricOldestUnresolvedAge)
 }
 
 // OpenLeases selects the group's open-lease series.
 func (h *ConsumerMetricsHandle) OpenLeases() *MetricHandle {
-	return h.metric(metrics.MetricOpenLeases)
+	return h.metric(metric.MetricOpenLeases)
 }
 
 // AbandonedRoutinesOutstanding selects the group's outstanding-abandoned-
 // routines series.
 func (h *ConsumerMetricsHandle) AbandonedRoutinesOutstanding() *MetricHandle {
-	return h.metric(metrics.MetricAbandonedOutstanding)
+	return h.metric(metric.MetricAbandonedOutstanding)
 }
 
 // AbandonedRoutinesTotal selects the group's total-abandoned-routines series.
 func (h *ConsumerMetricsHandle) AbandonedRoutinesTotal() *MetricHandle {
-	return h.metric(metrics.MetricAbandonedTotal)
+	return h.metric(metric.MetricAbandonedTotal)
 }
 
 // AbandonedRoutinesSelfClearLatencyAverage selects the group's average
 // abandoned-routine self-clear-latency series.
 func (h *ConsumerMetricsHandle) AbandonedRoutinesSelfClearLatencyAverage() *MetricHandle {
-	return h.metric(metrics.MetricAbandonedSelfClearLatencyAvg)
+	return h.metric(metric.MetricAbandonedSelfClearLatencyAvg)
 }
 
 func (h *ConsumerMetricsHandle) metric(declared *diagnostic.DiagnosticMetric) *MetricHandle {

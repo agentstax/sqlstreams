@@ -7,7 +7,7 @@ import (
 
 	"github.com/agentstax/vulkan/pkg/alert"
 	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/metrics"
+	"github.com/agentstax/vulkan/pkg/metric"
 )
 
 func TestEvaluateValidatesBeforeReading(t *testing.T) {
@@ -73,11 +73,11 @@ func TestEvaluateHistory(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			history := &metrics.MeasurementHistory{EvaluatedAt: current}
+			history := &metric.MeasurementHistory{EvaluatedAt: current}
 			for i, age := range test.ages {
-				history.Messages = append(history.Messages, &common.StoredMessage[metrics.Measurement]{
+				history.Messages = append(history.Messages, &common.StoredMessage[metric.Measurement]{
 					Id: int64(7104 - i), CreatedAt: current.Add(-age),
-					Message: &metrics.Measurement{Name: metrics.MetricTopicPartitions.Name, Kind: metrics.MetricKindGauge, Unit: metrics.MetricUnit(metrics.MetricTopicPartitions.Unit), Value: test.values[i], At: current.Add(-24 * time.Hour)},
+					Message: &metric.Measurement{Name: metric.MetricTopicPartitions.Name, Kind: metric.MetricKindGauge, Unit: metric.MetricUnit(metric.MetricTopicPartitions.Unit), Value: test.values[i], At: current.Add(-24 * time.Hour)},
 				})
 			}
 			controller := &PartitionCountController{}
@@ -103,7 +103,7 @@ func TestEmptyMeasurementIsNotHealthy(t *testing.T) {
 		t.Fatal(err)
 	}
 	controller := &PartitionCountController{}
-	result, err := controller.evaluateMeasurement(owner, 100, 200, &metrics.Measurement{}, time.Now())
+	result, err := controller.evaluateMeasurement(owner, 100, 200, &metric.Measurement{}, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}

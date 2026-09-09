@@ -5,13 +5,13 @@ import (
 
 	"github.com/agentstax/vulkan/pkg/common/logging"
 	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	metricscontroller "github.com/agentstax/vulkan/pkg/metrics/controller"
+	metricscontroller "github.com/agentstax/vulkan/pkg/metric/controller"
 )
 
 type WorkerLivenessController struct {
 	Logger logging.Logger
 
-	metrics *metricscontroller.MetricsController
+	metrics *metricscontroller.MetricController
 }
 
 func NewWorkerLivenessController(ds *iDatastore.PostgresDatastore, logger logging.Logger) (*WorkerLivenessController, error) {
@@ -22,13 +22,13 @@ func NewWorkerLivenessController(ds *iDatastore.PostgresDatastore, logger loggin
 		return nil, errors.New("logger must not be nil")
 	}
 
-	metricsController, err := metricscontroller.NewMetricsController(ds, logger)
+	metricController, err := metricscontroller.NewMetricsController(ds, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	return &WorkerLivenessController{
 		Logger:  logger,
-		metrics: metricsController,
+		metrics: metricController,
 	}, nil
 }

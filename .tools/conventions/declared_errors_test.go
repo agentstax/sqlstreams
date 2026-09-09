@@ -14,7 +14,7 @@ import (
 
 	"github.com/agentstax/vulkan/pkg/alert"
 	"github.com/agentstax/vulkan/pkg/common/diagnostic"
-	"github.com/agentstax/vulkan/pkg/metrics"
+	"github.com/agentstax/vulkan/pkg/metric"
 )
 
 func TestProblemTenseFollowsRecovery(t *testing.T) {
@@ -93,19 +93,19 @@ func TestAlertDeclarationsCarryAlertVocabulary(t *testing.T) {
 }
 
 // A metric declaration's kind and unit are plain text on the diagnostic
-// side; this walk holds them to the pkg/metrics vocabulary. Scope is strongly
+// side; this walk holds them to the pkg/metric vocabulary. Scope is strongly
 // typed and validated when the declaration is constructed.
 func TestMetricDeclarationsCarryMetricsVocabulary(t *testing.T) {
 	isRegisteredAttribute := registeredAttributes(t)
 
 	for _, registered := range diagnostic.Metrics() {
-		if !strings.HasPrefix(registered.Name, metrics.MetricNameReservedPrefix) {
-			t.Errorf("%s name %q must start with %q", registered.Code, registered.Name, metrics.MetricNameReservedPrefix)
+		if !strings.HasPrefix(registered.Name, metric.MetricNameReservedPrefix) {
+			t.Errorf("%s name %q must start with %q", registered.Code, registered.Name, metric.MetricNameReservedPrefix)
 		}
-		if err := metrics.MetricKind(registered.Kind).Validate(); err != nil {
+		if err := metric.MetricKind(registered.Kind).Validate(); err != nil {
 			t.Errorf("%s: %v", registered.Code, err)
 		}
-		if err := metrics.MetricUnit(registered.Unit).Validate(); err != nil {
+		if err := metric.MetricUnit(registered.Unit).Validate(); err != nil {
 			t.Errorf("%s: %v", registered.Code, err)
 		}
 		if err := registered.Scope.Validate(); err != nil {

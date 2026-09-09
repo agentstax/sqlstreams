@@ -10,7 +10,7 @@ import (
 	"github.com/agentstax/vulkan/pkg/alert"
 	"github.com/agentstax/vulkan/pkg/alert/evaluation"
 	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/metrics"
+	"github.com/agentstax/vulkan/pkg/metric"
 	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
 )
 
@@ -31,7 +31,7 @@ func (c *CompactionReadCostController) Evaluate(ctx context.Context, owner *comm
 		return nil, err
 	}
 
-	key := metrics.MeasurementKey(metrics.MetricTopicPartitions.Name, map[string]string{"topic": owner.Name})
+	key := metric.MeasurementKey(metric.MetricTopicPartitions.Name, map[string]string{"topic": owner.Name})
 	history, err := c.metrics.GetMeasurementHistory(ctx, key, policy.Window())
 	if err != nil {
 		return nil, err
@@ -39,7 +39,7 @@ func (c *CompactionReadCostController) Evaluate(ctx context.Context, owner *comm
 	return c.evaluateHistory(owner, policy, history)
 }
 
-func (c *CompactionReadCostController) evaluateHistory(owner *common.Owner, policy *alert.JobPayload, history *metrics.MeasurementHistory) (*alert.AlertEvaluationSnapshot, error) {
+func (c *CompactionReadCostController) evaluateHistory(owner *common.Owner, policy *alert.JobPayload, history *metric.MeasurementHistory) (*alert.AlertEvaluationSnapshot, error) {
 	threshold := policy.Threshold
 	if threshold == 0 {
 		threshold = warnPartitions
@@ -56,11 +56,11 @@ func (c *CompactionReadCostController) evaluateHistory(owner *common.Owner, poli
 	return evaluation.EvaluateHistory(samples, history.EvaluatedAt, policy)
 }
 
-func (c *CompactionReadCostController) evaluateMeasurement(owner *common.Owner, threshold int64, measurement *metrics.Measurement, at time.Time) (*alert.AlertEvaluationSnapshot, error) {
+func (c *CompactionReadCostController) evaluateMeasurement(owner *common.Owner, threshold int64, measurement *metric.Measurement, at time.Time) (*alert.AlertEvaluationSnapshot, error) {
 	// Check measurement identity and value.
-	if measurement.Name != metrics.MetricTopicPartitions.Name ||
-		measurement.Kind != metrics.MetricKindGauge ||
-		measurement.Unit != metrics.MetricUnit(metrics.MetricTopicPartitions.Unit) {
+	if measurement.Name != metric.MetricTopicPartitions.Name ||
+		measurement.Kind != metric.MetricKindGauge ||
+		measurement.Unit != metric.MetricUnit(metric.MetricTopicPartitions.Unit) {
 		return alert.NewAlertEvaluationSnapshot(alert.AlertEvaluationStateInsufficientEvidence, nil, nil)
 	}
 	value := measurement.Value
@@ -72,7 +72,7 @@ func (c *CompactionReadCostController) evaluateMeasurement(owner *common.Owner, 
 	if len(measurement.Metadata) == 0 {
 		return alert.NewAlertEvaluationSnapshot(alert.AlertEvaluationStateInsufficientEvidence, nil, nil)
 	}
-	var metadata metrics.PartitionMeasurementMetadata
+	var metadata metric.PartitionMeasurementMetadata
 	if err := json.Unmarshal(measurement.Metadata, &metadata); err != nil {
 		return nil, err
 	}

@@ -32,7 +32,7 @@ I use Kafka, you use Kafka, your mom uses Kafka. *Kafka is great.*
 
 **Buuuuuut....** running and maintaing a Kafka cluster is not fun.
 
-I'd love to use Kafka for my [agentic powered TODO app](https://github.com/agentstax/tomorrows-todo-today) but if I see one more `"no brokers available"` error I will crash out.
+I'd love to use Kafka for my [agentic powered TODO app](https://github.com/agentstax/tomorrows-todo-today) but my mental state cannot handle another `"no brokers available"` error.
 
 <p>
   <picture>
@@ -47,16 +47,16 @@ I'd love to use Kafka for my [agentic powered TODO app](https://github.com/agent
 
 **SQLStreams is a pure SQL library that uses Postgres as its broker.**
 
-- It's a log, not a queue, and it does [N msgs/s](.bench/) on my laptop 😎.
+- It's actually a log, not a queue 🤓, and it does [N msgs/s](.bench/) on my laptop 😎.
 - You get consumer groups, replay, retention and compaction without running a single broker.
 - Dead letters are `WHERE status = 'dead'`. There’s no admin UI. Just write some SQL.
-- Every error has a code, and `vulkan explain VK0022` will hand you the fix because I don't like thinking either.
+- Every error has a code, and `vulkan explain <code>` will hand you the fix because I don't like thinking either.
 
 ## Usage
 
 ### Go Library
 
-Add it to your module. You need a Postgres, any Postgres.
+Add it to your module. You need a Postgres.
 
 ```sh
 go get github.com/agentstax/vulkan
@@ -126,7 +126,7 @@ export VULKAN_ADMIN_DATABASE_URL=postgres://user:password@localhost/db
 vulkan topic list                              # every registered topic
 vulkan topic get videos.uploaded               # one specific topic's info
 vulkan explain VK0022                          # what an error code means, the fix, the SQL
-vulkan metrics list                            # current value of every built-in metric
+vulkan metric list                             # current value of every built-in metric
 vulkan alert list                              # what's active right now
 vulkan manager run --metrics-address :9464     # run upkeep process, serve Prometheus /metrics
 ```

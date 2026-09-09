@@ -19,7 +19,7 @@ import (
 	consumebase "github.com/agentstax/vulkan/pkg/consume/base"
 	"github.com/agentstax/vulkan/pkg/consume/messageconsumer/controller"
 	"github.com/agentstax/vulkan/pkg/datastore"
-	metricsproducer "github.com/agentstax/vulkan/pkg/metrics/producer"
+	metricsproducer "github.com/agentstax/vulkan/pkg/metric/producer"
 	"github.com/agentstax/vulkan/pkg/worker"
 )
 
@@ -38,7 +38,7 @@ type MessageConsumerProvisioner[Message common.Versioned] struct {
 // NewMessageConsumerProvisioner builds one worker row of the group, not the
 // assembled consumer -- see the package doc.
 // cfg may be nil or sparse.
-func NewMessageConsumerProvisioner[Message common.Versioned](ds *datastore.PostgresDatastore, consumerFunc func(ctx context.Context, message *Message) error, schemaVersion int, metrics *metricsproducer.MetricsProducer, cfg *MessageConsumerConfig, logger logging.Logger) (*MessageConsumerProvisioner[Message], error) {
+func NewMessageConsumerProvisioner[Message common.Versioned](ds *datastore.PostgresDatastore, consumerFunc func(ctx context.Context, message *Message) error, schemaVersion int, metrics *metricsproducer.MetricProducer, cfg *MessageConsumerConfig, logger logging.Logger) (*MessageConsumerProvisioner[Message], error) {
 	if cfg == nil {
 		cfg = &MessageConsumerConfig{}
 	}

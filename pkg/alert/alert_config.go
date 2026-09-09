@@ -6,8 +6,8 @@ import (
 	"time"
 )
 
-// MetricsCollectorProgressAlertConfig declares the installation's collector-progress check.
-type MetricsCollectorProgressAlertConfig struct {
+// MetricCollectorProgressAlertConfig declares the installation's collector-progress check.
+type MetricCollectorProgressAlertConfig struct {
 	// ScheduleExpression controls how often collector progress is checked. Default: @every 1m.
 	ScheduleExpression string
 
@@ -21,7 +21,7 @@ type MetricsCollectorProgressAlertConfig struct {
 	DisablePending bool
 }
 
-func (c *MetricsCollectorProgressAlertConfig) WithDefaults() *MetricsCollectorProgressAlertConfig {
+func (c *MetricCollectorProgressAlertConfig) WithDefaults() *MetricCollectorProgressAlertConfig {
 	if c.ScheduleExpression == "" {
 		c.ScheduleExpression = "@every 1m"
 	}
@@ -31,7 +31,7 @@ func (c *MetricsCollectorProgressAlertConfig) WithDefaults() *MetricsCollectorPr
 	return c
 }
 
-func (c *MetricsCollectorProgressAlertConfig) Validate() error {
+func (c *MetricCollectorProgressAlertConfig) Validate() error {
 	if c.MaximumAge < 0 {
 		return fmt.Errorf("MaximumAge must be >= 0, got %v", c.MaximumAge)
 	}

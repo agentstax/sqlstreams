@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/agentstax/vulkan/pkg/alert"
-	"github.com/agentstax/vulkan/pkg/metrics"
+	"github.com/agentstax/vulkan/pkg/metric"
 )
 
 // SystemConfig declares the built-in alert settings and metrics collector's
@@ -22,12 +22,12 @@ type SystemConfig struct {
 	// Default: its own defaults.
 	WorkerLivenessAlert *alert.WorkerLivenessAlertConfig
 
-	// MetricsCollectorProgressAlert declares the collector-progress check. Default: its own defaults.
-	MetricsCollectorProgressAlert *alert.MetricsCollectorProgressAlertConfig
+	// MetricCollectorProgressAlert declares the collector-progress check. Default: its own defaults.
+	MetricCollectorProgressAlert *alert.MetricCollectorProgressAlertConfig
 
-	// MetricsCollector - the metrics_collector worker declaration.
+	// MetricCollector - the metrics_collector worker declaration.
 	// Default: its own defaults.
-	MetricsCollector *metrics.MetricsCollectorWorkerConfig
+	MetricCollector *metric.MetricCollectorWorkerConfig
 }
 
 func (c *SystemConfig) WithDefaults() *SystemConfig {
@@ -43,14 +43,14 @@ func (c *SystemConfig) WithDefaults() *SystemConfig {
 		c.WorkerLivenessAlert = &alert.WorkerLivenessAlertConfig{}
 	}
 	c.WorkerLivenessAlert.WithDefaults()
-	if c.MetricsCollectorProgressAlert == nil {
-		c.MetricsCollectorProgressAlert = &alert.MetricsCollectorProgressAlertConfig{}
+	if c.MetricCollectorProgressAlert == nil {
+		c.MetricCollectorProgressAlert = &alert.MetricCollectorProgressAlertConfig{}
 	}
-	c.MetricsCollectorProgressAlert.WithDefaults()
-	if c.MetricsCollector == nil {
-		c.MetricsCollector = &metrics.MetricsCollectorWorkerConfig{}
+	c.MetricCollectorProgressAlert.WithDefaults()
+	if c.MetricCollector == nil {
+		c.MetricCollector = &metric.MetricCollectorWorkerConfig{}
 	}
-	c.MetricsCollector.WithDefaults()
+	c.MetricCollector.WithDefaults()
 	return c
 }
 
@@ -64,11 +64,11 @@ func (c *SystemConfig) Validate() error {
 	if err := c.WorkerLivenessAlert.Validate(); err != nil {
 		return fmt.Errorf("WorkerLivenessAlert: %w", err)
 	}
-	if err := c.MetricsCollectorProgressAlert.Validate(); err != nil {
-		return fmt.Errorf("MetricsCollectorProgressAlert: %w", err)
+	if err := c.MetricCollectorProgressAlert.Validate(); err != nil {
+		return fmt.Errorf("MetricCollectorProgressAlert: %w", err)
 	}
-	if err := c.MetricsCollector.Validate(); err != nil {
-		return fmt.Errorf("MetricsCollector: %w", err)
+	if err := c.MetricCollector.Validate(); err != nil {
+		return fmt.Errorf("MetricCollector: %w", err)
 	}
 	return nil
 }

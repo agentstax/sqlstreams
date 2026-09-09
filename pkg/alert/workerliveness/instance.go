@@ -11,7 +11,7 @@ import (
 	"github.com/agentstax/vulkan/pkg/common/diagnostic"
 	"github.com/agentstax/vulkan/pkg/common/logging"
 	"github.com/agentstax/vulkan/pkg/consumer"
-	"github.com/agentstax/vulkan/pkg/metrics"
+	"github.com/agentstax/vulkan/pkg/metric"
 	"github.com/agentstax/vulkan/pkg/produce"
 	"github.com/agentstax/vulkan/pkg/producer"
 	"github.com/agentstax/vulkan/pkg/schedule"
@@ -29,7 +29,7 @@ type WorkerLivenessInstance struct {
 	runner         *workercontroller.InstanceRunner
 	repeatInterval time.Duration
 	alerts         *alertcontroller.AlertController // built per claimed life in consume
-	measurements   *producer.ProducerInstance[metrics.Measurement]
+	measurements   *producer.ProducerInstance[metric.Measurement]
 }
 
 func newWorkerLivenessInstance(provisioner *WorkerLivenessProvisioner, owner *common.Owner, claimed *worker.WorkerInstance, repeatInterval time.Duration) (*WorkerLivenessInstance, error) {
@@ -68,7 +68,7 @@ func (i *WorkerLivenessInstance) consume(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	measurements, err := i.provisioner.producer.Register[metrics.Measurement](ctx, metrics.MetricsTopicName, nil)
+	measurements, err := i.provisioner.producer.Register[metric.Measurement](ctx, metric.MetricTopicName, nil)
 	if err != nil {
 		return err
 	}
@@ -145,21 +145,21 @@ func (i *WorkerLivenessInstance) produceCheckSummary(ctx context.Context, evalua
 		metric *diagnostic.DiagnosticMetric
 		value  int64
 	}{
-		{metrics.MetricCheckTopicsEvaluated, evaluated},
-		{metrics.MetricCheckTopicsFailed, failed},
-		{metrics.MetricCheckPublishedAlerts, published},
-		{metrics.MetricCheckResolvedAlerts, resolved},
+		{metric.MetricCheckTopicsEvaluated, evaluated},
+		{metric.MetricCheckTopicsFailed, failed},
+		{metric.MetricCheckPublishedAlerts, published},
+		{metric.MetricCheckResolvedAlerts, resolved},
 	}
 
-	items := make([]*producer.ProduceItem[metrics.Measurement], 0, len(counts))
+	items := make([]*producer.ProduceItem[metric.Measurement], 0, len(counts))
 	for _, count := range counts {
-		measurement, err := metrics.NewBuiltInMeasurement(count.metric, float64(count.value), attributes, at)
+		measurement, err := metric.NewBuiltInMeasurement(count.metric, float64(count.value), attributes, at)
 		if err != nil {
 			return err
 		}
 		item, err := producer.NewProduceItem(measurement, &produce.ProduceOptions{
 			RoutingKey: measurement.Name,
-			MessageKey: metrics.MeasurementKey(measurement.Name, measurement.Attributes),
+			MessageKey: metric.MeasurementKey(measurement.Name, measurement.Attributes),
 			Compaction: &produce.CompactionOptions{Enable: true},
 		})
 		if err != nil {

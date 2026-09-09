@@ -14,7 +14,7 @@ import (
 	"github.com/agentstax/vulkan/pkg/common/logging"
 	"github.com/agentstax/vulkan/pkg/consume/base/controller"
 	"github.com/agentstax/vulkan/pkg/datastore"
-	metricsproducer "github.com/agentstax/vulkan/pkg/metrics/producer"
+	metricsproducer "github.com/agentstax/vulkan/pkg/metric/producer"
 	"github.com/agentstax/vulkan/pkg/topic"
 	topiccontroller "github.com/agentstax/vulkan/pkg/topic/controller"
 	"github.com/agentstax/vulkan/pkg/worker"
@@ -30,14 +30,14 @@ type BaseProvisioner[Message common.Versioned] struct {
 	workers      *workercontroller.WorkerController
 	topics       *topiccontroller.TopicController
 	keyLeases    *controller.KeyLeaseController
-	metrics      *metricsproducer.MetricsProducer
+	metrics      *metricsproducer.MetricProducer
 	consumerFunc func(ctx context.Context, message *Message) error
 
 	// the version the group's Message type declares; the claim reads only rows at it
 	schemaVersion int
 }
 
-func NewBaseProvisioner[Message common.Versioned](ds *datastore.PostgresDatastore, definition *worker.Definition, consumerFunc func(ctx context.Context, message *Message) error, schemaVersion int, metrics *metricsproducer.MetricsProducer, logger logging.Logger) (*BaseProvisioner[Message], error) {
+func NewBaseProvisioner[Message common.Versioned](ds *datastore.PostgresDatastore, definition *worker.Definition, consumerFunc func(ctx context.Context, message *Message) error, schemaVersion int, metrics *metricsproducer.MetricProducer, logger logging.Logger) (*BaseProvisioner[Message], error) {
 	if ds == nil {
 		return nil, errors.New("datastore must not be nil")
 	}

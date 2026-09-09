@@ -9,8 +9,8 @@ import (
 
 	"github.com/agentstax/vulkan/pkg/alert"
 	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/metrics"
-	"github.com/agentstax/vulkan/pkg/metrics/collector"
+	"github.com/agentstax/vulkan/pkg/metric"
+	"github.com/agentstax/vulkan/pkg/metric/collector"
 	"github.com/agentstax/vulkan/pkg/worker"
 	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
 	"github.com/agentstax/vulkan/pkg/worker/manager"
@@ -33,7 +33,7 @@ func (c *CollectorProgressController) Evaluate(ctx context.Context, owner *commo
 	if err != nil {
 		return nil, err
 	}
-	completion, err := c.metrics.GetMeasurement(ctx, metrics.MetricCollectorCompletedTimestamp.Name)
+	completion, err := c.metrics.GetMeasurement(ctx, metric.MetricCollectorCompletedTimestamp.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +67,7 @@ func (c *CollectorProgressController) maximumAge(ctx context.Context, owner *com
 	return max(2*time.Minute, 3*pollRate), nil
 }
 
-func (c *CollectorProgressController) evaluateHistory(owner *common.Owner, completion *common.StoredMessage[metrics.Measurement], history *worker.WorkerInstanceHistory, maximumAge time.Duration, policy *alert.JobPayload) (*alert.AlertEvaluationSnapshot, error) {
+func (c *CollectorProgressController) evaluateHistory(owner *common.Owner, completion *common.StoredMessage[metric.Measurement], history *worker.WorkerInstanceHistory, maximumAge time.Duration, policy *alert.JobPayload) (*alert.AlertEvaluationSnapshot, error) {
 	current := history.EvaluatedAt
 	completedAt, usable := completionTimestamp(completion, current)
 	if !usable {
@@ -145,14 +145,14 @@ func (c *CollectorProgressController) evaluateHistory(owner *common.Owner, compl
 // ***************
 
 // Missing completion is usable absence; malformed or future evidence is not.
-func completionTimestamp(completion *common.StoredMessage[metrics.Measurement], current time.Time) (time.Time, bool) {
+func completionTimestamp(completion *common.StoredMessage[metric.Measurement], current time.Time) (time.Time, bool) {
 	if completion == nil {
 		return time.Time{}, true
 	}
 	measurement := completion.Message
-	if measurement.Name != metrics.MetricCollectorCompletedTimestamp.Name ||
-		measurement.Kind != metrics.MetricKindGauge ||
-		measurement.Unit != metrics.MetricUnit(metrics.MetricCollectorCompletedTimestamp.Unit) {
+	if measurement.Name != metric.MetricCollectorCompletedTimestamp.Name ||
+		measurement.Kind != metric.MetricKindGauge ||
+		measurement.Unit != metric.MetricUnit(metric.MetricCollectorCompletedTimestamp.Unit) {
 		return time.Time{}, false
 	}
 	value := measurement.Value

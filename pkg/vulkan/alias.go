@@ -12,7 +12,7 @@ import (
 	"github.com/agentstax/vulkan/pkg/consume"
 	"github.com/agentstax/vulkan/pkg/consumer"
 	"github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/metrics"
+	"github.com/agentstax/vulkan/pkg/metric"
 	"github.com/agentstax/vulkan/pkg/produce"
 	"github.com/agentstax/vulkan/pkg/produce/batcher"
 	"github.com/agentstax/vulkan/pkg/producer"
@@ -48,7 +48,7 @@ type (
 	ProducerFunc[Message Versioned]  = produce.ProducerFunc[Message]
 	BatcherConfig                    = batcher.BatcherConfig
 	ProducerConfig                   = producer.ProducerConfig
-	MetricsProducerInstance          = producer.MetricsProducerInstance
+	MetricProducerInstance           = producer.MetricProducerInstance
 	ProduceItem[Message Versioned]   = producer.ProduceItem[Message]
 	ProduceResult[Message Versioned] = producer.ProduceResult[Message]
 
@@ -82,25 +82,25 @@ type (
 	SystemConfig       = system.SystemConfig
 	TopicVersionHealth = topic.TopicVersionHealth
 
-	PartitionCountAlertConfig           = alert.PartitionCountAlertConfig
-	CompactionReadCostAlertConfig       = alert.CompactionReadCostAlertConfig
-	WorkerLivenessAlertConfig           = alert.WorkerLivenessAlertConfig
-	MetricsCollectorProgressAlertConfig = alert.MetricsCollectorProgressAlertConfig
-	MetricsCollectorWorkerConfig        = metrics.MetricsCollectorWorkerConfig
+	PartitionCountAlertConfig          = alert.PartitionCountAlertConfig
+	CompactionReadCostAlertConfig      = alert.CompactionReadCostAlertConfig
+	WorkerLivenessAlertConfig          = alert.WorkerLivenessAlertConfig
+	MetricCollectorProgressAlertConfig = alert.MetricCollectorProgressAlertConfig
+	MetricCollectorWorkerConfig        = metric.MetricCollectorWorkerConfig
 
-	TopicSnapshot                 = metrics.TopicSnapshot
-	ConsumerGroupSnapshot         = metrics.ConsumerGroupSnapshot
-	TopicSchemaVersionSnapshot    = metrics.TopicSchemaVersionSnapshot
-	ConsumerGroupSchemaVersionLag = metrics.ConsumerGroupSchemaVersionLag
-	ConsumerGroupLag              = metrics.ConsumerGroupLag
-	CursorSnapshot                = metrics.CursorSnapshot
-	ExceptionSnapshot             = metrics.ExceptionSnapshot
-	AbandonedRoutineSnapshot      = metrics.AbandonedRoutineSnapshot
-	Measurement                   = metrics.Measurement
-	MetricDefinition              = metrics.MetricDefinition
-	MetricKind                    = metrics.MetricKind
+	TopicSnapshot                 = metric.TopicSnapshot
+	ConsumerGroupSnapshot         = metric.ConsumerGroupSnapshot
+	TopicSchemaVersionSnapshot    = metric.TopicSchemaVersionSnapshot
+	ConsumerGroupSchemaVersionLag = metric.ConsumerGroupSchemaVersionLag
+	ConsumerGroupLag              = metric.ConsumerGroupLag
+	CursorSnapshot                = metric.CursorSnapshot
+	ExceptionSnapshot             = metric.ExceptionSnapshot
+	AbandonedRoutineSnapshot      = metric.AbandonedRoutineSnapshot
+	Measurement                   = metric.Measurement
+	MetricDefinition              = metric.MetricDefinition
+	MetricKind                    = metric.MetricKind
 	MetricScope                   = diagnostic.MetricScope
-	MetricUnit                    = metrics.MetricUnit
+	MetricUnit                    = metric.MetricUnit
 	Alert                         = alert.Alert
 	AlertDefinition               = alert.AlertDefinition
 	AlertStatus                   = alert.AlertStatus
@@ -150,19 +150,19 @@ const (
 
 	NoInstanceTarget = worker.NoInstanceTarget
 
-	MetricKindCounter          = metrics.MetricKindCounter
-	MetricKindGauge            = metrics.MetricKindGauge
+	MetricKindCounter          = metric.MetricKindCounter
+	MetricKindGauge            = metric.MetricKindGauge
 	MetricScopeSystem          = diagnostic.MetricScopeSystem
 	MetricScopeTopic           = diagnostic.MetricScopeTopic
 	MetricScopeConsumerGroup   = diagnostic.MetricScopeConsumerGroup
 	MetricScopeConsumerSession = diagnostic.MetricScopeConsumerSession
 	MetricScopeExporter        = diagnostic.MetricScopeExporter
-	MetricUnitMilliseconds     = metrics.MetricUnitMilliseconds
+	MetricUnitMilliseconds     = metric.MetricUnitMilliseconds
 	AlertStatusActive          = alert.AlertStatusActive
 	AlertStatusResolved        = alert.AlertStatusResolved
 	AlertSeverityWarn          = alert.AlertSeverityWarn
 
-	MetricsTopicName  = metrics.MetricsTopicName
+	MetricTopicName   = metric.MetricTopicName
 	ScheduleTopicName = schedule.ScheduleTopicName
 	AlertTopicName    = alert.AlertTopicName
 )
@@ -174,5 +174,5 @@ var (
 	Delay            = consume.Delay
 	Beginning        = consume.Beginning
 	Head             = consume.Head
-	NewMeasurement   = metrics.NewMeasurement
+	NewMeasurement   = metric.NewMeasurement
 )

@@ -15,8 +15,8 @@ import (
 	consumecontroller "github.com/agentstax/vulkan/pkg/consume/controller"
 	"github.com/agentstax/vulkan/pkg/consume/messageconsumer"
 	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	iMetrics "github.com/agentstax/vulkan/pkg/metrics"
-	metricsproducer "github.com/agentstax/vulkan/pkg/metrics/producer"
+	iMetrics "github.com/agentstax/vulkan/pkg/metric"
+	metricsproducer "github.com/agentstax/vulkan/pkg/metric/producer"
 	"github.com/agentstax/vulkan/pkg/topic"
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 	"github.com/agentstax/vulkan/pkg/worker"
@@ -65,9 +65,9 @@ func run() (err error) {
 	must(err)
 	must(client.System().Register(ctx, nil))
 
-	metricsTopic, err := client.Topic[vulkan.RawPayload](iMetrics.MetricsTopicName).Get(ctx)
+	metricTopic, err := client.Topic[vulkan.RawPayload](iMetrics.MetricTopicName).Get(ctx)
 	must(err)
-	if metricsTopic == nil {
+	if metricTopic == nil {
 		die("expected __system.metrics to exist after RegisterSystem")
 	}
 
@@ -78,7 +78,7 @@ func run() (err error) {
 		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
 	}()
 
-	before := metricsRowCount(ctx, ds, metricsTopic.Id)
+	before := metricRowCount(ctx, ds, metricTopic.Id)
 
 	step("driving a hard timeout so one message gets abandoned then self-clears")
 	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
@@ -101,7 +101,7 @@ func run() (err error) {
 
 	// the abandoned-event producer outlives any one claim -- the events it
 	// carries are generated as the consumer shuts down
-	abandonedEvents, err := metricsproducer.NewMetricsProducer(ds, &metricsproducer.MetricsProducerConfig{SessionFlushRate: 100 * time.Millisecond}, ds.Logger)
+	abandonedEvents, err := metricsproducer.NewMetricsProducer(ds, &metricsproducer.MetricProducerConfig{SessionFlushRate: 100 * time.Millisecond}, ds.Logger)
 	must(err)
 	go func() {
 		must(abandonedEvents.Run(ctx, group, tp.Name, 1, "abandonedevents-session"))
@@ -124,10 +124,10 @@ func run() (err error) {
 	})
 
 	step("waiting for __system.metrics to see both the abandoned and cleared events")
-	var rows []metricsRow
+	var rows []metricRow
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
-		rows = metricsRowsSince(ctx, ds, metricsTopic.Id, before)
+		rows = metricRowsSince(ctx, ds, metricTopic.Id, before)
 		if len(rows) >= 2 {
 			break
 		}
@@ -153,13 +153,13 @@ func run() (err error) {
 	return nil
 }
 
-type metricsRow struct {
+type metricRow struct {
 	Id         int64
 	RoutingKey string
 	Event      iMetrics.GoRoutineEvent
 }
 
-func metricsRowCount(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64) int {
+func metricRowCount(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64) int {
 	// the session counters flush to the same topic -- only the
 	// abandoned-routine events are this e2e test's subject
 	var count int
@@ -167,7 +167,7 @@ func metricsRowCount(ctx context.Context, ds *iDatastore.PostgresDatastore, topi
 	return count
 }
 
-func metricsRowsSince(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, sinceCount int) []metricsRow {
+func metricRowsSince(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, sinceCount int) []metricRow {
 	rows, err := ds.Pool.Query(ctx, fmt.Sprintf(`
 		SELECT id, routing_key, payload FROM %s.%s
 		WHERE routing_key LIKE 'abandoned_routine.%%'
@@ -177,7 +177,7 @@ func metricsRowsSince(ctx context.Context, ds *iDatastore.PostgresDatastore, top
 	must(err)
 	defer rows.Close()
 
-	var out []metricsRow
+	var out []metricRow
 	for rows.Next() {
 		var id int64
 		var routingKey *string
@@ -191,7 +191,7 @@ func metricsRowsSince(ctx context.Context, ds *iDatastore.PostgresDatastore, top
 		if routingKey != nil {
 			rk = *routingKey
 		}
-		out = append(out, metricsRow{Id: id, RoutingKey: rk, Event: event})
+		out = append(out, metricRow{Id: id, RoutingKey: rk, Event: event})
 	}
 	must(rows.Err())
 	return out

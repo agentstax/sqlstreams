@@ -14,7 +14,7 @@ package main
 // forcing a partition boundary in a short-lived e2e test isn't practical without
 // either a huge event volume or a second, parallel metrics topic -- neither
 // of which this design supports. The read path applies no separate time
-// filter of its own (see pkg/metrics/controller/datastore/event.go) -- once a
+// filter of its own (see pkg/metric/controller/datastore/event.go) -- once a
 // partition is physically dropped its rows are just gone from every query,
 // so there's no additional logic path here that could get that wrong.
 
@@ -31,8 +31,8 @@ import (
 	consumermessage "github.com/agentstax/vulkan/pkg/consume"
 	consumecontroller "github.com/agentstax/vulkan/pkg/consume/controller"
 	"github.com/agentstax/vulkan/pkg/consume/messageconsumer"
-	iMetrics "github.com/agentstax/vulkan/pkg/metrics"
-	metricsproducer "github.com/agentstax/vulkan/pkg/metrics/producer"
+	iMetrics "github.com/agentstax/vulkan/pkg/metric"
+	metricsproducer "github.com/agentstax/vulkan/pkg/metric/producer"
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
 )
@@ -158,7 +158,7 @@ func run() (err error) {
 	// consumer rows carry no instance target, so both "processes" claim a life
 	// of the same row
 	startConsumer := func(label string) {
-		abandonedEvents, err := metricsproducer.NewMetricsProducer(ds, &metricsproducer.MetricsProducerConfig{SessionFlushRate: 100 * time.Millisecond}, ds.Logger)
+		abandonedEvents, err := metricsproducer.NewMetricsProducer(ds, &metricsproducer.MetricProducerConfig{SessionFlushRate: 100 * time.Millisecond}, ds.Logger)
 		must(err)
 		go func() { must(abandonedEvents.Run(runCtx, g.Name, tp.Name, 1, label)) }()
 

@@ -6,7 +6,7 @@ import (
 
 	"github.com/agentstax/vulkan/pkg/alert"
 	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/metrics"
+	"github.com/agentstax/vulkan/pkg/metric"
 	"github.com/agentstax/vulkan/pkg/worker"
 )
 
@@ -45,14 +45,14 @@ func TestCollectorProgressHistory(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			policy := (&alert.JobPayload{DisablePending: test.disabled}).WithDefaults()
-			var completion *common.StoredMessage[metrics.Measurement]
+			var completion *common.StoredMessage[metric.Measurement]
 			if !test.missing {
 				at := current.Add(-test.completionAge)
-				measurement, err := metrics.NewBuiltInMeasurement(metrics.MetricCollectorCompletedTimestamp, float64(at.Unix()), nil, at)
+				measurement, err := metric.NewBuiltInMeasurement(metric.MetricCollectorCompletedTimestamp, float64(at.Unix()), nil, at)
 				if err != nil {
 					t.Fatal(err)
 				}
-				completion = &common.StoredMessage[metrics.Measurement]{Id: 7101, CreatedAt: at, Message: measurement}
+				completion = &common.StoredMessage[metric.Measurement]{Id: 7101, CreatedAt: at, Message: measurement}
 			}
 			history := &worker.WorkerInstanceHistory{EvaluatedAt: current}
 			for _, lease := range test.leases {

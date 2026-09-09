@@ -9,12 +9,12 @@ import (
 
 	"github.com/agentstax/vulkan/pkg/common"
 	"github.com/agentstax/vulkan/pkg/common/diagnostic"
-	"github.com/agentstax/vulkan/pkg/metrics"
+	"github.com/agentstax/vulkan/pkg/metric"
 	"github.com/prometheus/otlptranslator"
 )
 
 // Rejection is family-wide: observations with the same original name export together.
-func rejectedFamilies(families map[string][]*common.StoredMessage[metrics.Measurement]) map[string]string {
+func rejectedFamilies(families map[string][]*common.StoredMessage[metric.Measurement]) map[string]string {
 	rejected := make(map[string]string)
 	familiesByExportName := make(map[string][]string)
 
@@ -45,7 +45,7 @@ func rejectedFamilies(families map[string][]*common.StoredMessage[metrics.Measur
 	return rejected
 }
 
-func validateMetricFamily(family []*common.StoredMessage[metrics.Measurement]) error {
+func validateMetricFamily(family []*common.StoredMessage[metric.Measurement]) error {
 	first := family[0].Message
 	for _, row := range family {
 		measurement := row.Message
@@ -76,10 +76,10 @@ func validateMetricFamily(family []*common.StoredMessage[metrics.Measurement]) e
 }
 
 // translateExportName returns the translated name unless it is reserved for Vulkan or exporter metadata.
-func translateExportName(name string, kind metrics.MetricKind, unit metrics.MetricUnit) (string, error) {
+func translateExportName(name string, kind metric.MetricKind, unit metric.MetricUnit) (string, error) {
 	metricNamer := otlptranslator.NewMetricNamer("", otlptranslator.UnderscoreEscapingWithSuffixes)
 	metricType := otlptranslator.MetricType(otlptranslator.MetricTypeGauge)
-	if kind == metrics.MetricKindCounter {
+	if kind == metric.MetricKindCounter {
 		metricType = otlptranslator.MetricTypeMonotonicCounter
 	}
 	translated, err := metricNamer.Build(otlptranslator.Metric{Name: name, Unit: string(unit), Type: metricType})
@@ -89,7 +89,7 @@ func translateExportName(name string, kind metrics.MetricKind, unit metrics.Metr
 
 	_, builtIn := diagnostic.GetMetric(name)
 	switch {
-	case name == metrics.MetricOTelSourceReadSuccess.Name || name == metrics.MetricOTelMeasurementsRejected.Name:
+	case name == metric.MetricOTelSourceReadSuccess.Name || name == metric.MetricOTelMeasurementsRejected.Name:
 		return "", errors.New("exporter health cannot be supplied by retained measurements")
 	case translated == "vulkan_otel_source_read_success" || translated == "vulkan_otel_measurements_rejected":
 		return "", errors.New("translated metric name is reserved for exporter health")

@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/metrics"
-	metricscontroller "github.com/agentstax/vulkan/pkg/metrics/controller"
+	"github.com/agentstax/vulkan/pkg/metric"
+	metricscontroller "github.com/agentstax/vulkan/pkg/metric/controller"
 	"github.com/agentstax/vulkan/pkg/topic"
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 )
@@ -53,20 +53,20 @@ func run() (err error) {
 
 	step("RegisterSystem creates __system.metrics idempotently")
 	must(client.System().Register(ctx, nil))
-	metricsTopic, err := client.Topic[vulkan.RawPayload](metrics.MetricsTopicName).Get(ctx)
+	metricTopic, err := client.Topic[vulkan.RawPayload](metric.MetricTopicName).Get(ctx)
 	must(err)
-	if metricsTopic == nil {
+	if metricTopic == nil {
 		die("expected __system.metrics to exist after RegisterSystem")
 	}
 	fmt.Printf("  ✓ __system.metrics exists, id=%d, retention=%v, partition_size=%d, delivery_log=%s\n",
-		metricsTopic.Id, metricsTopic.RetentionTTL, metricsTopic.PartitionSize, metricsTopic.DeliveryLogMode)
+		metricTopic.Id, metricTopic.RetentionTTL, metricTopic.PartitionSize, metricTopic.DeliveryLogMode)
 
 	step("RegisterTopic rejects a user name under the reserved prefix")
 	_, err = client.Topic[vulkan.RawPayload](common.SystemTopicPrefix+"evil").Register(ctx, nil)
 	assertReserved("RegisterTopic(__system.evil)", err)
 
 	step("RenameTopic refused both directions")
-	_, err = client.Topic[vulkan.RawPayload](metrics.MetricsTopicName).Rename(ctx, fmt.Sprintf("reservedtopic.stolen.%d", run))
+	_, err = client.Topic[vulkan.RawPayload](metric.MetricTopicName).Rename(ctx, fmt.Sprintf("reservedtopic.stolen.%d", run))
 	assertReserved("RenameTopic(__system.metrics -> user name)", err)
 
 	userTopic, err := client.Topic[vulkan.RawPayload](fmt.Sprintf("reservedtopic.user.%d", run)).Register(ctx, nil)
@@ -76,14 +76,14 @@ func run() (err error) {
 	must(client.Topic[vulkan.RawPayload](userTopic.Name).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
 
 	step("DestroyTopic refused on the system topic")
-	err = client.Topic[vulkan.RawPayload](metrics.MetricsTopicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true})
+	err = client.Topic[vulkan.RawPayload](metric.MetricTopicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true})
 	assertReserved("DestroyTopic(__system.metrics)", err)
 
 	step("re-running RegisterSystem keeps the same row and re-declares its config")
 	must(client.System().Register(ctx, nil))
-	afterRerun, err := client.Topic[vulkan.RawPayload](metrics.MetricsTopicName).Get(ctx)
+	afterRerun, err := client.Topic[vulkan.RawPayload](metric.MetricTopicName).Get(ctx)
 	must(err)
-	assertInt64("topic id unchanged across re-run", afterRerun.Id, metricsTopic.Id)
+	assertInt64("topic id unchanged across re-run", afterRerun.Id, metricTopic.Id)
 	assertDuration("declared retention across re-run", afterRerun.RetentionTTL, metricscontroller.TopicConfig().RetentionTTL)
 
 	fmt.Println("\n✅ RESERVED TOPIC E2E TEST PASSED")

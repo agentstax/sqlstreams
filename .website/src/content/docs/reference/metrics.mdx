@@ -38,7 +38,7 @@ On the system handle:
 | --- | --- | --- |
 | `Latest(ctx)` | `[]*Measurement` | the newest retained point for every series ever produced, built-in and user, ordered by name then attributes; `nil` until the first collection |
 | `Metric(name, attributes)` | `*MetricHandle` | the string escape hatch: a user-produced series, a built-in selected from a definition, a consumer-session series |
-| `Producer()` | `*MetricsProducerHandle` | its `Register(ctx, cfg)` returns a `MetricsProducerInstance` for your own measurements |
+| `Producer()` | `*MetricProducerHandle` | its `Register(ctx, cfg)` returns a `MetricProducerInstance` for your own measurements |
 | `Consumer(name)` | `*ConsumerHandle[Measurement]` | a consumer group on `__system.metrics`; `Bindings` takes metric names or patterns such as `billing.*` |
 
 On a topic or group handle:
@@ -112,7 +112,7 @@ attributes are fixed:
 
 Built-in observations come from the manager's metrics collector, every 30
 seconds by default with jitter; the rate is
-`SystemConfig.MetricsCollector.PollRate` ([System](/reference/system/)).
+`SystemConfig.MetricCollector.PollRate` ([System](/reference/system/)).
 Consumer-session series have no typed handle yet and are read through
 `Metric(name, attributes)`.
 

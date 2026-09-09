@@ -8,7 +8,7 @@ import (
 
 	"github.com/agentstax/vulkan/pkg/alert"
 	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/metrics"
+	"github.com/agentstax/vulkan/pkg/metric"
 )
 
 func TestWorkerHistory(t *testing.T) {
@@ -20,11 +20,11 @@ func TestWorkerHistory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	worker, err := metrics.NewUnclaimedWorkerMetadata("janitor", group, 1)
+	worker, err := metric.NewUnclaimedWorkerMetadata("janitor", group, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	metadata, err := metrics.NewWorkerMeasurementMetadata([]*metrics.UnclaimedWorkerMetadata{worker})
+	metadata, err := metric.NewWorkerMeasurementMetadata([]*metric.UnclaimedWorkerMetadata{worker})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,12 +53,12 @@ func TestWorkerHistory(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			measurement, err := metrics.NewBuiltInMeasurement(metrics.MetricTopicUnclaimedWorkers, test.count, map[string]string{"topic": "orders"}, current)
+			measurement, err := metric.NewBuiltInMeasurement(metric.MetricTopicUnclaimedWorkers, test.count, map[string]string{"topic": "orders"}, current)
 			if err != nil {
 				t.Fatal(err)
 			}
 			measurement.Metadata = json.RawMessage(test.metadata)
-			history := &metrics.MeasurementHistory{EvaluatedAt: current, Messages: []*common.StoredMessage[metrics.Measurement]{
+			history := &metric.MeasurementHistory{EvaluatedAt: current, Messages: []*common.StoredMessage[metric.Measurement]{
 				{Id: 7106, CreatedAt: current, Message: measurement},
 				{Id: 7105, CreatedAt: current.Add(-2 * time.Minute), Message: measurement},
 			}}

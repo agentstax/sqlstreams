@@ -1,9 +1,21 @@
 # History
 
 Dated ledger of what shipped, newest first — one entry per milestone.
-`[NNNN]` cites the decision record `docs/decisions/NNNN-*.md` holding the why.
+`[NNNN]` cites the decision record `.docs/decisions/NNNN-*.md` holding the why.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
+
+## 2026-09-09 — The metric root is singular [0724]
+
+`pkg/metrics` is `pkg/metric`, and the machinery built on it follows:
+`MetricController`, `MetricDatastore`, `MetricProducer`, `MetricCollector`,
+`MetricTopicName`, `MetricCollectorProgressAlert`. The CLI group is
+`vulkan metric` (`metric list`, `metric get`), matching `vulkan alert`.
+Collection handles, `__system.metrics`, the stored worker and alert names,
+and `--metrics-address` are unchanged. Mechanical rename: root, cmd/vulkan,
+otel, .e2e, .examples, and .tools build, vet, and gofmt clean; unit tests
+pass with race detection on the touched packages; the conventions suite
+passes.
 
 ## 2026-09-07 — Consumer transaction visibility and empty-claim persistence [0714] [0715]
 

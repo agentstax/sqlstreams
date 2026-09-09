@@ -18,7 +18,7 @@ import (
 	consumebase "github.com/agentstax/vulkan/pkg/consume/base"
 	"github.com/agentstax/vulkan/pkg/consume/exceptionconsumer/controller"
 	"github.com/agentstax/vulkan/pkg/datastore"
-	metricsproducer "github.com/agentstax/vulkan/pkg/metrics/producer"
+	metricsproducer "github.com/agentstax/vulkan/pkg/metric/producer"
 	"github.com/agentstax/vulkan/pkg/worker"
 )
 
@@ -37,7 +37,7 @@ type ExceptionConsumerProvisioner[Message common.Versioned] struct {
 // NewExceptionConsumerProvisioner builds one worker row of the group, not
 // the assembled consumer -- see the package doc.
 // cfg may be nil or sparse.
-func NewExceptionConsumerProvisioner[Message common.Versioned](ds *datastore.PostgresDatastore, consumerFunc func(ctx context.Context, message *Message) error, schemaVersion int, metrics *metricsproducer.MetricsProducer, cfg *ExceptionConsumerConfig, logger logging.Logger) (*ExceptionConsumerProvisioner[Message], error) {
+func NewExceptionConsumerProvisioner[Message common.Versioned](ds *datastore.PostgresDatastore, consumerFunc func(ctx context.Context, message *Message) error, schemaVersion int, metrics *metricsproducer.MetricProducer, cfg *ExceptionConsumerConfig, logger logging.Logger) (*ExceptionConsumerProvisioner[Message], error) {
 	if cfg == nil {
 		cfg = &ExceptionConsumerConfig{}
 	}

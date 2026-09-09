@@ -10,7 +10,7 @@ import (
 	"github.com/agentstax/vulkan/pkg/alert"
 	"github.com/agentstax/vulkan/pkg/alert/evaluation"
 	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/metrics"
+	"github.com/agentstax/vulkan/pkg/metric"
 	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
 )
 
@@ -27,7 +27,7 @@ func (c *WorkerLivenessController) Evaluate(ctx context.Context, owner *common.O
 		return nil, err
 	}
 
-	key := metrics.MeasurementKey(metrics.MetricTopicUnclaimedWorkers.Name, map[string]string{"topic": owner.Name})
+	key := metric.MeasurementKey(metric.MetricTopicUnclaimedWorkers.Name, map[string]string{"topic": owner.Name})
 	history, err := c.metrics.GetMeasurementHistory(ctx, key, policy.Window())
 	if err != nil {
 		return nil, err
@@ -36,7 +36,7 @@ func (c *WorkerLivenessController) Evaluate(ctx context.Context, owner *common.O
 	return c.evaluateHistory(owner, policy, history)
 }
 
-func (c *WorkerLivenessController) evaluateHistory(owner *common.Owner, policy *alert.JobPayload, history *metrics.MeasurementHistory) (*alert.AlertEvaluationSnapshot, error) {
+func (c *WorkerLivenessController) evaluateHistory(owner *common.Owner, policy *alert.JobPayload, history *metric.MeasurementHistory) (*alert.AlertEvaluationSnapshot, error) {
 	samples := make([]*common.StoredMessage[alert.AlertEvaluationSnapshot], 0, len(history.Messages))
 	for _, stored := range history.Messages {
 		result, err := c.evaluateMeasurement(owner, stored.Message, stored.CreatedAt)
@@ -48,11 +48,11 @@ func (c *WorkerLivenessController) evaluateHistory(owner *common.Owner, policy *
 	return evaluation.EvaluateHistory(samples, history.EvaluatedAt, policy)
 }
 
-func (c *WorkerLivenessController) evaluateMeasurement(owner *common.Owner, measurement *metrics.Measurement, at time.Time) (*alert.AlertEvaluationSnapshot, error) {
+func (c *WorkerLivenessController) evaluateMeasurement(owner *common.Owner, measurement *metric.Measurement, at time.Time) (*alert.AlertEvaluationSnapshot, error) {
 	// Check measurement identity and value.
-	if measurement.Name != metrics.MetricTopicUnclaimedWorkers.Name ||
-		measurement.Kind != metrics.MetricKindGauge ||
-		measurement.Unit != metrics.MetricUnit(metrics.MetricTopicUnclaimedWorkers.Unit) {
+	if measurement.Name != metric.MetricTopicUnclaimedWorkers.Name ||
+		measurement.Kind != metric.MetricKindGauge ||
+		measurement.Unit != metric.MetricUnit(metric.MetricTopicUnclaimedWorkers.Unit) {
 		return alert.NewAlertEvaluationSnapshot(alert.AlertEvaluationStateInsufficientEvidence, nil, nil)
 	}
 	value := measurement.Value
@@ -64,7 +64,7 @@ func (c *WorkerLivenessController) evaluateMeasurement(owner *common.Owner, meas
 	if len(measurement.Metadata) == 0 {
 		return alert.NewAlertEvaluationSnapshot(alert.AlertEvaluationStateInsufficientEvidence, nil, nil)
 	}
-	var metadata metrics.WorkerMeasurementMetadata
+	var metadata metric.WorkerMeasurementMetadata
 	if err := json.Unmarshal(measurement.Metadata, &metadata); err != nil {
 		return nil, err
 	}

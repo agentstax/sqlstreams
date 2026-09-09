@@ -7,8 +7,8 @@ import (
 	"os"
 	"time"
 
-	metricscontroller "github.com/agentstax/vulkan/pkg/metrics/controller"
-	metricsproducer "github.com/agentstax/vulkan/pkg/metrics/producer"
+	metricscontroller "github.com/agentstax/vulkan/pkg/metric/controller"
+	metricsproducer "github.com/agentstax/vulkan/pkg/metric/producer"
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 )
 
@@ -54,23 +54,23 @@ func run() (err error) {
 	must(err)
 	must(client.System().Register(ctx, nil))
 
-	metricsController, err := metricscontroller.NewMetricsController(ds, ds.Logger)
+	metricController, err := metricscontroller.NewMetricsController(ds, ds.Logger)
 	must(err)
 
 	step("never-produced (topic, group) -> zeroes, not an error")
-	snapshot, err := metricsController.AbandonedRoutineSnapshot(ctx, topicId, group)
+	snapshot, err := metricController.AbandonedRoutineSnapshot(ctx, topicId, group)
 	must(err)
 	assertInt64("Total", snapshot.Total, 0)
 	assertInt64("Outstanding", snapshot.Outstanding, 0)
 	assertDuration("SelfClearLatencyAvg", snapshot.SelfClearLatencyAvg, 0)
 
 	step("two producers (simulating two processes) interleave abandoned/cleared for the same group")
-	producerA, err := metricsproducer.NewMetricsProducer(ds, &metricsproducer.MetricsProducerConfig{SessionFlushRate: 100 * time.Millisecond}, ds.Logger)
+	producerA, err := metricsproducer.NewMetricsProducer(ds, &metricsproducer.MetricProducerConfig{SessionFlushRate: 100 * time.Millisecond}, ds.Logger)
 	must(err)
 	go func() {
 		must(producerA.Run(ctx, group, "abandonedroutinesnapshot", 1, "session-a"))
 	}()
-	producerB, err := metricsproducer.NewMetricsProducer(ds, &metricsproducer.MetricsProducerConfig{SessionFlushRate: 100 * time.Millisecond}, ds.Logger)
+	producerB, err := metricsproducer.NewMetricsProducer(ds, &metricsproducer.MetricProducerConfig{SessionFlushRate: 100 * time.Millisecond}, ds.Logger)
 	must(err)
 	go func() {
 		must(producerB.Run(ctx, group, "abandonedroutinesnapshot", 1, "session-b"))
@@ -86,14 +86,14 @@ func run() (err error) {
 	// events are produced off the hot path, landing on the next flush tick --
 	// give them a moment to actually land
 	must(waitFor(10*time.Second, func() (bool, error) {
-		s, err := metricsController.AbandonedRoutineSnapshot(ctx, topicId, group)
+		s, err := metricController.AbandonedRoutineSnapshot(ctx, topicId, group)
 		if err != nil {
 			return false, err
 		}
 		return s.Total == 3, nil
 	}))
 
-	snapshot, err = metricsController.AbandonedRoutineSnapshot(ctx, topicId, group)
+	snapshot, err = metricController.AbandonedRoutineSnapshot(ctx, topicId, group)
 	must(err)
 	assertInt64("Total", snapshot.Total, 3)
 	assertInt64("Outstanding", snapshot.Outstanding, 1)
@@ -104,7 +104,7 @@ func run() (err error) {
 
 	step("a different group on the same topic id sees none of the above")
 	otherGroup := fmt.Sprintf("abandonedroutinesnapshot.other.%d", run)
-	isolated, err := metricsController.AbandonedRoutineSnapshot(ctx, topicId, otherGroup)
+	isolated, err := metricController.AbandonedRoutineSnapshot(ctx, topicId, otherGroup)
 	must(err)
 	assertInt64("Total", isolated.Total, 0)
 	assertInt64("Outstanding", isolated.Outstanding, 0)

@@ -19,7 +19,7 @@ are in `.docs/DECISIONS.md`. A new record adds its number to its line.
 - schedules, cron, missed runs, job status: 0461-0473 0621
 - alerts, checks, __system.alerts, repeat interval, history-derived pending, collector progress, restart gaps, bounded history, storage time, evaluation cadence: 0481-0490 0516 0520 0627 0649 0658 0683-0684 0686 0688 0689 0690 0692 0693 0694 0695 0698 0699 0700 0701 0702 0703 0704 0709
 - circuit breaker, error_class, reconciliation: 0502-0506
-- packages, layers, seams, naming, receivers, file layout, configs, constructors, admin, validation, consumer worker selection, health, developer tooling: 0441-0451 0507-0510 0528-0549 0555-0557 0643-0646 0657-0658 0670 0676 0677 0680 0716 0721-0723
+- packages, layers, seams, naming, receivers, file layout, configs, constructors, admin, validation, consumer worker selection, health, developer tooling: 0441-0451 0507-0510 0528-0549 0555-0557 0643-0646 0657-0658 0670 0676 0677 0680 0716 0721-0723 0724
 - declarations: newest-wins, CLI never writes config, worker metadata: 0515-0521 0626 0670
 - client shape, handles, Register, lifecycle ctx, shutdown, named return parameters: 0361-0377 0625 0633-0646 0657 0664-0665 0670 0672
 - CLI: nested module, flags, --output json: 0354-0355 0576

@@ -38,7 +38,7 @@ func (s *SystemAlertsHandle) Alert(name string) *AlertHandle {
 	return newAlertHandle(s.client, name, "", "")
 }
 
-// MetricsCollectorProgress selects the system's collector-progress alert.
-func (s *SystemAlertsHandle) MetricsCollectorProgress() *AlertHandle {
+// MetricCollectorProgress selects the system's collector-progress alert.
+func (s *SystemAlertsHandle) MetricCollectorProgress() *AlertHandle {
 	return s.Alert(alert.AlertMetricsCollectorProgress.Name)
 }

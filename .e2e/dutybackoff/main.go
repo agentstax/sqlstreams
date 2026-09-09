@@ -17,7 +17,7 @@ import (
 
 	"github.com/agentstax/vulkan/pkg/common"
 	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	metricscontroller "github.com/agentstax/vulkan/pkg/metrics/controller"
+	metricscontroller "github.com/agentstax/vulkan/pkg/metric/controller"
 	"github.com/agentstax/vulkan/pkg/topic/janitor"
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
@@ -147,9 +147,9 @@ func run() (err error) {
 	}
 
 	step("confirming WorkerSnapshots surfaces the failing streak")
-	metricsController, err := metricscontroller.NewMetricsController(ds, ds.Logger)
+	metricController, err := metricscontroller.NewMetricsController(ds, ds.Logger)
 	must(err)
-	snapshots, err := metricsController.WorkerSnapshots(ctx)
+	snapshots, err := metricController.WorkerSnapshots(ctx)
 	must(err)
 	found := false
 	for _, s := range snapshots {

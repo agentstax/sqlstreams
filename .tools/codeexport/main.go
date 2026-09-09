@@ -19,7 +19,7 @@ import (
 	_ "github.com/agentstax/vulkan/pkg/common"
 	_ "github.com/agentstax/vulkan/pkg/compaction"
 	_ "github.com/agentstax/vulkan/pkg/consume"
-	_ "github.com/agentstax/vulkan/pkg/metrics"
+	_ "github.com/agentstax/vulkan/pkg/metric"
 	_ "github.com/agentstax/vulkan/pkg/migrate"
 	_ "github.com/agentstax/vulkan/pkg/produce"
 	_ "github.com/agentstax/vulkan/pkg/schedule"

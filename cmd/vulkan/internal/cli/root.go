@@ -93,7 +93,7 @@ func newRootCmd() (*cobra.Command, *globalFlags) {
 	root.AddCommand(newConsumerCmd(g))
 	root.AddCommand(newScheduleCmd(g))
 	root.AddCommand(newAlertCmd(g))
-	root.AddCommand(newMetricsCmd(g))
+	root.AddCommand(newMetricCmd(g))
 	root.AddCommand(newSystemCmd(g))
 	root.AddCommand(newMigrateCmd(g))
 	root.AddCommand(newManagerCmd(g))

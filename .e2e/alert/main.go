@@ -36,7 +36,7 @@ import (
 	"github.com/agentstax/vulkan/pkg/consume"
 	consumecontroller "github.com/agentstax/vulkan/pkg/consume/controller"
 	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	iMetrics "github.com/agentstax/vulkan/pkg/metrics"
+	iMetrics "github.com/agentstax/vulkan/pkg/metric"
 	"github.com/agentstax/vulkan/pkg/producer"
 	"github.com/agentstax/vulkan/pkg/schedule"
 	"github.com/agentstax/vulkan/pkg/topic"
@@ -224,7 +224,7 @@ func seedingSection(ctx context.Context) {
 func declareThreshold(ctx context.Context, threshold int64) {
 	must(client.System().Register(ctx, &vulkan.SystemConfig{
 		PartitionCountAlert: &alert.PartitionCountAlertConfig{Threshold: threshold, DisablePending: true},
-		MetricsCollector:    &iMetrics.MetricsCollectorWorkerConfig{PollRate: 100 * time.Millisecond},
+		MetricCollector:     &iMetrics.MetricCollectorWorkerConfig{PollRate: 100 * time.Millisecond},
 	}))
 }
 
@@ -601,12 +601,12 @@ func waitForCollector(ctx context.Context) {
 }
 
 func partitionObservations(ctx context.Context) []*common.StoredMessage[iMetrics.Measurement] {
-	metricsTopic, err := client.Topic[iMetrics.Measurement](iMetrics.MetricsTopicName).Get(ctx)
+	metricTopic, err := client.Topic[iMetrics.Measurement](iMetrics.MetricTopicName).Get(ctx)
 	must(err)
 	heads, err := compactioncontroller.NewCompactionController(ds, ds.Logger)
 	must(err)
 	key := iMetrics.MeasurementKey(iMetrics.MetricTopicPartitions.Name, map[string]string{"topic": testTopic.Name})
-	observations, err := heads.ListKeyMessages[iMetrics.Measurement](ctx, metricsTopic.Id, key, 100)
+	observations, err := heads.ListKeyMessages[iMetrics.Measurement](ctx, metricTopic.Id, key, 100)
 	must(err)
 	for _, observation := range observations {
 		if observation.CompactionRank != 0 || observation.CreatedAt.IsZero() {
@@ -754,7 +754,7 @@ func (c *captureLogger) count(level string, alertName string, ownerName string) 
 // --- assertion helpers ---
 
 // readCheckSummary returns the partition_count check summary heads by metric
-// name -- the latest run's counts, read the same way `vulkan metrics list`
+// name -- the latest run's counts, read the same way `vulkan metric list`
 // reads them.
 func readCheckSummary(ctx context.Context) map[string]float64 {
 	measurements, err := client.System().Metrics().Latest(ctx)

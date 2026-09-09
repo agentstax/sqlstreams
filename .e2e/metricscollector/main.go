@@ -5,7 +5,7 @@ package main
 // every fanned-out topic driving singles and per-group ProduceBatch calls
 // against ONE ProducerInstance concurrently. Then the
 // pipeline's read half: latest values and history through the public handles
-// `vulkan metrics list` / `vulkan metrics get` use, and a real
+// `vulkan metric list` / `vulkan metric get` use, and a real
 // `vulkan manager run --metrics-address` process scraped over HTTP.
 // Self-seeding (6 topics x 2 groups x 5 messages), self-cleaning; expects
 // .bin/vulkan built by the justfile recipe.
@@ -26,8 +26,8 @@ import (
 	iCommon "github.com/agentstax/vulkan/pkg/common"
 	"github.com/agentstax/vulkan/pkg/consume"
 	consumecontroller "github.com/agentstax/vulkan/pkg/consume/controller"
-	"github.com/agentstax/vulkan/pkg/metrics"
-	"github.com/agentstax/vulkan/pkg/metrics/collector"
+	"github.com/agentstax/vulkan/pkg/metric"
+	"github.com/agentstax/vulkan/pkg/metric/collector"
 	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
 	"github.com/agentstax/vulkan/pkg/worker"
 	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
@@ -43,20 +43,20 @@ const (
 )
 
 var groupMetricNames = []string{
-	metrics.MetricCursorHead.Name,
-	metrics.MetricCursorClaimed.Name,
-	metrics.MetricCursorCommitted.Name,
-	metrics.MetricCursorBacklog.Name,
-	metrics.MetricCursorInflight.Name,
-	metrics.MetricReadyExceptions.Name,
-	metrics.MetricInflightExceptions.Name,
-	metrics.MetricDeferredExceptions.Name,
-	metrics.MetricDeadExceptions.Name,
-	metrics.MetricOldestUnresolvedAge.Name,
-	metrics.MetricOpenLeases.Name,
-	metrics.MetricAbandonedOutstanding.Name,
-	metrics.MetricAbandonedTotal.Name,
-	metrics.MetricAbandonedSelfClearLatencyAvg.Name,
+	metric.MetricCursorHead.Name,
+	metric.MetricCursorClaimed.Name,
+	metric.MetricCursorCommitted.Name,
+	metric.MetricCursorBacklog.Name,
+	metric.MetricCursorInflight.Name,
+	metric.MetricReadyExceptions.Name,
+	metric.MetricInflightExceptions.Name,
+	metric.MetricDeferredExceptions.Name,
+	metric.MetricDeadExceptions.Name,
+	metric.MetricOldestUnresolvedAge.Name,
+	metric.MetricOpenLeases.Name,
+	metric.MetricAbandonedOutstanding.Name,
+	metric.MetricAbandonedTotal.Name,
+	metric.MetricAbandonedSelfClearLatencyAvg.Name,
 }
 
 func main() {
@@ -113,7 +113,7 @@ func run() (err error) {
 	collectorId := row.Id
 	for _, rate := range []time.Duration{0, 10 * time.Second, collectorRate} {
 		must(client.System().Register(ctx, &vulkan.SystemConfig{
-			MetricsCollector: &vulkan.MetricsCollectorWorkerConfig{PollRate: rate},
+			MetricCollector: &vulkan.MetricCollectorWorkerConfig{PollRate: rate},
 		}))
 		row, err = workers.GetWorker(ctx, collector.WorkerMetricsCollector, systemOwner)
 		must(err)
@@ -128,9 +128,9 @@ func run() (err error) {
 		}
 	}
 	err = client.System().Register(ctx, &vulkan.SystemConfig{
-		MetricsCollector: &vulkan.MetricsCollectorWorkerConfig{PollRate: -time.Second},
+		MetricCollector: &vulkan.MetricCollectorWorkerConfig{PollRate: -time.Second},
 	})
-	if err == nil || !strings.Contains(err.Error(), "MetricsCollector: PollRate") {
+	if err == nil || !strings.Contains(err.Error(), "MetricCollector: PollRate") {
 		die("negative collector rate did not report its config field")
 	}
 	row, err = workers.GetWorker(ctx, collector.WorkerMetricsCollector, systemOwner)
@@ -199,7 +199,7 @@ func run() (err error) {
 	row, err = workers.GetWorker(ctx, collector.WorkerMetricsCollector, systemOwner)
 	must(err)
 
-	provisioner, err := collector.NewMetricsCollectorProvisioner(ds, &collector.MetricsCollectorConfig{
+	provisioner, err := collector.NewMetricsCollectorProvisioner(ds, &collector.MetricCollectorConfig{
 		TopicConcurrency: 4,
 	}, ds.Logger)
 	must(err)
@@ -226,29 +226,29 @@ func run() (err error) {
 
 	step("wait for full head coverage: fleet + schedules + every e2e test topic and group")
 	expected := map[string]bool{
-		metrics.MeasurementKey(metrics.MetricUnclaimedWorkers.Name, nil):            false,
-		metrics.MeasurementKey(metrics.MetricOldestUnclaimedAge.Name, nil):          false,
-		metrics.MeasurementKey(metrics.MetricFailingWorkers.Name, nil):              false,
-		metrics.MeasurementKey(metrics.MetricOverdueSchedules.Name, nil):            false,
-		metrics.MeasurementKey(metrics.MetricOldestDueAge.Name, nil):                false,
-		metrics.MeasurementKey(metrics.MetricSuspendedSchedules.Name, nil):          false,
-		metrics.MeasurementKey(metrics.MetricActiveAlerts.Name, nil):                false,
-		metrics.MeasurementKey(metrics.MetricResolvedAlerts.Name, nil):              false,
-		metrics.MeasurementKey(metrics.MetricCollectorCompletedTimestamp.Name, nil): false,
+		metric.MeasurementKey(metric.MetricUnclaimedWorkers.Name, nil):            false,
+		metric.MeasurementKey(metric.MetricOldestUnclaimedAge.Name, nil):          false,
+		metric.MeasurementKey(metric.MetricFailingWorkers.Name, nil):              false,
+		metric.MeasurementKey(metric.MetricOverdueSchedules.Name, nil):            false,
+		metric.MeasurementKey(metric.MetricOldestDueAge.Name, nil):                false,
+		metric.MeasurementKey(metric.MetricSuspendedSchedules.Name, nil):          false,
+		metric.MeasurementKey(metric.MetricActiveAlerts.Name, nil):                false,
+		metric.MeasurementKey(metric.MetricResolvedAlerts.Name, nil):              false,
+		metric.MeasurementKey(metric.MetricCollectorCompletedTimestamp.Name, nil): false,
 	}
 	for _, topicName := range topicNames {
-		for _, name := range []string{metrics.MetricTopicCompacted.Name, metrics.MetricTopicPartitions.Name, metrics.MetricTopicUnclaimedWorkers.Name} {
-			expected[metrics.MeasurementKey(name, map[string]string{"topic": topicName})] = false
+		for _, name := range []string{metric.MetricTopicCompacted.Name, metric.MetricTopicPartitions.Name, metric.MetricTopicUnclaimedWorkers.Name} {
+			expected[metric.MeasurementKey(name, map[string]string{"topic": topicName})] = false
 		}
 		for _, group := range groupNames {
 			for _, name := range groupMetricNames {
-				expected[metrics.MeasurementKey(name, map[string]string{
+				expected[metric.MeasurementKey(name, map[string]string{
 					"group": group, "topic": topicName,
 				})] = false
 			}
 		}
 	}
-	var measurements []*metrics.Measurement
+	var measurements []*metric.Measurement
 	must(waitFor(30*time.Second, func() (bool, error) {
 		measurements, err = client.System().Metrics().Latest(ctx)
 		if err != nil {
@@ -256,7 +256,7 @@ func run() (err error) {
 		}
 		covered := 0
 		for _, measurement := range measurements {
-			messageKey := metrics.MeasurementKey(measurement.Name, measurement.Attributes)
+			messageKey := metric.MeasurementKey(measurement.Name, measurement.Attributes)
 			if _, ok := expected[messageKey]; ok {
 				expected[messageKey] = true
 			}
@@ -271,26 +271,26 @@ func run() (err error) {
 	fmt.Printf("  ✓ all %d expected series present (%d heads total)\n", len(expected), len(measurements))
 
 	step("head values match the seeded state -- nothing consumed yet")
-	byKey := make(map[string]*metrics.Measurement, len(measurements))
+	byKey := make(map[string]*metric.Measurement, len(measurements))
 	for _, measurement := range measurements {
-		messageKey := metrics.MeasurementKey(measurement.Name, measurement.Attributes)
+		messageKey := metric.MeasurementKey(measurement.Name, measurement.Attributes)
 		byKey[messageKey] = measurement
-		if measurement.Attributes["topic"] == metrics.MetricsTopicName &&
-			measurement.Name != metrics.MetricTopicPartitions.Name && measurement.Name != metrics.MetricTopicUnclaimedWorkers.Name {
+		if measurement.Attributes["topic"] == metric.MetricTopicName &&
+			measurement.Name != metric.MetricTopicPartitions.Name && measurement.Name != metric.MetricTopicUnclaimedWorkers.Name {
 			die(fmt.Sprintf("measurement %s adds metrics-topic self-observation beyond alert evidence", messageKey))
 		}
 	}
 	for _, topicName := range topicNames {
-		assertValue(byKey, metrics.MetricTopicPartitions.Name, map[string]string{"topic": topicName}, 1)
-		assertValue(byKey, metrics.MetricTopicCompacted.Name, map[string]string{
+		assertValue(byKey, metric.MetricTopicPartitions.Name, map[string]string{"topic": topicName}, 1)
+		assertValue(byKey, metric.MetricTopicCompacted.Name, map[string]string{
 			"topic": topicName,
 		}, 0)
 		for _, group := range groupNames {
 			attributes := map[string]string{"group": group, "topic": topicName}
-			assertValue(byKey, metrics.MetricCursorHead.Name, attributes, messagesPerTopic)
-			assertValue(byKey, metrics.MetricCursorBacklog.Name, attributes, messagesPerTopic)
-			assertValue(byKey, metrics.MetricCursorClaimed.Name, attributes, 0)
-			assertValue(byKey, metrics.MetricDeadExceptions.Name, attributes, 0)
+			assertValue(byKey, metric.MetricCursorHead.Name, attributes, messagesPerTopic)
+			assertValue(byKey, metric.MetricCursorBacklog.Name, attributes, messagesPerTopic)
+			assertValue(byKey, metric.MetricCursorClaimed.Name, attributes, 0)
+			assertValue(byKey, metric.MetricDeadExceptions.Name, attributes, 0)
 		}
 	}
 	fmt.Printf("  ✓ compacted=0, head=%d, backlog=%d, claimed=0, dead=0 across %d groups\n",
@@ -307,7 +307,7 @@ func run() (err error) {
 	}))
 	latest, err = historySeries.Latest(ctx)
 	must(err)
-	if latest == nil || latest.At.IsZero() || latest.Name != metrics.MetricCursorBacklog.Name {
+	if latest == nil || latest.At.IsZero() || latest.Name != metric.MetricCursorBacklog.Name {
 		die("typed backlog series did not return its collected measurement")
 	}
 	fmt.Println("  ✓ typed backlog selector returns Latest and >= 2 retained History values")
@@ -360,8 +360,8 @@ func run() (err error) {
 
 // ---- helpers ----
 
-func assertValue(byKey map[string]*metrics.Measurement, name string, attributes map[string]string, want float64) {
-	key := metrics.MeasurementKey(name, attributes)
+func assertValue(byKey map[string]*metric.Measurement, name string, attributes map[string]string, want float64) {
+	key := metric.MeasurementKey(name, attributes)
 	head, ok := byKey[key]
 	if !ok {
 		die(fmt.Sprintf("no head for %s", key))
