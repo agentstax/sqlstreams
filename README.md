@@ -34,31 +34,23 @@ I use Kafka, you use Kafka, your mom uses Kafka. *Kafka is great.*
 
 I'd love to use Kafka for my [agentic powered TODO app](https://github.com/agentstax/tomorrows-todo-today) but if I see one more `"no brokers available"` error I will crash out.
 
-<br />
-
-<p align="center">
+<p>
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset=".website/public/introducing-dark.svg">
-    <img alt="INTRODUCING" src=".website/public/introducing-light.svg" width="180" height="36">
-  </picture>&ensp;
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset=".website/public/sqlstreams-inline-dark.svg">
-    <img alt="SQLStreams" src=".website/public/sqlstreams-inline-light.svg" width="132" height="36">
+    <img alt="INTRODUCING" src=".website/public/introducing-light.svg" width="140" height="28">
   </picture>
-</p>
-<p align="center">
-  for when you barely know what a Topic is but know Kafka is good...
+  <br />
+  <b>SQLStreams</b> for when you barely know what a Topic is but know Kafka is good...
   <br />
   <em>for some reason or another.</em>
 </p>
 
-<br />
-
 **SQLStreams is a pure SQL library that uses Postgres as its broker.**
 
-- **Fast.** Built with speed in mind, topping out at around ~100k req/s.
-- **Batteries included.** Automatic retries and dead-letter handling come bundled, not bolted on.
-- **2 dependencies.** Because vuln patching is the worst.
+- It's a log, not a queue, and it does [N msgs/s](.bench/) on my laptop 😎.
+- You get consumer groups, replay, ordering and compaction without running a single broker.
+- Dead letters are `WHERE status = 'dead'`. There's no admin UI because it's Postgres.
+- Every error has a code, and `vulkan explain VK0022` will hand you the fix because I don't like thinking either.
 
 ## Usage
 
