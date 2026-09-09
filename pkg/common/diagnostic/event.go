@@ -42,7 +42,7 @@ func (e *DiagnosticEvent) Docs() string {
 	return docsBaseURL + e.code
 }
 
-// GetCode is the declaration's SS code.
+// GetCode is the declaration's SQL code.
 func (e *DiagnosticEvent) GetCode() string {
 	return e.code
 }

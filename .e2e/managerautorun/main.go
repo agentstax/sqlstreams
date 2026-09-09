@@ -9,7 +9,7 @@
 // Confirms: two sessions on one client -> ONE live manager instance, with
 // the survivor taking the claim over on RetryDelay and the last one out
 // releasing it; a second process takes it over the same way; target_instances = 0 suspends upkeep deployment-wide and
-// says so with SS0035; DisableManager runs none at all; and an explicit
+// says so with SQL0035; DisableManager runs none at all; and an explicit
 // RunManager beside a Consume is still one claim, with the session covering
 // upkeep once the explicit call stops.
 package main
@@ -111,7 +111,7 @@ func run() (err error) {
 	assertLive(ctx, ds, "released again", 0)
 
 	// ===== phase 3: the row is the deployment's dial =====
-	step("PHASE 3: target_instances = 0 suspends upkeep deployment-wide (SS0035)")
+	step("PHASE 3: target_instances = 0 suspends upkeep deployment-wide (SQL0035)")
 	setTarget(ctx, ds, 0)
 	defer setTarget(context.Background(), ds, 1)
 
@@ -120,10 +120,10 @@ func run() (err error) {
 	must(err)
 	suspended := start(ctx, suspendedClient, streamName, "managerautorun-a")
 	assertLive(ctx, ds, "a suspended row runs no manager", 0)
-	if count := capture.countCode("warn", "SS0035"); count < 1 {
-		die(fmt.Sprintf("the suspended session logged %d SS0035 warns, want >= 1", count))
+	if count := capture.countCode("warn", "SQL0035"); count < 1 {
+		die(fmt.Sprintf("the suspended session logged %d SQL0035 warns, want >= 1", count))
 	}
-	fmt.Printf("  ✓ SS0035 warned %d time(s) -- the operator hears why\n", capture.countCode("warn", "SS0035"))
+	fmt.Printf("  ✓ SQL0035 warned %d time(s) -- the operator hears why\n", capture.countCode("warn", "SQL0035"))
 	suspended.stop()
 
 	setTarget(ctx, ds, 1)

@@ -10,7 +10,7 @@ func TestDefinitionsCarriesRegisteredMetadata(t *testing.T) {
 	definitions := Definitions()
 	partitionCount := definitionByName(t, definitions, AlertPartitionCount.Name)
 
-	if partitionCount.Code != "SS0094" || partitionCount.Severity != AlertSeverityWarn {
+	if partitionCount.Code != "SQL0094" || partitionCount.Severity != AlertSeverityWarn {
 		t.Fatalf("definition = %+v", partitionCount)
 	}
 	if partitionCount.Scope != diagnostic.MetricScopeStream {

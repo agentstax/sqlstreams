@@ -8,7 +8,7 @@
 	});
 </script>
 
-<!-- SS0029: the ordered pair most per-stream conditions want -- is the row
+<!-- SQL0029: the ordered pair most per-stream conditions want -- is the row
      there, then what does its history say -->
 <Story
 	name="Two queries on per-stream tables"

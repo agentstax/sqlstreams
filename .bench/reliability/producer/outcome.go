@@ -8,7 +8,7 @@ import (
 	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
 )
 
-// classify sorts a Produce error into the records' outcome. A declared SS
+// classify sorts a Produce error into the records' outcome. A declared SQL
 // error is a rejection the library stands behind, except a lost commit
 // confirmation, which is the one declared error that means "unknown".
 // Anything else -- a dropped connection, a cancelled ctx at shutdown -- is

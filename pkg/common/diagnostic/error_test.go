@@ -11,24 +11,24 @@ import (
 // walked by the tense and banned-word tests below alongside every other
 // registered error.
 var (
-	errTestStreamMissing = NewDiagnosticError("SS9901", RecoveryPermanent,
+	errTestStreamMissing = NewDiagnosticError("SQL9901", RecoveryPermanent,
 		"test stream not found",
 		"register it with RegisterStream first")
-	errTestConnection = NewDiagnosticError("SS9902", RecoveryTransient,
+	errTestConnection = NewDiagnosticError("SQL9902", RecoveryTransient,
 		"could not reach the test broker", "")
 )
 
 func TestErrorRendersAllParts(t *testing.T) {
 	raised := errTestStreamMissing.With("stream", "orders", "version", 3)
 
-	want := `test stream not found: stream "orders", version 3 -- register it with RegisterStream first [SS9901]`
+	want := `test stream not found: stream "orders", version 3 -- register it with RegisterStream first [SQL9901]`
 	if raised.Error() != want {
 		t.Fatalf("got %q, want %q", raised.Error(), want)
 	}
 }
 
 func TestErrorRendersWithoutValues(t *testing.T) {
-	want := "test stream not found -- register it with RegisterStream first [SS9901]"
+	want := "test stream not found -- register it with RegisterStream first [SQL9901]"
 	if errTestStreamMissing.Error() != want {
 		t.Fatalf("got %q, want %q", errTestStreamMissing.Error(), want)
 	}
@@ -37,7 +37,7 @@ func TestErrorRendersWithoutValues(t *testing.T) {
 func TestErrorRendersWithoutFix(t *testing.T) {
 	raised := errTestConnection.With("host", "db.local", "timeout", 5*time.Second)
 
-	want := `could not reach the test broker: host "db.local", timeout 5s [SS9902]`
+	want := `could not reach the test broker: host "db.local", timeout 5s [SQL9902]`
 	if raised.Error() != want {
 		t.Fatalf("got %q, want %q", raised.Error(), want)
 	}
@@ -47,7 +47,7 @@ func TestErrorRendersWrappedCause(t *testing.T) {
 	cause := errors.New("connection refused")
 	raised := errTestConnection.With("host", "db.local").Wrap(cause)
 
-	want := `could not reach the test broker: host "db.local" [SS9902]: connection refused`
+	want := `could not reach the test broker: host "db.local" [SQL9902]: connection refused`
 	if raised.Error() != want {
 		t.Fatalf("got %q, want %q", raised.Error(), want)
 	}
@@ -94,7 +94,7 @@ func TestUnwrapReturnsCause(t *testing.T) {
 }
 
 func TestDocsDerivesFromCode(t *testing.T) {
-	want := "https://vulkan-5ss.pages.dev/errors/SS9901"
+	want := "https://vulkan-5ss.pages.dev/errors/SQL9901"
 	if errTestStreamMissing.Docs() != want {
 		t.Fatalf("got %q, want %q", errTestStreamMissing.Docs(), want)
 	}
@@ -109,10 +109,10 @@ func TestLogValueRendersPartsAsFields(t *testing.T) {
 	}
 
 	want := map[string]string{
-		"code":     "SS9901",
+		"code":     "SQL9901",
 		"problem":  "test stream not found",
 		"recovery": "permanent",
-		"docs":     "https://vulkan-5ss.pages.dev/errors/SS9901",
+		"docs":     "https://vulkan-5ss.pages.dev/errors/SQL9901",
 		"fix":      "register it with RegisterStream first",
 		"stream":   "orders",
 		"cause":    "row deleted",
@@ -126,7 +126,7 @@ func TestLogValueRendersPartsAsFields(t *testing.T) {
 
 func TestNewErrorRejectsDuplicateCode(t *testing.T) {
 	expectPanic(t, func() {
-		NewDiagnosticError("SS9901", RecoveryPermanent, "duplicate registration attempt", "")
+		NewDiagnosticError("SQL9901", RecoveryPermanent, "duplicate registration attempt", "")
 	})
 }
 
@@ -140,13 +140,13 @@ func TestNewErrorRejectsMalformedCode(t *testing.T) {
 
 func TestNewErrorRejectsUnrecognizedRecovery(t *testing.T) {
 	expectPanic(t, func() {
-		NewDiagnosticError("SS9903", DiagnosticRecovery("maybe"), "unrecognized recovery attempt", "")
+		NewDiagnosticError("SQL9903", DiagnosticRecovery("maybe"), "unrecognized recovery attempt", "")
 	})
 }
 
 func TestNewErrorRejectsEmptyProblem(t *testing.T) {
 	expectPanic(t, func() {
-		NewDiagnosticError("SS9904", RecoveryPermanent, "", "")
+		NewDiagnosticError("SQL9904", RecoveryPermanent, "", "")
 	})
 }
 

@@ -72,8 +72,8 @@ payload value, and Go infers the type from that argument.
 Newest wins, every time. `Register` on a stream, a consumer group, a
 schedule, or the system writes the declaration it was handed; a differing
 one overwrites the stored document and logs the change as `old -> new`
-([SS0061](/errors/SS0061/) for a stream, [SS0059](/errors/SS0059/) for a
-group, [SS0062](/errors/SS0062/) for a schedule), and an identical one
+([SQL0061](/errors/SQL0061/) for a stream, [SQL0059](/errors/SQL0059/) for a
+group, [SQL0062](/errors/SQL0062/) for a schedule), and an identical one
 writes nothing. A declaration is the whole document: fields left unset mean
 the library default, there is no field-level patch, and `nil` declares the
 empty document. `Start` and `Bindings` keep their own rules: read once at
@@ -81,7 +81,7 @@ creation, and install / wait.
 
 That is right for a rolling deploy and wrong for two services that both
 think they own `charge-cards`: they overwrite each other forever, and the
-tell is the same SS0059 line on every restart of either one. One declaring
+tell is the same SQL0059 line on every restart of either one. One declaring
 service per resource is a convention, not a constraint.
 
 <ThreadAside label="PROPOSED" title="Reading the outcome back">

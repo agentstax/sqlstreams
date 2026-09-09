@@ -30,7 +30,7 @@ On the handle:
 
 | verb | returns | notes |
 | --- | --- | --- |
-| `Register(ctx, cfg)` | `*ProducerInstance[T]` | resolves the stream, `ErrStreamNotFound`; `nil` cfg is the defaults; logs [SS0063](/errors/SS0063/) when the stream's upkeep workers have no live instance |
+| `Register(ctx, cfg)` | `*ProducerInstance[T]` | resolves the stream, `ErrStreamNotFound`; `nil` cfg is the defaults; logs [SQL0063](/errors/SQL0063/) when the stream's upkeep workers have no live instance |
 
 On the instance:
 
@@ -57,7 +57,7 @@ value.
 | --- | --- | --- |
 | `Message` | `nil` | this producer's default `MessageOptions`, merged under every produce; fields unset in both stay unset and the consumer decides |
 | `Batch` | below | the shared-transaction batching of concurrent `Produce` calls |
-| `SlowProduceThreshold` | `0` (off) | a produce running longer logs [SS0038](/errors/SS0038/); the closure verbs include your closure |
+| `SlowProduceThreshold` | `0` (off) | a produce running longer logs [SQL0038](/errors/SQL0038/); the closure verbs include your closure |
 
 ### BatcherConfig
 
@@ -90,5 +90,5 @@ value.
 - `ConcurrencyExclusive` in `Message` without a `MessageKey` errors at
   produce time.
 - A deployment that only produces runs no upkeep. Its `Register` logs
-  [SS0063](/errors/SS0063/) naming the unclaimed rows; run
+  [SQL0063](/errors/SQL0063/) naming the unclaimed rows; run
   `sqlstreams manager run` beside it ([Manager](/reference/manager/)).

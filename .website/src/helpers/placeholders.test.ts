@@ -8,7 +8,7 @@ describe('logAttributes', () => {
 
 	it("reads slog's text handler", () => {
 		const line =
-			'time=2026-08-26T10:11:12.345-05:00 level=WARN msg="message dead-lettered -- unrecoverable, will not be retried" code=SS0029 group_id=2 stream_id=1 message_id=42';
+			'time=2026-08-26T10:11:12.345-05:00 level=WARN msg="message dead-lettered -- unrecoverable, will not be retried" code=SQL0029 group_id=2 stream_id=1 message_id=42';
 
 		expect(logAttributes(line, names)).toEqual(
 			new Map([
@@ -26,7 +26,7 @@ describe('logAttributes', () => {
 	});
 
 	it('reads a JSON log line', () => {
-		const line = '{"level":"WARN","code":"SS0029","stream_id":1,"group_id":2,"message_id":42}';
+		const line = '{"level":"WARN","code":"SQL0029","stream_id":1,"group_id":2,"message_id":42}';
 
 		expect(logAttributes(line, names)).toEqual(
 			new Map([
@@ -39,7 +39,7 @@ describe('logAttributes', () => {
 
 	it('reads the Error() one-liner', () => {
 		const line =
-			'stream not found: stream "orders", version 3 -- register it with Client.Stream(name).Register first [SS0005]';
+			'stream not found: stream "orders", version 3 -- register it with Client.Stream(name).Register first [SQL0005]';
 
 		expect(logAttributes(line, ['stream', 'version'])).toEqual(
 			new Map([
@@ -50,11 +50,11 @@ describe('logAttributes', () => {
 	});
 
 	it('does not read a problem-line word as a value', () => {
-		expect(logAttributes('stream not found [SS0005]', ['stream'])).toEqual(new Map());
+		expect(logAttributes('stream not found [SQL0005]', ['stream'])).toEqual(new Map());
 	});
 
 	it('leaves a name the line never carried absent', () => {
-		expect(logAttributes('level=WARN code=SS0029 stream_id=1', names)).toEqual(
+		expect(logAttributes('level=WARN code=SQL0029 stream_id=1', names)).toEqual(
 			new Map([['stream_id', '1']]),
 		);
 	});

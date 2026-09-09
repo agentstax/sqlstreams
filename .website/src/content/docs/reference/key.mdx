@@ -23,7 +23,7 @@ history, err := device.Messages(ctx, 20)
 
 | verb | returns | notes |
 | --- | --- | --- |
-| `CompactionHead(ctx)` | `*StoredMessage[T]` | the key's winning message; `ErrCompactionHeadNotFound` ([SS0066](/errors/SS0066/)) when no compacted message was produced under it |
+| `CompactionHead(ctx)` | `*StoredMessage[T]` | the key's winning message; `ErrCompactionHeadNotFound` ([SQL0066](/errors/SQL0066/)) when no compacted message was produced under it |
 | `LockCompactionHead(ctx, tx)` | `*StoredMessage[T]` | ensures the key has a lockable row and holds it `FOR UPDATE` until `tx` resolves; `nil` when the locked row has no head |
 | `Messages(ctx, limit)` | `[]*StoredMessage[T]` | the key's retained messages, newest first; `limit` must be positive |
 

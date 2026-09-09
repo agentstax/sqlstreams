@@ -14,9 +14,9 @@ import (
 )
 
 var (
-	errTestConnection = diagnostic.NewDiagnosticError("SS9905", diagnostic.RecoveryTransient,
+	errTestConnection = diagnostic.NewDiagnosticError("SQL9905", diagnostic.RecoveryTransient,
 		"could not reach the test database", "")
-	errTestStreamMissing = diagnostic.NewDiagnosticError("SS9906", diagnostic.RecoveryPermanent,
+	errTestStreamMissing = diagnostic.NewDiagnosticError("SQL9906", diagnostic.RecoveryPermanent,
 		"test stream not found", "")
 )
 

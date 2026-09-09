@@ -1,9 +1,9 @@
 ---
 title: Errors and events
-description: DiagnosticError and DiagnosticEvent — the accessors on every SS-coded error and log event, errors.Is against the Err variables, and Owner.
+description: DiagnosticError and DiagnosticEvent — the accessors on every SQL-coded error and log event, errors.Is against the Err variables, and Owner.
 ---
 
-Every error SQLStreams returns with a `SS` code is a `*sqlstreams.DiagnosticError`,
+Every error SQLStreams returns with a `SQL` code is a `*sqlstreams.DiagnosticError`,
 and every coded log line is emitted from a `*sqlstreams.DiagnosticEvent`. Both
 are declared once as package variables, `sqlstreams.ErrStreamNotFound`,
 `sqlstreams.EventLeaseReclaimed`, and a raise attaches values to a copy.
@@ -22,7 +22,7 @@ On a `DiagnosticError`:
 
 | accessor | returns | notes |
 | --- | --- | --- |
-| `GetCode()` | `string` | the `SS` code, the link to its page |
+| `GetCode()` | `string` | the `SQL` code, the link to its page |
 | `Recovery()` | `DiagnosticRecovery` | `RecoveryTransient` when an unchanged retry can succeed, else `RecoveryPermanent` |
 | `Problem()`, `Fix()` | `string` | the declared problem and fix; the fix carries `{attribute}` placeholders that `Error()` fills from the attached values |
 | `Queries()` | `[]DiagnosticQuery` | the diagnose queries, detached copies |
@@ -50,4 +50,4 @@ owning resource.
 - The SQL owner-column helpers are not on `Owner`; advanced datastore
   callers use `pkg/datastore.NewOwnerColumns`, outside the supported API.
 - Every code has its thread on [Troubleshooting](/boards/troubleshooting/),
-  and `sqlstreams explain SS0005` prints the same page offline.
+  and `sqlstreams explain SQL0005` prints the same page offline.

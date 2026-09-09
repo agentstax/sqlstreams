@@ -3,7 +3,7 @@ package metric
 import "github.com/agentstax/sqlstreams/pkg/common/diagnostic"
 
 var MetricStreamUnclaimedWorkers = diagnostic.NewDiagnosticMetric(
-	"SS0099",
+	"SQL0099",
 	"sqlstreams.stream.workers.unclaimed",
 	string(MetricKindGauge),
 	string(MetricUnitCount("worker")),
@@ -13,7 +13,7 @@ var MetricStreamUnclaimedWorkers = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricStreamPartitions = diagnostic.NewDiagnosticMetric(
-	"SS0098",
+	"SQL0098",
 	"sqlstreams.stream.state.partitions",
 	string(MetricKindGauge),
 	string(MetricUnitCount("partition")),
@@ -23,7 +23,7 @@ var MetricStreamPartitions = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricStreamCompacted = diagnostic.NewDiagnosticMetric(
-	"SS0079",
+	"SQL0079",
 	"sqlstreams.stream.state.compacted",
 	string(MetricKindGauge),
 	"",

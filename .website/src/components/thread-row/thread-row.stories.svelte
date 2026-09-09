@@ -20,5 +20,5 @@
 <Story name="Updated" args={{ updated: true }} />
 <Story
 	name="Error thread"
-	args={{ index: 1, title: 'stream not found [SS0005]', href: '/errors/SS0005/' }}
+	args={{ index: 1, title: 'stream not found [SQL0005]', href: '/errors/SQL0005/' }}
 />

@@ -35,7 +35,7 @@ On the handle:
 
 | verb | returns | notes |
 | --- | --- | --- |
-| `Register(ctx, cfg)` | `*ConsumerInstance[T]` | resolves the stream, writes the declaration, creates the cursor row on first registration; `nil` cfg is the defaults; newest declaration wins, and a differing one logs [SS0059](/errors/SS0059/) |
+| `Register(ctx, cfg)` | `*ConsumerInstance[T]` | resolves the stream, writes the declaration, creates the cursor row on first registration; `nil` cfg is the defaults; newest declaration wins, and a differing one logs [SQL0059](/errors/SQL0059/) |
 | `Get(ctx)` | `*Consumer` | the comma-ok read: `(nil, nil)` when the stream or the group is not registered |
 | `Workers(ctx)` | `[]*Worker` | the group's own worker rows, each with its stored config document in `Worker.Metadata` |
 | `Destroy(ctx, options)` | `error` | deletes the group's cursor, bindings, leases, delivery rows, workers, and schedules; the stream and its messages stay; `ErrDestroyDisabled` unless `ClientConfig.AllowDestroy`; `ErrConsumerGroupLive` while an instance is live and `ErrConsumerGroupDeliveriesPending` while delivery rows remain, both skipped by `DestroyOptions.Force` |
@@ -95,7 +95,7 @@ Passed to `Consume`, one session's own.
 | `QueueMargin` | `15s` | lease padding for time a claim sits queued |
 | `RecordMargin` | `2s` | lease padding for recording the outcome |
 | `TimeoutGrace` | `100ms` | slack for a handler that respected `ctx.Done()` to unwind before the hard cutoff abandons it |
-| `SlowDispatchThreshold` | `0` (off) | a dispatch running longer logs [SS0039](/errors/SS0039/) |
+| `SlowDispatchThreshold` | `0` (off) | a dispatch running longer logs [SQL0039](/errors/SQL0039/) |
 | `InstanceTTL` | `30s` | how long this instance's `worker_instance` rows stay live without a heartbeat |
 | `BindingRetryInterval` | `10s` | how often a waiting binding declaration is retried |
 | `ConfigRefreshInterval` | `30s` | how often the stored group config is re-read: the staleness window for a redeclaration |
@@ -131,7 +131,7 @@ cursor between ranges. `ClaimPollRate` is not a delivery-latency guarantee.
 
 The Info-level starting log includes resolved session settings and the
 registration-time timeout budgets. Stored group settings are read when
-consumer workers start and on config refresh. [SS0105](/errors/SS0105/) warns when a queued
+consumer workers start and on config refresh. [SQL0105](/errors/SQL0105/) warns when a queued
 message has insufficient lease time to start. Existing warning suppression
 collapses repeated warnings within the instance's one-minute window.
 
@@ -142,7 +142,7 @@ collapses repeated warnings within the instance's one-minute window.
   sit on opposite sides of the split.
 - A group's config wants exactly one declaring service. Two services
   declaring `charge-cards` differently overwrite each other on every
-  restart, and the same [SS0059](/errors/SS0059/) line on every restart is
+  restart, and the same [SQL0059](/errors/SQL0059/) line on every restart is
   the tell.
 - Handlers should be idempotent: redelivery after a crash or timeout is
   normal at-least-once behavior

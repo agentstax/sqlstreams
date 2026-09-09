@@ -1,27 +1,27 @@
 {
   "codes": {
-    "SS0001": {
-      "code": "SS0001",
+    "SQL0001": {
+      "code": "SQL0001",
       "kind": "error",
       "problem": "instance is already consuming",
       "recovery": "permanent",
       "fix": "wait for the running Consume to return, or Register another instance"
     },
-    "SS0002": {
-      "code": "SS0002",
+    "SQL0002": {
+      "code": "SQL0002",
       "kind": "error",
       "problem": "lifecycle context can never be cancelled",
       "recovery": "permanent",
       "fix": "pass the application's shutdown context, or set ConsumeOptions.DisableGracefulShutdown"
     },
-    "SS0003": {
-      "code": "SS0003",
+    "SQL0003": {
+      "code": "SQL0003",
       "kind": "error",
       "problem": "lease lost to another consumer",
       "recovery": "permanent"
     },
-    "SS0004": {
-      "code": "SS0004",
+    "SQL0004": {
+      "code": "SQL0004",
       "kind": "error",
       "problem": "stream partition size does not match the existing stream",
       "recovery": "permanent",
@@ -30,8 +30,8 @@
         "existing_partition_size"
       ]
     },
-    "SS0005": {
-      "code": "SS0005",
+    "SQL0005": {
+      "code": "SQL0005",
       "kind": "error",
       "problem": "stream not found",
       "recovery": "permanent",
@@ -62,8 +62,8 @@
         }
       ]
     },
-    "SS0006": {
-      "code": "SS0006",
+    "SQL0006": {
+      "code": "SQL0006",
       "kind": "error",
       "problem": "stream still holds messages",
       "recovery": "permanent",
@@ -87,57 +87,57 @@
         }
       ]
     },
-    "SS0007": {
-      "code": "SS0007",
+    "SQL0007": {
+      "code": "SQL0007",
       "kind": "error",
       "problem": "stream name already taken",
       "recovery": "permanent",
       "fix": "choose a different name"
     },
-    "SS0008": {
-      "code": "SS0008",
+    "SQL0008": {
+      "code": "SQL0008",
       "kind": "error",
       "problem": "destroy is disabled",
       "recovery": "permanent",
       "fix": "set ClientConfig.AllowDestroy"
     },
-    "SS0009": {
-      "code": "SS0009",
+    "SQL0009": {
+      "code": "SQL0009",
       "kind": "error",
       "problem": "stream name uses the reserved __system. prefix",
       "recovery": "permanent",
       "fix": "choose a name outside the __system. prefix"
     },
-    "SS0010": {
-      "code": "SS0010",
+    "SQL0010": {
+      "code": "SQL0010",
       "kind": "error",
       "problem": "a worker instance is still live",
       "recovery": "permanent",
       "fix": "stop running managers and consumers, or pass DestroyOptions.Force"
     },
-    "SS0011": {
-      "code": "SS0011",
+    "SQL0011": {
+      "code": "SQL0011",
       "kind": "error",
       "problem": "streams are still registered",
       "recovery": "permanent",
       "fix": "destroy them first, or pass DestroyOptions.Force to destroy them and their messages"
     },
-    "SS0012": {
-      "code": "SS0012",
+    "SQL0012": {
+      "code": "SQL0012",
       "kind": "error",
       "problem": "worker instance row expired or was removed",
       "recovery": "permanent",
       "fix": "stop the work; a replacement may already be running"
     },
-    "SS0013": {
-      "code": "SS0013",
+    "SQL0013": {
+      "code": "SQL0013",
       "kind": "error",
       "problem": "schedule not found",
       "recovery": "permanent",
       "fix": "register the named schedule with Client.Scheduler(name).Register first"
     },
-    "SS0014": {
-      "code": "SS0014",
+    "SQL0014": {
+      "code": "SQL0014",
       "kind": "error",
       "problem": "consumer group not found",
       "recovery": "permanent",
@@ -161,8 +161,8 @@
         }
       ]
     },
-    "SS0015": {
-      "code": "SS0015",
+    "SQL0015": {
+      "code": "SQL0015",
       "kind": "error",
       "problem": "consumer group still has a live consumer",
       "recovery": "permanent",
@@ -178,8 +178,8 @@
         }
       ]
     },
-    "SS0016": {
-      "code": "SS0016",
+    "SQL0016": {
+      "code": "SQL0016",
       "kind": "error",
       "problem": "consumer group still has delivery rows",
       "recovery": "permanent",
@@ -205,21 +205,21 @@
         }
       ]
     },
-    "SS0017": {
-      "code": "SS0017",
+    "SQL0017": {
+      "code": "SQL0017",
       "kind": "error",
       "problem": "system not registered",
       "recovery": "permanent",
       "fix": "register the system with Client.System().Register first"
     },
-    "SS0018": {
-      "code": "SS0018",
+    "SQL0018": {
+      "code": "SQL0018",
       "kind": "error",
       "problem": "could not create the covering partition",
       "recovery": "transient"
     },
-    "SS0019": {
-      "code": "SS0019",
+    "SQL0019": {
+      "code": "SQL0019",
       "kind": "error",
       "problem": "commit confirmation was lost",
       "recovery": "permanent",
@@ -244,8 +244,8 @@
         }
       ]
     },
-    "SS0020": {
-      "code": "SS0020",
+    "SQL0020": {
+      "code": "SQL0020",
       "kind": "error",
       "problem": "stream partitions remain after draining",
       "recovery": "permanent",
@@ -269,15 +269,15 @@
         }
       ]
     },
-    "SS0021": {
-      "code": "SS0021",
+    "SQL0021": {
+      "code": "SQL0021",
       "kind": "error",
       "problem": "could not finish the stream declaration",
       "recovery": "transient",
       "fix": "run Client.Stream(name).Register again if the stream should still exist"
     },
-    "SS0022": {
-      "code": "SS0022",
+    "SQL0022": {
+      "code": "SQL0022",
       "kind": "error",
       "problem": "schema version is older than this build requires",
       "recovery": "permanent",
@@ -297,8 +297,8 @@
         }
       ]
     },
-    "SS0023": {
-      "code": "SS0023",
+    "SQL0023": {
+      "code": "SQL0023",
       "kind": "error",
       "problem": "schema version is newer than this build understands",
       "recovery": "permanent",
@@ -324,22 +324,22 @@
         }
       ]
     },
-    "SS0024": {
-      "code": "SS0024",
+    "SQL0024": {
+      "code": "SQL0024",
       "kind": "error",
       "problem": "could not finish the worker declaration",
       "recovery": "transient",
       "fix": "rerun the declaration if the worker should still exist"
     },
-    "SS0025": {
-      "code": "SS0025",
+    "SQL0025": {
+      "code": "SQL0025",
       "kind": "error",
       "problem": "could not finish the schedule declaration",
       "recovery": "transient",
       "fix": "rerun the declaration if the schedule should still exist"
     },
-    "SS0026": {
-      "code": "SS0026",
+    "SQL0026": {
+      "code": "SQL0026",
       "kind": "event",
       "message": "lease reclaimed from expired worker",
       "queries": [
@@ -365,8 +365,8 @@
         }
       ]
     },
-    "SS0027": {
-      "code": "SS0027",
+    "SQL0027": {
+      "code": "SQL0027",
       "kind": "event",
       "message": "range quarantined after max reclaims -- messages written as 'ready' exceptions",
       "queries": [
@@ -393,8 +393,8 @@
         }
       ]
     },
-    "SS0028": {
-      "code": "SS0028",
+    "SQL0028": {
+      "code": "SQL0028",
       "kind": "event",
       "message": "messages dead-lettered -- unrecoverable, will not be retried",
       "queries": [
@@ -418,8 +418,8 @@
         }
       ]
     },
-    "SS0029": {
-      "code": "SS0029",
+    "SQL0029": {
+      "code": "SQL0029",
       "kind": "event",
       "message": "message dead-lettered -- unrecoverable, will not be retried",
       "queries": [
@@ -454,8 +454,8 @@
         }
       ]
     },
-    "SS0030": {
-      "code": "SS0030",
+    "SQL0030": {
+      "code": "SQL0030",
       "kind": "event",
       "message": "exception dead-lettered -- unrecoverable, will not be retried",
       "queries": [
@@ -481,8 +481,8 @@
         }
       ]
     },
-    "SS0031": {
-      "code": "SS0031",
+    "SQL0031": {
+      "code": "SQL0031",
       "kind": "event",
       "message": "crash-loop kill backstop fired -- exceptions marked dead",
       "queries": [
@@ -506,18 +506,18 @@
         }
       ]
     },
-    "SS0032": {
-      "code": "SS0032",
+    "SQL0032": {
+      "code": "SQL0032",
       "kind": "event",
       "message": "stored message options outside this consumer's bounds -- clamped"
     },
-    "SS0033": {
-      "code": "SS0033",
+    "SQL0033": {
+      "code": "SQL0033",
       "kind": "event",
       "message": "could not create partition ahead -- the first insert past the boundary will create it"
     },
-    "SS0034": {
-      "code": "SS0034",
+    "SQL0034": {
+      "code": "SQL0034",
       "kind": "event",
       "message": "worker instance lost -- stopping, a replacement may already be running",
       "queries": [
@@ -531,8 +531,8 @@
         }
       ]
     },
-    "SS0035": {
-      "code": "SS0035",
+    "SQL0035": {
+      "code": "SQL0035",
       "kind": "event",
       "message": "manager row suspended -- its chain goes unreconciled until target_instances is restored",
       "queries": [
@@ -545,8 +545,8 @@
         }
       ]
     },
-    "SS0036": {
-      "code": "SS0036",
+    "SQL0036": {
+      "code": "SQL0036",
       "kind": "event",
       "message": "worker tick backoff curve exhausted -- ticks continue at its cap",
       "queries": [
@@ -560,33 +560,33 @@
         }
       ]
     },
-    "SS0037": {
-      "code": "SS0037",
+    "SQL0037": {
+      "code": "SQL0037",
       "kind": "event",
       "message": "schedule message was already produced by an earlier ambiguous commit"
     },
-    "SS0038": {
-      "code": "SS0038",
+    "SQL0038": {
+      "code": "SQL0038",
       "kind": "event",
       "message": "produce exceeded the duration threshold"
     },
-    "SS0039": {
-      "code": "SS0039",
+    "SQL0039": {
+      "code": "SQL0039",
       "kind": "event",
       "message": "delivery dispatch exceeded the duration threshold"
     },
-    "SS0040": {
-      "code": "SS0040",
+    "SQL0040": {
+      "code": "SQL0040",
       "kind": "event",
       "message": "worker tick exceeded its poll rate -- the next tick is late"
     },
-    "SS0041": {
-      "code": "SS0041",
+    "SQL0041": {
+      "code": "SQL0041",
       "kind": "event",
       "message": "consumer stopped"
     },
-    "SS0042": {
-      "code": "SS0042",
+    "SQL0042": {
+      "code": "SQL0042",
       "kind": "metric",
       "name": "sqlstreams.consumer.session.claimed",
       "metric_kind": "counter",
@@ -600,8 +600,8 @@
         "session"
       ]
     },
-    "SS0043": {
-      "code": "SS0043",
+    "SQL0043": {
+      "code": "SQL0043",
       "kind": "metric",
       "name": "sqlstreams.consumer.session.success",
       "metric_kind": "counter",
@@ -615,8 +615,8 @@
         "session"
       ]
     },
-    "SS0044": {
-      "code": "SS0044",
+    "SQL0044": {
+      "code": "SQL0044",
       "kind": "metric",
       "name": "sqlstreams.consumer.session.superseded",
       "metric_kind": "counter",
@@ -630,8 +630,8 @@
         "session"
       ]
     },
-    "SS0045": {
-      "code": "SS0045",
+    "SQL0045": {
+      "code": "SQL0045",
       "kind": "metric",
       "name": "sqlstreams.consumer.session.ready",
       "metric_kind": "counter",
@@ -645,8 +645,8 @@
         "session"
       ]
     },
-    "SS0046": {
-      "code": "SS0046",
+    "SQL0046": {
+      "code": "SQL0046",
       "kind": "metric",
       "name": "sqlstreams.consumer.session.deferred",
       "metric_kind": "counter",
@@ -660,8 +660,8 @@
         "session"
       ]
     },
-    "SS0047": {
-      "code": "SS0047",
+    "SQL0047": {
+      "code": "SQL0047",
       "kind": "metric",
       "name": "sqlstreams.consumer.session.dead",
       "metric_kind": "counter",
@@ -675,8 +675,8 @@
         "session"
       ]
     },
-    "SS0048": {
-      "code": "SS0048",
+    "SQL0048": {
+      "code": "SQL0048",
       "kind": "metric",
       "name": "sqlstreams.consumer.session.reclaimed",
       "metric_kind": "counter",
@@ -690,8 +690,8 @@
         "session"
       ]
     },
-    "SS0049": {
-      "code": "SS0049",
+    "SQL0049": {
+      "code": "SQL0049",
       "kind": "metric",
       "name": "sqlstreams.consumer.session.quarantined",
       "metric_kind": "counter",
@@ -705,8 +705,8 @@
         "session"
       ]
     },
-    "SS0050": {
-      "code": "SS0050",
+    "SQL0050": {
+      "code": "SQL0050",
       "kind": "metric",
       "name": "sqlstreams.consumer.session.abandoned",
       "metric_kind": "counter",
@@ -720,8 +720,8 @@
         "session"
       ]
     },
-    "SS0051": {
-      "code": "SS0051",
+    "SQL0051": {
+      "code": "SQL0051",
       "kind": "metric",
       "name": "sqlstreams.consumer.session.lease_lost",
       "metric_kind": "counter",
@@ -735,49 +735,49 @@
         "session"
       ]
     },
-    "SS0052": {
-      "code": "SS0052",
+    "SQL0052": {
+      "code": "SQL0052",
       "kind": "event",
       "message": "abandoned-routine events dropped -- abandoned-routine snapshots undercount"
     },
-    "SS0053": {
-      "code": "SS0053",
+    "SQL0053": {
+      "code": "SQL0053",
       "kind": "error",
       "problem": "could not take a lock needed by the migration step",
       "recovery": "transient",
       "fix": "end the blocking session (pg_stat_activity), then run the migration again"
     },
-    "SS0054": {
-      "code": "SS0054",
+    "SQL0054": {
+      "code": "SQL0054",
       "kind": "error",
       "problem": "could not complete the delivery yet, the handler asked to run it later",
       "recovery": "transient"
     },
-    "SS0055": {
-      "code": "SS0055",
+    "SQL0055": {
+      "code": "SQL0055",
       "kind": "error",
       "problem": "delivery cannot succeed",
       "recovery": "permanent"
     },
-    "SS0056": {
-      "code": "SS0056",
+    "SQL0056": {
+      "code": "SQL0056",
       "kind": "error",
       "problem": "partition creation cannot keep up with the id sequence",
       "recovery": "permanent",
       "fix": "raise PartitionSize, or run a consumer so create-ahead stays ahead of the producers"
     },
-    "SS0057": {
-      "code": "SS0057",
+    "SQL0057": {
+      "code": "SQL0057",
       "kind": "event",
       "message": "no partition covers the next message id -- the insert creates it and pays the creation latency; run a consumer for the stream's upkeep or raise PartitionSize"
     },
-    "SS0058": {
-      "code": "SS0058",
+    "SQL0058": {
+      "code": "SQL0058",
       "kind": "event",
       "message": "schedule target stream keeps no success rows -- Client.Scheduler(name).Status counts no successes for it; set DeliveryLogMode all on the stream to count them"
     },
-    "SS0059": {
-      "code": "SS0059",
+    "SQL0059": {
+      "code": "SQL0059",
       "kind": "event",
       "message": "worker config replaced -- the newest declaration wins; if this is unexpected or repeats on every restart, two services declare this worker with different configs and overwrite each other",
       "queries": [
@@ -791,8 +791,8 @@
         }
       ]
     },
-    "SS0060": {
-      "code": "SS0060",
+    "SQL0060": {
+      "code": "SQL0060",
       "kind": "event",
       "message": "could not refresh group config -- the last copy stays in use",
       "queries": [
@@ -806,8 +806,8 @@
         }
       ]
     },
-    "SS0061": {
-      "code": "SS0061",
+    "SQL0061": {
+      "code": "SQL0061",
       "kind": "event",
       "message": "stream config replaced -- the newest declaration wins; if this is unexpected or repeats on every restart, two services declare this stream with different configs and overwrite each other",
       "queries": [
@@ -821,8 +821,8 @@
         }
       ]
     },
-    "SS0062": {
-      "code": "SS0062",
+    "SQL0062": {
+      "code": "SQL0062",
       "kind": "event",
       "message": "schedule config replaced -- the newest declaration wins; if this is unexpected or repeats on every restart, two services declare this schedule with different configs and overwrite each other",
       "queries": [
@@ -836,13 +836,13 @@
         }
       ]
     },
-    "SS0063": {
-      "code": "SS0063",
+    "SQL0063": {
+      "code": "SQL0063",
       "kind": "event",
       "message": "alert condition holds -- nothing was published; the scheduled check is what publishes and resolves an alert"
     },
-    "SS0064": {
-      "code": "SS0064",
+    "SQL0064": {
+      "code": "SQL0064",
       "kind": "error",
       "problem": "the connecting role cannot create the schema",
       "recovery": "permanent",
@@ -851,13 +851,13 @@
         "schema"
       ]
     },
-    "SS0065": {
-      "code": "SS0065",
+    "SQL0065": {
+      "code": "SQL0065",
       "kind": "event",
       "message": "system manager stopped -- nothing reconciles the deployment's workers until the loop re-claims the row after its backoff"
     },
-    "SS0066": {
-      "code": "SS0066",
+    "SQL0066": {
+      "code": "SQL0066",
       "kind": "error",
       "problem": "compaction head not found",
       "recovery": "permanent",
@@ -887,8 +887,8 @@
         }
       ]
     },
-    "SS0067": {
-      "code": "SS0067",
+    "SQL0067": {
+      "code": "SQL0067",
       "kind": "metric",
       "name": "sqlstreams.worker.state.unclaimed_workers",
       "metric_kind": "gauge",
@@ -896,8 +896,8 @@
       "description": "workers with no live instance and a nonzero target",
       "scope": "system"
     },
-    "SS0068": {
-      "code": "SS0068",
+    "SQL0068": {
+      "code": "SQL0068",
       "kind": "metric",
       "name": "sqlstreams.worker.state.oldest_unclaimed_age",
       "metric_kind": "gauge",
@@ -905,8 +905,8 @@
       "description": "largest time since expiry among workers with no live instance and a nonzero target",
       "scope": "system"
     },
-    "SS0069": {
-      "code": "SS0069",
+    "SQL0069": {
+      "code": "SQL0069",
       "kind": "metric",
       "name": "sqlstreams.worker.state.failing_workers",
       "metric_kind": "gauge",
@@ -914,8 +914,8 @@
       "description": "workers with a live instance on a nonzero consecutive failure streak",
       "scope": "system"
     },
-    "SS0070": {
-      "code": "SS0070",
+    "SQL0070": {
+      "code": "SQL0070",
       "kind": "metric",
       "name": "sqlstreams.schedule.state.overdue",
       "metric_kind": "gauge",
@@ -923,8 +923,8 @@
       "description": "unsuspended schedules due past the overdue threshold",
       "scope": "system"
     },
-    "SS0071": {
-      "code": "SS0071",
+    "SQL0071": {
+      "code": "SQL0071",
       "kind": "metric",
       "name": "sqlstreams.schedule.state.oldest_due_age",
       "metric_kind": "gauge",
@@ -932,8 +932,8 @@
       "description": "largest time past next scheduled production among unsuspended schedules",
       "scope": "system"
     },
-    "SS0072": {
-      "code": "SS0072",
+    "SQL0072": {
+      "code": "SQL0072",
       "kind": "metric",
       "name": "sqlstreams.schedule.state.suspended",
       "metric_kind": "gauge",
@@ -941,8 +941,8 @@
       "description": "schedules excluded from overdue counts because they are suspended",
       "scope": "system"
     },
-    "SS0073": {
-      "code": "SS0073",
+    "SQL0073": {
+      "code": "SQL0073",
       "kind": "metric",
       "name": "sqlstreams.alert.state.active_alerts",
       "metric_kind": "gauge",
@@ -950,8 +950,8 @@
       "description": "retained alert heads whose status is active",
       "scope": "system"
     },
-    "SS0074": {
-      "code": "SS0074",
+    "SQL0074": {
+      "code": "SQL0074",
       "kind": "metric",
       "name": "sqlstreams.alert.state.resolved_alerts",
       "metric_kind": "gauge",
@@ -959,8 +959,8 @@
       "description": "retained alert heads whose status is resolved",
       "scope": "system"
     },
-    "SS0075": {
-      "code": "SS0075",
+    "SQL0075": {
+      "code": "SQL0075",
       "kind": "metric",
       "name": "sqlstreams.alert.check.streams_evaluated",
       "metric_kind": "gauge",
@@ -971,8 +971,8 @@
         "alert"
       ]
     },
-    "SS0076": {
-      "code": "SS0076",
+    "SQL0076": {
+      "code": "SQL0076",
       "kind": "metric",
       "name": "sqlstreams.alert.check.streams_failed",
       "metric_kind": "gauge",
@@ -983,8 +983,8 @@
         "alert"
       ]
     },
-    "SS0077": {
-      "code": "SS0077",
+    "SQL0077": {
+      "code": "SQL0077",
       "kind": "metric",
       "name": "sqlstreams.alert.check.published_alerts",
       "metric_kind": "gauge",
@@ -995,8 +995,8 @@
         "alert"
       ]
     },
-    "SS0078": {
-      "code": "SS0078",
+    "SQL0078": {
+      "code": "SQL0078",
       "kind": "metric",
       "name": "sqlstreams.alert.check.resolved_alerts",
       "metric_kind": "gauge",
@@ -1007,8 +1007,8 @@
         "alert"
       ]
     },
-    "SS0079": {
-      "code": "SS0079",
+    "SQL0079": {
+      "code": "SQL0079",
       "kind": "metric",
       "name": "sqlstreams.stream.state.compacted",
       "metric_kind": "gauge",
@@ -1018,8 +1018,8 @@
         "stream"
       ]
     },
-    "SS0080": {
-      "code": "SS0080",
+    "SQL0080": {
+      "code": "SQL0080",
       "kind": "metric",
       "name": "sqlstreams.consumer.cursor.head",
       "metric_kind": "gauge",
@@ -1031,8 +1031,8 @@
         "group"
       ]
     },
-    "SS0081": {
-      "code": "SS0081",
+    "SQL0081": {
+      "code": "SQL0081",
       "kind": "metric",
       "name": "sqlstreams.consumer.cursor.claimed",
       "metric_kind": "gauge",
@@ -1044,8 +1044,8 @@
         "group"
       ]
     },
-    "SS0082": {
-      "code": "SS0082",
+    "SQL0082": {
+      "code": "SQL0082",
       "kind": "metric",
       "name": "sqlstreams.consumer.cursor.committed",
       "metric_kind": "gauge",
@@ -1057,8 +1057,8 @@
         "group"
       ]
     },
-    "SS0083": {
-      "code": "SS0083",
+    "SQL0083": {
+      "code": "SQL0083",
       "kind": "metric",
       "name": "sqlstreams.consumer.cursor.backlog",
       "metric_kind": "gauge",
@@ -1070,8 +1070,8 @@
         "group"
       ]
     },
-    "SS0084": {
-      "code": "SS0084",
+    "SQL0084": {
+      "code": "SQL0084",
       "kind": "metric",
       "name": "sqlstreams.consumer.cursor.inflight",
       "metric_kind": "gauge",
@@ -1083,8 +1083,8 @@
         "group"
       ]
     },
-    "SS0085": {
-      "code": "SS0085",
+    "SQL0085": {
+      "code": "SQL0085",
       "kind": "metric",
       "name": "sqlstreams.consumer.exceptions.ready",
       "metric_kind": "gauge",
@@ -1096,8 +1096,8 @@
         "group"
       ]
     },
-    "SS0086": {
-      "code": "SS0086",
+    "SQL0086": {
+      "code": "SQL0086",
       "kind": "metric",
       "name": "sqlstreams.consumer.exceptions.inflight",
       "metric_kind": "gauge",
@@ -1109,8 +1109,8 @@
         "group"
       ]
     },
-    "SS0087": {
-      "code": "SS0087",
+    "SQL0087": {
+      "code": "SQL0087",
       "kind": "metric",
       "name": "sqlstreams.consumer.exceptions.deferred",
       "metric_kind": "gauge",
@@ -1122,8 +1122,8 @@
         "group"
       ]
     },
-    "SS0088": {
-      "code": "SS0088",
+    "SQL0088": {
+      "code": "SQL0088",
       "kind": "metric",
       "name": "sqlstreams.consumer.exceptions.dead",
       "metric_kind": "gauge",
@@ -1135,8 +1135,8 @@
         "group"
       ]
     },
-    "SS0089": {
-      "code": "SS0089",
+    "SQL0089": {
+      "code": "SQL0089",
       "kind": "metric",
       "name": "sqlstreams.consumer.exceptions.oldest_unresolved_age",
       "metric_kind": "gauge",
@@ -1148,8 +1148,8 @@
         "group"
       ]
     },
-    "SS0090": {
-      "code": "SS0090",
+    "SQL0090": {
+      "code": "SQL0090",
       "kind": "metric",
       "name": "sqlstreams.consumer.open_leases",
       "metric_kind": "gauge",
@@ -1161,8 +1161,8 @@
         "group"
       ]
     },
-    "SS0091": {
-      "code": "SS0091",
+    "SQL0091": {
+      "code": "SQL0091",
       "kind": "metric",
       "name": "sqlstreams.consumer.abandoned_routines.outstanding",
       "metric_kind": "gauge",
@@ -1174,8 +1174,8 @@
         "group"
       ]
     },
-    "SS0092": {
-      "code": "SS0092",
+    "SQL0092": {
+      "code": "SQL0092",
       "kind": "metric",
       "name": "sqlstreams.consumer.abandoned_routines.total",
       "metric_kind": "gauge",
@@ -1187,8 +1187,8 @@
         "group"
       ]
     },
-    "SS0093": {
-      "code": "SS0093",
+    "SQL0093": {
+      "code": "SQL0093",
       "kind": "metric",
       "name": "sqlstreams.consumer.abandoned_routines.self_clear_latency_avg",
       "metric_kind": "gauge",
@@ -1200,39 +1200,39 @@
         "group"
       ]
     },
-    "SS0094": {
-      "code": "SS0094",
+    "SQL0094": {
+      "code": "SQL0094",
       "kind": "alert",
       "name": "partition_count",
       "description": "a stream's message log holds enough partitions that dropping the stream approaches the lock-table ceiling",
       "scope": "stream",
       "severity": "warn"
     },
-    "SS0095": {
-      "code": "SS0095",
+    "SQL0095": {
+      "code": "SQL0095",
       "kind": "alert",
       "name": "compaction_read_cost",
       "description": "a compacted stream holds enough partitions that replaying a never-superseded key is a long scan",
       "scope": "stream",
       "severity": "warn"
     },
-    "SS0096": {
-      "code": "SS0096",
+    "SQL0096": {
+      "code": "SQL0096",
       "kind": "alert",
       "name": "worker_liveness",
       "description": "a stream's worker rows have no live instance, so nothing runs its upkeep",
       "scope": "stream",
       "severity": "warn"
     },
-    "SS0097": {
-      "code": "SS0097",
+    "SQL0097": {
+      "code": "SQL0097",
       "kind": "error",
       "problem": "payload cannot be encoded as JSON",
       "recovery": "permanent",
       "fix": "give the payload a shape encoding/json accepts -- the cause names what it could not encode"
     },
-    "SS0098": {
-      "code": "SS0098",
+    "SQL0098": {
+      "code": "SQL0098",
       "kind": "metric",
       "name": "sqlstreams.stream.state.partitions",
       "metric_kind": "gauge",
@@ -1243,8 +1243,8 @@
         "stream"
       ]
     },
-    "SS0099": {
-      "code": "SS0099",
+    "SQL0099": {
+      "code": "SQL0099",
       "kind": "metric",
       "name": "sqlstreams.stream.workers.unclaimed",
       "metric_kind": "gauge",
@@ -1255,8 +1255,8 @@
         "stream"
       ]
     },
-    "SS0100": {
-      "code": "SS0100",
+    "SQL0100": {
+      "code": "SQL0100",
       "kind": "metric",
       "name": "sqlstreams.metrics.collector.completed_timestamp",
       "metric_kind": "gauge",
@@ -1264,24 +1264,24 @@
       "description": "Unix timestamp of the last completed metrics collection pass",
       "scope": "system"
     },
-    "SS0101": {
-      "code": "SS0101",
+    "SQL0101": {
+      "code": "SQL0101",
       "kind": "alert",
       "name": "metrics_collector_progress",
       "description": "metrics collection has not completed within the allowed age while manager leases remain continuous",
       "scope": "system",
       "severity": "warn"
     },
-    "SS0102": {
-      "code": "SS0102",
+    "SQL0102": {
+      "code": "SQL0102",
       "kind": "metric",
       "name": "sqlstreams.otel.source.read_success",
       "metric_kind": "gauge",
       "description": "whether the adapter read retained measurements successfully",
       "scope": "exporter"
     },
-    "SS0103": {
-      "code": "SS0103",
+    "SQL0103": {
+      "code": "SQL0103",
       "kind": "metric",
       "name": "sqlstreams.otel.measurements.rejected",
       "metric_kind": "gauge",
@@ -1289,13 +1289,13 @@
       "description": "retained measurements omitted from the current export",
       "scope": "exporter"
     },
-    "SS0104": {
-      "code": "SS0104",
+    "SQL0104": {
+      "code": "SQL0104",
       "kind": "event",
       "message": "measurements cannot be exported -- the current collection omits the rejected metric family; healthy families still export"
     },
-    "SS0105": {
-      "code": "SS0105",
+    "SQL0105": {
+      "code": "SQL0105",
       "kind": "event",
       "message": "queued message has insufficient lease time -- range waits for reclaim; successful handlers in the range can repeat"
     }

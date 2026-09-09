@@ -3,7 +3,7 @@ package diagnostic
 import "testing"
 
 var metricTestBacklog = NewDiagnosticMetric(
-	"SS9920",
+	"SQL9920",
 	"sqlstreams.test.cursor.backlog",
 	"gauge",
 	"{message}",
@@ -25,7 +25,7 @@ func TestMetricCarriesMetadata(t *testing.T) {
 func TestNewMetricCopiesAttributeKeys(t *testing.T) {
 	attributeKeys := []string{"stream"}
 	declared := NewDiagnosticMetric(
-		"SS9921",
+		"SQL9921",
 		"sqlstreams.test.stream.depth",
 		"gauge",
 		"{message}",
@@ -50,13 +50,13 @@ func TestNewMetricRejectsInvalidMetadata(t *testing.T) {
 		scope         MetricScope
 		attributeKeys []string
 	}{
-		{name: "empty name", code: "SS9922", kind: "gauge", description: "test depth", scope: MetricScopeSystem},
-		{name: "empty kind", code: "SS9923", metricName: "sqlstreams.test.empty_kind", description: "test depth", scope: MetricScopeSystem},
-		{name: "empty description", code: "SS9924", metricName: "sqlstreams.test.empty_description", kind: "gauge", scope: MetricScopeSystem},
-		{name: "empty scope", code: "SS9925", metricName: "sqlstreams.test.empty_scope", kind: "gauge", description: "test depth"},
-		{name: "unknown scope", code: "SS9926", metricName: "sqlstreams.test.unknown_scope", kind: "gauge", description: "test depth", scope: MetricScope("worker")},
-		{name: "empty attribute key", code: "SS9927", metricName: "sqlstreams.test.empty_attribute", kind: "gauge", description: "test depth", scope: MetricScopeSystem, attributeKeys: []string{""}},
-		{name: "duplicate attribute key", code: "SS9928", metricName: "sqlstreams.test.duplicate_attribute", kind: "gauge", description: "test depth", scope: MetricScopeSystem, attributeKeys: []string{"stream", "stream"}},
+		{name: "empty name", code: "SQL9922", kind: "gauge", description: "test depth", scope: MetricScopeSystem},
+		{name: "empty kind", code: "SQL9923", metricName: "sqlstreams.test.empty_kind", description: "test depth", scope: MetricScopeSystem},
+		{name: "empty description", code: "SQL9924", metricName: "sqlstreams.test.empty_description", kind: "gauge", scope: MetricScopeSystem},
+		{name: "empty scope", code: "SQL9925", metricName: "sqlstreams.test.empty_scope", kind: "gauge", description: "test depth"},
+		{name: "unknown scope", code: "SQL9926", metricName: "sqlstreams.test.unknown_scope", kind: "gauge", description: "test depth", scope: MetricScope("worker")},
+		{name: "empty attribute key", code: "SQL9927", metricName: "sqlstreams.test.empty_attribute", kind: "gauge", description: "test depth", scope: MetricScopeSystem, attributeKeys: []string{""}},
+		{name: "duplicate attribute key", code: "SQL9928", metricName: "sqlstreams.test.duplicate_attribute", kind: "gauge", description: "test depth", scope: MetricScopeSystem, attributeKeys: []string{"stream", "stream"}},
 	}
 
 	for _, test := range tests {

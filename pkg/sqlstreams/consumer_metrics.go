@@ -21,7 +21,7 @@ func (h *ConsumerHandle[Message]) Metrics() *ConsumerMetricsHandle {
 }
 
 // Definitions returns the consumer-group-scoped SQLStreams metric definitions
-// ordered by SS code. It performs no I/O.
+// ordered by SQL code. It performs no I/O.
 func (h *ConsumerMetricsHandle) Definitions() []MetricDefinition {
 	return metric.Definitions(diagnostic.MetricScopeConsumerGroup)
 }

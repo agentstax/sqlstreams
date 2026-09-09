@@ -74,7 +74,7 @@ Two clients on two schemas in the same database each get their own catalog,
 streams, and sequences; `orders` registers in both and they are different
 streams. `client.System().Register` creates the schema if it is missing,
 which needs CREATE on the database; without that you get
-[SS0064](/errors/SS0064/), and the fix is to create the schema yourself and
+[SQL0064](/errors/SQL0064/), and the fix is to create the schema yourself and
 grant the role USAGE and CREATE on it.
 
 The pool sets no `search_path`. Every statement SQLStreams runs names its schema

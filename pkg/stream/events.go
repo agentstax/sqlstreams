@@ -7,8 +7,8 @@ import (
 // EventStreamConfigReplaced means a declaration overwrote a stream row's
 // differing mutable config -- two declarers disagree about the stream.
 //
-// Diagnose queries: sqlstreams explain SS0061
-var EventStreamConfigReplaced = diagnostic.NewDiagnosticEvent("SS0061",
+// Diagnose queries: sqlstreams explain SQL0061
+var EventStreamConfigReplaced = diagnostic.NewDiagnosticEvent("SQL0061",
 	"stream config replaced",
 	"the newest declaration wins; if this is unexpected or repeats on every restart, two services declare this stream with different configs and overwrite each other",
 

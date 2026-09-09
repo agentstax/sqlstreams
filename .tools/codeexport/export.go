@@ -7,7 +7,7 @@ import (
 	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
 )
 
-// Export is every SS-coded declaration keyed by its code. One document, so a
+// Export is every SQL-coded declaration keyed by its code. One document, so a
 // page reads the record it needs by code and the drift check compares the
 // whole registry in one pass.
 type Export struct {

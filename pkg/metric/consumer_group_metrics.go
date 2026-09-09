@@ -3,7 +3,7 @@ package metric
 import "github.com/agentstax/sqlstreams/pkg/common/diagnostic"
 
 var MetricCursorHead = diagnostic.NewDiagnosticMetric(
-	"SS0080",
+	"SQL0080",
 	"sqlstreams.consumer.cursor.head",
 	string(MetricKindGauge),
 	string(MetricUnitCount("message")),
@@ -14,7 +14,7 @@ var MetricCursorHead = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricCursorClaimed = diagnostic.NewDiagnosticMetric(
-	"SS0081",
+	"SQL0081",
 	"sqlstreams.consumer.cursor.claimed",
 	string(MetricKindGauge),
 	string(MetricUnitCount("message")),
@@ -25,7 +25,7 @@ var MetricCursorClaimed = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricCursorCommitted = diagnostic.NewDiagnosticMetric(
-	"SS0082",
+	"SQL0082",
 	"sqlstreams.consumer.cursor.committed",
 	string(MetricKindGauge),
 	string(MetricUnitCount("message")),
@@ -36,7 +36,7 @@ var MetricCursorCommitted = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricCursorBacklog = diagnostic.NewDiagnosticMetric(
-	"SS0083",
+	"SQL0083",
 	"sqlstreams.consumer.cursor.backlog",
 	string(MetricKindGauge),
 	string(MetricUnitCount("message")),
@@ -47,7 +47,7 @@ var MetricCursorBacklog = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricCursorInflight = diagnostic.NewDiagnosticMetric(
-	"SS0084",
+	"SQL0084",
 	"sqlstreams.consumer.cursor.inflight",
 	string(MetricKindGauge),
 	string(MetricUnitCount("message")),
@@ -58,7 +58,7 @@ var MetricCursorInflight = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricReadyExceptions = diagnostic.NewDiagnosticMetric(
-	"SS0085",
+	"SQL0085",
 	"sqlstreams.consumer.exceptions.ready",
 	string(MetricKindGauge),
 	string(MetricUnitCount("exception")),
@@ -69,7 +69,7 @@ var MetricReadyExceptions = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricInflightExceptions = diagnostic.NewDiagnosticMetric(
-	"SS0086",
+	"SQL0086",
 	"sqlstreams.consumer.exceptions.inflight",
 	string(MetricKindGauge),
 	string(MetricUnitCount("exception")),
@@ -80,7 +80,7 @@ var MetricInflightExceptions = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricDeferredExceptions = diagnostic.NewDiagnosticMetric(
-	"SS0087",
+	"SQL0087",
 	"sqlstreams.consumer.exceptions.deferred",
 	string(MetricKindGauge),
 	string(MetricUnitCount("exception")),
@@ -91,7 +91,7 @@ var MetricDeferredExceptions = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricDeadExceptions = diagnostic.NewDiagnosticMetric(
-	"SS0088",
+	"SQL0088",
 	"sqlstreams.consumer.exceptions.dead",
 	string(MetricKindGauge),
 	string(MetricUnitCount("exception")),
@@ -102,7 +102,7 @@ var MetricDeadExceptions = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricOldestUnresolvedAge = diagnostic.NewDiagnosticMetric(
-	"SS0089",
+	"SQL0089",
 	"sqlstreams.consumer.exceptions.oldest_unresolved_age",
 	string(MetricKindGauge),
 	string(MetricUnitMilliseconds),
@@ -113,7 +113,7 @@ var MetricOldestUnresolvedAge = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricOpenLeases = diagnostic.NewDiagnosticMetric(
-	"SS0090",
+	"SQL0090",
 	"sqlstreams.consumer.open_leases",
 	string(MetricKindGauge),
 	string(MetricUnitCount("lease")),
@@ -124,7 +124,7 @@ var MetricOpenLeases = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricAbandonedOutstanding = diagnostic.NewDiagnosticMetric(
-	"SS0091",
+	"SQL0091",
 	"sqlstreams.consumer.abandoned_routines.outstanding",
 	string(MetricKindGauge),
 	string(MetricUnitCount("routine")),
@@ -135,7 +135,7 @@ var MetricAbandonedOutstanding = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricAbandonedTotal = diagnostic.NewDiagnosticMetric(
-	"SS0092",
+	"SQL0092",
 	"sqlstreams.consumer.abandoned_routines.total",
 	string(MetricKindGauge),
 	string(MetricUnitCount("routine")),
@@ -146,7 +146,7 @@ var MetricAbandonedTotal = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricAbandonedSelfClearLatencyAvg = diagnostic.NewDiagnosticMetric(
-	"SS0093",
+	"SQL0093",
 	"sqlstreams.consumer.abandoned_routines.self_clear_latency_avg",
 	string(MetricKindGauge),
 	string(MetricUnitMilliseconds),

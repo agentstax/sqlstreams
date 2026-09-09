@@ -180,7 +180,7 @@ func (e *DiagnosticError) Docs() string {
 	return docsBaseURL + e.code
 }
 
-// GetCode is the declaration's SS code.
+// GetCode is the declaration's SQL code.
 func (e *DiagnosticError) GetCode() string {
 	return e.code
 }

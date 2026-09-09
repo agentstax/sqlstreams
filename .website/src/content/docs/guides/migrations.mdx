@@ -38,10 +38,10 @@ refuses to start rather than run against a shape it doesn't understand:
 
 - **Database older than the binary** — the binary requires schema the
   database doesn't have yet: `schema version is older than this build
-  requires — migrate the database up first` ([`SS0022`](/errors/SS0022)).
+  requires — migrate the database up first` ([`SQL0022`](/errors/SQL0022)).
 - **Database migrated past what the binary tolerates** — a newer release
   applied a breaking migration: `schema version is newer than this build
-  understands — upgrade the binary` ([`SS0023`](/errors/SS0023)).
+  understands — upgrade the binary` ([`SQL0023`](/errors/SQL0023)).
 
 ## Rolling deploys: the minimum compatible version
 
@@ -66,7 +66,7 @@ the machinery's.
 Transactional migration steps run under a 2-second `lock_timeout`, so a step
 queued behind your traffic gives up and retries instead of stalling the
 queries queued behind it. When contention outlasts the retries, the run
-stops with [`SS0053`](/errors/SS0053) naming the blocking session as the
+stops with [`SQL0053`](/errors/SQL0053) naming the blocking session as the
 thing to clear.
 
 ## Which builds a database admits
@@ -83,7 +83,7 @@ regions:
 
 - **The diagonal** — binary and database agree. Always admitted.
 - **Over the diagonal** — the binary expects schema the database doesn't
-  have yet. Always `SS0022`: migrate the database up.
+  have yet. Always `SQL0022`: migrate the database up.
 - **Under it** — the database is ahead of the binary. This is the
   rolling-deploy window, and it reaches exactly as far back as the newest
   breaking step allows. A run of additive steps leaves it wide; one breaking

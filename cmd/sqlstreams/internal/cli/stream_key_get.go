@@ -18,7 +18,7 @@ func newStreamKeyGetCmd(g *globalFlags) *cobra.Command {
 		Short: "Show the key's compaction head",
 		Long: `Show the key's compaction head -- the message that currently wins under it.
 A key nothing was produced under with compaction enabled has no head and
-exits non-zero with SS0066.`,
+exits non-zero with SQL0066.`,
 		Example: `  sqlstreams stream key get orders.created order-42`,
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {

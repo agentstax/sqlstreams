@@ -19,7 +19,7 @@ func (t *StreamHandle[Message]) Metrics() *StreamMetricsHandle {
 	return &StreamMetricsHandle{streamName: t.name, client: t.client}
 }
 
-// Definitions returns the stream-scoped SQLStreams metric definitions ordered by SS
+// Definitions returns the stream-scoped SQLStreams metric definitions ordered by SQL
 // code. It performs no I/O.
 func (t *StreamMetricsHandle) Definitions() []MetricDefinition {
 	return metric.Definitions(diagnostic.MetricScopeStream)

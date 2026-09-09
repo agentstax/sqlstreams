@@ -66,8 +66,8 @@ per finding and stay on the `Alert`.
 
 Three built-ins are owned by a stream: `partition_count`,
 `compaction_read_cost`, `worker_liveness`. The system owns
-`metrics_collector_progress`. Each has a SS code, so
-`sqlstreams explain SS0094` and its page say what an active one means. The
+`metrics_collector_progress`. Each has a SQL code, so
+`sqlstreams explain SQL0094` and its page say what an active one means. The
 group handle has no built-in selector: its `Definitions()` is empty and
 `Alert(name)` is its whole read.
 

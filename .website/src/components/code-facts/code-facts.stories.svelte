@@ -6,7 +6,7 @@
 		title: 'Board/CodeFacts',
 		component: CodeFacts,
 		args: {
-			code: 'SS0005',
+			code: 'SQL0005',
 			classification: 'recovery permanent',
 			consequence: 'an unchanged retry cannot succeed; retry machinery stops immediately',
 		},
@@ -18,7 +18,7 @@
 <Story
 	name="Event"
 	args={{
-		code: 'SS0028',
+		code: 'SQL0028',
 		classification: 'log event at warn',
 		consequence:
 			'degraded but self-healing, or a durable data consequence; an operator should learn of it eventually',

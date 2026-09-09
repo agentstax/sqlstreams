@@ -15,10 +15,10 @@ import (
 // cliFixes rewrites a code's fix into a sqlstreams command that runs verbatim as
 // pasted; codes absent here keep the library's Go-API fix.
 var cliFixes = map[string]string{
-	// SS0017 system not registered
-	"SS0017": "run `sqlstreams migrate init`",
-	// SS0066 compaction head not found
-	"SS0066": "run `sqlstreams stream key messages {stream} {message_key}` to see what was produced under the key",
+	// SQL0017 system not registered
+	"SQL0017": "run `sqlstreams migrate init`",
+	// SQL0066 compaction head not found
+	"SQL0066": "run `sqlstreams stream key messages {stream} {message_key}` to see what was produced under the key",
 }
 
 // cliError is the one error type every command returns. It carries the process

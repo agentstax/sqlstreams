@@ -7,8 +7,8 @@ import (
 // EventLeaseReclaimed means a range lease's worker stopped renewing and the
 // range went back to the claimable pool.
 //
-// Diagnose queries: sqlstreams explain SS0026
-var EventLeaseReclaimed = diagnostic.NewDiagnosticEvent("SS0026",
+// Diagnose queries: sqlstreams explain SQL0026
+var EventLeaseReclaimed = diagnostic.NewDiagnosticEvent("SQL0026",
 	"lease reclaimed from expired worker", "",
 
 	diagnostic.NewDiagnosticQuery("the leases this group holds now", `
@@ -36,8 +36,8 @@ ORDER BY message_id;`),
 // EventRangeQuarantined means a range hit MaxRangeReclaims and is treated as
 // poison instead of being handed out again.
 //
-// Diagnose queries: sqlstreams explain SS0027
-var EventRangeQuarantined = diagnostic.NewDiagnosticEvent("SS0027",
+// Diagnose queries: sqlstreams explain SQL0027
+var EventRangeQuarantined = diagnostic.NewDiagnosticEvent("SQL0027",
 	"range quarantined after max reclaims",
 	"messages written as 'ready' exceptions",
 
@@ -65,8 +65,8 @@ ORDER BY id;`),
 // EventMessagesDeadLettered marks a commit that wrote terminal outcomes for
 // a batch of messages.
 //
-// Diagnose queries: sqlstreams explain SS0028
-var EventMessagesDeadLettered = diagnostic.NewDiagnosticEvent("SS0028",
+// Diagnose queries: sqlstreams explain SQL0028
+var EventMessagesDeadLettered = diagnostic.NewDiagnosticEvent("SQL0028",
 	"messages dead-lettered",
 	"unrecoverable, will not be retried",
 
@@ -91,8 +91,8 @@ ORDER BY dead_count DESC;`),
 
 // EventMessageDeadLettered marks one delivery written as terminal.
 //
-// Diagnose queries: sqlstreams explain SS0029
-var EventMessageDeadLettered = diagnostic.NewDiagnosticEvent("SS0029",
+// Diagnose queries: sqlstreams explain SQL0029
+var EventMessageDeadLettered = diagnostic.NewDiagnosticEvent("SQL0029",
 	"message dead-lettered",
 	"unrecoverable, will not be retried",
 
@@ -127,8 +127,8 @@ WHERE id = {message_id};`),
 
 // EventExceptionDeadLettered marks one exception written as terminal.
 //
-// Diagnose queries: sqlstreams explain SS0030
-var EventExceptionDeadLettered = diagnostic.NewDiagnosticEvent("SS0030",
+// Diagnose queries: sqlstreams explain SQL0030
+var EventExceptionDeadLettered = diagnostic.NewDiagnosticEvent("SQL0030",
 	"exception dead-lettered",
 	"unrecoverable, will not be retried",
 
@@ -156,8 +156,8 @@ ORDER BY attempt;`),
 // EventKillBackstopFired means the crash-loop backstop marked a group's
 // exceptions dead after repeated consumer crashes on the same rows.
 //
-// Diagnose queries: sqlstreams explain SS0031
-var EventKillBackstopFired = diagnostic.NewDiagnosticEvent("SS0031",
+// Diagnose queries: sqlstreams explain SQL0031
+var EventKillBackstopFired = diagnostic.NewDiagnosticEvent("SQL0031",
 	"crash-loop kill backstop fired",
 	"exceptions marked dead",
 
@@ -186,19 +186,19 @@ LIMIT 50;`),
 
 // EventStoredOptionsClamped means a stored message's options fell outside
 // this consumer's MessageMin/MessageMax bounds.
-var EventStoredOptionsClamped = diagnostic.NewDiagnosticEvent("SS0032",
+var EventStoredOptionsClamped = diagnostic.NewDiagnosticEvent("SQL0032",
 	"stored message options outside this consumer's bounds", "clamped")
 
 // EventSlowDispatch means one delivery's dispatch ran past the group's
 // SlowDispatchThreshold, whatever the delivery's outcome.
-var EventSlowDispatch = diagnostic.NewDiagnosticEvent("SS0039",
+var EventSlowDispatch = diagnostic.NewDiagnosticEvent("SQL0039",
 	"delivery dispatch exceeded the duration threshold", "")
 
 // EventGroupConfigNotRefreshed means an instance could not read its worker
 // row's stored config back, so it keeps running on the copy it already has.
 //
-// Diagnose queries: sqlstreams explain SS0060
-var EventGroupConfigNotRefreshed = diagnostic.NewDiagnosticEvent("SS0060",
+// Diagnose queries: sqlstreams explain SQL0060
+var EventGroupConfigNotRefreshed = diagnostic.NewDiagnosticEvent("SQL0060",
 	"could not refresh group config",
 	"the last copy stays in use",
 
@@ -212,10 +212,10 @@ ORDER BY worker_config.name;`),
 
 // EventConsumerStopped is the session summary a consumer instance logs on
 // every exit.
-var EventConsumerStopped = diagnostic.NewDiagnosticEvent("SS0041",
+var EventConsumerStopped = diagnostic.NewDiagnosticEvent("SQL0041",
 	"consumer stopped", "")
 
 // EventQueuedRangeStale means a queued message cannot start within its range's lease budget.
-var EventQueuedRangeStale = diagnostic.NewDiagnosticEvent("SS0105",
+var EventQueuedRangeStale = diagnostic.NewDiagnosticEvent("SQL0105",
 	"queued message has insufficient lease time",
 	"range waits for reclaim; successful handlers in the range can repeat")

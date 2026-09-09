@@ -8,7 +8,7 @@ import (
 	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
 )
 
-var errTestStreamMissing = diagnostic.NewDiagnosticError("SS9803", diagnostic.RecoveryPermanent,
+var errTestStreamMissing = diagnostic.NewDiagnosticError("SQL9803", diagnostic.RecoveryPermanent,
 	"test stream not found", "register it first",
 
 	diagnostic.NewDiagnosticQuery("the stream rows registered under that name", `

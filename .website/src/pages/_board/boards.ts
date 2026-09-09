@@ -85,7 +85,7 @@ export const boards: Board[] = [
 	{
 		title: 'Troubleshooting',
 		slug: 'troubleshooting',
-		description: 'every SS error code and log event, one thread each',
+		description: 'every SQL error code and log event, one thread each',
 		// the code index leads, then the code threads in code order
 		threads: (ids) => ['errors', ...ids.filter(isErrorThread).sort()],
 	},

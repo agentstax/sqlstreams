@@ -6,7 +6,7 @@
 		title: 'Board/LogLine',
 		component: LogLine,
 		args: {
-			text: 'schema version is older than this build requires: version 2, build_version 3, owner_kind "stream" -- migrate the stream schema up from 2 to 3 [SS0022]',
+			text: 'schema version is older than this build requires: version 2, build_version 3, owner_kind "stream" -- migrate the stream schema up from 2 to 3 [SQL0022]',
 			kind: 'error',
 		},
 	});
@@ -17,7 +17,7 @@
 <Story
 	name="Event"
 	args={{
-		text: 'level=WARN msg="messages dead-lettered" code=SS0028 stream_id=1 group_id=7',
+		text: 'level=WARN msg="messages dead-lettered" code=SQL0028 stream_id=1 group_id=7',
 		kind: 'event',
 	}}
 />

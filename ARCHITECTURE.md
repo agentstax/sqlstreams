@@ -75,7 +75,7 @@ the checks under `alert`.
 
 ## Everywhere
 
-- Errors, events, metrics, and alerts are declared with a `SSnnnn` code
+- Errors, events, metrics, and alerts are declared with a `SQLnnnn` code
   in each package's `errors.go`, `events.go`, `metrics.go`, and
   `alerts.go`. `sqlstreams explain` reads them.
 - `DatastoreRetry` wraps every public datastore method. Transient errors

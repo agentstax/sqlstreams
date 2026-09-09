@@ -21,7 +21,7 @@ func (t *StreamHandle[Message]) Alerts() *StreamAlertsHandle {
 }
 
 // Definitions returns the stream-scoped SQLStreams alert definitions ordered by
-// SS code. It performs no I/O.
+// SQL code. It performs no I/O.
 func (t *StreamAlertsHandle) Definitions() []AlertDefinition {
 	return alert.Definitions(diagnostic.MetricScopeStream)
 }

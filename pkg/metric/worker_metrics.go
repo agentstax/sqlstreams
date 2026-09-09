@@ -3,7 +3,7 @@ package metric
 import "github.com/agentstax/sqlstreams/pkg/common/diagnostic"
 
 var MetricUnclaimedWorkers = diagnostic.NewDiagnosticMetric(
-	"SS0067",
+	"SQL0067",
 	"sqlstreams.worker.state.unclaimed_workers",
 	string(MetricKindGauge),
 	string(MetricUnitCount("worker")),
@@ -12,7 +12,7 @@ var MetricUnclaimedWorkers = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricOldestUnclaimedAge = diagnostic.NewDiagnosticMetric(
-	"SS0068",
+	"SQL0068",
 	"sqlstreams.worker.state.oldest_unclaimed_age",
 	string(MetricKindGauge),
 	string(MetricUnitMilliseconds),
@@ -21,7 +21,7 @@ var MetricOldestUnclaimedAge = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricFailingWorkers = diagnostic.NewDiagnosticMetric(
-	"SS0069",
+	"SQL0069",
 	"sqlstreams.worker.state.failing_workers",
 	string(MetricKindGauge),
 	string(MetricUnitCount("worker")),

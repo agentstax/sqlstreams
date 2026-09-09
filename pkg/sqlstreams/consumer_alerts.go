@@ -22,7 +22,7 @@ func (h *ConsumerHandle[Message]) Alerts() *ConsumerAlertsHandle {
 }
 
 // Definitions returns the consumer-group-scoped SQLStreams alert definitions
-// ordered by SS code. It performs no I/O.
+// ordered by SQL code. It performs no I/O.
 func (h *ConsumerAlertsHandle) Definitions() []AlertDefinition {
 	return alert.Definitions(diagnostic.MetricScopeConsumerGroup)
 }

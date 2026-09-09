@@ -3,7 +3,7 @@ package diagnostic
 import "testing"
 
 var alertTestPartitionCount = NewDiagnosticAlert(
-	"SS9930",
+	"SQL9930",
 	"test_partition_count",
 	"a test stream holds more partitions than the threshold",
 	MetricScopeStream,
@@ -38,14 +38,14 @@ func TestNewAlertRejectsInvalidMetadata(t *testing.T) {
 		scope       MetricScope
 		severity    string
 	}{
-		{name: "empty name", code: "SS9931", description: "test condition", scope: MetricScopeStream, severity: "warn"},
-		{name: "empty description", code: "SS9932", alertName: "test_empty_description", scope: MetricScopeStream, severity: "warn"},
-		{name: "empty scope", code: "SS9933", alertName: "test_empty_scope", description: "test condition", severity: "warn"},
-		{name: "unknown scope", code: "SS9934", alertName: "test_unknown_scope", description: "test condition", scope: MetricScope("worker"), severity: "warn"},
-		{name: "session scope", code: "SS9935", alertName: "test_session_scope", description: "test condition", scope: MetricScopeConsumerSession, severity: "warn"},
-		{name: "exporter scope", code: "SS9938", alertName: "test_exporter_scope", description: "test condition", scope: MetricScopeExporter, severity: "warn"},
-		{name: "empty severity", code: "SS9936", alertName: "test_empty_severity", description: "test condition", scope: MetricScopeStream},
-		{name: "duplicate name", code: "SS9937", alertName: "test_partition_count", description: "test condition", scope: MetricScopeStream, severity: "warn"},
+		{name: "empty name", code: "SQL9931", description: "test condition", scope: MetricScopeStream, severity: "warn"},
+		{name: "empty description", code: "SQL9932", alertName: "test_empty_description", scope: MetricScopeStream, severity: "warn"},
+		{name: "empty scope", code: "SQL9933", alertName: "test_empty_scope", description: "test condition", severity: "warn"},
+		{name: "unknown scope", code: "SQL9934", alertName: "test_unknown_scope", description: "test condition", scope: MetricScope("worker"), severity: "warn"},
+		{name: "session scope", code: "SQL9935", alertName: "test_session_scope", description: "test condition", scope: MetricScopeConsumerSession, severity: "warn"},
+		{name: "exporter scope", code: "SQL9938", alertName: "test_exporter_scope", description: "test condition", scope: MetricScopeExporter, severity: "warn"},
+		{name: "empty severity", code: "SQL9936", alertName: "test_empty_severity", description: "test condition", scope: MetricScopeStream},
+		{name: "duplicate name", code: "SQL9937", alertName: "test_partition_count", description: "test condition", scope: MetricScopeStream, severity: "warn"},
 	}
 
 	for _, test := range tests {

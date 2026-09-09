@@ -139,7 +139,7 @@ export SQLSTREAMS_ADMIN_DATABASE_URL=postgres://user:password@localhost/db
 
 sqlstreams stream list                              # every registered stream
 sqlstreams stream get videos.uploaded               # one specific stream's info
-sqlstreams explain SS0022                          # what an error code means, the fix, the SQL
+sqlstreams explain SQL0022                          # what an error code means, the fix, the SQL
 sqlstreams metric list                             # current value of every built-in metric
 sqlstreams alert list                              # what's active right now
 sqlstreams manager run --metrics-address :9464     # run upkeep process, serve Prometheus /metrics

@@ -25,7 +25,7 @@ func (s *SystemMetricsHandle) Consumer(name string) *ConsumerHandle[Measurement]
 	return s.client.Stream[Measurement](metric.MetricStreamName).Consumer(name)
 }
 
-// Definitions returns every SQLStreams built-in metric definition ordered by SS
+// Definitions returns every SQLStreams built-in metric definition ordered by SQL
 // code. It performs no I/O.
 func (s *SystemMetricsHandle) Definitions() []MetricDefinition {
 	return metric.Definitions()

@@ -17,7 +17,7 @@ func (s *SystemHandle) Alerts() *SystemAlertsHandle {
 	return &SystemAlertsHandle{client: s.client}
 }
 
-// Definitions returns every SQLStreams built-in alert definition ordered by SS
+// Definitions returns every SQLStreams built-in alert definition ordered by SQL
 // code. It performs no I/O.
 func (s *SystemAlertsHandle) Definitions() []AlertDefinition {
 	return alert.Definitions()

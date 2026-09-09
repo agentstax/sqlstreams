@@ -2,7 +2,7 @@
 
 # Docs
 
-change SS code acronym... think that has something to do with nazis
+website user icon for me needs to change (maybe my shipt profile pic)
 
 roadmap later item for review code for interesting design decisions to write articles on (big or small things)
 - diagnostic code system

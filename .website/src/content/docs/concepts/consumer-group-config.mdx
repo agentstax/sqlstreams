@@ -82,7 +82,7 @@ return payments.Consume(ctx, func(ctx context.Context, payment *PaymentRequested
 
 `Consumer(name).Register` resolves the stream, writes the declaration it was
 handed, and returns the typed instance. Newest wins, and an overwrite
-warns [SS0059](/errors/SS0059/)
+warns [SQL0059](/errors/SQL0059/)
 ([what a declaration does](/concepts/api-shape/#what-a-declaration-does)).
 
 `Register` writes the config into the group's `worker_config` rows —
@@ -114,7 +114,7 @@ configs will overwrite each other on every restart, visibly
 in the log but endlessly. There is no strict form. A group's config
 wants exactly one declaring service, and that is a convention: the
 library enforces nothing, every differing overwrite logs
-[SS0059](/errors/SS0059/) naming the change, and the same line on
+[SQL0059](/errors/SQL0059/) naming the change, and the same line on
 every restart is the tell.
 
 ## Sparse stored, resolved at read

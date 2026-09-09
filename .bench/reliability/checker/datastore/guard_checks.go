@@ -65,7 +65,7 @@ func (d *CheckerDatastore) CountHeadroomBreaches(ctx context.Context, from time.
 		-- lab: datastore.CountHeadroomBreaches
 		SELECT
 			count(*),
-			COALESCE((array_agg(to_char(at, 'HH24:MI:SS') || ' ' || service || ' ' || round(cpu_percent) || '%%' ORDER BY at))[1:%[2]d], ARRAY[]::text[])
+			COALESCE((array_agg(to_char(at, 'HH24:MI:SQL') || ' ' || service || ' ' || round(cpu_percent) || '%%' ORDER BY at))[1:%[2]d], ARRAY[]::text[])
 		FROM %[1]s
 		WHERE at >= $1 AND at < $2
 			AND service IN ('producer', 'consumer')

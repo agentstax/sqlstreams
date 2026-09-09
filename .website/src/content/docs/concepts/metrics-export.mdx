@@ -88,7 +88,7 @@ attribute names. Reject conflicting kind or unit within a metric family,
 ambiguous translated names or attribute keys, and custom names that enter
 the reserved `sqlstreams_` or exporter-owned namespace. Healthy families still
 export; a current-collection rejection count and diagnostic identify loss.
-The warning [measurements cannot be exported](/errors/SS0104/) names the
+The warning [measurements cannot be exported](/errors/SQL0104/) names the
 rejected family and reason, without payloads.
 Partial rejection does not return a
 collection error: periodic readers must still export the healthy families.

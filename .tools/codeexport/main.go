@@ -1,6 +1,6 @@
 package main
 
-// code export: writes every SS-coded declaration as JSON for the doc site.
+// code export: writes every SQL-coded declaration as JSON for the doc site.
 // The declarations are the source -- the site renders hand-written prose and
 // reads this only for what a page cannot restate by hand: the diagnose
 // queries, and the record each page's frontmatter is checked against.

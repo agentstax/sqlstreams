@@ -6,7 +6,7 @@ export const collections = {
 		loader: glob({
 			pattern: '**/*.{md,mdx}',
 			base: './src/content/docs',
-			// the default generateId slugifies (SS0005 -> ss0005); ids and the
+			// the default generateId slugifies (SQL0005 -> sql0005); ids and the
 			// URLs built from them keep the file path's own casing
 			generateId: ({ entry }) => entry.replace(/\.(md|mdx)$/, ''),
 		}),
@@ -19,7 +19,7 @@ export const collections = {
 			kind: z
 				.enum(['error', 'event', 'metric', 'alert'])
 				.optional()
-				.describe('what the SS code names; present on every error-board page, absent elsewhere'),
+				.describe('what the SQL code names; present on every error-board page, absent elsewhere'),
 			recovery: z
 				.enum(['permanent', 'transient'])
 				.optional()

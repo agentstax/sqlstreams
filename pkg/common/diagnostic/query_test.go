@@ -83,8 +83,8 @@ func TestQueryPlaceholders(t *testing.T) {
 
 func TestConstructorsOwnDiagnosticQueries(t *testing.T) {
 	query := NewDiagnosticQuery("the delivery row", deliverySql)
-	declared := NewDiagnosticError("SS9001", RecoveryPermanent, "a condition with state to look at", "do the thing", query)
-	event := NewDiagnosticEvent("SS9002", "a thing happened", "", query)
+	declared := NewDiagnosticError("SQL9001", RecoveryPermanent, "a condition with state to look at", "do the thing", query)
+	event := NewDiagnosticEvent("SQL9002", "a thing happened", "", query)
 	query.Sql = "changed constructor input"
 	raised := declared.With("stream", "orders").Wrap(nil)
 	for _, queries := range [][]DiagnosticQuery{declared.Queries(), event.Queries(), raised.Queries()} {
@@ -100,7 +100,7 @@ func TestConstructorsOwnDiagnosticQueries(t *testing.T) {
 	}
 	registered := false
 	for _, listed := range Errors() {
-		if listed.GetCode() == "SS9001" {
+		if listed.GetCode() == "SQL9001" {
 			registered = len(listed.Queries()) == 1
 		}
 	}
@@ -111,8 +111,8 @@ func TestConstructorsOwnDiagnosticQueries(t *testing.T) {
 
 func TestConstructorsRejectNilDiagnosticQueries(t *testing.T) {
 	for name, declare := range map[string]func(){
-		"error": func() { NewDiagnosticError("SS9003", RecoveryPermanent, "a condition", "", nil) },
-		"event": func() { NewDiagnosticEvent("SS9004", "a condition", "", nil) },
+		"error": func() { NewDiagnosticError("SQL9003", RecoveryPermanent, "a condition", "", nil) },
+		"event": func() { NewDiagnosticEvent("SQL9004", "a condition", "", nil) },
 	} {
 		t.Run(name, func(t *testing.T) {
 			defer func() {

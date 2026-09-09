@@ -5,6 +5,18 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-09 — Diagnostic codes use SQL [0732]
+
+SQL replaces SS in diagnostic declarations, validation, CLI explain, website
+pages and generated data. All 105 declarations retain their numeric serials
+and content apart from the prefix. Codes are exactly SQL plus four ASCII
+digits; old prefixes are rejected. No compatibility aliases or redirects.
+
+Validation: seven current Go modules build/vet/format; diagnostic, common,
+CLI, OTel and tooling race tests; 127 website tests; code-export parity and
+`sqlstreams explain SQL0005 --output json`. The website deployment is pending
+separate approval; historical records keep the prefix used at the time.
+
 ## 2026-09-09 — SQLStreams and stream vocabulary [0725] [0726] [0727] [0729]
 
 The project is SQLStreams: module `github.com/agentstax/sqlstreams`, entry
@@ -19,8 +31,14 @@ Docs and executable SQL use the new names, and the
 approved wordmark ends with an amber semicolon, with SQL also amber. Browser
 preference/read-tracking keys change to `sqlstreams-board:*` and reset once.
 No rename redirects are needed before public release.
-The current generated Cloudflare origin remains; deployment, repository
-publication and the permanent domain before binary release are still pending.
+The site is deployed at `https://vulkan-5ss.pages.dev` (deployment
+`f4195287`), with live branding, sandbox, search, diagnostic pages and version
+manifest verified. The GitHub repository is renamed; permanent-domain and
+versioned module/binary publication remain release gates.
+The local [logo sheet](../SQLSTREAMS_LOGO_SHEET.html) and its PNG remain as
+brand deliverables; production SVG/PNG assets live in `.website/public`.
+The completed TODO/ROADMAP rename entries and initial exploration were
+removed at close-out; remaining release gates live in ROADMAP.
 
 Validation: seven current Go modules build/vet/format; root, CLI, OTel and
 .tools race tests; affected database race tests; downstream module build/vet;

@@ -93,14 +93,14 @@ Two knobs sit around the window, for two different problems:
 
 ## How you'd know it's happening
 
-- `abandoned_count` on the [consumer stopped](/errors/SS0041) line —
+- `abandoned_count` on the [consumer stopped](/errors/SQL0041) line —
   a healthy session ends with it at 0.
 - `sqlstreams.consumer.session.abandoned`
-  ([SS0050](/errors/SS0050)), the same count as a metric, flushed
+  ([SQL0050](/errors/SQL0050)), the same count as a metric, flushed
   per session.
 - The cleared record on each abandoned goroutine's eventual return
   is what tells hung from merely slow — an outstanding count that
   never drains means the goroutines are still stuck. A storm of
   abandoned routines can overflow the metric queue and log
-  [SS0052](/errors/SS0052); at that rate, investigate the consumer,
+  [SQL0052](/errors/SQL0052); at that rate, investigate the consumer,
   not the metrics.

@@ -707,7 +707,7 @@ are the choices the mechanism cannot make.
 The whole shape, one example:
 
     // pkg/stream/errors.go -- the declaration owns everything but the values
-    var ErrStreamNotFound = diagnostic.NewDiagnosticError("SS0005", diagnostic.RecoveryPermanent,
+    var ErrStreamNotFound = diagnostic.NewDiagnosticError("SQL0005", diagnostic.RecoveryPermanent,
     	"stream not found",
     	"register it with Client.Stream(name).Register first")
 
@@ -716,7 +716,7 @@ The whole shape, one example:
 
     // Error() one-liner (logs, wrapped chains) -- the code is the docs link
     stream not found: stream "orders", version 3 -- register it with
-    Client.Stream(name).Register first [SS0005]
+    Client.Stream(name).Register first [SQL0005]
 
 The CLI block, slog output, and --output json render these same parts as
 fields; only the fix wording differs per surface (Go API in the library, a
@@ -748,13 +748,13 @@ arbitrary attached application values are not deep-copied.
   declare none. Whichever layer detects the condition raises it -- admin
   for guards it composes, a datastore for facts its own query discovers.
   (checked)
-- Code = "SS" + the next four-digit serial after the current max (same
+- Code = "SQL" + the next four-digit serial after the current max (same
   scheme as decision records). Never reuse or renumber; a deleted
   condition retires its number.
 - Classify recovery by one question -- can an unchanged retry succeed?
   Transient = yes; Permanent = no. Retry machinery stops immediately on
   Permanent, so a wrong Transient burns a backoff curve on a lost cause.
-- Land the docs page (…/errors/SS0005, headed by the verbatim problem
+- Land the docs page (…/errors/SQL0005, headed by the verbatim problem
   text) in the same change -- readers and agents find it by pasting the
   message into search. Pages are hand-written under
   .website/src/content/docs/errors/ (never generated); a change to a
@@ -926,7 +926,7 @@ the code is the line's breadcrumb to its own explanation.
 
 - Declare in the owning vocabulary package's events.go via
   diagnostic.NewDiagnosticEvent(code, message, consequence) -- the codes
-  share the errors' SS serial space, next four-digit serial after the
+  share the errors' SQL serial space, next four-digit serial after the
   current max across both registries.
 - Call sites log the declaration's Message() and attach `"code",
   Event.GetCode()` as the first attribute pair -- the message stays
@@ -958,7 +958,7 @@ placeholder not in this table is a bug. (checked)
 | `streams` | the stream names a guard names, comma-separated |
 | `new_name` | a rename's target stream name |
 | `declared_partition_size`, `existing_partition_size` | the PartitionSize a declaration carries against the one the stream row already holds |
-| `version` | schema version (on SS0022/SS0023: the scope's current migration version) |
+| `version` | schema version (on SQL0022/SQL0023: the scope's current migration version) |
 | `build_version` | the migration version a build defines for a scope |
 | `min_compatible_version` | the strictest MinCompatibleVersion among the applied migration steps |
 | `group` | consumer group name |
@@ -987,7 +987,7 @@ placeholder not in this table is a bug. (checked)
 | `lease_remaining` | time until a queued message's range lease expires; negative after expiry |
 | `threshold` | the configured duration ceiling the line compares against |
 | `sqlstreams_version` | module version (common.BuildVersion) -- start lines |
-| `help` | plain words ending in the verbatim command that explains the line ("metrics explained: sqlstreams explain SS0041") -- summary lines only |
+| `help` | plain words ending in the verbatim command that explains the line ("metrics explained: sqlstreams explain SQL0041") -- summary lines only |
 | `<verb>_count` | rows affected by the named action (swept_count, reclaimed_count, dead_count) |
 | `suppressed_count` | repeats of the same Warn/Error line dropped inside the suppression window |
 

@@ -6,8 +6,8 @@
 		title: 'Board/SearchResult',
 		component: SearchResult,
 		args: {
-			title: 'stream not found [SS0005]',
-			href: '/errors/SS0005/',
+			title: 'stream not found [SQL0005]',
+			href: '/errors/SQL0005/',
 			excerpt: [
 				{ text: 'the ', marked: false },
 				{ text: 'stream', marked: true },

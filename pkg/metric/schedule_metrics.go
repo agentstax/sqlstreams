@@ -3,7 +3,7 @@ package metric
 import "github.com/agentstax/sqlstreams/pkg/common/diagnostic"
 
 var MetricOverdueSchedules = diagnostic.NewDiagnosticMetric(
-	"SS0070",
+	"SQL0070",
 	"sqlstreams.schedule.state.overdue",
 	string(MetricKindGauge),
 	string(MetricUnitCount("found")),
@@ -12,7 +12,7 @@ var MetricOverdueSchedules = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricOldestDueAge = diagnostic.NewDiagnosticMetric(
-	"SS0071",
+	"SQL0071",
 	"sqlstreams.schedule.state.oldest_due_age",
 	string(MetricKindGauge),
 	string(MetricUnitMilliseconds),
@@ -21,7 +21,7 @@ var MetricOldestDueAge = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricSuspendedSchedules = diagnostic.NewDiagnosticMetric(
-	"SS0072",
+	"SQL0072",
 	"sqlstreams.schedule.state.suspended",
 	string(MetricKindGauge),
 	string(MetricUnitCount("found")),

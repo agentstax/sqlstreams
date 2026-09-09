@@ -29,7 +29,7 @@ On the handle:
 
 | verb | returns | notes |
 | --- | --- | --- |
-| `Register(ctx, streamName, cron, payload, cfg)` | `*SchedulerInstance[T]` | newest declaration wins, and a differing one logs [SS0062](/errors/SS0062/); `nil` cfg is the defaults; `ErrStreamNotFound` |
+| `Register(ctx, streamName, cron, payload, cfg)` | `*SchedulerInstance[T]` | newest declaration wins, and a differing one logs [SQL0062](/errors/SQL0062/); `nil` cfg is the defaults; `ErrStreamNotFound` |
 | `Get(ctx)` | `*Schedule` | the comma-ok read: `(nil, nil)` when not registered |
 | `Suspend(ctx)` | `error` | stops producing until unsuspended; `ErrScheduleNotFound` |
 | `Unsuspend(ctx)` | `error` | resumes at the next scheduled time; a run that came due while suspended is dropped, not produced late |

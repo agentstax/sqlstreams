@@ -55,19 +55,19 @@ func TestNewExportCoversTheRegistry(t *testing.T) {
 func TestNewExportCarriesQueriesAndPlaceholders(t *testing.T) {
 	export := build(t)
 
-	record, found := export.Codes["SS0029"]
+	record, found := export.Codes["SQL0029"]
 	if !found {
-		t.Fatal("SS0029 is missing from the export")
+		t.Fatal("SQL0029 is missing from the export")
 	}
 	if len(record.Queries) == 0 {
-		t.Fatal("SS0029 exports no queries")
+		t.Fatal("SQL0029 exports no queries")
 	}
 	first := record.Queries[0]
 	if !strings.Contains(first.Sql, "{stream_id}") {
-		t.Errorf("SS0029's first query lost its placeholders: %q", first.Sql)
+		t.Errorf("SQL0029's first query lost its placeholders: %q", first.Sql)
 	}
 	if !slices.Contains(first.Placeholders, "stream_id") {
-		t.Errorf("SS0029's first query lists placeholders %v, want stream_id among them", first.Placeholders)
+		t.Errorf("SQL0029's first query lists placeholders %v, want stream_id among them", first.Placeholders)
 	}
 }
 
@@ -76,15 +76,15 @@ func TestNewExportCarriesQueriesAndPlaceholders(t *testing.T) {
 func TestNewExportOmitsAbsentParts(t *testing.T) {
 	export := build(t)
 
-	encoded, err := json.Marshal(export.Codes["SS0001"])
+	encoded, err := json.Marshal(export.Codes["SQL0001"])
 	if err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(string(encoded), "queries") {
-		t.Errorf("SS0001 exports a queries key with none declared: %s", encoded)
+		t.Errorf("SQL0001 exports a queries key with none declared: %s", encoded)
 	}
 	if strings.Contains(string(encoded), "message") {
-		t.Errorf("SS0001 is an error but exports an event's message: %s", encoded)
+		t.Errorf("SQL0001 is an error but exports an event's message: %s", encoded)
 	}
 }
 

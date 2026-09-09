@@ -6,8 +6,8 @@ import (
 
 // ErrConsumerNotFound means the named group has no row on that stream.
 //
-// Diagnose queries: sqlstreams explain SS0014
-var ErrConsumerNotFound = diagnostic.NewDiagnosticError("SS0014", diagnostic.RecoveryPermanent,
+// Diagnose queries: sqlstreams explain SQL0014
+var ErrConsumerNotFound = diagnostic.NewDiagnosticError("SQL0014", diagnostic.RecoveryPermanent,
 	"consumer group not found",
 	"register a consumer with this group name to create it",
 
@@ -33,8 +33,8 @@ WHERE id = {group_id};`),
 // ErrConsumerGroupLive means Destroy was called while a worker instance still runs
 // on the group, without a force override.
 //
-// Diagnose queries: sqlstreams explain SS0015
-var ErrConsumerGroupLive = diagnostic.NewDiagnosticError("SS0015", diagnostic.RecoveryPermanent,
+// Diagnose queries: sqlstreams explain SQL0015
+var ErrConsumerGroupLive = diagnostic.NewDiagnosticError("SQL0015", diagnostic.RecoveryPermanent,
 	"consumer group still has a live consumer",
 	"stop the group's consumers, or pass DestroyOptions.Force",
 
@@ -56,8 +56,8 @@ ORDER BY worker_instance.expires_at;`),
 //   - ready/inflight/deferred rows -> failures promised a retry
 //   - dead rows                    -> the dead-letter record
 //
-// Diagnose queries: sqlstreams explain SS0016
-var ErrConsumerGroupDeliveriesPending = diagnostic.NewDiagnosticError("SS0016", diagnostic.RecoveryPermanent,
+// Diagnose queries: sqlstreams explain SQL0016
+var ErrConsumerGroupDeliveriesPending = diagnostic.NewDiagnosticError("SQL0016", diagnostic.RecoveryPermanent,
 	"consumer group still has delivery rows",
 	"pass DestroyOptions.Force to delete them",
 
@@ -80,12 +80,12 @@ ORDER BY message_id;`),
 
 // ErrDeliveryTerminal is what Terminal returns: the handler declared that no
 // retry could succeed, so the delivery dead-letters on this attempt.
-var ErrDeliveryTerminal = diagnostic.NewDiagnosticError("SS0055", diagnostic.RecoveryPermanent,
+var ErrDeliveryTerminal = diagnostic.NewDiagnosticError("SQL0055", diagnostic.RecoveryPermanent,
 	"delivery cannot succeed",
 	"")
 
 // ErrDeliveryDelayed is what Delay returns: the handler asked for a later
 // run, so the delivery waits out the delay and no failure is counted.
-var ErrDeliveryDelayed = diagnostic.NewDiagnosticError("SS0054", diagnostic.RecoveryTransient,
+var ErrDeliveryDelayed = diagnostic.NewDiagnosticError("SQL0054", diagnostic.RecoveryTransient,
 	"could not complete the delivery yet, the handler asked to run it later",
 	"")

@@ -124,7 +124,7 @@ func (p *MetricProducer) Run(ctx context.Context, group string, streamName strin
 
 // flushGoRoutineEvents drains the queued events into one batch. Every drop
 // -- events past the cap since the last tick, a batch that could not land
-// (dropped, not requeued) -- is reported on the declared SS0052 line.
+// (dropped, not requeued) -- is reported on the declared SQL0052 line.
 func (p *MetricProducer) flushGoRoutineEvents(ctx context.Context, instance *iProducer.ProducerInstance[metric.GoRoutineEvent]) {
 	p.goRoutineEventsLock.Lock()
 	events := p.pendingGoRoutineEvents

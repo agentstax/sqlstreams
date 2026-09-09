@@ -141,7 +141,7 @@ one noun on both:
 | --- | --- | --- |
 | `Scheduler(name).Run` | `sqlstreams schedule run` | produces one message now, off-schedule, from the stored payload |
 | `Suspend` / `Unsuspend` | `sqlstreams schedule suspend` / `unsuspend` | stops and resumes the schedule; a time that came due while suspended is dropped |
-| `Status`, `Messages` | `sqlstreams schedule get` / `get --messages` | per-group outcomes, read from the target stream's `delivery_log` by message key; a `succeeded` count needs the target stream's `DeliveryLogMode: all` (the default keeps failures only) - `Register` warns [SS0058](/errors/SS0058) when it isn't |
+| `Status`, `Messages` | `sqlstreams schedule get` / `get --messages` | per-group outcomes, read from the target stream's `delivery_log` by message key; a `succeeded` count needs the target stream's `DeliveryLogMode: all` (the default keeps failures only) - `Register` warns [SQL0058](/errors/SQL0058) when it isn't |
 | `Destroy` | `sqlstreams schedule destroy` | deletes the row; gated by `AllowDestroy` |
 
 Temporal and EventBridge Scheduler use the same noun for the same

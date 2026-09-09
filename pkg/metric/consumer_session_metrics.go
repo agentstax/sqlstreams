@@ -5,7 +5,7 @@ import "github.com/agentstax/sqlstreams/pkg/common/diagnostic"
 // Consumer-session flows are per-instance monotonic totals, one series per
 // session. They report what one instance did.
 var MetricSessionClaimed = diagnostic.NewDiagnosticMetric(
-	"SS0042",
+	"SQL0042",
 	"sqlstreams.consumer.session.claimed",
 	string(MetricKindCounter),
 	string(MetricUnitCount("message")),
@@ -18,7 +18,7 @@ var MetricSessionClaimed = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricSessionSuccess = diagnostic.NewDiagnosticMetric(
-	"SS0043",
+	"SQL0043",
 	"sqlstreams.consumer.session.success",
 	string(MetricKindCounter),
 	string(MetricUnitCount("message")),
@@ -31,7 +31,7 @@ var MetricSessionSuccess = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricSessionSuperseded = diagnostic.NewDiagnosticMetric(
-	"SS0044",
+	"SQL0044",
 	"sqlstreams.consumer.session.superseded",
 	string(MetricKindCounter),
 	string(MetricUnitCount("message")),
@@ -44,7 +44,7 @@ var MetricSessionSuperseded = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricSessionReady = diagnostic.NewDiagnosticMetric(
-	"SS0045",
+	"SQL0045",
 	"sqlstreams.consumer.session.ready",
 	string(MetricKindCounter),
 	string(MetricUnitCount("message")),
@@ -57,7 +57,7 @@ var MetricSessionReady = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricSessionDeferred = diagnostic.NewDiagnosticMetric(
-	"SS0046",
+	"SQL0046",
 	"sqlstreams.consumer.session.deferred",
 	string(MetricKindCounter),
 	string(MetricUnitCount("message")),
@@ -70,7 +70,7 @@ var MetricSessionDeferred = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricSessionDead = diagnostic.NewDiagnosticMetric(
-	"SS0047",
+	"SQL0047",
 	"sqlstreams.consumer.session.dead",
 	string(MetricKindCounter),
 	string(MetricUnitCount("message")),
@@ -83,7 +83,7 @@ var MetricSessionDead = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricSessionReclaimed = diagnostic.NewDiagnosticMetric(
-	"SS0048",
+	"SQL0048",
 	"sqlstreams.consumer.session.reclaimed",
 	string(MetricKindCounter),
 	string(MetricUnitCount("lease")),
@@ -96,7 +96,7 @@ var MetricSessionReclaimed = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricSessionQuarantined = diagnostic.NewDiagnosticMetric(
-	"SS0049",
+	"SQL0049",
 	"sqlstreams.consumer.session.quarantined",
 	string(MetricKindCounter),
 	string(MetricUnitCount("range")),
@@ -109,7 +109,7 @@ var MetricSessionQuarantined = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricSessionAbandoned = diagnostic.NewDiagnosticMetric(
-	"SS0050",
+	"SQL0050",
 	"sqlstreams.consumer.session.abandoned",
 	string(MetricKindCounter),
 	string(MetricUnitCount("routine")),
@@ -122,7 +122,7 @@ var MetricSessionAbandoned = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricSessionLeaseLost = diagnostic.NewDiagnosticMetric(
-	"SS0051",
+	"SQL0051",
 	"sqlstreams.consumer.session.lease_lost",
 	string(MetricKindCounter),
 	string(MetricUnitCount("commit")),

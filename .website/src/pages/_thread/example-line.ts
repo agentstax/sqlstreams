@@ -26,10 +26,10 @@ export const exampleValues: Record<string, string> = {
 	existing_partition_size: '1000000',
 };
 
-// SS0023 is SS0022's mirror -- there the database is ahead of the build, so
+// SQL0023 is SQL0022's mirror -- there the database is ahead of the build, so
 // the shared ordering would render a fix that migrates downward
 export const codeOverrides: Record<string, Record<string, string>> = {
-	SS0023: { version: '3', build_version: '2' },
+	SQL0023: { version: '3', build_version: '2' },
 };
 
 // the Error() one-liner: problem: name value, name value -- fix [code]
@@ -45,7 +45,7 @@ export function errorExampleLine(
 	return `${problem}${pairs === '' ? '' : `: ${pairs}`}${filledFix} [${code}]`;
 }
 
-// the text-handler line: level=WARN msg="..." code=SS0026 name=value
+// the text-handler line: level=WARN msg="..." code=SQL0026 name=value
 export function eventExampleLine(
 	message: string,
 	level: string,

@@ -118,7 +118,7 @@ func declarationDocComments(t *testing.T) []declaration {
 // *** HELPERS ***
 // ***************
 
-// declaredCode returns the SS code a declaration call opens with. The call
+// declaredCode returns the SQL code a declaration call opens with. The call
 // is identified by its constructor name.
 func declaredCode(value ast.Expr) (string, bool) {
 	code := ""

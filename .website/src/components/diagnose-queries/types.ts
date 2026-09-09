@@ -1,4 +1,4 @@
-// DiagnoseQuery is one declared query behind a SS code: the label states what
+// DiagnoseQuery is one declared query behind a SQL code: the label states what
 // the query answers, the sql carries {attribute_name} placeholders for the
 // values the reader's own log line supplies, and placeholders names them. The
 // library parses the SQL when it exports the declaration, so this component

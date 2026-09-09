@@ -6,26 +6,26 @@ import (
 	"testing"
 )
 
-var errTestFixSubstitutes = NewDiagnosticError("SS9903", RecoveryPermanent,
+var errTestFixSubstitutes = NewDiagnosticError("SQL9903", RecoveryPermanent,
 	"test schema version is older than this build requires",
 	"migrate the {owner_kind} schema up from {version} to {build_version}")
 
 func TestErrorFillsFixFromAttachedValues(t *testing.T) {
 	raised := errTestFixSubstitutes.With("owner_kind", "stream", "version", 4, "build_version", 7)
 
-	want := `test schema version is older than this build requires: owner_kind "stream", version 4, build_version 7 -- migrate the stream schema up from 4 to 7 [SS9903]`
+	want := `test schema version is older than this build requires: owner_kind "stream", version 4, build_version 7 -- migrate the stream schema up from 4 to 7 [SQL9903]`
 	if raised.Error() != want {
 		t.Fatalf("got %q, want %q", raised.Error(), want)
 	}
 }
 
 func TestFixSubstitutionKeepsTheValueRaw(t *testing.T) {
-	declared := NewDiagnosticError("SS9904", RecoveryPermanent,
+	declared := NewDiagnosticError("SQL9904", RecoveryPermanent,
 		"test stream not found",
 		`register "{stream}" with RegisterStream first`)
 	raised := declared.With("stream", "orders")
 
-	want := `test stream not found: stream "orders" -- register "orders" with RegisterStream first [SS9904]`
+	want := `test stream not found: stream "orders" -- register "orders" with RegisterStream first [SQL9904]`
 	if raised.Error() != want {
 		t.Fatalf("got %q, want %q", raised.Error(), want)
 	}
@@ -34,7 +34,7 @@ func TestFixSubstitutionKeepsTheValueRaw(t *testing.T) {
 func TestUnattachedPlaceholderStaysLiteral(t *testing.T) {
 	raised := errTestFixSubstitutes.With("owner_kind", "stream")
 
-	want := `test schema version is older than this build requires: owner_kind "stream" -- migrate the stream schema up from {version} to {build_version} [SS9903]`
+	want := `test schema version is older than this build requires: owner_kind "stream" -- migrate the stream schema up from {version} to {build_version} [SQL9903]`
 	if raised.Error() != want {
 		t.Fatalf("got %q, want %q", raised.Error(), want)
 	}
@@ -57,7 +57,7 @@ func TestLogValueFillsTheFix(t *testing.T) {
 }
 
 func TestFixPlaceholdersListsEachNameOnce(t *testing.T) {
-	declared := NewDiagnosticError("SS9905", RecoveryPermanent,
+	declared := NewDiagnosticError("SQL9905", RecoveryPermanent,
 		"test stream not found",
 		"register {stream} again, or destroy {stream} first")
 

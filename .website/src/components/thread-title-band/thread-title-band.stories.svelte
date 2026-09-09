@@ -17,4 +17,4 @@
 
 <Story name="Band" />
 
-<Story name="Solved" args={{ title: 'stream not found', code: 'SS0005', solved: true }} />
+<Story name="Solved" args={{ title: 'stream not found', code: 'SQL0005', solved: true }} />

@@ -7,8 +7,8 @@ import (
 // ErrCompactionHeadNotFound means no message produced under the key is its
 // current compaction head. A lockable row may exist without a head.
 //
-// Diagnose queries: sqlstreams explain SS0066
-var ErrCompactionHeadNotFound = diagnostic.NewDiagnosticError("SS0066", diagnostic.RecoveryPermanent,
+// Diagnose queries: sqlstreams explain SQL0066
+var ErrCompactionHeadNotFound = diagnostic.NewDiagnosticError("SQL0066", diagnostic.RecoveryPermanent,
 	"compaction head not found",
 	"produce under message key \"{message_key}\" on stream \"{stream}\" with CompactionOptions.Enable set",
 

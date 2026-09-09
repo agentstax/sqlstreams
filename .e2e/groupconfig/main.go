@@ -8,7 +8,7 @@ package main
 //  1. RegisterConsumer writes a SPARSE document: only the declared fields
 //     appear as keys on the message_consumer row's metadata.
 //  2. a second declarer with a differing document replaces the stored one,
-//     the SS0059 warn fires on the second declarer's logger, and every
+//     the SQL0059 warn fires on the second declarer's logger, and every
 //     replace appends a worker_config_log snapshot with declared_by.
 //  3. an instance registered BEFORE the second declaration still consumes
 //     under the stored (second) document -- Consume reads at start, so the
@@ -127,11 +127,11 @@ func run() (err error) {
 
 	must(err)
 
-	if count := captureB.countCode("warn", "SS0059"); count < 1 {
-		die(fmt.Sprintf("second declarer logged %d SS0059 warns, want >= 1", count))
+	if count := captureB.countCode("warn", "SQL0059"); count < 1 {
+		die(fmt.Sprintf("second declarer logged %d SQL0059 warns, want >= 1", count))
 	}
-	if count := captureA.countCode("warn", "SS0059"); count != 0 {
-		die(fmt.Sprintf("first declarer logged %d SS0059 warns, want 0", count))
+	if count := captureA.countCode("warn", "SQL0059"); count != 0 {
+		die(fmt.Sprintf("first declarer logged %d SQL0059 warns, want 0", count))
 	}
 	var storedMaxRetries string
 	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`
@@ -152,7 +152,7 @@ func run() (err error) {
 	if logRows != 2 {
 		die(fmt.Sprintf("message_consumer has %d worker_config_log rows, want 2 (create + replace)", logRows))
 	}
-	fmt.Println("  ✓ SS0059 on the second declarer only; log snapshots carry declared_by")
+	fmt.Println("  ✓ SQL0059 on the second declarer only; log snapshots carry declared_by")
 
 	step("an instance registered before the replace consumes under the stored document")
 	produced, err := clientA.Stream[testMessage](streamName).Producer().Register(ctx, nil)
@@ -278,7 +278,7 @@ func run() (err error) {
 
 	fmt.Println("\n✅ GROUP CONFIG E2E TEST PASSED")
 	fmt.Println("   the declaration is stored sparse, the newest declaration wins with a")
-	fmt.Println("   SS0059 warn, Consume reads the stored document back at start, and a")
+	fmt.Println("   SQL0059 warn, Consume reads the stored document back at start, and a")
 	fmt.Println("   running instance follows a redeclaration on its refresh interval.")
 	return nil
 }

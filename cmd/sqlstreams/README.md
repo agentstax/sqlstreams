@@ -95,7 +95,7 @@ $ sqlstreams stream key get devices.config dev-7
 ```
 
 A key nothing was produced under with compaction enabled has no head
-and exits non-zero with SS0066; the fix line names the `messages`
+and exits non-zero with SQL0066; the fix line names the `messages`
 command below. `--output json` prints the message document with the
 payload inline under `message`, not string-escaped.
 

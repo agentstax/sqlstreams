@@ -21,7 +21,7 @@
 	}}
 />
 
-<!-- SS0013: the identifier's quotes belong to the fix, the value goes in raw -->
+<!-- SQL0013: the identifier's quotes belong to the fix, the value goes in raw -->
 <Story
 	name="Quoted identifier"
 	args={{

@@ -47,23 +47,12 @@ the item is removed.
   - bench mark tests should be done on at least postgres 18 as there 
     could be performance gains, specifically with uuidv7
 
-- **Rename Vulkan to SQLStreams; topic → stream** [0725]. Name locked in
-  before v1. Separate session owns the expanded TODO plan: module/API/CLI,
-  storage and observability vocabulary, diagnostic prefix, website and
-  new logo sheet. Recreate disposable databases and keep a generated
-  Cloudflare origin until a permanent domain is bought before binary
-  release [0726]. Public proposal and technical identity approved [0727];
-  semicolon logo approved [0729]; local rename and 50/50 fresh-DB e2e
-  are complete. Repository renamed and local origin updated. Remaining: publication, domain
-  before binary release, deployment approval and plan close-out.
-
 - **Test suite: kinds, `sqlstreamstest`, TEST.md transcription, e2e
   conversion** (14c) — rules settled in [0730] [0731]; the research and
   the entry-by-entry map of .docs/TEST.md are `TEST_EXPLORATION.md` at
   root (deleted at close-out). CONVENTIONS Part 5's fixture section is
   the spec; the site gets a reference page only when the package ships.
-  Starts after the rename [0725] lands, since the fixture is built against
-  the renamed module. Order of work: build `pkg/sqlstreamstest`
+  The rename [0725] has landed; build the fixture against SQLStreams. Order of work: build `pkg/sqlstreamstest`
   (`NewDatastore`, `NewClient`, `WaitFor`, `NewCountingLogger`), collapse
   the four `*_TEST_*` env vars into `SQLSTREAMS_TEST_DATABASE_URL`, move
   `claim_test.go` onto the fixture as an external test package; CI gains a
@@ -87,7 +76,13 @@ the item is removed.
 - **cleanup and refactor files** - move files to final locations, cleanup files
   that shouldn't exist in repo and or .gitignore
 
-- **Buy domain name**
+- **Buy the SQLStreams domain before binary release** [0726]. No domain
+  selected; `sqlstreams.io` is a candidate. Keep `vulkan-5ss.pages.dev` until
+  purchase. Then update `.website/src/site.ts`, diagnostic `docsBaseURL` in
+  `pkg/common/diagnostic/registry.go`, the version manifest, README and
+  package-manager homepage/docs links together. Configure the Pages domain,
+  verify links, and deploy with approval. Nothing is public or official yet,
+  so no legacy-route redirects are required for the rename.
 
 ## Next
 
@@ -163,6 +158,19 @@ the item is removed.
     go.mod comment describes; the workflow builds through a generated
     go.work instead and pins `GORELEASER_CURRENT_TAG` so a nested-module
     tag on the same commit is never picked.
+  - At publication, pin the root's real version in CLI and OTel go.mod,
+    then publish `cmd/sqlstreams/vX.Y.Z` and `otel/vX.Y.Z`. No placeholder
+    root version or local replace belongs in a published nested module.
+  - At a release compatibility checkpoint, pin `.tools/compat` to the prior
+    supported tag and verify the declared verdict. Its existing Vulkan API
+    cannot use the renamed working-tree replacement: retain the actual old
+    API when testing an old build. The rename itself is a disposable pre-v1
+    reset. Update the site's migration compatibility table and cite fresh-DB
+    e2e and compatibility outcomes in HISTORY for the release.
+  - CI push runs still target `main-fake`; restore `main` when enabling CI.
+    GoReleaser configuration, six unpublished platform archives/checksums,
+    native version output and Homebrew cask generation passed on 2026-09-09.
+    Chocolatey packaging remains a Windows-runner check.
   - Signing is deferred: package-manager installs never carry the browser
     quarantine mark, and the cask strips it post-install. Notarization
     (Developer ID + goreleaser's `notarize.macos`) and Authenticode

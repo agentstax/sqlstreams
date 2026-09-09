@@ -3,7 +3,7 @@
 // resolves.
 //
 // Sections:
-//  1. register-time -- a produce-only process logs SS0063 naming the stream's
+//  1. register-time -- a produce-only process logs SQL0063 naming the stream's
 //     unclaimed stream_janitor; with a consumer running, every row on the
 //     stream is claimed and the next Register is silent
 //  2. scheduled -- with the group's consumer stopped, a run of the
@@ -34,7 +34,7 @@ import (
 	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
 )
 
-const eventCode = "SS0063"
+const eventCode = "SQL0063"
 
 // testMessage is the e2e test stream's payload -- the group never has to process
 // one, the e2e test only needs the group's worker rows to exist.
@@ -149,7 +149,7 @@ func run() (err error) {
 }
 
 func registerSection(ctx context.Context) {
-	step("register-time: produce-only warns SS0063, a running consumer silences it")
+	step("register-time: produce-only warns SQL0063, a running consumer silences it")
 
 	// a fresh stream's only worker row is its janitor, and nothing has claimed it
 	_, err := registerClient.Stream[testMessage](testStream.Name).Producer().Register(ctx, nil)

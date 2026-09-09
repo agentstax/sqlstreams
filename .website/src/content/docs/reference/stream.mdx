@@ -26,7 +26,7 @@ if stream == nil {
 
 | verb | returns | notes |
 | --- | --- | --- |
-| `Register(ctx, cfg)` | `*Stream` | declares the stream and creates its tables on first registration; idempotent; `nil` cfg is the defaults; a differing redeclaration logs [SS0061](/errors/SS0061/) |
+| `Register(ctx, cfg)` | `*Stream` | declares the stream and creates its tables on first registration; idempotent; `nil` cfg is the defaults; a differing redeclaration logs [SQL0061](/errors/SQL0061/) |
 | `Get(ctx)` | `*Stream` | the comma-ok read: `(nil, nil)` when not registered |
 | `Migrate(ctx, targetVersion)` | `error` | moves the stream's tables to a version ([migrations](/guides/migrations/)) |
 | `MigrationVersion(ctx)` | `int64` | the version the tables are at; `ErrStreamNotFound` |

@@ -11,7 +11,7 @@
 //   - the succeeding message leaves no delivery row.
 //   - the plain error's row is 'ready' with attempts 0 and a 'failure' log row.
 //   - the Terminal error's row is 'dead' after ONE run, attempts 0, its
-//     last_error carrying SS0055 and the wrapped cause.
+//     last_error carrying SQL0055 and the wrapped cause.
 //   - the Delay message's row is 'ready' with delays 1, attempts 0,
 //     can_run_after in the future, and a 'delayed' log row at attempt 0.
 //   - once its delay passes it runs again from the exception path; a second
@@ -162,8 +162,8 @@ func run() (err error) {
 	fmt.Println("PASS: plain error -> ready, attempts 0, 'failure' log row")
 
 	row = readRow(ctx, ds, tp.Id, groupId, ids["declined"])
-	if row.status != "dead" || row.attempts != 0 || !strings.Contains(row.lastError, "[SS0055]: issuer said no") {
-		die(fmt.Sprintf("terminal error row: %+v, want dead/0 with [SS0055]: issuer said no", row))
+	if row.status != "dead" || row.attempts != 0 || !strings.Contains(row.lastError, "[SQL0055]: issuer said no") {
+		die(fmt.Sprintf("terminal error row: %+v, want dead/0 with [SQL0055]: issuer said no", row))
 	}
 	assertLogStatus(ctx, ds, tp.Id, groupId, ids["declined"], 0, "failure")
 	fmt.Println("PASS: Terminal -> dead after one run, attempts 0, code and cause in last_error")
@@ -178,8 +178,8 @@ func run() (err error) {
 	step("the delay passes; the exception path runs it again")
 	waitFor(ctx, ds, tp.Id, groupId, ids["settles-later"], "dead", delay+10*time.Second)
 	row = readRow(ctx, ds, tp.Id, groupId, ids["settles-later"])
-	if row.attempts != 1 || row.delays != 1 || !strings.Contains(row.lastError, "[SS0054]") {
-		die(fmt.Sprintf("delay past MaxDelays: %+v, want dead/attempts 1/delays 1 with [SS0054]", row))
+	if row.attempts != 1 || row.delays != 1 || !strings.Contains(row.lastError, "[SQL0054]") {
+		die(fmt.Sprintf("delay past MaxDelays: %+v, want dead/attempts 1/delays 1 with [SQL0054]", row))
 	}
 	assertLogStatus(ctx, ds, tp.Id, groupId, ids["settles-later"], 1, "failure")
 	fmt.Println("PASS: second Delay past MaxDelays 1 -> dead, attempts - delays still 0")

@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded
 date: 2026-09-09
 phase: pre-v1
 ---
@@ -31,6 +31,9 @@ Neutral table-family names and __system.metrics/alerts/schedules remain.
 The current delivery, ordering and routing semantics remain unchanged.
 
 ## Consequences
+
+The diagnostic-prefix choice is superseded by [0732]: use SQL and preserve
+the numeric serial. Other technical identities remain accepted.
 
 The proposal-publication consequence below is superseded by [0728];
 the approved technical identity remains accepted.

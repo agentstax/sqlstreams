@@ -6,7 +6,7 @@ describe('codeMetaDescription', () => {
 	it('includes the fix when the declaration carries one', () => {
 		expect(
 			codeMetaDescription(thread('error', 'recovery permanent', 'retry stops', 'register it')),
-		).toBe('Code SS0005 · recovery permanent — retry stops · Fix: register it');
+		).toBe('Code SQL0005 · recovery permanent — retry stops · Fix: register it');
 	});
 
 	it.each([
@@ -16,7 +16,7 @@ describe('codeMetaDescription', () => {
 	] as const)('derives a %s description without an absent fix', (kind, classification) => {
 		expect(
 			codeMetaDescription(thread(kind, classification, 'the declared consequence', null)),
-		).toBe(`Code SS0005 · ${classification} — the declared consequence`);
+		).toBe(`Code SQL0005 · ${classification} — the declared consequence`);
 	});
 });
 
@@ -27,7 +27,7 @@ function thread(
 	fix: string | null,
 ): CodeThreadData {
 	return {
-		code: 'SS0005',
+		code: 'SQL0005',
 		kind,
 		solved: fix !== null,
 		classification,

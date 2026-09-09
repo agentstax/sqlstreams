@@ -8,6 +8,6 @@ import (
 // worker declared itself unrunnable, or the manager row could not be claimed.
 // The caller blocked in Run has no error value coming, so this line is where
 // an operator learns of it.
-var EventSystemManagerStopped = diagnostic.NewDiagnosticEvent("SS0065",
+var EventSystemManagerStopped = diagnostic.NewDiagnosticEvent("SQL0065",
 	"system manager stopped",
 	"nothing reconciles the deployment's workers until the loop re-claims the row after its backoff")

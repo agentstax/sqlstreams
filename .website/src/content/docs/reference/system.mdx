@@ -23,7 +23,7 @@ if err != nil {
 
 | verb | returns | notes |
 | --- | --- | --- |
-| `Register(ctx, cfg)` | `error` | creates the schema and the control-plane tables when missing ([SS0064](/errors/SS0064/) when the role cannot); `nil` cfg is the defaults; a differing redeclaration replaces the stored worker rows |
+| `Register(ctx, cfg)` | `error` | creates the schema and the control-plane tables when missing ([SQL0064](/errors/SQL0064/) when the role cannot); `nil` cfg is the defaults; a differing redeclaration replaces the stored worker rows |
 | `Get(ctx)` | `*System` | the comma-ok read: `(nil, nil)` when no system is registered |
 | `Migrate(ctx, targetVersion)` | `error` | moves the control-plane tables to a version ([migrations](/guides/migrations/)) |
 | `MigrationVersion(ctx)` | `int64` | the version the control-plane tables are at; `ErrNotRegistered` |

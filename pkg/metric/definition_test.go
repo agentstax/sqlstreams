@@ -10,7 +10,7 @@ func TestDefinitionsCarriesRegisteredMetadata(t *testing.T) {
 	definitions := Definitions()
 	backlog := definitionByName(t, definitions, MetricCursorBacklog.Name)
 
-	if backlog.Code != "SS0083" || backlog.Kind != MetricKindGauge || backlog.Unit != MetricUnitCount("message") {
+	if backlog.Code != "SQL0083" || backlog.Kind != MetricKindGauge || backlog.Unit != MetricUnitCount("message") {
 		t.Fatalf("definition = %+v", backlog)
 	}
 	if backlog.Scope != diagnostic.MetricScopeConsumerGroup {

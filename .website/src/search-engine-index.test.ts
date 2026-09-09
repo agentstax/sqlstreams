@@ -6,7 +6,7 @@ describe('isSearchEngineIndexable', () => {
 		expect(isSearchEngineIndexable(pathname)).toBe(false);
 	});
 
-	it.each(['/', '/quickstart/', '/errors/SS0005/'])('includes %s', (pathname) => {
+	it.each(['/', '/quickstart/', '/errors/SQL0005/'])('includes %s', (pathname) => {
 		expect(isSearchEngineIndexable(pathname)).toBe(true);
 	});
 });

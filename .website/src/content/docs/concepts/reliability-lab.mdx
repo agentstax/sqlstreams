@@ -60,7 +60,7 @@ final report is a SQL join between the two.
 
 Every produce writes two facts to the ledger: that it was attempted, and
 what came back. What comes back is one of three things. Committed, with
-the idempotency key. Rejected, with the SS code. Or unknown, because the
+the idempotency key. Rejected, with the SQL code. Or unknown, because the
 connection died after the commit was sent and before the reply arrived.
 Most test suites never model that third outcome; Kafka's own verifier has
 no bucket for it. The lab resolves it after the run by looking the key up

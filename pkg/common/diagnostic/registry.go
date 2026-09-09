@@ -8,7 +8,7 @@ import (
 
 const docsBaseURL = "https://vulkan-5ss.pages.dev/errors/"
 
-// Declaration is one registered SS-coded declaration. The registry stores
+// Declaration is one registered SQL-coded declaration. The registry stores
 // any kind through this interface; retrieval by kind stays with each
 // kind's own lister (Errors, Events, Metrics, Alerts).
 type Declaration interface {
@@ -26,7 +26,7 @@ const (
 	DiagnosticKindAlert  DiagnosticKind = "alert"  // a built-in alert
 )
 
-// The SS code registry: every declaration kind shares one serial space, so
+// The SQL code registry: every declaration kind shares one serial space, so
 // registering a code any kind already holds panics. Filled at package init
 // by the New* constructors.
 var (
@@ -36,8 +36,8 @@ var (
 
 func register(declared Declaration) {
 	code := declared.GetCode()
-	if !isSSCode(code) {
-		panic(string(declared.GetKind()) + ` code must be "SS" followed by four digits: ` + code)
+	if !isSQLCode(code) {
+		panic(string(declared.GetKind()) + ` code must be "SQL" followed by four digits: ` + code)
 	}
 
 	registryLock.Lock()
@@ -67,11 +67,11 @@ func listRegistered[D Declaration]() []D {
 	return listed
 }
 
-func isSSCode(code string) bool {
-	if len(code) != 6 || code[:2] != "SS" {
+func isSQLCode(code string) bool {
+	if len(code) != 7 || code[:3] != "SQL" {
 		return false
 	}
-	for _, digit := range code[2:] {
+	for _, digit := range code[3:] {
 		if digit < '0' || digit > '9' {
 			return false
 		}

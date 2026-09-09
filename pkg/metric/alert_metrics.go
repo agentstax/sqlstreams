@@ -3,7 +3,7 @@ package metric
 import "github.com/agentstax/sqlstreams/pkg/common/diagnostic"
 
 var MetricActiveAlerts = diagnostic.NewDiagnosticMetric(
-	"SS0073",
+	"SQL0073",
 	"sqlstreams.alert.state.active_alerts",
 	string(MetricKindGauge),
 	string(MetricUnitCount("alert")),
@@ -12,7 +12,7 @@ var MetricActiveAlerts = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricResolvedAlerts = diagnostic.NewDiagnosticMetric(
-	"SS0074",
+	"SQL0074",
 	"sqlstreams.alert.state.resolved_alerts",
 	string(MetricKindGauge),
 	string(MetricUnitCount("alert")),
@@ -21,7 +21,7 @@ var MetricResolvedAlerts = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricCheckStreamsEvaluated = diagnostic.NewDiagnosticMetric(
-	"SS0075",
+	"SQL0075",
 	"sqlstreams.alert.check.streams_evaluated",
 	string(MetricKindGauge),
 	string(MetricUnitCount("stream")),
@@ -31,7 +31,7 @@ var MetricCheckStreamsEvaluated = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricCheckStreamsFailed = diagnostic.NewDiagnosticMetric(
-	"SS0076",
+	"SQL0076",
 	"sqlstreams.alert.check.streams_failed",
 	string(MetricKindGauge),
 	string(MetricUnitCount("stream")),
@@ -41,7 +41,7 @@ var MetricCheckStreamsFailed = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricCheckPublishedAlerts = diagnostic.NewDiagnosticMetric(
-	"SS0077",
+	"SQL0077",
 	"sqlstreams.alert.check.published_alerts",
 	string(MetricKindGauge),
 	string(MetricUnitCount("alert")),
@@ -51,7 +51,7 @@ var MetricCheckPublishedAlerts = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricCheckResolvedAlerts = diagnostic.NewDiagnosticMetric(
-	"SS0078",
+	"SQL0078",
 	"sqlstreams.alert.check.resolved_alerts",
 	string(MetricKindGauge),
 	string(MetricUnitCount("alert")),
