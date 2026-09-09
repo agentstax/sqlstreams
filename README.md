@@ -69,7 +69,7 @@ type VideoUploaded struct {
 	VideoId string `json:"video_id"`
 }
 
-func (VideoUploaded) SchemaVersion() int { return 1 }
+func (VideoUploaded) SchemaVersion() int { return 1 } // increment on breaking changes
 ```
 
 Produce.
@@ -120,31 +120,15 @@ Linux, or anywhere with Go
 go install github.com/agentstax/vulkan/cmd/vulkan@latest
 ```
 
-Point it at your database.
-
 ```sh
 export VULKAN_ADMIN_DATABASE_URL=postgres://user:password@localhost/db
-vulkan topic list
-vulkan topic get videos.uploaded
-```
 
-Every error has a code. Ask about it offline.
-
-```sh
-vulkan explain VK0022
-```
-
-Metrics and alerts are already there, no agent to install.
-
-```sh
-vulkan metrics list
-vulkan alert list
-```
-
-Want Prometheus? Run the manager with a port.
-
-```sh
-vulkan manager run --metrics-address :9464
+vulkan topic list                              # every registered topic
+vulkan topic get videos.uploaded               # one topic, its payload versions, retire state
+vulkan explain VK0022                          # what an error code means, the fix, the SQL. offline
+vulkan metrics list                            # current value of every built-in metric
+vulkan alert list                              # what's active right now
+vulkan manager run --metrics-address :9464     # run the upkeep standalone, serve Prometheus /metrics
 ```
 
 ## Development
