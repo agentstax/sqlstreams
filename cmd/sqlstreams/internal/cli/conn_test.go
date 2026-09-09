@@ -3,12 +3,11 @@ package cli
 import (
 	"context"
 	"log/slog"
-	"os"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/sqlstreamstest"
 )
 
 func TestConnectionRejectsInvalidSettingsBeforeDial(t *testing.T) {
@@ -35,12 +34,8 @@ func TestConnectionRejectsInvalidSettingsBeforeDial(t *testing.T) {
 }
 
 func TestConnectionPoolOwnership(t *testing.T) {
-	url := os.Getenv("SQLSTREAMS_CLI_TEST_DATABASE_URL")
-	if url == "" {
-		t.Skip("set SQLSTREAMS_CLI_TEST_DATABASE_URL for the connection integration test")
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	url := sqlstreamstest.DatabaseURL(t)
+	ctx := t.Context()
 	t.Setenv(databaseURLEnv, "https://invalid.example/ignored")
 	t.Setenv(schemaEnv, "from_environment")
 	connection, err := newConnection(ctx, url, "from_flag", slog.LevelError)

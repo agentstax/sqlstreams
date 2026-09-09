@@ -25,19 +25,21 @@ wiring its own controllers for tables, one shape per test. Two schemas of
 one database no longer serialize on registration (every advisory lock key
 carries the schema) and the pool sets no `search_path` [0632], so a schema
 isolates what a test touches. Storj measured a schema per test at roughly
-20ms against 140ms per database and over a second per container; River's
-`TestSchema` is the same choice for tests that need cross-session locking,
-which transaction rollback hides.
+20ms against 140ms per database; River's `TestSchema` is the same choice for
+tests that need cross-session locking, which transaction rollback hides.
 
 ## Decision
 
 `pkg/vulkantest` is the one fixture package, published so a user's handler
-tests use exactly what the library's own tests use: `NewDatastore(t)` (a
-datastore bound to a fresh schema in the database `VULKAN_TEST_DATABASE_URL`
-names, dropped at cleanup, a visible skip when unset), `NewClient(t)`
-(`NewDatastore` plus system registration through the public client, so
-tables come from the registry), `WaitFor(t, condition)` (the deadline
-poller), and `NewCountingLogger()` (log assertions by level and code).
+tests use exactly what the library's own tests use. A fixture verb is the
+constructor it stands for, with `t` in place of `ctx` and the fixture's pool
+in place of the caller's: `NewDatastore(t, cfg)` (a datastore bound to a
+fresh schema in the database `VULKAN_TEST_DATABASE_URL` names, dropped at
+cleanup, a visible skip when unset), `NewClient(t, ds, cfg)` (a client over
+`ds` plus system registration, so tables come from the registry),
+`DatabaseURL(t)` (for a subject that takes a URL, the CLI), `WaitFor(t,
+condition)` (the deadline poller), and `NewCountingLogger()` (log
+assertions by level and code).
 
 Isolation is a schema per test. A library test that needs the real table
 set is an external test package (`package datastore_test`) built through

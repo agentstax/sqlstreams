@@ -27,9 +27,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      SQLSTREAMS_TEST_DSN: postgres://sqlstreams:sqlstreams@localhost:5432/sqlstreams
-      SQLSTREAMS_CLI_TEST_DATABASE_URL: postgres://sqlstreams:sqlstreams@localhost:5432/sqlstreams
-      SQLSTREAMS_WORKER_TEST_DATABASE_URL: postgres://sqlstreams:sqlstreams@localhost:5432/sqlstreams
+      SQLSTREAMS_TEST_DATABASE_URL: postgres://sqlstreams:sqlstreams@localhost:5432/sqlstreams
     steps:
       - uses: actions/checkout@v7
 

@@ -52,7 +52,9 @@ go vet ./...
 go test -race ./pkg/sqlstreams
 ```
 
-Replace `./pkg/sqlstreams` with the packages you touched. Nested modules have
+Replace `./pkg/sqlstreams` with the packages you touched. Database tests
+run only with `SQLSTREAMS_TEST_DATABASE_URL` set (the `.env.example` value
+points at the dev database); unset, they skip. Nested modules have
 their own `go.mod`; root `./...` does not include them.
 
 Before opening a pull request:

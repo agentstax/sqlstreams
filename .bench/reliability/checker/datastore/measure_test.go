@@ -1,21 +1,17 @@
 package datastore
 
 import (
-	"context"
-	"os"
 	"testing"
 	"time"
 
+	"github.com/agentstax/sqlstreams/pkg/sqlstreamstest"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Run only against a disposable database: CreateTables replaces lab's records.
 func TestMeasurementsWithOverlappingStreamIds(t *testing.T) {
-	connection := os.Getenv("RELIABILITY_TEST_DSN")
-	if connection == "" {
-		t.Skip("RELIABILITY_TEST_DSN must name a disposable database")
-	}
-	ctx := context.Background()
+	connection := sqlstreamstest.DatabaseURL(t)
+	ctx := t.Context()
 	pool, err := pgxpool.New(ctx, connection)
 	if err != nil {
 		t.Fatal(err)
@@ -56,11 +52,8 @@ func TestMeasurementsWithOverlappingStreamIds(t *testing.T) {
 }
 
 func TestCompletionWithoutSuccessAuditRows(t *testing.T) {
-	connection := os.Getenv("RELIABILITY_TEST_DSN")
-	if connection == "" {
-		t.Skip("RELIABILITY_TEST_DSN must name a disposable database")
-	}
-	ctx := context.Background()
+	connection := sqlstreamstest.DatabaseURL(t)
+	ctx := t.Context()
 	pool, err := pgxpool.New(ctx, connection)
 	if err != nil {
 		t.Fatal(err)

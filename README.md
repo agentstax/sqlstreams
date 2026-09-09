@@ -122,23 +122,17 @@ Retries, dead letters, transactional produce, idempotent produce, keyed ordering
 
 ### CLI
 
-macOS
+The CLI has not been released yet. Homebrew, Chocolatey and
+`go install ...@latest` are not available.
+
+Build from a checkout after the [development setup](DEVELOPING.md):
 
 ```sh
-brew install --cask agentstax/tap/sqlstreams
+go install ./cmd/sqlstreams
 ```
 
-Windows
-
-```sh
-choco install sqlstreams
-```
-
-Linux, or anywhere with Go
-
-```sh
-go install github.com/agentstax/sqlstreams/cmd/sqlstreams@latest
-```
+The binary goes into `GOBIN`, or `$(go env GOPATH)/bin` when `GOBIN` is unset.
+Add that directory to your `PATH` to run the commands below.
 
 ```sh
 export SQLSTREAMS_ADMIN_DATABASE_URL=postgres://user:password@localhost/db

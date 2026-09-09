@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -64,7 +64,7 @@ type Outcome struct {
 }
 
 // ClaimSnapshotRow is one poll's read of the cursor row beside the log's
-// visible head and the snapshot's xmax, read together so the pair is sound.
+// visible head and observation transaction id (Xmax); caught-up polls use zero.
 type ClaimSnapshotRow struct {
 	Head        int64  `db:"head"`
 	Xmax        string `db:"xmax"`

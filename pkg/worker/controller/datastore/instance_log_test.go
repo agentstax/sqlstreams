@@ -1,40 +1,24 @@
 package datastore_test
 
 import (
-	"context"
 	"errors"
 	"fmt"
-	"os"
 	"testing"
 	"time"
 	"uuid"
 
 	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/sqlstreamstest"
 	systemcontroller "github.com/agentstax/sqlstreams/pkg/system/controller"
 	"github.com/agentstax/sqlstreams/pkg/worker"
 	workerdatastore "github.com/agentstax/sqlstreams/pkg/worker/controller/datastore"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func TestWorkerInstanceLog(t *testing.T) {
-	url := os.Getenv("SQLSTREAMS_WORKER_TEST_DATABASE_URL")
-	if url == "" {
-		t.Skip("set SQLSTREAMS_WORKER_TEST_DATABASE_URL for worker instance log integration")
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	pool, err := pgxpool.New(ctx, url)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer pool.Close()
-
-	schema := fmt.Sprintf("worker_log_test_%d", time.Now().UnixNano())
-	ds, err := datastore.NewPostgresDatastore(ctx, pool, &datastore.PostgresDatastoreConfig{Schema: schema})
-	if err != nil {
-		t.Fatal(err)
-	}
+	ds := sqlstreamstest.NewDatastore(t, nil)
+	ctx := t.Context()
+	pool := ds.Pool
+	schema := ds.Schema
 	systems, err := systemcontroller.NewSystemController(ds, ds.Logger)
 	if err != nil {
 		t.Fatal(err)
@@ -43,13 +27,6 @@ func TestWorkerInstanceLog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cleanupCancel()
-		if _, err := pool.Exec(cleanupCtx, "DROP SCHEMA "+schema+" CASCADE"); err != nil {
-			t.Error(err)
-		}
-	}()
 	workers, err := workerdatastore.NewWorkerDatastore(ds, ds.Logger)
 	if err != nil {
 		t.Fatal(err)

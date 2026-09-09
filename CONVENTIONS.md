@@ -1126,21 +1126,27 @@ One shape per kind, the same in every module.
 ## The fixture package
 
 `pkg/sqlstreamstest` is the one fixture, published so a user's handler tests
-use what the library's own tests use:
+use what the library's own tests use. A fixture verb is the constructor it
+stands for, with `t` in place of `ctx` and the fixture's own pool in place
+of the caller's; it skips when `SQLSTREAMS_TEST_DATABASE_URL` is unset and
+fails through `t`, never by returning an error.
 
-- `NewDatastore(t)` -- a `*datastore.PostgresDatastore` bound to a fresh
-  schema in the database `SQLSTREAMS_TEST_DATABASE_URL` names, dropped at
-  cleanup; skips when the variable is unset.
-- `NewClient(t)` -- `NewDatastore` plus system registration through the
-  public client, so tables come from the migration registry.
+- `NewDatastore(t, cfg)` -- `datastore.NewPostgresDatastore` over a fresh
+  schema in the database the variable names, dropped at cleanup; the
+  fixture owns `cfg.Schema`.
+- `NewClient(t, ds, cfg)` -- `sqlstreams.NewClient` over `ds`'s pool and
+  schema plus system registration, so tables come from the migration
+  registry.
+- `DatabaseURL(t)` -- the variable's value, for a subject that takes a URL
+  rather than a pool (the CLI).
 - `WaitFor(t, condition)` -- the deadline poller.
 - `NewCountingLogger()` -- the `logging.Logger` that counts by level and
   code, the one shape for log assertions.
 
 It holds test verbs only, declares no codes, owns no SQL beyond the
 schema create and drop, and is the only package that reads a
-`SQLSTREAMS_TEST_*` variable. Its exported names are supported surface under
-## Supported public API.
+`SQLSTREAMS_TEST_*` variable. Its exported names are supported surface
+under ## Supported public API.
 
 ## Running tests
 
