@@ -80,6 +80,7 @@ export const boards: Board[] = [
 			'reference/alerts',
 			'reference/message-options',
 			'reference/diagnostics',
+			'reference/vulkantest',
 		],
 	},
 	{

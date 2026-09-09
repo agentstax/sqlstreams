@@ -2,20 +2,6 @@
 	background: var(--banner-gradient);
 	box-shadow: var(--lacquer);
 	padding: var(--space-34) var(--space-32) var(--space-26);
-	display: flex;
-	align-items: center;
-	gap: var(--space-24);
-}
-
-/* the mark hangs over the banner's bottom edge into the nav strip;
-   pointer-events off so it never intercepts a tap meant for the nav
-   link it overlaps */
-.mark {
-	flex-shrink: 0;
-	position: relative;
-	z-index: var(--z-raised);
-	margin-bottom: calc(-1 * var(--space-34));
-	pointer-events: none;
 }
 
 .identity {
@@ -25,14 +11,9 @@
 }
 
 .wordmark {
-	margin: 0;
-	font-family: var(--font-band);
-	color: var(--color-band-title);
-	font-size: 42px;
-	font-weight: 700;
-	letter-spacing: 4px;
-	line-height: 1;
-	text-shadow: var(--shadow-wordmark);
+	display: block;
+	max-width: 100%;
+	height: auto;
 }
 
 .tagline {
@@ -43,21 +24,9 @@
 	font-weight: 500;
 }
 
-/* the letter-spaced 42px wordmark cannot wrap, so below the collapse
-   the banner trades padding and type size for fitting at 360px */
 @media (max-width: 639px) {
 	.board-banner {
 		padding: var(--space-16) var(--space-16) var(--space-14);
-		gap: var(--space-16);
-	}
-
-	.mark {
-		margin-bottom: calc(-1 * var(--space-16));
-	}
-
-	.wordmark {
-		font-size: 28px;
-		letter-spacing: 2px;
 	}
 
 	.tagline {

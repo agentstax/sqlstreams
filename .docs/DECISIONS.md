@@ -477,3 +477,10 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 - 0722 2026-09-08 superseded by 0723 (pre-v1) — Repository support and build-output roots are hidden
 - 0723 2026-09-08 accepted (pre-v1) — Repository support, build-output, and benchmark roots are hidden
 - 0724 2026-09-09 accepted (pre-v1) — The metric root is singular
+- 0725 2026-09-09 accepted (pre-v1) — SQLStreams is the project name
+- 0726 2026-09-09 accepted (pre-v1) — SQLStreams cutover recreates disposable databases and keeps a temporary docs origin
+- 0727 2026-09-09 superseded in part by 0728 (pre-v1) — SQLStreams technical identity follows the product name
+- 0728 2026-09-09 accepted (pre-v1) — Rename proposal review stays off the live website
+- 0729 2026-09-09 accepted (pre-v1) — SQLStreams wordmark ends with an amber semicolon
+- 0730 2026-09-09 accepted (pre-v1) — Tests are pure, database, or e2e, and a database test runs against Postgres itself
+- 0731 2026-09-09 accepted (pre-v1) — vulkantest is one published fixture package with a schema per test

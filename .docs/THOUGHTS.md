@@ -2,9 +2,6 @@
 
 # Docs
 
-README Usage section could add some teaser code snippets
-- Alerts, metrics, schedules etc
-
 roadmap later item for review code for interesting design decisions to write articles on (big or small things)
 - diagnostic code system
 - suppression logger
@@ -47,3 +44,5 @@ manual review of public user facing comments :(. I don't want to but its got to 
 review of most important website docs
 
 # Other
+
+Another automated review for broken links and inconsistent references

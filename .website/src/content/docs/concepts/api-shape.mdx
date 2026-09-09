@@ -137,9 +137,8 @@ a second, partial definition of those instances. The client stays concrete
 for integration tests.
 
 <ThreadAside label="PROPOSED" title="A test helper">
-A `vulkantest.NewClient(t)` that stands up the real library against a
-database or schema it drops at cleanup. Which of the two is still open:
-tables and locks are both per-schema now, so a schema may be enough and
-it is much cheaper to create per test. Not built.
+`vulkantest.NewClient(t)` stands the real library up in a schema it drops
+at cleanup, so a handler test runs against Postgres and nothing fake. The
+spec is the [vulkantest reference](/reference/vulkantest/). Not built.
 
 </ThreadAside>

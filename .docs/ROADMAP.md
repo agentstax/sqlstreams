@@ -47,24 +47,44 @@ the item is removed.
   - bench mark tests should be done on at least postgres 18 as there 
     could be performance gains, specifically with uuidv7
 
-- **Potential project rename away from "vulkan".** No candidate yet; decide
-  before v1 -- after v1 the name is public API. A rename ripples through the
-  module path, the CLI binary, the docs site (docsBaseURL const in
-  pkg/common/error.go), and the VK error-code prefix (isErrorCode validation
-  plus every declared code -- codes never renumber after v1, so the prefix
-  must be final first).
-  - need to make sure we build out new logo sheet as well
+- **Rename Vulkan to SQLStreams; topic → stream** [0725]. Name locked in
+  before v1. Separate session owns the expanded TODO plan: module/API/CLI,
+  storage and observability vocabulary, diagnostic prefix, website and
+  new logo sheet. Recreate disposable databases and keep a generated
+  Cloudflare origin until a permanent domain is bought before binary
+  release [0726]. Public proposal and technical identity approved [0727];
+  local logo sheet (`SQLSTREAMS_LOGO_SHEET.html`) is ready for review.
 
-- **.docs/TEST.md expand and refine** (14c) — the shutdown/interruption scenarios
-  recorded there are Setup/Action/Assert prose from a scratch harness;
-  implement as a real pkg/producer/pkg/consumer test suite once the API
-  stops moving.
+- **Test suite: kinds, `vulkantest`, TEST.md transcription, e2e
+  conversion** (14c) — rules settled in [0730] [0731]; the research and
+  the entry-by-entry map of .docs/TEST.md are `TEST_EXPLORATION.md` at
+  root (deleted at close-out). Order of work: the `/reference/vulkantest/`
+  page is the spec and is reviewed first; build `pkg/vulkantest`
+  (`NewDatastore`, `NewClient`, `WaitFor`, `NewCountingLogger`), collapse
+  the four `*_TEST_*` env vars into `VULKAN_TEST_DATABASE_URL`, move
+  `claim_test.go` onto the fixture as an external test package; CI gains a
+  Postgres service in that change and `just verify` runs
+  `-race -count=1 -shuffle=on` in every module with tests (cmd/vulkan and
+  otel included). Then transcribe TEST.md (single-process cases become
+  database tests in pkg/producer and pkg/consumer, SQLSTATE tables become
+  pure tests in pkg/common, signal and killed-server cases stay e2e) and
+  delete the file. Existing `.e2e/` programs convert opportunistically,
+  and every single-process one is converted before this item closes; the
+  60 private `must`/`die`/`assert` copies collapse into `.e2e/common`.
+  `(checked)` candidates for .tools/conventions, each sabotaged before
+  trusted: no third-party import in a `_test.go`; no `time.Sleep` in a
+  `_test.go` outside a `synctest` bubble; no `CREATE TABLE` text in a
+  `_test.go`; one `VULKAN_TEST_*` name read only by `vulkantest`; no e2e
+  program declaring its own `must`. The project rename carries the
+  package name.
 
 - **Move the public entry package out of pkg/** — follow through on [0665]
   and [0670] once its destination is selected. Update imports and path-aware
   tooling separately from semantic API changes; no module split is selected.
 - **cleanup and refactor files** - move files to final locations, cleanup files
   that shouldn't exist in repo and or .gitignore
+
+- **Buy domain name**
 
 ## Next
 
@@ -287,27 +307,6 @@ documentation; the latter want a surface that has stopped moving.
   the schedule half. The plumbing
   was built once and reverted in full — a declaration verb returning the
   outcome and the instance carrying it — so the shape is known.
-
-- **`vulkantest`** — a test helper module, spec'd as the "A test helper"
-  aside in concepts/api-shape.mdx. The doc page comes first and the build
-  after it: [0625] chunk 15 carried it, and it was pulled out because
-  nobody had written down what it does. Sizing from that planning:
-  roughly 50 lines for `NewClient(t)` standing the real library up
-  against a database it drops at cleanup, and 30 for running a consumer
-  inside a test and waiting on its handler. Isolation should be
-  reconsidered rather than inherited: the planning finding was
-  per-DATABASE, on the grounds that a schema isolates the tables but not
-  the locks, and chunk 15 task 4 then made every advisory lock key carry
-  the schema. Two schemas of one database no longer serialize on
-  `RegisterSystem` — the schema e2e test's section 4 asserts it — so per-schema
-  isolation is now open, and a schema is cheaper to create and drop per
-  test than a database. [0632] strengthens it again: the pool sets no
-  `search_path`, so a test's own fixture tables land in the connection's
-  schema rather than vulkan's. What is left to check before choosing:
-  whether anything else a test touches is still database-wide.
-  `vulkan.Producer[T]` and `Consumer[T]` shipped in chunk 15 and cover
-  the unit-test half; this is only for tests that want the real
-  library.
 
 - **Diagnose queries filled from the values a raise attached** — today a
   declared query renders with its `{topic_id}`/`{schema}` placeholders

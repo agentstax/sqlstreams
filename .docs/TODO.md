@@ -2263,6 +2263,346 @@ untracked-so-far `runs.jsonl` files before they are first committed.
   late stall, retaining storage guard and identity checks. Need repeated
   late comparisons before adopting an operating rate. Baseline restored,
   databases removed, monitor stopped; raw phases/build/commands recorded.
+- Continuous lower-rate recovery test 2026-09-09,
+  rate_recovery_121713/scratch_121713: same frozen643f90a3 binary,
+  byte-identical scratch sources and prior archived library source; current
+  unrelated library edits excluded from this configuration comparison.
+  One continuously running DB/producer/consumer, baseline settings and
+  durability,8x250/pools8/runtime4. Offered100k180s/60k90s/100k90s/60k90s.
+  Actual phase production97,140/57,537/69,417/44,654 messages/s;
+  consumption97,118/57,485/69,417/44,719. Last30s production94,896/
+  57,498/66,041/44,448. Excluding first5s:97,188/58,798/68,594/44,618.
+  Final60k phase FAILED to recover for90s after observed high-load
+  slowdown. Earlier successful60k intervals are not a reliable steady
+  operating rate. No evidence of a fixed60k sustainable threshold.
+  All32,971,250 messages consumed once,zero errors/duplicates; actual
+  producer450.968s,identity bound not reached,batches250 verified.
+  Phase monotonic-start origin differs39.5ms from legacy final-elapsed
+  inferred origin; rate-phase analyzer uses recorded production_start
+  and scheduled boundaries. Admission transitions within2.35ms of
+  scheduled180/270/360s. Ten checkpoints completed;phase nearest1Hz
+  deltas4/2/2/2,actual sample spans retained. Handler backlog max77,117
+  overall (brief early peak),slope-11.67/s;late phase max12,014. Durable
+  committed-ID gaps first/last30 medians62,043/33,750 (ID distances,
+  not exact counts). Consumer p99 upper bound727ms;consumers tracked
+  achieved production throughout,not evidence100k offered was accepted.
+  Phase mean producer WALWrite lock waiters0.019/0.100/2.146/1.784.
+  Normal WAL write time31.354/9.272/38.695/26.003 aggregate seconds;
+  WAL initialized7.315/4.396/2.768/4.580GB. Early/late60k phases each
+  complete2 checkpoints and initialize similar WAL bytes, but normal
+  WAL write time perMiB grows0.955 to3.402ms (3.56x), with less produced
+  data late. Foreground relation write time0.197/0.660/0.0075/0.0309s:
+  large foreground relation writes are not necessary for these stalls.
+  Relation extension and checkpoint/background work remain; do not
+  infer those writes or the entire storage path disappeared.
+  PG mean CPU1.30cores/apps1.13,no swapouts,828swapin pages;whole-host
+  compression remains. Native peak52.46GB plus other guarded roots about
+  30.8GB;minimum host free85.80GB. Device phase means560.8/500.7/422.7/
+  392.1 reported MB/s,reads+writes all processes; first coverage14.2s.
+  Lower device throughput with higher WAL time is not proof of a fixed
+  SSD bandwidth ceiling. Evidence narrows immediate bottleneck to WAL
+  write path; accumulated checkpoint/VM/storage work vs underlying
+  storage behaviour remains unresolved. Ninety seconds without recovery
+  does not prove permanent degradation. Baseline restored,DB removed,
+  monitor stopped; phase and overall comparison files include limitations.
+  Next: lower40k for120s after the high-load slowdown in the same run,
+  probing whether pending write work can drain while consuming, with
+ 40m identity bound and100GB storage guard. Do not label it the maximum.
+- Continuous40k recovery test 2026-09-09,
+  rate_recovery40_123305/scratch_123305: frozen643f90a3 binary and
+  prior archived source, scratch source identity rechecked. Baseline
+  PostgreSQL/durability unchanged, same8x250/pools8/runtime4. One DB
+  and producer/consumer run480s:100k180s/60k90s/100k90s/40k120s.
+  Produced97,757/58,208/71,818/35,033 messages/s; consumed97,708/
+  58,236/71,819/35,066. Final40k phase last60s36,129 produced/36,137
+  consumed;last30s35,917/35,992. Actual480.006s,33,502,500 identities
+  verified consumed once,zero errors/duplicates,250 batch verified,
+  no identity-cap stop. Overall consumer p99 upper bound446ms.
+  Handler backlog max24,262 overall and9,914 in40k phase;overall
+  slope-15.17/s,late phase-5.50/s. Durable committed-ID first/last30
+  medians58,522/22,875,ID distances not exact message counts.
+  Eleven checkpoints completed;phase nearest1Hz deltas4/2/2/3.
+  Final rate change first admission at360.108702s (108.7ms late,
+  captured explicitly);actual sample boundary spans retained.
+  Mean producer WALWrite lock waiters0.047/0.007/2.101/1.003.
+  Normal WAL write times32.917/10.136/37.084/25.536 aggregate seconds;
+  late100k and40k normalized3.368/2.867ms perMiB. Final40k phase
+  normal WAL bytes9.339GB. Foreground normal relation write time
+  4.420/0.737/0.0424/0.000611s;finalphase onlyone8KiB normalrelation
+  write. Extensions5.413GB/4.924s and checkpoint writes still exist.
+  Observed equal-completed100ms progress intervals after first5s:
+  0.6%/2.5%/21.3%/8.0% of observed phase time. This is counter-based
+  evidence of intermittent lost production,not exact syscall stall time;
+  report scheduling/bursts affect it. Reproducible analyzer and completion-gaps.json
+  retained with raw counters. Lower load helps partially but does not
+  clear the shortfall in120s. Three checkpoints do not prove every
+  dirty page or pending device request drained. No35k maximum claim.
+  PG/apps mean CPU1.11/0.99cores,no swapouts,1126swapin pages;
+  whole-host memory compression continues. Native peak52.15GB plus
+  other guarded roots about30.8GB,host free minimum86.04GB. Device mean
+  465.3 reported MB/s,all-process reads+writes,coverage starts23.9s;
+  no physical ceiling verdict. Baseline restored,DB removed,monitor stopped.
+  Next: stop descending rate ladder; compare unpaced producer concurrency
+  in already-loaded portions of continuous paired runs,using matched
+  late-window actual output/backlog. Goal is useful production AND
+  consumption between recurring stalls. Existing no-catchup rate targets
+  lose slots during pauses,so output below target is not an external
+  offered-queue capacity boundary. Keep durability/storage/semantics.
+- Unpaced concurrency screen 2026-09-09, unpaced_callers_124920
+  and unpaced_repeat_125643: intended8/4/8 concurrent ProduceBatch
+  calls in one process, batch250,pool8 fixed,consumer process active,
+  native baseline durability/runtime unchanged. Each fresh DB runs180s
+  continuously; compare late windows,not one same-DB concurrency switch.
+  Frozen643f90a3 binary and scratch source identity rechecked; no new
+  library or scratch-runner code. rate=0, no scheduled admissions.
+  Valid8-call controls scratch_124920/125643 achieved116,608/120,807
+  messages/s overall; final60s69,707/74,328 produced and70,020/74,432
+  consumed;final30s63,942/72,537 produced. All42,737,750 valid-run
+  messages consumed once,errors/duplicates zero,actual batches250,
+  no identity-cap stop. Four checkpoints completed in each control.
+  Handler backlog maxima123,338/894,854,slope-111.8/-424.8 messages/s;
+  consumer p99 upper bounds1457/5333ms. Backlog drains,but temporary
+  large peaks and late rate fade preclude a flat steady-state claim.
+  Durable-ID gap maxima252,127/1,002,999,not exact message counts.
+  Failed4-call scratch_125300 stopped at61.904s after FOUR10s batch
+  attempt timeouts. Driver aborted third planned run;8-call control
+  subsequently run separately. No clean4-versus8 concurrency ranking.
+  WAL trace: consumer COMMIT pid61739 reported IO WalWrite alongside
+  all four producer COMMITs waiting LWLock WALWrite across124 samples
+  from08:53:53.269 to08:54:05.569 (12.3s). Transaction age is not exact
+  syscall duration; lock-owner role inferred from wait chain,not directly
+  observed ownership. Whole-device throughput fell from615-710 reported
+  MB/s to mostly0-18MB/s duringpause,then575MB/s at08:54:06;all-process
+  counters,not a physical bandwidth ceiling. Host swapout delta0,
+  swapin12 over61.78s. Pool contention is downstream here: commits are
+  already inside PostgreSQL. Normal consumer work can wait for shared
+  WAL I/O and block producing too;this is not archived delivery handling.
+  Post-failure SQL:6,161,500 rows/distinct identities,range1..6,161,500;
+  consumer seen bitset6,161,500 set bits and no reported duplicates.
+  Producer acknowledged6,160,500;1,000 additional messages committed
+  despite timed-out calls. Thus do not count failed attempts as uncommitted
+  or include this run in failure-free throughput. Raw failure trace/logs,
+  wait chain,device window and SQL counts archived; failure indexed in
+  runs.jsonl and excluded from comparison's valid_runs. DB removed.
+  Independent repeat consumer stall:08:57:51-56 readClaimSnapshot
+  active/no PostgreSQL wait,claimed/committed fixed10,100,629 while
+  producer head advanced. Snapshot query transaction age reached4.87s;
+  subsequent catchup created peak backlog. h.head SQL profile totals
+  only998.94ms execution across3667 calls,so do NOT claim5s executor
+  scan from this alone. Planning/pre-execution/OS delay unresolved;
+  timeline saved in claim-snapshot-stall.json and peak-cursor-frame.json.
+  This is a separate consumer-path lead worth pursuing alongside WAL.
+  Valid controls PG mean CPU3.39/3.57cores,apps2.02/2.13;no swapouts,
+  swapin20/12pages. Native peak44.11GB;host free minimum93.97GB,
+  storage guard active. Device partial means730.4/759.7 reported MB/s
+  with first samples19.6/32.8s;whole-device aggregate,not PG saturation.
+  Both studies restored baseline;all three scratch DBs removed;monitors
+  stopped. round-comparison.json keeps successful42.738m separate
+  from failed6.162m and records no concurrency winner.
+  Next: capture planning versus execution for readClaimSnapshot around
+  partition boundaries,retaining WAL/device traces. Need valid4-call
+  repeat before ranking concurrency; do not mask failure by timeout
+  increase or infer a planner/range-lock cause without measurements.
+- Bounded consumer check and return to tuning 2026-09-09:
+  Per user direction, no further filesystem/SSD root-cause chase.
+  claim_plan_check_131057/scratch_131057 used one120s diagnostic with
+  pg_stat_statements.track_planning=on,log_min_duration_statement500ms,
+  bind-parameter logging disabled. Temporary runner adds planning and
+  execution maxima query; frozen643f90a3 application unchanged. Server
+  logs retain Parse/Bind/Execute durations independently per PG18 docs.
+  Workload readClaimSnapshot54 plans,total18.576ms,max1.045ms;
+  2682 executions,total822.001ms,max81.070ms. Zero slow snapshot log
+  entries. All16,824,750 messages verified once,zeroerrors. Earlier5s
+  stall NOT reproduced;no query/configuration fix supported. Close this
+  lead for now. Diagnostic instrumentation can affect performance;
+  mark run purpose diagnostic and exclude throughput ranking. All
+  diagnostic settings restored and confirmedoff/-1/-1 in next run.
+  Source:postgresql.org/docs/18/pgstatstatements.html and
+  postgresql.org/docs/18/runtime-config-logging.html;finding.json and
+  diagnostic-server.log retained. No extension of the bounded check.
+  Resume unpaced comparison:four-call retry scratch_131414 and nearby
+  eight-call control scratch_131901, studiesunpaced_four_retry_131413
+  andunpaced_nearby_eight_131901. Same frozenbinary,batch250,pool8,
+  consumerpool8,claim16k,queue64k,poll100ms,runtime4each,durability.
+  Actual producer calls4/8 (one process); consumer remains running
+  throughout each180s fresh-DB run. Four/eight overall118,638/118,869
+  messages/s,almost identical. Exact final60s99,230/71,738 produced
+  and99,304/71,626 consumed;four-call late production+38.3%. Last30s
+  87,172/70,824 produced and87,038/70,521 consumed. Prior eight-call
+  control final60s74,328;nearby eight-call reversal strengthens lead.
+  Bothnewruns42,755,750 messages verified consumed once,zeroerrors/
+  duplicates,250 batches verified,identity bounds not reached. Four
+  checkpoints completed perrun. Prior four-call failure scratch_125300
+  remains documented/excluded;this repeat does not erase it.
+  Four/eight handler backlog max396,247/47,934,slope-162.1/-86.7/s;
+  consumer p99 upperbounds1964/908ms. Four-call latency/backlog worse
+  in thispair despite higherlateoutput. Four-call output stillfalls
+  to87.2k inlast30s: candidate,not established sustainable maximum.
+  Mean PGCPU2.52/3.53cores,apps2.01/2.10. Producerpoolwait0.0023/
+  0.214aggregate seconds,consumer23.76/10.34. MeanproducerBufferContent
+  waiters0.235/0.952,extensionlock0.231/0.735. Finalminute10s windows
+  WALWritewaitersfour0.03-0.90,eight1.34-4.31. Lower database contention
+  supports testing lowerconcurrency;not evidence of a pool-capacity win.
+  No swapouts;swapin12/15pages. Nativepeak40.94/42.32GB,hostfree minima
+  97.10/95.68GB;guardactive. Devicepartial means742.2/730.2reportedMB/s,
+  all-process reads+writes,notphysicalceiling. Source/runtime commands,
+  waits,verification and round-comparison.json retained. Baseline and
+  diagnostics restored;allthreeDBs removed;monitors stopped.
+  Next: five-minute unpacedfour-call validation,sameconfiguration,
+  final120/60/30s windows plus backlog/errors/checkpoints,40midentity
+  and100GBguard. Keepstorageinternals and planning investigations closed
+  absent new actionable evidence. No timeout/durability changes.
+- Five-minute four-call validation 2026-09-09,
+  unpaced_four_long_132748/scratch_132748: frozen643f90a3 binary,
+  scratch source byte-identity verified,4 concurrent unpacedProduceBatch
+  calls,batch250,pools8,runtime4each,claim16k/queue64k/poll100ms,
+  native baseline/durability/timeouts unchanged. Actual300.011s;
+ 29,775,500 messages consumed once,zeroerrors/duplicates,batches250
+  verified,identity cap not reached. Overall99,248 messages/s includes
+  faster opening work. Exact final120/60/30s produced75,425/71,350/
+ 69,558,consumed75,458/71,465/69,637. Six checkpoints completed.
+  Handler backlog max48,113,mean13,951,slope-21.50 messages/s;
+  consumer p99 upper bound579ms,producer26ms. Durable-ID distance
+  max218,481,first/last30 medians91,664/52,695,slope-97.1ids/s;not
+  exact message counts. No growing backlog trend at achievedrates.
+  Three-minute99k late-rate candidate did not persist through5min.
+  Do not turn overall99k into sustained99k or call70k the absolute
+  ceiling. Earlier38% benefit is short-window evidence;no matched
+  five-minute8call control exists,so long-run advantage is unproven.
+  MeanCPU PG2.11cores/apps1.66,no swapouts,64swapinpages. Native
+  peak54.05GB plus otherguardedrootsabout30.8GB,hostfreemin83.87GB;
+  storage guard active. Devicepartialmean668.2reportedMB/s,coverage
+ 14.3-299.2s,whole-host reads+writes,not physical-ceiling evidence.
+  Analyzer now includes exact120s tail alongside60/30s;raw data,
+  settings,commands,identity verification and conclusion retained.
+  Baseline restored,DB removed,monitor stopped. No additional storage
+  or consumer-planning investigation;closed leads remain closed.
+  Next configuration test:batch500 versus250 atfourcallers,pool8,
+  allother settings fixed. Matched short screens first,then longer
+  validation only if late producing/consuming output and backlog improve.
+- Four-call batch comparison 2026-09-09, four_batch_compare_133618:
+  three fresh native databases, frozen643f90a3 binary, batch500/250/500,
+  four concurrent ProduceBatch calls, pools8,180s each; other settings,
+  durability, payload, timeouts and storage guard unchanged. Runs
+  scratch_133618/134011/134325 consumed20,764,000/12,740,000/15,183,500
+  messages once (48,687,500 total), zero errors/duplicates; SQL verified
+  actual batches500/250/500, full duration, identity limit not reached.
+  Final60s produced90,298/68,224/63,340 messages/s and consumed
+  90,253/68,280/63,352. Final30s produced89,833/67,192/50,352;
+  final120s produced99,027/67,610/72,514. Batch500's late benefit did
+  not repeat; its second run deteriorated through the final windows.
+  Retain250 baseline; no longer500 validation justified by this screen.
+  No absolute maximum or stable floor established. Consumer p99 upper
+  bounds3596/1113/1326ms; handler backlog maxima418,744/39,708/110,802,
+  slopes-193.5/-26.1/-38.4 messages/s. Checkpoints completed4/2/3.
+  Mean PG CPU2.58/1.74/2.15 cores; app CPU1.98/1.32/1.63. No swapouts.
+  Peak native storage43.58/36.71/32.25GB plus other guarded roots;
+  host free minima94.47/101.02/105.42GB. Whole-device mean reported
+  MB/s737.8(partial)/453.3/503.4; not a physical-ceiling measurement.
+  Raw settings, commands, identity checks, comparison and device analysis
+  retained. All databases removed, monitor stopped, baseline restored.
+  Concurrent naming and consumer-query edits are outside the frozen
+  binary's scope. User directs stopping if a needed rebuild meets broken
+  code, until they authorize continuing. No library edits made here.
+  Next bounded configuration direction: producer pool4 versus8 at fixed
+  four callers/batch250, judging late output, backlog and errors; keep
+  storage internals closed. This is a proposed next screen, not a result.
+- Four-call producer pool comparison 2026-09-09, four_pool_compare_135113:
+  pool4/8/4, batch250, four concurrent calls,180s each; consumer pool8,
+  claim16k/queue64k/poll100ms, frozen643f90a3 binary and native durable
+  baseline unchanged. Runs scratch_135113/135503/135838 verified
+  21,146,750/16,619,250/14,187,250 consumed once (51,953,250 total),
+  zero errors/duplicates; effective producer pool limits4/8/4 captured
+  from running processes, SQL batches250 verified, identity cap not hit.
+  Final60s produced101,458/71,842/62,629 and consumed101,505/71,802/
+  62,697 messages/s; final30s produced95,282/78,481/56,433. Consumer
+  p99 upper bounds253/607/1271ms. Pool4 benefit did not repeat; keep8.
+  No sustainable maximum established; chronology and host-state variation
+  prevent attributing the first run's advantage to its pool limit.
+  Full comparison includes pool waits, backlog, CPU, storage and device
+  samples. All databases removed, monitor stopped, baseline restored.
+  Next running screen: baseline, claim8k/queue32k, poll200ms, baseline;
+  120s each at pool8, four callers/batch250. Each candidate changes only
+  its named settings. Retention-window decision requested separately;
+  message retention and idempotency expiry must both be accounted for
+  before claiming bounded storage. No storage-internals investigation.
+- Bounded consumer settings screen 2026-09-09, consumer_settings_140240:
+  baseline / claim8k+queue32k / poll200ms / baseline,120s each, fixed
+  four callers/batch250 and pools8, frozen643f90a3 binary. Baseline
+  claim16k/queue64k/poll100ms; candidates change only named settings.
+  Actual processor startup logs confirm settings; source archive retained.
+  Runs scratch_140241/140507/140734/141000 consumed12,519,250/
+  11,091,500/10,566,750/9,847,000 once, total44,024,500; zero errors
+  or duplicates, SQL batches250 verified, identity cap not hit.
+  Final60s produced82,431/75,367/69,896/80,496 messages/s; consumed
+  82,486/75,280/69,991/80,464. Consumer p99 bounds424/949/3279/1615ms.
+  Both candidates below both surrounding baseline late rates. Keep
+  claim16k/queue64k/poll100ms; neither candidate warrants longer testing.
+  Handler backlog maxima40,237/33,936/237,484/86,312; fitted slopes
+  -82.2/-49.7/+28.4/+80.0 messages/s. Full end drain is not proof of
+  steady state; short duration and positive slopes prevent a sustainable
+  maximum claim. Native peaks32.08/28.11/26.70/26.23GB plus other guarded
+  roots; host free minima105.42/109.40/110.73/111.16GB. Guard retained.
+  Combined pool and consumer screens verified95,977,750 messages once.
+  Both studies restored PG baseline, removed their scratch databases and
+  stopped monitors. No library changes or rebuilds; concurrent user work
+  preserved. Next: cleanup under load after the user chooses retention
+  and duplicate-prevention windows. Asked whether both can be2min for a
+  bounded scratch test; unanswered, so existing24h idempotency unchanged.
+  A short-window result must not be presented as24h-window capacity.
+- Retention validation authorized 2026-09-09: user approved2min message
+  retention and2min idempotency-key TTL for scratch only. Keep
+  AllowDropPastCommitted=false. Partition size1m gives several expiry
+  opportunities in a short run; this differs from prior5m partitions.
+  Results apply to these windows, not24h duplicate-prevention capacity.
+  Scratch main adds registration TTL flags. Runner captures relation
+  allocation, partition presence and key deletion/dead/live statistics;
+  verification checks exact consumed identity set1..N after expired rows
+  disappear. Surviving-row count/batch statistics no longer represent all
+  production. Existing non-retention verification remains unchanged.
+  Application source frozen from continuous_rate_120421; isolated build
+  in /private/tmp/vulkan-retention-build. Build, vet, go fmt and race
+  compile passed (no test files). Identity check rejected missing and
+  substituted identities in a small deliberate-negative check. No library
+  edits/rebuild from concurrent naming work. Source/binary hashes archived.
+  Smoke retention_smoke_141704/scratch_141705:20k/s target180s;
+  3,600,000 consumed once,zero errors/duplicates,consumer p99<=213ms.
+  First partition dropped175.1s; key deletion observed after120s,
+  finalminute deletion rate18,789/s, live-key estimate2.466m. Surviving
+  messages2,379,000; exact consumed IDs complete despite cleanup.
+  Peak DB4.436GB,hostfree>=123.96GB; native durable baseline restored,
+  smoke DB removed. Next running validation:480s at80k/s target,
+  same2min windows/1m partitions,40m identity cap and100GB storage guard.
+- Retention80k validation stopped2026-09-09: retention_80k_142040 /
+  scratch_142040, target80k/s for480s,2min message/key TTL,1m partitions.
+  Janitor timed out before expiry (~69s): SweepExpiredPartitions exceeded
+  default5s CleanupTimeout. Repeated backoff, then both partition sweep
+  and idempotency sweep timeouts by~143s. Producer/consumer counts alone
+  would have hidden maintenance failures. Stopped intentionally172.06s;
+  final producer13,170,000 with2 cancellation errors caused by stop,
+  consumer13,170,000 with0 errors/duplicates,p99<=3908ms. No full-duration
+  or full-identity verification; ineligible for failure-free ranking.
+  Failed run, logs, samples, source and query evidence archived; own DB
+  removed, PG restored, device monitor stopped. No sustainable claim.
+  Bounded query check: surviving message_log_4_9, SELECT matching the
+  sweep's candidate query with cutoff before its oldest row returned0;
+  PK index scan removed1,000,000 rows by filter,224.204ms after load
+  stopped,180,846 shared hits and2735 reads. This is idle diagnostic time,
+  not claimed in-load execution latency. Captured SQL/EXPLAIN in evidence.
+  Actual workload pg_stat_statements: partition0 DELETE15 calls,0 rows,
+  7.265s cumulative; partition2 eight calls,0 rows,2.630s; other partitions
+  also paid repeated zero-result scans. These completed-statement totals
+  omit cancelled work. Confirms avoidable scanning; does not prove this
+  is the sole throughput limit or fully explain key-cleanup timeouts.
+  Frozen sweep loops every surviving partition, filters created_at while
+  ordering by id, and probes even partitions with no expired rows. Raising
+  the timeout would not eliminate those scans. Default system manager
+  constructs topic janitor with nil config; its5s CleanupTimeout is not
+  exposed by the frozen top-level ClientConfig/SystemManagerConfig.
+  Recommend reviewing this cleanup query before claiming bounded-storage
+  maximum throughput. No production query, index or timeout changes made.
+  Successful20k smoke proves cleanup works at light load, not an8min
+  sustained ceiling. Larger-run storage stabilization remains unproven.
 - [ ] Choose retention from measured storage, then validate finalists.
 - [ ] Record comparison and sustainable result with evidence.
 
@@ -2306,3 +2646,134 @@ untracked-so-far `runs.jsonl` files before they are first committed.
   harness, guards as checks, the record and rep shape); HISTORY entry;
   the two ROADMAP items removed; root `_bench-design.md` and
   `_bench-methodology.html` deleted.
+
+## Project rename, topic → stream, website and logo sheet
+
+Owner: a separate session from the benchmark-recording and throughput work
+above. Coordinate edits to shared library, example and benchmark files with
+that session; do not overwrite its in-flight changes.
+
+Exploration accepted as the planning basis on 2026-09-09:
+[RENAME_EXPLORATION.md](../RENAME_EXPLORATION.md). SQLStreams is the locked
+product name [0725]. Existing artwork is reference material for the new
+logo sheet. `topic` → `stream` is in scope throughout the library and
+website. Keep message, producer, consumer, consumer group, binding, cursor,
+lease, schedule and system; this rename does not change their semantics.
+
+### 1. Identity and public proposal
+
+- [x] Initial naming screen (2026-09-09): SQLStreams is already used in
+  README artwork, but the near-identical SQLStream name is used by a
+  [Postgres/MySQL observability product](https://sql-stream.com/) and a
+  [Python SQL-query CLI](https://pypi.org/project/sqlstream/). Both expose
+  `sqlstream` commands. The user accepted the overlap and locked in
+  SQLStreams [0725]; do not reopen the shortlist on that basis.
+- [x] Select the display name/capitalization: SQLStreams [0725].
+- [x] Settle the repository/module slug, Go
+  package, CLI binary, environment prefix, diagnostic prefix, metric prefix,
+  default schema and canonical docs origin. Approved technical forms [0727]:
+  `agentstax/sqlstreams`, `sqlstreams`, `SQLSTREAMS_`, `SS` plus the existing
+  four-digit serial, `sqlstreams.`, and schema `sqlstreams`. Confirm the
+  exact external destinations before cutover; the temporary website origin
+  is settled below.
+- [x] Confirm the database cutover [0726]: all existing databases are
+  disposable. Rename baseline DDL and recreate; no data-preserving migration
+  or mixed-version support for this cutover. Coordinate any shared reset
+  with the benchmark session before stopping its processes or deleting data.
+- [x] Keep the generated Cloudflare origin for now [0726]; use the current
+  address unless a replacement is needed. No permanent domain selected;
+  sqlstreams.io is a candidate. No binaries released before domain purchase.
+- [ ] Before binary release: select the permanent domain, update site origin,
+  diagnostic docsBaseURL and version-manifest references, and verify links.
+- [x] Draft and review the rename proposal: identity, stream vocabulary,
+  existing semantics, website and disposable-database cutover. The user
+  removed the proposal page after review; do not publish or recreate it [0728].
+- [x] User approved the public proposal for implementation on 2026-09-09;
+  technical identity recorded in [0727]. Review artifacts stay local;
+  the website documents the resulting product behavior [0728].
+
+### 2. Logo sheet and visual identity
+
+- [x] Review existing SQLStreams SVGs and semicolon favicon; draft the local
+  [logo sheet](../SQLSTREAMS_LOGO_SHEET.html): existing outlined wordmark,
+  horizontal lockup, standalone symbol, light/dark and monochrome variants.
+  Three directions: semicolon (recommended), stream S, message log.
+  User correction: the semicolon follows the wordmark (`SQLStreams;`),
+  never precedes it. Sheet and header previews corrected; standalone
+  semicolon is for favicon/avatar use.
+  Website color correction: `SQL` and the trailing semicolon are amber;
+  `Streams` stays light against the blue header. Desktop/mobile previews updated.
+- [x] Show README/header/mobile, 16/32px favicon, repository avatar
+  and social-preview placements. Specify colors, typography, clear space,
+  minimum sizes and accessible labels. Existing lettering provenance is
+  stated; its original typeface/license remains to verify before final export.
+  Chromium desktop/mobile review passed: no horizontal overflow at 390px,
+  no page errors; all direction controls and draft SVG download work.
+- [ ] Review the sheet, then deliver editable vector masters and required
+  PNG exports. Inspect rendered artwork; changing SVG labels alone does
+  not change outlined lettering. Keep the site's board design unless a
+  separate change is agreed.
+
+### 3. Library, storage and operator interfaces
+
+- [ ] Rename topic-derived declarations at their owning roots, then public
+  aliases/handles, packages, files, methods, configs, owners, worker names,
+  migration scopes, SQL catalog/column/index names, row tags and JSON/log
+  attributes. Update current vocabulary rules alongside the implementation.
+- [ ] Preserve already-neutral names: message_log_<id> and the other
+  per-stream table families, plus __system.metrics/alerts/schedules.
+  Rename their topic-qualified Go identifiers. Keep the advisory-lock
+  numeric namespace; account for changed resource literals in the cutover.
+- [ ] Rename brand/module references across all eight Go modules, workspace
+  setup, public entry package, CLI path, version detection and path-aware
+  tooling. Coordinate any entry-package relocation as its separately
+  scoped ROADMAP item rather than silently bundling it here.
+- [ ] Update CLI commands/flags/help/completions, environment names, defaults,
+  JSON, recipes, examples, e2e/benchmark fixtures and local configuration
+  references. Never rewrite an operator's explicit schema or DSN for branding.
+- [ ] Replace the VK prefix across errors, events, metrics and alerts while
+  preserving every numeric serial. Update registry validation, explain,
+  fix text/placeholders, test codes and documentation links together.
+- [ ] Update metric names/units/attributes, stored measurement identity,
+  reserved prefixes, OTel meter scope and Prometheus validation. Verify
+  exported series and active alert evaluation so silent empty dashboards
+  are covered by observed behavior, not just migration prose.
+
+### 4. Website implementation and continuity
+
+- [ ] Update site/repository origins, branding, navigation, titles, prose,
+  API samples, topic-related slugs and why-vulkan. Review against the
+  website CONVENTIONS and VOICE; shipped pages describe shipped behavior.
+- [ ] Update executable documentation: PGlite schemas/SQL, sandbox controls,
+  examples, SQL parity tests, diagnostic data/types and generated code data.
+  Reuse existing exports/checks; no new rename infrastructure by default.
+- [ ] Update error-code pages, internal links, redirects for published old
+  routes/codes, canonical URLs, sitemap/robots and version manifests.
+  Include frozen-version links to the live manifest and old binaries'
+  diagnostic URLs in the continuity review.
+- [ ] Replace README/site artwork, favicon and relevant introductory/share
+  assets; inspect light/dark and desktop/mobile rendering. Review browser
+  storage keys and document any preference/read-tracking reset.
+- [ ] Update Cloudflare project/deployment configuration and inspect external
+  domain/repository settings as needed. Prepare reviewable artifacts first;
+  ask before `just site-deploy`.
+
+### 5. Distribution, verification and close-out
+
+- [ ] Update release workflows, GoReleaser, binary/archive names, nested
+  module tag paths, Homebrew/Chocolatey metadata and installation docs;
+  verify which external listings actually exist before planning cutover.
+- [ ] Per chunk: affected-module build/vet, `go fmt ./...`, targeted race
+  tests and directly affected e2e tests. Verify alias closure and convention
+  discovery; sabotage affected discovery checks before trusting green.
+- [ ] Verify a downstream consumer outside the workspace, version reporting,
+  CLI help/JSON/explain, site build, sandbox parity, telemetry and URL/asset
+  rendering. Audit remaining old-name matches, preserving historical records
+  and the user's writing rather than blindly replacing them.
+- [ ] At review-ready: full fresh-DB e2e suite. At release: pinned prior-tag
+  compatibility lab against the declared verdict, migration compatibility
+  table and HISTORY entry citing e2e outcomes. Keep the old side of the
+  compatibility harness exercising the old API.
+- [ ] Fold accepted exploration into the fixed record-keeping surface,
+  remove the root exploration document and completed TODO/ROADMAP lines
+  at close-out. Leave all work uncommitted and report git status.
