@@ -2702,6 +2702,115 @@ untracked-so-far `runs.jsonl` files before they are first committed.
   screens and one300s validation. All four DBs removed; post-removal
   native footprints and zero-scratch-DB checks saved in study directories.
   PG baseline restored. Janitor fixes remain deferred by user; no commits.
+- Producer-process comparison2026-09-09, producer_processes_153145:
+  frozen f25735a5; one process4calls/pool8/GOMAXPROCS4/GOMEMLIMIT2GiB
+  versus two processes2calls/pool4/GOMAXPROCS2/GOMEMLIMIT1GiB each.
+  Same totals:4calls,8connections,4Go CPU slots,2GiB soft Go memory;
+  consumer unchanged, batch250,janitor24h,guard100GB. Separate producer
+  identity ranges verified exactly by runner; no library or binary changes.
+ 12s two-process smoke scratch_153145 verified1,885,250 once,0 errors.
+ 180s screens scratch_153204/153604/154002 (one/two/one) verified
+ 18,925,750/14,250,250/13,946,500 once,47,122,500 total plus smoke;
+  zero producer/consumer errors/duplicates,retained rows and batches250
+  verified,no cleanup statements,no identity cap hit. Actual two-process
+  duration181.153s includes final-call completion; not capped at nominal180s.
+  Final60s produced96,077/62,354/68,408 and consumed96,122/62,779/68,376.
+  Consumer p99<=266/1503/3999ms. Two processes below both surrounding
+  controls; keep one process, no longer candidate validation warranted.
+  Controls drift materially; no exact causal process penalty or maximum
+  claimed. No host swapouts; swapins160/104/36 pages.
+  Per-process CPU cores: control producer0.591/consumer1.305; split
+  producers0.188+0.187/consumer0.862; closing producer0.377/consumer0.830.
+  PG averages2.463/1.555/1.470cores. Producer pool wait0.0029s /
+ 0.0023+0.0029s /0.0025s; consumer0.0136/60.67/84.13 aggregate seconds.
+  These whole-run averages do not exclude brief CPU/pool contention.
+  Corrected renamed binary CPU grouping in analysis: prior scripts counted
+  sqlstreams-scratch-retention30 CPU as PG. Saved janitor_parked_150037,
+  parked_concurrency_150839 and parked_long_152127 comparison CPU fields
+  recomputed from raw samples, conclusions preserved. Throughput unaffected.
+  Native peaks37.81/31.85/31.40GB,hostfree>=91.29/97.23/97.62GB;
+  all four DBs removed and zero-DB checks saved. Baseline PG restored.
+ 49,007,750 messages verified including smoke. Nothing committed.
+- Five-minute CPU/window diagnosis 2026-09-09, profile_windows_155438 /
+  scratch_155438: frozen renamed application, scratch-only60s CPU rotation,
+  binary3a380fd5; go fmt/build/vet/race check passed (no scratch tests).
+  Four callers x250, pools8, GOMAXPROCS4 each, janitor24h, unpaced300s.
+  Produced/consumed30,044,000 exactly once, zero errors/duplicates; SQL
+  batches250, exception consumer0, no measured janitor DELETEs. Average
+  100,142/s; final120s72,129/72,129, final60s75,089/75,269 producer/consumer.
+  Opening minute146,375/s; transient handler backlog reached1.113m,
+  consumer p997750ms, so neither a stable maximum nor a latency win.
+  CPU opening/final samples producer37.59/19.28s, consumer93.18/47.49s,
+  similar profile shape as rate halves; no application CPU saturation
+  evidence. Darwin sleep/syscall samples are not treated as useful compute.
+  Producer DataFileWrite mean sessions0.022 minute1 ->0.688 minute3;
+  foreground normal-relation write time1.34s ->44.05s per minute.
+  Final-minute WALWrite lock mean1.262 producer and0.887 consumer;
+  producer pool wait0 in that minute, consumer59.32 aggregate seconds.
+  Six checkpoints. Zero swap-outs, but6.27m compressions/5.50m
+  decompressions: host memory pressure remains a confounder, not ruled out.
+  Inference: slowdown is dominated by database write-path waiting;
+  this does not establish a physical SSD ceiling or one underlying cause.
+  Next bounded candidate: bgwriter_lru_maxpages1000 at baseline200ms,
+  five minutes, measure foreground write time/message and final throughput.
+  Earlier60s bgwriter screens did not prove benefit; don't accept moving
+  waiting from relation writes into WAL as an improvement. No kernel chase.
+  CPU instrumentation adds profile flush gaps; comparison is diagnostic.
+  Evidence includes profile-windows.json, first/final CPU top/cumulative
+  reports, raw monitor/waits, archived source and analyzer. Native peak
+  54.69GB, host free minimum74.27GB; scratch DB dropped, baseline restored,
+  native post-cleanup8.633GB, zero scratch DBs. No library edits/commits.
+- Background-writer five-minute control 2026-09-09,
+  bgwriter_windows_161502 / scratch_161502: same3a380fd5 binary, profiles,
+  application settings and durability as155438; only startup override
+  bgwriter_lru_maxpages100 ->1000, delay200ms unchanged, effective values
+  asserted. Produced/consumed29,796,500 exactly once, no errors/duplicates;
+  SQL batches250, exception consumer0, janitor measured DELETEs empty.
+  Whole-run99,316/s vs100,142 baseline; final12074,800/74,760,
+  final6077,834/78,036 vs75,089/75,269; final3070,145/70,439 vs
+  77,440/77,664. No repeatable throughput winner from one sequential pair.
+  Foreground normal-relation write cost4.354 ->3.509us/message (-19.4%),
+  background-writer bytes0.741 ->3.450GB; foreground normal-WAL write
+  cost2.057 ->2.376us/message (+15.5%). Moving relation writes did not
+  eliminate late WAL waiting: final-minute producer WALWrite lock mean
+  1.169 sessions vs1.262. Six checkpoints in each run. Consumer pool
+  wait11.18 aggregate seconds in finalminute vs59.32; p99963ms vs7750,
+  backlog maximum76,568 vs1,112,727, but single-run latency improvement
+  is not causal proof. Zero swap-outs;5.97m compression/5.25m decompression
+  pages still make memory pressure a confounder. Retain bgwriter100;
+  close this screen, no further broad sweep or kernel investigation.
+  Native peak53.303GB, host free minimum75.593GB. DB dropped; zero scratch
+  DBs; native post8.632GB; baseline bgwriter100/200ms restored and asserted.
+  Evidence: comparison.json, cost-comparison.json (per-message IO deltas),
+  profile-windows.json, raw profiles/settings/waits and archived driver.
+  Janitor remains deferred; no bounded-storage capacity claim. No commits.
+- Memory-pressure five-minute pair 2026-09-09, memory_windows_164722:
+  scratch_164723 shared_buffers3GB then scratch_1653176GB; same3a380fd5
+  binary/profiles, four callers x250, pools8, GOMAXPROCS4, bgwriter100/200ms,
+  janitor24h, durability on. Buffer settings asserted; fresh DB per arm.
+  28,982,750 /22,467,000 messages once (51,449,750 total), zero errors or
+  duplicates; batches250, exception consumer0, no measured janitor DELETEs.
+  Average96,460 /74,888 messages/s, but final60 production69,142 /69,026
+  and consumption69,192 /69,392: sustained finish essentially identical.
+  Consumer p99360 /1411ms; backlog maxima44,835 /41,529, no growing trend.
+  Whole-host compressed pages4,065,317 /4,085,962; decompressed3,558,985 /
+  3,707,381; zero swap-outs. Compression/message0.1403 /0.1819 reflects
+  more work in the3GB arm; nearly identical raw churn is not evidence that
+  reducing shared buffers eliminated pressure. VM counters are host-wide.
+  Foreground normal-relation writes18.840 /4.522GB,10.841 /5.704us per
+  message. Normal-relation reads16.0 /7.43MB remain small; dominant tradeoff
+  is extra foreground writes, not a large new read load. WAL write cost
+  3.253 /4.900us/message; checkpoints10 /4. Opening rates differed before
+  late convergence; sequential pair cannot isolate host/run-order effects.
+  Earlier60s3/6/3 bracket likewise did not prove a repeatable gain.
+  Decision for this screen: retain6GB baseline, close memory sweep. No
+  proof memory pressure is the root cause, and no proof it is irrelevant.
+  Next useful work remains deferred janitor under load, not another broad
+  configuration or kernel investigation. CPU/source/VM/IO/waits and
+  cost-comparison.json preserved alongside per-minute profile-windows.json.
+  Native peaks46.416 /45.208GB, host free minima82.396 /83.547GB; both DBs
+  dropped, zero scratch DBs, native post8.633GB,6GB baseline restored.
+  Janitor inactive means no bounded-storage steady-state capacity claim.
 - [ ] Choose retention from measured storage, then validate finalists.
 - [ ] Record comparison and sustainable result with evidence.
 

@@ -137,6 +137,10 @@ func NewSystemManager(ds *datastore.PostgresDatastore, cfg *SystemManagerConfig)
 func (s *SystemManager) Run(ctx context.Context) error {
 	owner, err := s.migrateController.SystemOwner(ctx)
 	if err != nil {
+		// a cancel during the owner read is a requested stop, not a failure
+		if ctx.Err() != nil {
+			return nil
+		}
 		return err
 	}
 	runner, err := manager.NewRunner(s.manager, owner, nil, s.Logger)

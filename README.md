@@ -143,6 +143,7 @@ sqlstreams explain SQL0022                          # what an error code means, 
 sqlstreams metric list                             # current value of every built-in metric
 sqlstreams alert list                              # what's active right now
 sqlstreams manager run --metrics-address :9464     # run upkeep process, serve Prometheus /metrics
+# ...many more
 ```
 
 ## Development

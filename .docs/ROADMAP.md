@@ -73,6 +73,7 @@ the item is removed.
 - **Move the public entry package out of pkg/** — follow through on [0665]
   and [0670] once its destination is selected. Update imports and path-aware
   tooling separately from semantic API changes; no module split is selected.
+
 - **cleanup and refactor files** - move files to final locations, cleanup files
   that shouldn't exist in repo and or .gitignore
 
