@@ -22,6 +22,9 @@ import { createScheduleConfigSql } from './create-schedule-config';
 import { createScheduleCursorSql } from './create-schedule-cursor';
 import { createScheduleCursorDueIndexSql } from './create-schedule-cursor-due-index';
 import { createMigrationLogSql } from './create-migration-log';
+import { createWorkerInstanceLogExpiryIndexSql } from './create-worker-instance-log-expiry-index';
+import { createWorkerInstanceLogWorkerIndexSql } from './create-worker-instance-log-worker-index';
+import { createWorkerInstanceLogSql } from './create-worker-instance-log';
 
 export const createSystemTablesTemplates: string[] = [
 	createSystemConfigSql,
@@ -36,8 +39,11 @@ export const createSystemTablesTemplates: string[] = [
 	createWorkerConfigLogSql,
 	createWorkerConfigLogIndexSql,
 	createWorkerInstanceSql,
+	createWorkerInstanceLogSql,
 	createWorkerInstanceWorkerIndexSql,
 	createWorkerInstanceExpiryIndexSql,
+	createWorkerInstanceLogWorkerIndexSql,
+	createWorkerInstanceLogExpiryIndexSql,
 	createScheduleConfigSql,
 	createScheduleCursorSql,
 	createScheduleCursorDueIndexSql,
