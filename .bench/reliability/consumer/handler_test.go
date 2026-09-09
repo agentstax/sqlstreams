@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/agentstax/vulkan/.bench/reliability/common"
-	"github.com/agentstax/vulkan/.bench/reliability/record"
-	"github.com/agentstax/vulkan/pkg/consume"
+	"github.com/agentstax/sqlstreams/.bench/reliability/common"
+	"github.com/agentstax/sqlstreams/.bench/reliability/record"
+	"github.com/agentstax/sqlstreams/pkg/consume"
 )
 
 func TestHandleReportsARecordWriteFailure(t *testing.T) {

@@ -8,9 +8,9 @@ every worker row in the deployment until `ctx` cancels, then returns
 `nil`. Most deployments never call it: `Consume` and
 `SchedulerInstance.Schedule` run the same manager beside their session, so
 a process with one live consumer already keeps the fleet-wide workers
-running, the topic janitor, the schedule producer, the metrics collector,
-and the built-in checks, for every topic in the deployment. `Run` is for
-the process with no consumer to hang upkeep on: `vulkan manager run`, or a
+running, the stream janitor, the schedule producer, the metrics collector,
+and the built-in checks, for every stream in the deployment. `Run` is for
+the process with no consumer to hang upkeep on: `sqlstreams manager run`, or a
 service that carries it explicitly.
 
 ```go
@@ -33,7 +33,7 @@ window when the holder stops. That column takes effect with no deploy:
 
 | `target_instances` | what runs |
 | --- | --- |
-| `0` | nothing, everywhere; the loop logs [VK0035](/errors/VK0035/) and reconciles no rows |
+| `0` | nothing, everywhere; the loop logs [SS0035](/errors/SS0035/) and reconciles no rows |
 | `1` | one process reconciles, the rest wait. The default |
 | `N` | N processes reconcile |
 | `-1` | every process reconciles, no cap |
@@ -41,15 +41,15 @@ window when the holder stops. That column takes effect with no deploy:
 ## Gotchas
 
 - `ClientConfig.DisableManager` is the per-process opt-out: consumer pods
-  beside a dedicated `vulkan manager run`, and consumers under a database
-  role with no DDL rights, since the topic janitor creates and drops
+  beside a dedicated `sqlstreams manager run`, and consumers under a database
+  role with no DDL rights, since the stream janitor creates and drops
   partitions.
 - Admin verbs run nothing and the producer runs nothing. A deployment that
   only produces accumulates partitions; `ProducerHandle.Register` logs
-  [VK0063](/errors/VK0063/) naming the unclaimed rows, and the one-minute
+  [SS0063](/errors/SS0063/) naming the unclaimed rows, and the one-minute
   `worker_liveness` check keeps an alert active on `__system.alerts` until
   the rows are claimed again.
-- The topic janitor gives each of its five cleanup steps its own
+- The stream janitor gives each of its five cleanup steps its own
   five-second deadline, retries included. A step that times out returns its
   error and the remaining steps still run; a pass with any error counts as
   a failed tick and backs off. The start log reports `cleanup_timeout`.

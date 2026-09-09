@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/.bench/reliability/common"
-	"github.com/agentstax/vulkan/.bench/reliability/record"
-	"github.com/agentstax/vulkan/.bench/reliability/scenario"
+	"github.com/agentstax/sqlstreams/.bench/reliability/common"
+	"github.com/agentstax/sqlstreams/.bench/reliability/record"
+	"github.com/agentstax/sqlstreams/.bench/reliability/scenario"
 )
 
 // Runner runs one role of one scenario: it registers what the scenario

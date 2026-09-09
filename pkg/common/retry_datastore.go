@@ -6,15 +6,15 @@ import (
 	"net"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common/diagnostic"
-	"github.com/agentstax/vulkan/pkg/common/logging"
+	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type RetryableFunc func() error
 
 // RetryDatastore reruns a datastore call on transient errors, shared by
-// producer/consumer/topic: one backoff/attempt machinery, with
+// producer/consumer/stream: one backoff/attempt machinery, with
 // IsTransientDatastoreError as the classification -- errors surface as-is,
 // never rewrapped.
 type RetryDatastore struct {

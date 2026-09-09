@@ -6,9 +6,9 @@ import (
 	"math/rand/v2"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	"github.com/agentstax/vulkan/pkg/worker"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	"github.com/agentstax/sqlstreams/pkg/worker"
 )
 
 // Runner keeps a claimed manager instance running for an owner across lives

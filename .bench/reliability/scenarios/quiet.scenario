@@ -1,7 +1,7 @@
 # the hour-long quiet run: constant load, fixed consumers, no chaos, nothing may move
 
 [input]
-topic        orders           DeliveryLogMode all
+stream       orders           DeliveryLogMode all
 consumers    fraud-scoring    handler fail rate 0, 3 retries then dead
 duration     60m
 

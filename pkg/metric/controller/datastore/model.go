@@ -9,9 +9,9 @@ import (
 type WorkerSnapshotRow struct {
 	Name            string `db:"name"`
 	SystemId        int64  `db:"system_id"`
-	TopicId         int64  `db:"topic_id"`
+	StreamId        int64  `db:"stream_id"`
 	ConsumerGroupId int64  `db:"consumer_group_id"`
-	TopicName       string `db:"topic_name"`
+	StreamName      string `db:"stream_name"`
 	GroupName       string `db:"group_name"`
 
 	TargetInstances  int     `db:"target_instances"`
@@ -21,12 +21,12 @@ type WorkerSnapshotRow struct {
 }
 
 // ScheduleSnapshotRow is one row of ScheduleSnapshots' query: the schedule
-// row, its target topic, and its schedule state.
+// row, its target stream, and its schedule state.
 type ScheduleSnapshotRow struct {
-	Name      string `db:"name"`
-	SystemId  int64  `db:"system_id"`
-	TopicId   int64  `db:"topic_id"`
-	TopicName string `db:"topic_name"`
+	Name       string `db:"name"`
+	SystemId   int64  `db:"system_id"`
+	StreamId   int64  `db:"stream_id"`
+	StreamName string `db:"stream_name"`
 
 	Expression      string     `db:"expression"`
 	Suspended       bool       `db:"suspended"`
@@ -35,21 +35,21 @@ type ScheduleSnapshotRow struct {
 	DueForSecs      float64    `db:"due_for_secs"`
 }
 
-// TopicSnapshotRow holds a topic's partition count and compaction-head state.
-type TopicSnapshotRow struct {
+// StreamSnapshotRow holds a stream's partition count and compaction-head state.
+type StreamSnapshotRow struct {
 	Partitions                         int64   `db:"partitions"`
 	Compacted                          bool    `db:"compacted"`
 	CompactionRowsWithoutHead          int64   `db:"compaction_rows_without_head"`
 	OldestCompactionRowWithoutHeadSecs float64 `db:"oldest_compaction_row_without_head_secs"`
 }
 
-// ConsumerGroupIdentityRow is one group's id and name used by TopicSnapshot.
+// ConsumerGroupIdentityRow is one group's id and name used by StreamSnapshot.
 type ConsumerGroupIdentityRow struct {
 	Id   int64  `db:"id"`
 	Name string `db:"name"`
 }
 
-// ConsumerGroupSnapshotRow is one (group, topic)'s cursor row plus the
+// ConsumerGroupSnapshotRow is one (group, stream)'s cursor row plus the
 // counted delivery/lease state around it.
 type ConsumerGroupSnapshotRow struct {
 	Claimed            int64      `db:"claimed"`

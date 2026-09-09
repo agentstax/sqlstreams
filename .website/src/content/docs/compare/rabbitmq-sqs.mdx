@@ -1,17 +1,17 @@
 ---
-title: Vulkan vs. RabbitMQ & SQS
+title: SQLStreams vs. RabbitMQ & SQS
 description: Everything the queue world does well — plus the history it throws away.
 ---
 
 import ThreadAside from '../../../components/thread-aside/thread-aside.svelte';
 
-RabbitMQ and SQS are the workhorses of the queue world, and Vulkan
+RabbitMQ and SQS are the workhorses of the queue world, and SQLStreams
 borrows their best ideas shamelessly: per-message retries,
 dead-lettering, [leases](/concepts/lifecycle/) (SQS calls its version
 a visibility timeout), routing. The disagreement is about one default: **what happens to a
 message after it's consumed.**
 
-They delete it. Vulkan keeps it. Almost every difference below falls
+They delete it. SQLStreams keeps it. Almost every difference below falls
 out of that.
 
 ## Feature by feature
@@ -19,7 +19,7 @@ out of that.
 Scored on shipped behavior; proposed capabilities are labeled, never
 checkmarked.
 
-| | RabbitMQ | SQS | Vulkan |
+| | RabbitMQ | SQS | SQLStreams |
 | --- | --- | --- | --- |
 | Retry / dead-letter per message | yes | yes | yes, per consumer group |
 | Delayed delivery | plugin | yes (15-min cap) | no — retry backoff, or a handler-requested delay |
@@ -40,7 +40,7 @@ published after it exists. The past is gone; it was deleted on consume.
 
 This sounds like an edge case until you live it: every new service that
 "wishes it had been listening from the start" becomes a custom backfill
-project. In Vulkan, you register a new consumer group and it reads the
+project. In SQLStreams, you register a new consumer group and it reads the
 retained history from the beginning —
 [that's just what a new group does](/concepts/fan-out/), because
 nothing was deleted.
@@ -52,15 +52,15 @@ management UI, `rabbitmqctl`, and educated guessing about which queue,
 which exchange, which binding. In SQS, you have CloudWatch metrics and
 a console that shows you *counts* but fights you on *contents*.
 
-In Vulkan, the message is a row and the question "what happened to
-order ord_8431, everywhere?" is a query (tables are named by topic id —
+In SQLStreams, the message is a row and the question "what happened to
+order ord_8431, everywhere?" is a query (tables are named by stream id —
 `1` here):
 
 ```sql
 SELECT g.name AS consumer_group, d.status, d.attempts, d.last_error
-FROM vulkan.message_log_1 m
-JOIN vulkan.exception_queue_1 d ON d.message_id = m.id
-JOIN vulkan.consumer_group_config g ON g.id = d.consumer_group_id
+FROM sqlstreams.message_log_1 m
+JOIN sqlstreams.exception_queue_1 d ON d.message_id = m.id
+JOIN sqlstreams.consumer_group_config g ON g.id = d.consumer_group_id
 WHERE m.payload->>'order_id' = 'ord_8431';
 ```
 
@@ -73,7 +73,7 @@ cursor past the message's id *is* the receipt.
 Like Kafka, both are external systems — so every "save then send" is an
 unsafe [dual write](/guides/transactional-produce/). SQS's own docs
 recommend the outbox pattern for exactly this. The outbox is a Postgres
-table. Vulkan is what happens when you take that hint to its
+table. SQLStreams is what happens when you take that hint to its
 conclusion.
 
 </ThreadAside>

@@ -9,24 +9,24 @@ describe('excerptSegments', () => {
 	});
 
 	it('splits marked words out of the surrounding text', () => {
-		expect(excerptSegments('the <mark>topic</mark> was not found')).toEqual([
+		expect(excerptSegments('the <mark>stream</mark> was not found')).toEqual([
 			{ text: 'the ', marked: false },
-			{ text: 'topic', marked: true },
+			{ text: 'stream', marked: true },
 			{ text: ' was not found', marked: false },
 		]);
 	});
 
 	it('handles marks at the start and end', () => {
-		expect(excerptSegments('<mark>topic</mark> not <mark>found</mark>')).toEqual([
-			{ text: 'topic', marked: true },
+		expect(excerptSegments('<mark>stream</mark> not <mark>found</mark>')).toEqual([
+			{ text: 'stream', marked: true },
 			{ text: ' not ', marked: false },
 			{ text: 'found', marked: true },
 		]);
 	});
 
 	it('decodes entities in and around marks', () => {
-		expect(excerptSegments('a &quot;topic&quot; &amp; its <mark>&lt;log&gt;</mark>')).toEqual([
-			{ text: 'a "topic" & its ', marked: false },
+		expect(excerptSegments('a &quot;stream&quot; &amp; its <mark>&lt;log&gt;</mark>')).toEqual([
+			{ text: 'a "stream" & its ', marked: false },
 			{ text: '<log>', marked: true },
 		]);
 	});

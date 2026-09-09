@@ -3,23 +3,23 @@ title: Client
 description: NewClient over your pool, the five ambient settings on ClientConfig, the schema, and the selectors every handle hangs off.
 ---
 
-`vulkan.NewClient(ctx, pool, cfg)` is the one constructor a program calls.
+`sqlstreams.NewClient(ctx, pool, cfg)` is the one constructor a program calls.
 It builds every registration object over your `*pgxpool.Pool` and pings the
 pool once, so a wrong address or credential fails here instead of at the
-first produce. The pool stays yours: Vulkan never closes it, and the client
+first produce. The pool stays yours: SQLStreams never closes it, and the client
 has no `Close`.
 
 ```go
-ctx, stop := vulkan.LifecycleContext(nil)
+ctx, stop := sqlstreams.LifecycleContext(nil)
 defer stop()
 
-pool, err := vulkan.NewPostgresPool(ctx, "app_user", os.Getenv("PGPASSWORD"), "localhost", "app_db", nil)
+pool, err := sqlstreams.NewPostgresPool(ctx, "app_user", os.Getenv("PGPASSWORD"), "localhost", "app_db", nil)
 if err != nil {
 	return err
 }
 defer pool.Close()
 
-client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{
+client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{
 	Schema:       "payments",
 	AllowDestroy: false,
 })
@@ -32,13 +32,13 @@ if err != nil {
 
 | verb | returns | notes |
 | --- | --- | --- |
-| `Topics(ctx)` | `[]*Topic` | every registered topic, ordered by name |
-| `Topic[T](name)` | `*TopicHandle[T]` | no I/O; [Topic](/reference/topic/) |
+| `Streams(ctx)` | `[]*Stream` | every registered stream, ordered by name |
+| `Stream[T](name)` | `*StreamHandle[T]` | no I/O; [Stream](/reference/stream/) |
 | `Schedulers(ctx)` | `[]*Schedule` | every registered schedule, ordered by name |
 | `Scheduler(name)` | `*SchedulerHandle` | no I/O; [Scheduler](/reference/scheduler/) |
 | `System()` | `*SystemHandle` | no I/O; [System](/reference/system/) |
 | `Manager()` | `*ManagerHandle` | no I/O; [Manager](/reference/manager/) |
-| `InTransaction(ctx, transactionFunc)` | `error` | one transaction, your closure, commit; the closure receives a `vulkan.Tx` that `ProduceInTx` accepts |
+| `InTransaction(ctx, transactionFunc)` | `error` | one transaction, your closure, commit; the closure receives a `sqlstreams.Tx` that `ProduceInTx` accepts |
 
 `InTransaction` does not retry. A transient blip or an ambiguous commit
 surfaces as-is, and only you know what is safe to rerun in your closure.
@@ -46,7 +46,7 @@ Rerunning the whole closure is dedup-safe only under caller-supplied
 `IdempotencyKey` values; unset keys mint fresh per call, so a rerun produces
 twice ([transactional produce](/guides/transactional-produce/)).
 
-`vulkan.LifecycleContext(logger)` returns a context cancelled on the first
+`sqlstreams.LifecycleContext(logger)` returns a context cancelled on the first
 SIGINT or SIGTERM, which starts graceful shutdown of every blocking verb; a
 second signal during the drain force-exits with status 128 plus the signal
 number. `nil` uses the default logger.
@@ -57,7 +57,7 @@ number. `nil` uses the default logger.
 
 | field | default | what it decides |
 | --- | --- | --- |
-| `Schema` | `"vulkan"` | the Postgres namespace holding every table; one schema is one installation |
+| `Schema` | `"sqlstreams"` | the Postgres namespace holding every table; one schema is one installation |
 | `AllowDestroy` | `false` | whether any `Destroy` verb on this client may run |
 | `DisableManager` | `false` | whether `Consume` skips running the system manager beside its session; `Manager().Run` is unaffected |
 | `Logger` | text lines to stderr, warn and up | your `*slog.Logger` or anything satisfying `logging.Logger`; held once |
@@ -71,25 +71,25 @@ pool is how one consumer runs without upkeep while another runs with it.
 ## The schema
 
 Two clients on two schemas in the same database each get their own catalog,
-topics, and sequences; `orders` registers in both and they are different
-topics. `client.System().Register` creates the schema if it is missing,
+streams, and sequences; `orders` registers in both and they are different
+streams. `client.System().Register` creates the schema if it is missing,
 which needs CREATE on the database; without that you get
-[VK0064](/errors/VK0064/), and the fix is to create the schema yourself and
+[SS0064](/errors/SS0064/), and the fix is to create the schema yourself and
 grant the role USAGE and CREATE on it.
 
-The pool sets no `search_path`. Every statement Vulkan runs names its schema
-outright, `vulkan.message_log_4` and never `message_log_4`, so your own SQL
+The pool sets no `search_path`. Every statement SQLStreams runs names its schema
+outright, `sqlstreams.message_log_4` and never `message_log_4`, so your own SQL
 inside `InTransaction` resolves the way it would on any other connection: a
 `CREATE TABLE orders` in that closure lands in your default schema, not
-Vulkan's. The diagnose queries on every error page carry a `{schema}`
+SQLStreams's. The diagnose queries on every error page carry a `{schema}`
 placeholder for the same reason.
 
 ## Gotchas
 
-- A first program imports `vulkan` and nothing else of Vulkan's. Every type
+- A first program imports `sqlstreams` and nothing else of SQLStreams's. Every type
   a user spells is declared or aliased there; the implementation packages
   are importable without a stability commitment
   ([the supported API](/concepts/api-shape/#the-supported-api)).
 - `DisableManager` is for consumer pods beside a dedicated
-  `vulkan manager run`, and for consumers under a database role with no DDL
-  rights, since the topic janitor creates and drops partitions.
+  `sqlstreams manager run`, and for consumers under a database role with no DDL
+  rights, since the stream janitor creates and drops partitions.

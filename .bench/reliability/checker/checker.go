@@ -1,7 +1,7 @@
 package checker
 
 // checker judges one finished run. The loaded records (package record) say
-// what the producers and handlers saw; vulkan's own tables say what the
+// what the producers and handlers saw; sqlstreams's own tables say what the
 // library kept. Each declared expectation is one SQL join across the two,
 // returning a count and a few examples; the queries live in the datastore
 // subpackage, the judgment here. Design in decision record 0687.
@@ -14,9 +14,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/agentstax/vulkan/.bench/reliability/checker/datastore"
-	"github.com/agentstax/vulkan/.bench/reliability/record"
-	"github.com/agentstax/vulkan/.bench/reliability/scenario"
+	"github.com/agentstax/sqlstreams/.bench/reliability/checker/datastore"
+	"github.com/agentstax/sqlstreams/.bench/reliability/record"
+	"github.com/agentstax/sqlstreams/.bench/reliability/scenario"
 )
 
 type Checker struct {
@@ -175,11 +175,11 @@ func (c *Checker) judge(ctx context.Context, verdict *Verdict) error {
 	return nil
 }
 
-// resolveTargets is every declared topic and group pair, in declaration
+// resolveTargets is every declared stream and group pair, in declaration
 // order.
 func (c *Checker) resolveTargets(ctx context.Context) ([]datastore.Target, error) {
 	targets := []datastore.Target{}
-	for _, declared := range c.declared.Topics {
+	for _, declared := range c.declared.Streams {
 		for _, group := range declared.Groups {
 			target, err := c.ds.ResolveTarget(ctx, declared.Name, group.Name)
 			if err != nil {
@@ -192,18 +192,18 @@ func (c *Checker) resolveTargets(ctx context.Context) ([]datastore.Target, error
 }
 
 // check runs one expectation's query and judges the count against its Want.
-// A per-group check is summed over every target, a per-topic check over one
-// target per topic; the examples are the first targets' examples.
+// A per-group check is summed over every target, a per-stream check over one
+// target per stream; the examples are the first targets' examples.
 func (c *Checker) check(ctx context.Context, targets []datastore.Target, phases []record.PhaseRecord, expectation scenario.Expectation) (CheckResult, error) {
 	var measured datastore.Measurement
 	var err error
 	switch expectation.Check {
 	case scenario.CheckLost:
-		measured, err = c.sumOverTargets(ctx, oneTargetPerTopic(targets), c.ds.CountLost)
+		measured, err = c.sumOverTargets(ctx, oneTargetPerStream(targets), c.ds.CountLost)
 	case scenario.CheckUnexpected:
-		measured, err = c.sumOverTargets(ctx, oneTargetPerTopic(targets), c.ds.CountUnexpected)
+		measured, err = c.sumOverTargets(ctx, oneTargetPerStream(targets), c.ds.CountUnexpected)
 	case scenario.CheckRecovered:
-		measured, err = c.sumOverTargets(ctx, oneTargetPerTopic(targets), c.ds.CountRecovered)
+		measured, err = c.sumOverTargets(ctx, oneTargetPerStream(targets), c.ds.CountRecovered)
 	case scenario.CheckUndelivered:
 		measured, err = c.sumOverTargets(ctx, targets, c.ds.CountUndelivered)
 	case scenario.CheckDuplicates:
@@ -232,13 +232,13 @@ func (c *Checker) sumOverTargets(ctx context.Context, targets []datastore.Target
 	for _, target := range targets {
 		measured, err := count(ctx, target)
 		if err != nil {
-			return datastore.Measurement{}, fmt.Errorf("%s/%s: %w", target.Topic, target.Group, err)
+			return datastore.Measurement{}, fmt.Errorf("%s/%s: %w", target.Stream, target.Group, err)
 		}
 		summed.Count += measured.Count
 		summed.ExampleOf = measured.ExampleOf
 		for _, example := range measured.Examples {
 			if len(summed.Examples) < len(measured.Examples) {
-				summed.Examples = append(summed.Examples, target.Topic+" "+example)
+				summed.Examples = append(summed.Examples, target.Stream+" "+example)
 			}
 		}
 	}
@@ -249,17 +249,17 @@ func (c *Checker) sumOverTargets(ctx context.Context, targets []datastore.Target
 // *** HELPERS ***
 // ***************
 
-// oneTargetPerTopic keeps the first target of each topic, for the checks
-// that read the topic's produce records and message rows and know no group.
-func oneTargetPerTopic(targets []datastore.Target) []datastore.Target {
+// oneTargetPerStream keeps the first target of each stream, for the checks
+// that read the stream's produce records and message rows and know no group.
+func oneTargetPerStream(targets []datastore.Target) []datastore.Target {
 	seen := map[string]bool{}
-	perTopic := []datastore.Target{}
+	perStream := []datastore.Target{}
 	for _, target := range targets {
-		if seen[target.Topic] {
+		if seen[target.Stream] {
 			continue
 		}
-		seen[target.Topic] = true
-		perTopic = append(perTopic, target)
+		seen[target.Stream] = true
+		perStream = append(perStream, target)
 	}
-	return perTopic
+	return perStream
 }

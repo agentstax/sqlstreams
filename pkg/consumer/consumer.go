@@ -6,20 +6,20 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/alert"
-	compactionreadcostcontroller "github.com/agentstax/vulkan/pkg/alert/compactionreadcost/controller"
-	partitioncountcontroller "github.com/agentstax/vulkan/pkg/alert/partitioncount/controller"
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	"github.com/agentstax/vulkan/pkg/consume"
-	consumecontroller "github.com/agentstax/vulkan/pkg/consume/controller"
-	"github.com/agentstax/vulkan/pkg/consume/exceptionconsumer"
-	"github.com/agentstax/vulkan/pkg/consume/messageconsumer"
-	"github.com/agentstax/vulkan/pkg/datastore"
-	metricsproducer "github.com/agentstax/vulkan/pkg/metric/producer"
-	"github.com/agentstax/vulkan/pkg/topic"
-	topiccontroller "github.com/agentstax/vulkan/pkg/topic/controller"
-	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
+	"github.com/agentstax/sqlstreams/pkg/alert"
+	compactionreadcostcontroller "github.com/agentstax/sqlstreams/pkg/alert/compactionreadcost/controller"
+	partitioncountcontroller "github.com/agentstax/sqlstreams/pkg/alert/partitioncount/controller"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	"github.com/agentstax/sqlstreams/pkg/consume"
+	consumecontroller "github.com/agentstax/sqlstreams/pkg/consume/controller"
+	"github.com/agentstax/sqlstreams/pkg/consume/exceptionconsumer"
+	"github.com/agentstax/sqlstreams/pkg/consume/messageconsumer"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
+	metricsproducer "github.com/agentstax/sqlstreams/pkg/metric/producer"
+	"github.com/agentstax/sqlstreams/pkg/stream"
+	streamcontroller "github.com/agentstax/sqlstreams/pkg/stream/controller"
+	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
 )
 
 // ConsumerFunc handles one delivered message. It should be idempotent --
@@ -29,8 +29,8 @@ import (
 // failure.
 type ConsumerFunc[Message common.Versioned] func(ctx context.Context, message *Message) error
 
-// Consumer runs a consumer group on one topic. Failed messages retry with
-// backoff, and the topic's upkeep (partitions, retention, committed advance) runs
+// Consumer runs a consumer group on one stream. Failed messages retry with
+// backoff, and the stream's upkeep (partitions, retention, committed advance) runs
 // alongside consumption.
 type Consumer struct {
 	ds *datastore.PostgresDatastore
@@ -45,18 +45,18 @@ func NewConsumer(ds *datastore.PostgresDatastore) (*Consumer, error) {
 	return &Consumer{ds: ds}, nil
 }
 
-// Register resolves the named topic and registers the consumer group on it,
+// Register resolves the named stream and registers the consumer group on it,
 // returning an instance that consumes Message from it. Callable many times,
 // with a different Message per call -- each call returns an independent
 // instance.
-// ConsumerConfig.Bindings is the group's full pattern set; nil = the whole topic.
+// ConsumerConfig.Bindings is the group's full pattern set; nil = the whole stream.
 // ctx bounds only this call's I/O; the instance's lifetime is Consume's ctx.
-func (c *Consumer) Register[Message common.Versioned](ctx context.Context, consumerGroup string, topicName string, cfg *ConsumerConfig) (*ConsumerInstance[Message], error) {
+func (c *Consumer) Register[Message common.Versioned](ctx context.Context, consumerGroup string, streamName string, cfg *ConsumerConfig) (*ConsumerInstance[Message], error) {
 	if consumerGroup == "" {
 		return nil, errors.New("consumer group is required")
 	}
-	if topicName == "" {
-		return nil, errors.New("topic name is required")
+	if streamName == "" {
+		return nil, errors.New("stream name is required")
 	}
 	if common.SchemaVersionOf[Message]() < 1 {
 		return nil, fmt.Errorf("Message.SchemaVersion must be >= 1, got %d", common.SchemaVersionOf[Message]())
@@ -75,7 +75,7 @@ func (c *Consumer) Register[Message common.Versioned](ctx context.Context, consu
 	}
 	logger := logging.NewPipelineLogger(c.ds.Logger, &logging.PipelineLoggerConfig{Buffer: true, Suppress: true})
 
-	topicController, err := topiccontroller.NewTopicController(c.ds, logger)
+	streamController, err := streamcontroller.NewStreamController(c.ds, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -97,14 +97,14 @@ func (c *Consumer) Register[Message common.Versioned](ctx context.Context, consu
 	}
 	evaluators := []alert.Evaluator{partitionCountController, compactionReadCostController}
 
-	current, err := topicController.Get(ctx, topicName)
+	current, err := streamController.Get(ctx, streamName)
 	if err != nil {
 		return nil, err
 	}
 	if current == nil {
-		return nil, topic.ErrTopicNotFound.With("topic", topicName)
+		return nil, stream.ErrStreamNotFound.With("stream", streamName)
 	}
-	if err := topicController.AssertSchemaSupported(ctx, current.SystemId, current.Id); err != nil {
+	if err := streamController.AssertSchemaSupported(ctx, current.SystemId, current.Id); err != nil {
 		return nil, err
 	}
 
@@ -115,7 +115,7 @@ func (c *Consumer) Register[Message common.Versioned](ctx context.Context, consu
 		return nil, err
 	}
 
-	// a consumer-group owner, not the topic's: it reaches up to the topic's
+	// a consumer-group owner, not the stream's: it reaches up to the stream's
 	// janitor and the system's schedule producer, never across to a sibling group
 	owner, err := common.NewConsumerGroupOwner(current.SystemId, current.Id, group.Id, group.Name)
 	if err != nil {
@@ -147,5 +147,5 @@ func (c *Consumer) Register[Message common.Versioned](ctx context.Context, consu
 		return nil, err
 	}
 
-	return newConsumerInstance[Message](owner, c.ds, instanceMetrics, consumers, topicName, common.SchemaVersionOf[Message](), declaredAt, cfg, logger)
+	return newConsumerInstance[Message](owner, c.ds, instanceMetrics, consumers, streamName, common.SchemaVersionOf[Message](), declaredAt, cfg, logger)
 }

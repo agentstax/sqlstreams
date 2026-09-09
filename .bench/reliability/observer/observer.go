@@ -10,8 +10,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/agentstax/vulkan/.bench/reliability/observer/datastore"
-	"github.com/agentstax/vulkan/.bench/reliability/record"
+	"github.com/agentstax/sqlstreams/.bench/reliability/observer/datastore"
+	"github.com/agentstax/sqlstreams/.bench/reliability/record"
 )
 
 const samplePeriod = time.Second
@@ -29,8 +29,8 @@ type Observer struct {
 // GroupName is one consumer group to sample, by the names the scenario
 // declares.
 type GroupName struct {
-	Topic string
-	Group string
+	Stream string
+	Group  string
 }
 
 func NewObserver(ds *datastore.ObserverDatastore, samples *record.Writer, backlogs *record.Writer, groups []GroupName) (*Observer, error) {
@@ -81,7 +81,7 @@ func (o *Observer) sample(ctx context.Context, now time.Time) error {
 	for _, group := range o.groups {
 		target, ok := o.resolved[group]
 		if !ok {
-			target, ok, err = o.ds.ResolveTarget(ctx, group.Topic, group.Group)
+			target, ok, err = o.ds.ResolveTarget(ctx, group.Stream, group.Group)
 			if err != nil || !ok {
 				continue
 			}
@@ -91,7 +91,7 @@ func (o *Observer) sample(ctx context.Context, now time.Time) error {
 		if err != nil {
 			continue
 		}
-		backlog.At, backlog.Topic, backlog.Group = now, group.Topic, group.Group
+		backlog.At, backlog.Stream, backlog.Group = now, group.Stream, group.Group
 		if err := o.backlogs.Write(backlog); err != nil {
 			return err
 		}

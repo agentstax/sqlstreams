@@ -8,31 +8,31 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common/diagnostic"
-	"github.com/agentstax/vulkan/pkg/common/logging"
+	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
 var (
-	errTestConnection = diagnostic.NewDiagnosticError("VK9905", diagnostic.RecoveryTransient,
+	errTestConnection = diagnostic.NewDiagnosticError("SS9905", diagnostic.RecoveryTransient,
 		"could not reach the test database", "")
-	errTestTopicMissing = diagnostic.NewDiagnosticError("VK9906", diagnostic.RecoveryPermanent,
-		"test topic not found", "")
+	errTestStreamMissing = diagnostic.NewDiagnosticError("SS9906", diagnostic.RecoveryPermanent,
+		"test stream not found", "")
 )
 
 func TestIsTransientDatastoreError(t *testing.T) {
 	if !IsTransientDatastoreError(errTestConnection.With("host", "db.local")) {
 		t.Fatal("Transient recovery not transient")
 	}
-	if IsTransientDatastoreError(errTestTopicMissing.With("topic", "orders")) {
+	if IsTransientDatastoreError(errTestStreamMissing.With("stream", "orders")) {
 		t.Fatal("Permanent recovery transient")
 	}
-	if !IsTransientDatastoreError(fmt.Errorf("list topics: %w", errTestConnection)) {
+	if !IsTransientDatastoreError(fmt.Errorf("list streams: %w", errTestConnection)) {
 		t.Fatal("fmt.Errorf-wrapped Transient recovery not transient")
 	}
 
 	// recovery wins over the wrapped cause's own classification
-	if IsTransientDatastoreError(errTestTopicMissing.Wrap(&pgconn.PgError{Code: "40P01"})) {
+	if IsTransientDatastoreError(errTestStreamMissing.Wrap(&pgconn.PgError{Code: "40P01"})) {
 		t.Fatal("Permanent recovery lost to its wrapped deadlock")
 	}
 
@@ -63,10 +63,10 @@ func TestRetryDatastoreStopsOnPermanentRecovery(t *testing.T) {
 	attempts := 0
 	err := retryDatastore.Wrap(context.Background(), func() error {
 		attempts++
-		return errTestTopicMissing.With("topic", "orders")
+		return errTestStreamMissing.With("stream", "orders")
 	})
 
-	if !errors.Is(err, errTestTopicMissing) {
+	if !errors.Is(err, errTestStreamMissing) {
 		t.Fatalf("declared error lost through Wrap: %v", err)
 	}
 	if attempts != 1 {

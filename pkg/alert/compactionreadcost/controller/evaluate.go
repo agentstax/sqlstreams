@@ -7,11 +7,11 @@ import (
 	"math"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/alert"
-	"github.com/agentstax/vulkan/pkg/alert/evaluation"
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/metric"
-	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
+	"github.com/agentstax/sqlstreams/pkg/alert"
+	"github.com/agentstax/sqlstreams/pkg/alert/evaluation"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/metric"
+	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
 )
 
 // warnPartitions is where one never-superseded key's replay, at ~10µs per
@@ -21,7 +21,7 @@ const warnPartitions = 10_000
 // Evaluate reads partition count and compaction applicability from one retained
 // measurement. Threshold 0 uses warnPartitions; missing metadata is insufficient.
 func (c *CompactionReadCostController) Evaluate(ctx context.Context, owner *common.Owner, policy *alert.JobPayload) (*alert.AlertEvaluationSnapshot, error) {
-	if err := workercontroller.ValidateOwner(owner, common.OwnerTopic, alert.AlertCompactionReadCost.Name); err != nil {
+	if err := workercontroller.ValidateOwner(owner, common.OwnerStream, alert.AlertCompactionReadCost.Name); err != nil {
 		return nil, err
 	}
 	if policy == nil {
@@ -31,7 +31,7 @@ func (c *CompactionReadCostController) Evaluate(ctx context.Context, owner *comm
 		return nil, err
 	}
 
-	key := metric.MeasurementKey(metric.MetricTopicPartitions.Name, map[string]string{"topic": owner.Name})
+	key := metric.MeasurementKey(metric.MetricStreamPartitions.Name, map[string]string{"stream": owner.Name})
 	history, err := c.metrics.GetMeasurementHistory(ctx, key, policy.Window())
 	if err != nil {
 		return nil, err
@@ -58,9 +58,9 @@ func (c *CompactionReadCostController) evaluateHistory(owner *common.Owner, poli
 
 func (c *CompactionReadCostController) evaluateMeasurement(owner *common.Owner, threshold int64, measurement *metric.Measurement, at time.Time) (*alert.AlertEvaluationSnapshot, error) {
 	// Check measurement identity and value.
-	if measurement.Name != metric.MetricTopicPartitions.Name ||
+	if measurement.Name != metric.MetricStreamPartitions.Name ||
 		measurement.Kind != metric.MetricKindGauge ||
-		measurement.Unit != metric.MetricUnit(metric.MetricTopicPartitions.Unit) {
+		measurement.Unit != metric.MetricUnit(metric.MetricStreamPartitions.Unit) {
 		return alert.NewAlertEvaluationSnapshot(alert.AlertEvaluationStateInsufficientEvidence, nil, nil)
 	}
 	value := measurement.Value
@@ -77,7 +77,7 @@ func (c *CompactionReadCostController) evaluateMeasurement(owner *common.Owner, 
 		return nil, err
 	}
 
-	// Uncompacted topics and counts below the threshold are healthy.
+	// Uncompacted streams and counts below the threshold are healthy.
 	switch metadata.CompactionStatus {
 	case "uncompacted":
 		return alert.NewAlertEvaluationSnapshot(alert.AlertEvaluationStateHealthy, nil, nil)

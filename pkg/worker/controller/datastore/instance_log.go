@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
 )
 
 func (d *WorkerDatastore) ListInstanceSnapshots(ctx context.Context, workerId int64, start time.Time, end time.Time) ([]WorkerInstanceSnapshotRow, error) {
@@ -20,7 +20,7 @@ func (d *WorkerDatastore) ListInstanceSnapshots(ctx context.Context, workerId in
 
 func (d *WorkerDatastore) listInstanceSnapshots(ctx context.Context, workerId int64, start time.Time, end time.Time) ([]WorkerInstanceSnapshotRow, error) {
 	sql := fmt.Sprintf(`
-		-- vulkan: worker.listInstanceSnapshots
+		-- sqlstreams: worker.listInstanceSnapshots
 		SELECT id, worker_instance_id, worker_id, token, expires_at, attempts, created_at, attempted_at
 		FROM %[1]s.worker_instance_log
 		WHERE worker_id = $1
@@ -58,7 +58,7 @@ func (d *WorkerDatastore) SweepExpiredInstanceLogs(ctx context.Context, ttl time
 
 func (d *WorkerDatastore) sweepExpiredInstanceLogs(ctx context.Context, ttl time.Duration) (int64, error) {
 	sql := fmt.Sprintf(`
-		-- vulkan: worker.sweepExpiredInstanceLogs
+		-- sqlstreams: worker.sweepExpiredInstanceLogs
 		DELETE FROM %[1]s.worker_instance_log
 		WHERE expires_at < now() - make_interval(secs => $1);
 	`, d.Datastore.Schema)
@@ -72,7 +72,7 @@ func (d *WorkerDatastore) sweepExpiredInstanceLogs(ctx context.Context, ttl time
 // appendWorkerInstanceLog copies the instance inside the transaction that claimed or renewed it.
 func (d *WorkerDatastore) appendWorkerInstanceLog(ctx context.Context, q datastore.Querier, instanceId int64) error {
 	sql := fmt.Sprintf(`
-		-- vulkan: worker.appendWorkerInstanceLog
+		-- sqlstreams: worker.appendWorkerInstanceLog
 		INSERT INTO %[1]s.worker_instance_log (worker_instance_id, worker_id, token, expires_at, attempts, created_at)
 		SELECT
 			id,

@@ -6,35 +6,35 @@ import (
 	"testing"
 )
 
-var errTestFixSubstitutes = NewDiagnosticError("VK9903", RecoveryPermanent,
+var errTestFixSubstitutes = NewDiagnosticError("SS9903", RecoveryPermanent,
 	"test schema version is older than this build requires",
 	"migrate the {owner_kind} schema up from {version} to {build_version}")
 
 func TestErrorFillsFixFromAttachedValues(t *testing.T) {
-	raised := errTestFixSubstitutes.With("owner_kind", "topic", "version", 4, "build_version", 7)
+	raised := errTestFixSubstitutes.With("owner_kind", "stream", "version", 4, "build_version", 7)
 
-	want := `test schema version is older than this build requires: owner_kind "topic", version 4, build_version 7 -- migrate the topic schema up from 4 to 7 [VK9903]`
+	want := `test schema version is older than this build requires: owner_kind "stream", version 4, build_version 7 -- migrate the stream schema up from 4 to 7 [SS9903]`
 	if raised.Error() != want {
 		t.Fatalf("got %q, want %q", raised.Error(), want)
 	}
 }
 
 func TestFixSubstitutionKeepsTheValueRaw(t *testing.T) {
-	declared := NewDiagnosticError("VK9904", RecoveryPermanent,
-		"test topic not found",
-		`register "{topic}" with RegisterTopic first`)
-	raised := declared.With("topic", "orders")
+	declared := NewDiagnosticError("SS9904", RecoveryPermanent,
+		"test stream not found",
+		`register "{stream}" with RegisterStream first`)
+	raised := declared.With("stream", "orders")
 
-	want := `test topic not found: topic "orders" -- register "orders" with RegisterTopic first [VK9904]`
+	want := `test stream not found: stream "orders" -- register "orders" with RegisterStream first [SS9904]`
 	if raised.Error() != want {
 		t.Fatalf("got %q, want %q", raised.Error(), want)
 	}
 }
 
 func TestUnattachedPlaceholderStaysLiteral(t *testing.T) {
-	raised := errTestFixSubstitutes.With("owner_kind", "topic")
+	raised := errTestFixSubstitutes.With("owner_kind", "stream")
 
-	want := `test schema version is older than this build requires: owner_kind "topic" -- migrate the topic schema up from {version} to {build_version} [VK9903]`
+	want := `test schema version is older than this build requires: owner_kind "stream" -- migrate the stream schema up from {version} to {build_version} [SS9903]`
 	if raised.Error() != want {
 		t.Fatalf("got %q, want %q", raised.Error(), want)
 	}
@@ -57,25 +57,25 @@ func TestLogValueFillsTheFix(t *testing.T) {
 }
 
 func TestFixPlaceholdersListsEachNameOnce(t *testing.T) {
-	declared := NewDiagnosticError("VK9905", RecoveryPermanent,
-		"test topic not found",
-		"register {topic} again, or destroy {topic} first")
+	declared := NewDiagnosticError("SS9905", RecoveryPermanent,
+		"test stream not found",
+		"register {stream} again, or destroy {stream} first")
 
-	want := []string{"topic"}
+	want := []string{"stream"}
 	if got := declared.FixPlaceholders(); !slices.Equal(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
 }
 
 func TestFixPlaceholdersIsEmptyForAStaticFix(t *testing.T) {
-	if got := errTestTopicMissing.FixPlaceholders(); len(got) != 0 {
+	if got := errTestStreamMissing.FixPlaceholders(); len(got) != 0 {
 		t.Fatalf("got %v, want none", got)
 	}
 }
 
 // a jsonb containment literal in a query, a Go composite literal in a fix
 func TestFillLeavesANonAttributeBraceRunAlone(t *testing.T) {
-	values := []slog.Attr{slog.String("topic", "orders")}
+	values := []slog.Attr{slog.String("stream", "orders")}
 
 	if got := fillPlaceholders(`payload @> '{}'`, values); got != `payload @> '{}'` {
 		t.Fatalf("got %q, want the text unchanged", got)

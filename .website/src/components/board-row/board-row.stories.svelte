@@ -29,7 +29,7 @@
 	args={{
 		title: 'Troubleshooting',
 		description:
-			'every VK error code and log event, one thread each — the problem line is the title, so pasting a message into search lands here',
+			'every SS error code and log event, one thread each — the problem line is the title, so pasting a message into search lands here',
 		threadCount: 52,
 	}}
 />

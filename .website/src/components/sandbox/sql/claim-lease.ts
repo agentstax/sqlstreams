@@ -5,7 +5,7 @@ import { interpolate } from './interpolate';
 import { claimLeaseTable } from './table-names';
 
 export const claimLeaseSqlTemplate = `
-		-- vulkan: messageconsumer.claimMessages
+		-- sqlstreams: messageconsumer.claimMessages
 		INSERT INTO %[1]s.%[2]s (consumer_group_id, low, high, expires_at)
 		VALUES (
 			$1,
@@ -22,6 +22,6 @@ export const claimLeaseSqlTemplate = `
 			reclaims;
 	`;
 
-export function claimLeaseSql(topicId: number): string {
-	return interpolate(claimLeaseSqlTemplate, claimLeaseTable(topicId));
+export function claimLeaseSql(streamId: number): string {
+	return interpolate(claimLeaseSqlTemplate, claimLeaseTable(streamId));
 }

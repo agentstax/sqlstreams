@@ -9,7 +9,7 @@ import (
 type ScheduleConfigRow struct {
 	Id              int64           `db:"id"`
 	SystemId        int64           `db:"system_id"`
-	TopicId         int64           `db:"topic_id"`
+	StreamId        int64           `db:"stream_id"`
 	Name            string          `db:"name"`
 	Expression      string          `db:"expression"`
 	SchemaVersion   int             `db:"schema_version"`

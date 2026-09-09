@@ -12,12 +12,12 @@
 	import type { PanelShell } from './types';
 
 	type Props = {
-		topic: string;
+		stream: string;
 		messages: PanelShell;
 		cursors: PanelShell;
 	};
 
-	let { topic, messages, cursors }: Props = $props();
+	let { stream, messages, cursors }: Props = $props();
 
 	const sandboxState = new SandboxState();
 
@@ -39,7 +39,7 @@
 			/>
 		</div>
 		<ProduceMessage
-			{topic}
+			{stream}
 			text={sandboxState.produceDescription}
 			errorMessage={sandboxState.produceError}
 			disabled={sandboxState.busy || sandboxState.bootFailed || sandboxState.producing}

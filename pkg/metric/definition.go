@@ -3,13 +3,13 @@ package metric
 import (
 	"slices"
 
-	"github.com/agentstax/vulkan/pkg/common/diagnostic"
+	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
 )
 
-// MetricDefinition is one Vulkan built-in metric's identity and metadata.
+// MetricDefinition is one SQLStreams built-in metric's identity and metadata.
 // It exists before any measurement is collected.
 type MetricDefinition struct {
-	Code          string                 `json:"code"` // the VK code its docs page lives under
+	Code          string                 `json:"code"` // the SS code its docs page lives under
 	Name          string                 `json:"name"` // the wire name every measurement carries
 	Kind          MetricKind             `json:"kind"`
 	Unit          MetricUnit             `json:"unit"`
@@ -18,7 +18,7 @@ type MetricDefinition struct {
 	AttributeKeys []string               `json:"attribute_keys"` // the attribute names every measurement of it carries
 }
 
-// Definitions returns Vulkan's built-in metric definitions ordered by VK code.
+// Definitions returns SQLStreams's built-in metric definitions ordered by SS code.
 // With no scopes it returns the whole catalog; otherwise it returns definitions
 // belonging to any requested scope.
 func Definitions(scopes ...diagnostic.MetricScope) []MetricDefinition {

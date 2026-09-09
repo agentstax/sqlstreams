@@ -6,8 +6,8 @@ description: A proposed one-command chaos demo — kill consumers, crash mid-com
 import ThreadAside from '../../components/thread-aside/thread-aside.svelte';
 import ChaosDiagram from '../../components/ChaosDiagram.astro';
 
-<ThreadAside label="PROPOSED" title="vulkan demo does not ship yet">
-`vulkan demo` does not ship yet. This page is the product proposal for
+<ThreadAside label="PROPOSED" title="sqlstreams demo does not ship yet">
+`sqlstreams demo` does not ship yet. This page is the product proposal for
 it — and it's a thin one, because the attacks below are the
 failure-injection e2e tests the engine is *actually developed against*
 (kill -9 mid-process, crash mid-commit, expired-lease reclaim). The
@@ -16,16 +16,16 @@ demo is those e2e tests, packaged so you can run them yourself.
 </ThreadAside>
 
 Every messaging system claims durability. Claims are cheap. The demo's
-entire purpose is to let you **attack** Vulkan — because durability is
+entire purpose is to let you **attack** SQLStreams — because durability is
 the one product quality you can verify with your own hands in five
 minutes, and we'd rather you trust the experiment than the brochure.
 
 ```sh
 # PROPOSED — not a shipped command.
-vulkan demo --chaos
+sqlstreams demo --chaos
 ```
 
-One command would spin up a disposable Postgres (Docker), a topic
+One command would spin up a disposable Postgres (Docker), a stream
 called `orders`, three consumer instances, and start producing 5,000
 messages. The scoreboard tracks three numbers — **produced, resolved,
 lost** — and the demo prints suggestions for ways to hurt it. Your goal
@@ -39,7 +39,7 @@ is to make `lost` read anything but zero.
 1. **Kill a consumer instance mid-message.**
 
    ```sh
-   kill -9 $(pgrep -f vulkan-demo-consumer-2)
+   kill -9 $(pgrep -f sqlstreams-demo-consumer-2)
    ```
 
    Instance 2 dies holding a claimed range, with no chance to clean
@@ -58,16 +58,16 @@ is to make `lost` read anything but zero.
    purpose:
 
    ```sh
-   vulkan demo consumer --crash-after 3   # os.Exit(1) mid-transaction, every 3rd message
+   sqlstreams demo consumer --crash-after 3   # os.Exit(1) mid-transaction, every 3rd message
    ```
 
    A consumer that *always* dies at the worst possible moment, forever.
-   The topic still drains. `lost: 0`.
+   The stream still drains. `lost: 0`.
 
 3. **Fail messages randomly.**
 
    ```sh
-   vulkan demo consumer --fail-rate 0.3 --retries 3
+   sqlstreams demo consumer --fail-rate 0.3 --retries 3
    ```
 
    Now 30% of handler calls return errors. Watch failed messages get
@@ -76,7 +76,7 @@ is to make `lost` read anything but zero.
    not discarded:
 
    ```sql
-   SELECT count(*) FROM vulkan.exception_queue_1 WHERE status = 'dead';
+   SELECT count(*) FROM sqlstreams.exception_queue_1 WHERE status = 'dead';
    ```
 
    Dead-lettered messages aren't lost messages. They're messages
@@ -86,7 +86,7 @@ is to make `lost` read anything but zero.
 4. **Go for the database.**
 
    ```sh
-   docker restart vulkan-demo-postgres
+   docker restart sqlstreams-demo-postgres
    ```
 
    The one everyone assumes is cheating. Consumer instances lose their
@@ -99,7 +99,7 @@ is to make `lost` read anything but zero.
 5. **The cruelest one: the zombie.**
 
    ```sh
-   vulkan demo consumer --sleep 30s   # processing takes longer than the lease
+   sqlstreams demo consumer --sleep 30s   # processing takes longer than the lease
    ```
 
    The instance isn't dead — just slow. Its lease expires, the range is
@@ -107,7 +107,7 @@ is to make `lost` read anything but zero.
    zombie finishes too. The same message processed **twice**. The
    scoreboard calls it out.
 
-   This isn't a Vulkan bug; it's the honest physics of distributed
+   This isn't a SQLStreams bug; it's the honest physics of distributed
    delivery — the same trade SQS and Pulsar make. The demo *induces* it
    so you design idempotent handlers knowing it's real, instead of
    discovering it in production.
@@ -117,11 +117,11 @@ is to make `lost` read anything but zero.
 ## The finale: three groups, one log
 
 ```sh
-vulkan demo synthesis
+sqlstreams demo synthesis
 ```
 
-The part that shows why Vulkan is a *platform*, not a queue. On a
-single topic, simultaneously:
+The part that shows why SQLStreams is a *platform*, not a queue. On a
+single stream, simultaneously:
 
 - group **A** retries message #5 three times and dead-letters it,
 - group **B** processes message #5 without incident — and writes no
@@ -142,9 +142,9 @@ can run them yourself in `psql` mid-attack:
 
 ```sql
 SELECT
-  (SELECT count(*) FROM vulkan.message_log_1)                           AS produced,
-  (SELECT min(committed) FROM vulkan.consumer_group_cursor_1)           AS resolved_through,
-  (SELECT count(*) FROM vulkan.exception_queue_1 WHERE status = 'dead') AS dead_lettered;
+  (SELECT count(*) FROM sqlstreams.message_log_1)                           AS produced,
+  (SELECT min(committed) FROM sqlstreams.consumer_group_cursor_1)           AS resolved_through,
+  (SELECT count(*) FROM sqlstreams.exception_queue_1 WHERE status = 'dead') AS dead_lettered;
 ```
 
 `committed` is the load-bearing number: every message at or below it

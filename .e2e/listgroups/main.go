@@ -1,22 +1,22 @@
 package main
 
-// ListConsumers e2e test: proves the consumer-group list read and the Topic / Consumer
-// handles against a live database -- a topic's groups list in name order,
+// ListConsumers e2e test: proves the consumer-group list read and the Stream / Consumer
+// handles against a live database -- a stream's groups list in name order,
 // Consumer.Get returns the row, absence is (nil, nil) on Get and
-// ErrTopicNotFound on every other verb, and Topic.Destroy drops the family.
+// ErrStreamNotFound on every other verb, and Stream.Destroy drops the family.
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/agentstax/vulkan/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
 	"os"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/consume"
-	consumecontroller "github.com/agentstax/vulkan/pkg/consume/controller"
-	"github.com/agentstax/vulkan/pkg/topic"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/pkg/consume"
+	consumecontroller "github.com/agentstax/sqlstreams/pkg/consume/controller"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 )
 
 func main() {
@@ -49,30 +49,30 @@ func run() (err error) {
 	ctx := context.Background()
 	run := time.Now().UnixNano()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err := datastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
 	name := fmt.Sprintf("listgroups.orders.%d", run)
-	registered, err := client.Topic[vulkan.RawPayload](name).Register(ctx, nil)
+	registered, err := client.Stream[sqlstreams.RawPayload](name).Register(ctx, nil)
 	must(err)
 
 	groupController, err := consumecontroller.NewConsumeController(ds, ds.Logger)
 	must(err)
 
-	step("seed two groups on the topic")
+	step("seed two groups on the stream")
 	for _, groupName := range []string{"beta", "alpha"} {
 		_, err := groupController.RegisterGroup(ctx, registered.Id, groupName, consume.Beginning())
 		must(err)
 	}
 
-	step("TopicHandle.Consumers returns both, ordered by name")
-	orders := client.Topic[vulkan.RawPayload](name)
+	step("StreamHandle.Consumers returns both, ordered by name")
+	orders := client.Stream[sqlstreams.RawPayload](name)
 	groups, err := orders.Consumers(ctx)
 	must(err)
 	if len(groups) != 2 {
@@ -80,7 +80,7 @@ func run() (err error) {
 	}
 	assertString("first group", groups[0].Name, "alpha")
 	assertString("second group", groups[1].Name, "beta")
-	assertInt64("group topic id", groups[0].TopicId, registered.Id)
+	assertInt64("group stream id", groups[0].StreamId, registered.Id)
 
 	step("Consumer.Get returns the row")
 	alpha, err := orders.Consumer("alpha").Get(ctx)
@@ -96,24 +96,24 @@ func run() (err error) {
 	if ghost != nil {
 		die(fmt.Sprintf("expected (nil, nil) for an unregistered group, got %+v", ghost))
 	}
-	ghostTopic := client.Topic[vulkan.RawPayload](fmt.Sprintf("listgroups.ghost.%d", run))
-	row, err := ghostTopic.Get(ctx)
+	ghostStream := client.Stream[sqlstreams.RawPayload](fmt.Sprintf("listgroups.ghost.%d", run))
+	row, err := ghostStream.Get(ctx)
 	must(err)
 	if row != nil {
-		die(fmt.Sprintf("expected (nil, nil) for an unregistered topic, got %+v", row))
+		die(fmt.Sprintf("expected (nil, nil) for an unregistered stream, got %+v", row))
 	}
-	_, err = ghostTopic.Consumers(ctx)
-	if !errors.Is(err, topic.ErrTopicNotFound) {
-		die(fmt.Sprintf("Consumers on an unregistered topic: expected ErrTopicNotFound, got %v", err))
+	_, err = ghostStream.Consumers(ctx)
+	if !errors.Is(err, stream.ErrStreamNotFound) {
+		die(fmt.Sprintf("Consumers on an unregistered stream: expected ErrStreamNotFound, got %v", err))
 	}
-	fmt.Printf("  ✓ Consumers on an unregistered topic -> %v\n", err)
+	fmt.Printf("  ✓ Consumers on an unregistered stream -> %v\n", err)
 
-	step("cleanup: Topic.Destroy drops the family")
-	must(orders.Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+	step("cleanup: Stream.Destroy drops the family")
+	must(orders.Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	gone, err := orders.Get(ctx)
 	must(err)
 	if gone != nil {
-		die("expected the topic row gone after Destroy")
+		die("expected the stream row gone after Destroy")
 	}
 
 	fmt.Println("\n✅ LIST GROUPS E2E TEST PASSED")

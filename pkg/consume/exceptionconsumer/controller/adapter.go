@@ -3,15 +3,15 @@ package controller
 import (
 	"uuid"
 
-	keyleasecontroller "github.com/agentstax/vulkan/pkg/consume/base/controller"
-	"github.com/agentstax/vulkan/pkg/consume/exceptionconsumer/controller/datastore"
+	keyleasecontroller "github.com/agentstax/sqlstreams/pkg/consume/base/controller"
+	"github.com/agentstax/sqlstreams/pkg/consume/exceptionconsumer/controller/datastore"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 func toClaimedException(data datastore.ExceptionQueueRow) ClaimedException {
 	return ClaimedException{
 		ConsumerGroupId: data.ConsumerGroupId,
-		TopicId:         data.TopicId,
+		StreamId:        data.StreamId,
 		MessageId:       data.MessageId,
 		Attempts:        data.Attempts,
 		Delays:          data.Delays,
@@ -30,7 +30,7 @@ func toClaimedException(data datastore.ExceptionQueueRow) ClaimedException {
 func toExceptionQueueRow(exception *ClaimedException) *datastore.ExceptionQueueRow {
 	return &datastore.ExceptionQueueRow{
 		ConsumerGroupId: exception.ConsumerGroupId,
-		TopicId:         exception.TopicId,
+		StreamId:        exception.StreamId,
 		MessageId:       exception.MessageId,
 		Attempts:        exception.Attempts,
 		Delays:          exception.Delays,
@@ -52,7 +52,7 @@ func toKeyLease(claim *keyleasecontroller.KeyLeaseClaim) *datastore.KeyLease {
 		return nil
 	}
 	return &datastore.KeyLease{
-		TopicId:         claim.TopicId,
+		StreamId:        claim.StreamId,
 		ConsumerGroupId: claim.ConsumerGroupId,
 		MessageKey:      claim.MessageKey,
 		Token:           toTokenData(claim.Token),

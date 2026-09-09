@@ -1,0 +1,79 @@
+---
+title: Stream
+description: StreamHandle — Register, Get, Migrate, Rename, Destroy, Health, CompactionHeads, the handles named under it, and every StreamConfig field with its default.
+---
+
+`client.Stream[T](name)` names a stream under the payload type `T`. No I/O,
+no failure: the handle is the name plus the client, and every verb resolves
+the name when called. `T` is spelled once here and every handle under the
+stream inherits it ([the type argument](/concepts/api-shape/#the-type-argument)).
+
+```go
+orders := client.Stream[OrderPlaced]("orders.placed")
+stream, err := orders.Get(ctx)
+if err != nil {
+	return err
+}
+if stream == nil {
+	stream, err = orders.Register(ctx, &sqlstreams.StreamConfig{RetentionTTL: 30 * 24 * time.Hour})
+	if err != nil {
+		return err
+	}
+}
+```
+
+## Verbs
+
+| verb | returns | notes |
+| --- | --- | --- |
+| `Register(ctx, cfg)` | `*Stream` | declares the stream and creates its tables on first registration; idempotent; `nil` cfg is the defaults; a differing redeclaration logs [SS0061](/errors/SS0061/) |
+| `Get(ctx)` | `*Stream` | the comma-ok read: `(nil, nil)` when not registered |
+| `Migrate(ctx, targetVersion)` | `error` | moves the stream's tables to a version ([migrations](/guides/migrations/)) |
+| `MigrationVersion(ctx)` | `int64` | the version the tables are at; `ErrStreamNotFound` |
+| `Rename(ctx, newName)` | `*Stream` | this handle keeps its old name; registered instances keep working through the stream id; `ErrStreamNotFound`, `ErrStreamNameTaken` |
+| `Destroy(ctx, options)` | `error` | drops the stream, its messages, and every consumer group on it; `ErrDestroyDisabled` unless `ClientConfig.AllowDestroy` |
+| `Health(ctx)` | `[]*StreamVersionHealth` | each payload version's retirement verdict, read live ([schema versions](/guides/schema-versions/)); `ErrStreamNotFound` |
+| `CompactionHeads(ctx)` | `[]*StoredMessage[T]` | every key's current compaction head, ordered by message key, unpaged |
+| `Consumers(ctx)` | `[]*Consumer` | every consumer group on the stream, ordered by name |
+| `Consumer(name)` | `*ConsumerHandle[T]` | no I/O; [Consumer](/reference/consumer/) |
+| `Producer()` | `*ProducerHandle[T]` | no I/O; [Producer](/reference/producer/) |
+| `Key(messageKey)` | `*KeyHandle[T]` | no I/O; [Message key](/reference/key/) |
+| `Metrics()` | `*StreamMetricsHandle` | no I/O; [Metrics](/reference/metrics/) |
+| `Alerts()` | `*StreamAlertsHandle` | no I/O; [Alerts](/reference/alerts/) |
+
+`Get` is the only comma-ok verb. Every other verb returns the not-found
+error itself: `Destroy` is one statement whose zero-rows-affected is the
+existence check, and a `Get` before it would only add a window in which the
+answer can change.
+
+## Config
+
+### StreamConfig
+
+| field | default | what it decides |
+| --- | --- | --- |
+| `PartitionSize` | `1_000_000` | rows per partition; lower for finer retention drops, higher for high-throughput ingest |
+| `RetentionTTL` | `0` (keep forever) | how long a message survives before the janitor may drop it |
+| `AllowDropPastCommitted` | `false` | whether retention may drop rows a lagging group has not committed |
+| `IdempotencyKeyTTL` | `24h` | how long a produce-retry claim survives; zero means the default, not forever |
+| `EmptyCompactionHeadTTL` | `1h` | how long a compaction-head row with no head may idle before the janitor sweeps it; zero means the default |
+| `DeliveryLogMode` | `DeliveryLogModeFailures` | which outcomes write to the per-attempt `delivery_log`: `DeliveryLogModeOff`, `DeliveryLogModeFailures`, `DeliveryLogModeAll` |
+
+### DestroyOptions
+
+| field | default | what it decides |
+| --- | --- | --- |
+| `Force` | `false` | skips the in-use guard; without it a stream still holding messages returns `ErrStreamNotEmpty` |
+
+## Gotchas
+
+- Every verb but the handle selectors ignores `T`. A stream holding two
+  schema versions is two handles on the same rows: `Stream[OrderPlacedV1]`
+  reads V1 payloads, `Stream[OrderPlacedV2]` reads V2, and either one
+  destroys the stream. An operator script with no payload type uses
+  `sqlstreams.RawPayload`.
+- Names starting with `__system.` are SQLStreams's own streams: `Register`
+  returns `ErrReservedStreamName`. Registering a consumer group on one of
+  them is supported.
+- `PartitionSize` cannot change after registration: a redeclaration with a
+  different value returns `ErrStreamConfigMismatch`.

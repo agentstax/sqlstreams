@@ -17,7 +17,7 @@
 				<p>
 					"Every message with this key, in order, one at a time" — a separate partition key beside
 					the message key — is a designed-but-unbuilt proposal. If your workload needs it, today
-					Vulkan doesn't ship it.
+					SQLStreams doesn't ship it.
 				</p>
 			</ThreadAside>
 		</div>

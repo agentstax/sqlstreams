@@ -6,17 +6,17 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/schedule"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/schedule"
 )
 
 // Register resolves name to its row, creating it if it doesn't exist. An
 // existing row takes the supplied config values.
-func (d *ScheduleDatastore) Register(ctx context.Context, systemId int64, topicId int64, name string, expression *schedule.ScheduleExpression, concurrency common.ConcurrencyPolicy, timeout time.Duration, payload any, schemaVersion int, metadata any) (*ScheduleConfigRow, error) {
+func (d *ScheduleDatastore) Register(ctx context.Context, systemId int64, streamId int64, name string, expression *schedule.ScheduleExpression, concurrency common.ConcurrencyPolicy, timeout time.Duration, payload any, schemaVersion int, metadata any) (*ScheduleConfigRow, error) {
 	var found *ScheduleConfigRow
 	err := d.DatastoreRetry.Wrap(ctx, func() error {
 		var err error
-		found, err = d.register(ctx, systemId, topicId, name, expression, concurrency, timeout, payload, schemaVersion, metadata)
+		found, err = d.register(ctx, systemId, streamId, name, expression, concurrency, timeout, payload, schemaVersion, metadata)
 		return err
 	})
 	return found, err
@@ -24,7 +24,7 @@ func (d *ScheduleDatastore) Register(ctx context.Context, systemId int64, topicI
 
 // register registers behind a per-name advisory lock, NOT ON CONFLICT.
 // This is to prevent race condition errors between two concurrent calls.
-func (d *ScheduleDatastore) register(ctx context.Context, systemId int64, topicId int64, name string, expression *schedule.ScheduleExpression, concurrency common.ConcurrencyPolicy, timeout time.Duration, payload any, schemaVersion int, metadata any) (*ScheduleConfigRow, error) {
+func (d *ScheduleDatastore) register(ctx context.Context, systemId int64, streamId int64, name string, expression *schedule.ScheduleExpression, concurrency common.ConcurrencyPolicy, timeout time.Duration, payload any, schemaVersion int, metadata any) (*ScheduleConfigRow, error) {
 	// encoded in Go, not by pgx: pgx's encode failure prints the value it
 	// could not encode, which could log sensitive information.
 	encoded, err := json.Marshal(payload)
@@ -37,7 +37,7 @@ func (d *ScheduleDatastore) register(ctx context.Context, systemId int64, topicI
 		return nil, err
 	}
 	if found != nil {
-		return d.replaceConfig(ctx, found, topicId, expression, concurrency, timeout, encoded, schemaVersion, metadata)
+		return d.replaceConfig(ctx, found, streamId, expression, concurrency, timeout, encoded, schemaVersion, metadata)
 	}
 
 	tx, err := d.Datastore.Pool.Begin(ctx)
@@ -53,7 +53,7 @@ func (d *ScheduleDatastore) register(ctx context.Context, systemId int64, topicI
 
 	// txn-scoped, per-name -- auto-released at commit/rollback
 	if _, err := tx.Exec(ctx, `
-		-- vulkan: schedule.register
+		-- sqlstreams: schedule.register
 		SELECT pg_advisory_xact_lock($1);
 	`, lockKey.Value()); err != nil {
 		return nil, err
@@ -65,7 +65,7 @@ func (d *ScheduleDatastore) register(ctx context.Context, systemId int64, topicI
 		return nil, err
 	}
 	if found != nil {
-		return d.replaceConfig(ctx, found, topicId, expression, concurrency, timeout, encoded, schemaVersion, metadata)
+		return d.replaceConfig(ctx, found, streamId, expression, concurrency, timeout, encoded, schemaVersion, metadata)
 	}
 
 	next, err := d.nextScheduledTime(ctx, tx, expression)
@@ -74,10 +74,10 @@ func (d *ScheduleDatastore) register(ctx context.Context, systemId int64, topicI
 	}
 
 	insertConfigSql := fmt.Sprintf(`
-		-- vulkan: schedule.register
+		-- sqlstreams: schedule.register
 		INSERT INTO %[1]s.schedule_config (
 			system_id,
-			topic_id,
+			stream_id,
 			name,
 			expression,
 			schema_version,
@@ -91,7 +91,7 @@ func (d *ScheduleDatastore) register(ctx context.Context, systemId int64, topicI
 	`, d.Datastore.Schema)
 	var id int64
 	if err := tx.QueryRow(ctx, insertConfigSql,
-		systemId, topicId,
+		systemId, streamId,
 		name, expression.String(), schemaVersion, json.RawMessage(encoded),
 		string(concurrency), int64(timeout), metadata,
 	).Scan(&id); err != nil {
@@ -99,7 +99,7 @@ func (d *ScheduleDatastore) register(ctx context.Context, systemId int64, topicI
 	}
 
 	insertCursorSql := fmt.Sprintf(`
-		-- vulkan: schedule.register
+		-- sqlstreams: schedule.register
 		INSERT INTO %[1]s.schedule_cursor (schedule_id, next_scheduled_at)
 		VALUES ($1, $2);
 	`, d.Datastore.Schema)

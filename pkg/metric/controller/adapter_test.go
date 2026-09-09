@@ -4,21 +4,21 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/metric"
-	"github.com/agentstax/vulkan/pkg/metric/controller/datastore"
+	"github.com/agentstax/sqlstreams/pkg/metric"
+	"github.com/agentstax/sqlstreams/pkg/metric/controller/datastore"
 )
 
-func TestToTopicSnapshot(t *testing.T) {
+func TestToStreamSnapshot(t *testing.T) {
 	groups := []metric.ConsumerGroupSnapshot{{ConsumerGroup: "billing"}}
-	snapshot := toTopicSnapshot(41, &datastore.TopicSnapshotRow{
+	snapshot := toStreamSnapshot(41, &datastore.StreamSnapshotRow{
 		Partitions:                         7,
 		Compacted:                          true,
 		CompactionRowsWithoutHead:          3,
 		OldestCompactionRowWithoutHeadSecs: 1.5,
 	}, groups)
 
-	if snapshot.TopicId != 41 {
-		t.Fatalf("TopicId = %d, want 41", snapshot.TopicId)
+	if snapshot.StreamId != 41 {
+		t.Fatalf("StreamId = %d, want 41", snapshot.StreamId)
 	}
 	if snapshot.Partitions != 7 {
 		t.Fatalf("Partitions = %d, want 7", snapshot.Partitions)

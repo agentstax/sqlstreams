@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/schedule"
-	"github.com/agentstax/vulkan/pkg/schedule/controller/datastore"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/schedule"
+	"github.com/agentstax/sqlstreams/pkg/schedule/controller/datastore"
 )
 
 func toSchedule(data *datastore.ScheduleConfigRow) (*schedule.Schedule, error) {
@@ -18,7 +18,7 @@ func toSchedule(data *datastore.ScheduleConfigRow) (*schedule.Schedule, error) {
 	return &schedule.Schedule{
 		Id:              data.Id,
 		SystemId:        data.SystemId,
-		TopicId:         data.TopicId,
+		StreamId:        data.StreamId,
 		Name:            data.Name,
 		Expression:      data.Expression,
 		SchemaVersion:   data.SchemaVersion,

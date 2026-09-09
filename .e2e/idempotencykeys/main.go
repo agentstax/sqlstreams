@@ -2,7 +2,7 @@ package main
 
 // idempotency-key e2e test: does AppendMessage's retry-safety claim gate
 // (idempotency_key) actually prevent a double-publish, and does its
-// cleanup (SweepExpiredIdempotencyKeys, Topic.IdempotencyKeyTTL) actually
+// cleanup (SweepExpiredIdempotencyKeys, Stream.IdempotencyKeyTTL) actually
 // drain it the way compactionheadretention proves for compaction?
 //
 // Five scenarios:
@@ -21,7 +21,7 @@ package main
 //     survives -- same shape as compactionheadretention proves for
 //     compaction_head.
 //   - configRoundTripScenario: IdempotencyKeyTTL persists correctly through
-//     re-registration -- Topic-level config, not a per-call default that
+//     re-registration -- Stream-level config, not a per-call default that
 //     silently resets. A re-register with a changed mutable config field replaces the
 //     stored value; only a changed PartitionSize is rejected.
 
@@ -33,11 +33,11 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/agentstax/vulkan/e2e/common"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/topic"
-	janitordatastore "github.com/agentstax/vulkan/pkg/topic/janitor/controller/datastore"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/e2e/common"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	"github.com/agentstax/sqlstreams/pkg/stream"
+	janitordatastore "github.com/agentstax/sqlstreams/pkg/stream/janitor/controller/datastore"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -70,7 +70,7 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
@@ -84,34 +84,34 @@ func run() (err error) {
 	fmt.Println("   a retried AppendMessage under the same key lands exactly once, distinct")
 	fmt.Println("   keys never collide, an unset key protects only within one call, the sweep")
 	fmt.Println("   drains expired claims without touching live ones, and IdempotencyKeyTTL")
-	fmt.Println("   survives a topic re-registration unchanged.")
+	fmt.Println("   survives a stream re-registration unchanged.")
 	return nil
 }
 
 func duplicateKeyScenario(ctx context.Context, pool *pgxpool.Pool) {
 	step("duplicate key: retrying AppendMessage under the same key must not double-publish")
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	topicName := fmt.Sprintf("phase9.idempotencykeys.duplicate.%d", time.Now().UnixNano())
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{PartitionSize: 1000})
+	streamName := fmt.Sprintf("phase9.idempotencykeys.duplicate.%d", time.Now().UnixNano())
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: 1000})
 	must(err)
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 
 	key := uuid.NewV7().String()
-	opts := &vulkan.ProduceOptions{IdempotencyKey: key}
+	opts := &sqlstreams.ProduceOptions{IdempotencyKey: key}
 
 	calls := 0
-	fn := func(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
+	fn := func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 		calls++
 		return common.NewWork(30, "admin@example.com")
 	}
@@ -140,27 +140,27 @@ func duplicateKeyScenario(ctx context.Context, pool *pgxpool.Pool) {
 func distinctKeysScenario(ctx context.Context, pool *pgxpool.Pool) {
 	step("distinct keys: the claim gate must never block a legitimately different publish")
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	topicName := fmt.Sprintf("phase9.idempotencykeys.distinct.%d", time.Now().UnixNano())
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{PartitionSize: 1000})
+	streamName := fmt.Sprintf("phase9.idempotencykeys.distinct.%d", time.Now().UnixNano())
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: 1000})
 	must(err)
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 
 	for range 5 {
 		key := uuid.NewV7().String()
-		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
+		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 			return common.NewWork(30, "admin@example.com")
-		}, &vulkan.ProduceOptions{IdempotencyKey: key})
+		}, &sqlstreams.ProduceOptions{IdempotencyKey: key})
 		must(err)
 	}
 
@@ -171,26 +171,26 @@ func distinctKeysScenario(ctx context.Context, pool *pgxpool.Pool) {
 func autoGeneratedKeyScenario(ctx context.Context, pool *pgxpool.Pool) {
 	step("auto-generated key: an unset IdempotencyKey protects only within one call")
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	topicName := fmt.Sprintf("phase9.idempotencykeys.auto.%d", time.Now().UnixNano())
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{PartitionSize: 1000})
+	streamName := fmt.Sprintf("phase9.idempotencykeys.auto.%d", time.Now().UnixNano())
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: 1000})
 	must(err)
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 
 	// three SEPARATE calls, no explicit key -- these are not retries of one
 	// another and must NOT collapse into one row
 	for range 3 {
-		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
+		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 			return common.NewWork(30, "admin@example.com")
 		}, nil)
 		must(err)
@@ -209,25 +209,25 @@ func sweepScenario(ctx context.Context, pool *pgxpool.Pool) {
 	const ttl = 100 * time.Millisecond
 	const batchSize = 2 // small on purpose -- forces the sweep to loop across multiple batches
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	topicName := fmt.Sprintf("phase9.idempotencykeys.sweep.%d", time.Now().UnixNano())
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{PartitionSize: 1000})
+	streamName := fmt.Sprintf("phase9.idempotencykeys.sweep.%d", time.Now().UnixNano())
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: 1000})
 	must(err)
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 	janitorDatastore, err := janitordatastore.NewJanitorDatastore(ds, ds.Logger)
 	must(err)
 
-	fn := func(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
+	fn := func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 		return common.NewWork(30, "admin@example.com")
 	}
 
@@ -239,7 +239,7 @@ func sweepScenario(ctx context.Context, pool *pgxpool.Pool) {
 	assertIdempotencyKeysCount(ctx, ds, tp.Id, 5)
 
 	// backdate them all past ttl
-	_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`UPDATE %s.%s SET created_at = now() - interval '1 hour';`, ds.Schema, topic.IdempotencyKeyTable(tp.Id)))
+	_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`UPDATE %s.%s SET created_at = now() - interval '1 hour';`, ds.Schema, stream.IdempotencyKeyTable(tp.Id)))
 	must(err)
 
 	// one alive claim, published after the backdate, well inside ttl
@@ -256,22 +256,22 @@ func sweepScenario(ctx context.Context, pool *pgxpool.Pool) {
 func configRoundTripScenario(ctx context.Context, pool *pgxpool.Pool) {
 	step("config round trip: IdempotencyKeyTTL persists correctly through re-registration")
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 
-	topicName := fmt.Sprintf("phase9.idempotencykeys.roundtrip.%d", time.Now().UnixNano())
+	streamName := fmt.Sprintf("phase9.idempotencykeys.roundtrip.%d", time.Now().UnixNano())
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
-	tp1, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{PartitionSize: 1000})
+	tp1, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: 1000})
 	must(err)
 	if tp1.IdempotencyKeyTTL != 24*time.Hour {
 		die(fmt.Sprintf("default IdempotencyKeyTTL = %v, want 24h", tp1.IdempotencyKeyTTL))
 	}
 
 	// a re-register with the same (defaulted) config leaves the row alone
-	tp2, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{PartitionSize: 1000})
+	tp2, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: 1000})
 	must(err)
 	if tp2.IdempotencyKeyTTL != 24*time.Hour {
 		die(fmt.Sprintf("re-registered IdempotencyKeyTTL = %v, want 24h", tp2.IdempotencyKeyTTL))
@@ -279,7 +279,7 @@ func configRoundTripScenario(ctx context.Context, pool *pgxpool.Pool) {
 	fmt.Println("  ✓ default IdempotencyKeyTTL (24h) survives a re-register unchanged")
 
 	// the newest declaration wins -- a changed mutable config field replaces the stored one
-	tp3, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{PartitionSize: 1000, IdempotencyKeyTTL: 2 * time.Hour})
+	tp3, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: 1000, IdempotencyKeyTTL: 2 * time.Hour})
 	must(err)
 	if tp3.IdempotencyKeyTTL != 2*time.Hour {
 		die(fmt.Sprintf("re-declared IdempotencyKeyTTL = %v, want 2h", tp3.IdempotencyKeyTTL))
@@ -287,28 +287,28 @@ func configRoundTripScenario(ctx context.Context, pool *pgxpool.Pool) {
 	fmt.Println("  ✓ a changed IdempotencyKeyTTL on re-register replaces the stored value")
 
 	// partition_size is not mutable config -- message_log's boundaries depend on it
-	_, err = client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{PartitionSize: 2000, IdempotencyKeyTTL: 2 * time.Hour})
-	if !errors.Is(err, topic.ErrTopicConfigMismatch) {
-		die(fmt.Sprintf("expected ErrTopicConfigMismatch for a changed PartitionSize, got %v", err))
+	_, err = client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: 2000, IdempotencyKeyTTL: 2 * time.Hour})
+	if !errors.Is(err, stream.ErrStreamConfigMismatch) {
+		die(fmt.Sprintf("expected ErrStreamConfigMismatch for a changed PartitionSize, got %v", err))
 	}
 	fmt.Println("  ✓ a changed PartitionSize on re-register is rejected")
 }
 
 // ---- helpers ----
 
-func assertMessageLogCount(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, want int) {
+func assertMessageLogCount(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, want int) {
 	var count int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s;`, ds.Schema, topic.MessageLogTable(topicId))).Scan(&count))
+	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s;`, ds.Schema, stream.MessageLogTable(streamId))).Scan(&count))
 	if count != want {
-		die(fmt.Sprintf("%s.%s has %d rows, want %d", ds.Schema, topic.MessageLogTable(topicId), count, want))
+		die(fmt.Sprintf("%s.%s has %d rows, want %d", ds.Schema, stream.MessageLogTable(streamId), count, want))
 	}
 }
 
-func assertIdempotencyKeysCount(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, want int) {
+func assertIdempotencyKeysCount(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, want int) {
 	var count int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s;`, ds.Schema, topic.IdempotencyKeyTable(topicId))).Scan(&count))
+	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s;`, ds.Schema, stream.IdempotencyKeyTable(streamId))).Scan(&count))
 	if count != want {
-		die(fmt.Sprintf("%s.%s has %d rows, want %d", ds.Schema, topic.IdempotencyKeyTable(topicId), count, want))
+		die(fmt.Sprintf("%s.%s has %d rows, want %d", ds.Schema, stream.IdempotencyKeyTable(streamId), count, want))
 	}
 }
 

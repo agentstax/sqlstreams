@@ -17,9 +17,9 @@ const (
 // BindingWaiting is a declarer still blocked on changing the effective set.
 type Binding struct {
 	ConsumerGroupName string         `json:"consumer_group"`
-	TopicName         string         `json:"topic"`
+	StreamName        string         `json:"stream"`
 	Status            BindingOutcome `json:"status"`       // installed, joined, or waiting
-	Patterns          []string       `json:"patterns"`     // empty = the whole topic
+	Patterns          []string       `json:"patterns"`     // empty = the whole stream
 	DeclaredBy        string         `json:"declared_by"`  // the declaring process (common.ProcessIdentity)
 	DeclaredAt        time.Time      `json:"declared_at"`  // when the declarer's Register ran
 	AttemptedAt       time.Time      `json:"attempted_at"` // the declarer's latest attempt -- a waiting declarer retries

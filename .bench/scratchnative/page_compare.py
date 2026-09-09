@@ -50,7 +50,7 @@ try:
         actual_direct=subprocess.check_output([str(binary/'psql'),'-h','127.0.0.1','-p','55439','-U','scratch','-d','postgres','-At','-c','SHOW debug_io_direct'],text=True).strip()
         assert actual_direct==direct,actual_direct
         print('Verified settings '+settings,flush=True)
-        environment = dict(os.environ,VULKAN_NATIVE_ROOT=str(root),VULKAN_NATIVE_PG_BIN=str(binary)+'/',STORAGE_LIMIT_KIB='75000000',RCA='1',BACKEND_IO='1',BUFFER_SUMMARY='1',CPU_PROFILE='0',CONSUMERS='0',EXPLICIT_BATCH='1',PARTITION_SIZE='20000000',MAINTENANCE_TIMING='',BENCH_PHASE=phase,BENCH_STUDY='wal_recycling' if arguments.wal_recycling else 'page_size')
+        environment = dict(os.environ,SQLSTREAMS_NATIVE_ROOT=str(root),SQLSTREAMS_NATIVE_PG_BIN=str(binary)+'/',STORAGE_LIMIT_KIB='75000000',RCA='1',BACKEND_IO='1',BUFFER_SUMMARY='1',CPU_PROFILE='0',CONSUMERS='0',EXPLICIT_BATCH='1',PARTITION_SIZE='20000000',MAINTENANCE_TIMING='',BENCH_PHASE=phase,BENCH_STUDY='wal_recycling' if arguments.wal_recycling else 'page_size')
         if arguments.direct_io:
             environment['BENCH_STUDY']='direct_io'
             environment['DISK_PROBE']='1'

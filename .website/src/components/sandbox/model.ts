@@ -2,7 +2,7 @@
 // types its queries scan into, and the read-models its verbs hand back.
 
 // table-exact rows, one per query in database.ts
-export type GroupRow = { id: number; topic_id: number; name: string; created_at: Date };
+export type GroupRow = { id: number; stream_id: number; name: string; created_at: Date };
 export type GroupNameRow = { name: string };
 export type ProducedRow = { id: number };
 
@@ -37,7 +37,7 @@ export type MessageRow = {
 	options: unknown;
 };
 
-// what every message on the sandbox topic carries, the seed's and the reader's
+// what every message on the sandbox stream carries, the seed's and the reader's
 // alike. Postgres hands it back with the keys sorted by length -- jsonb has no
 // order of its own -- so a caller that prints it names the two fields.
 export type OrderPayload = { order_id: number; desc: string };

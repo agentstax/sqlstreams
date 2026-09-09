@@ -3,7 +3,7 @@ import { caughtMessage } from '../helpers/caught-message';
 
 // The page-level notice: the surface for failures no island caught. One
 // notice shows at a time; a face never replaces a more demanding one.
-const reloadedKey = 'vulkan-board:chunk-reload';
+const reloadedKey = 'sqlstreams-board:chunk-reload';
 
 // banner: a fault the reader can wave away; the page keeps working
 // modal: a reload is the fix and the reader must choose

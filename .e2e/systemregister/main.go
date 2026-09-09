@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"os"
 
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 func main() {
@@ -41,11 +41,11 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, nil)
+	client, err := sqlstreams.NewClient(ctx, pool, nil)
 	must(err)
 
 	must(client.System().Register(ctx, nil))

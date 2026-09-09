@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common"
 )
 
 // MessageMeta is everything about a delivered message besides its payload,

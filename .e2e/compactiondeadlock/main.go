@@ -3,7 +3,7 @@ package main
 // compaction-key deadlock e2e test: where reverse-ordered compaction_head lock
 // cycles can and cannot happen.
 //
-// Registers its own topic (destroyed on exit), fully self-contained.
+// Registers its own stream (destroyed on exit), fully self-contained.
 //
 // Confirms, in order:
 //   - default (batched) Produce cannot deadlock: every batch transaction
@@ -23,15 +23,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 	"os"
 	"sync"
 	"time"
 	"uuid"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
@@ -49,12 +49,12 @@ const (
 )
 
 var (
-	ds        *iDatastore.PostgresDatastore
-	client    *vulkan.Client
-	topicName string
-	topicId   int64
+	ds         *iDatastore.PostgresDatastore
+	client     *sqlstreams.Client
+	streamName string
+	streamId   int64
 	// wpInstance is the shared instance scenario 2 seeds and produces through.
-	wpInstance *vulkan.ProducerInstance[testMessage]
+	wpInstance *sqlstreams.ProducerInstance[testMessage]
 )
 
 func main() {
@@ -86,24 +86,24 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err = vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err = sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err = iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	topicName = fmt.Sprintf("compactiondeadlock.%d", time.Now().UnixNano())
-	registered, err := client.Topic[testMessage](topicName).Register(ctx, nil)
+	streamName = fmt.Sprintf("compactiondeadlock.%d", time.Now().UnixNano())
+	registered, err := client.Stream[testMessage](streamName).Register(ctx, nil)
 	must(err)
-	topicId = registered.Id
+	streamId = registered.Id
 	defer func() {
-		must(client.Topic[testMessage](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[testMessage](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
-	wpInstance, err = client.Topic[testMessage](topicName).Producer().Register(ctx, nil)
+	wpInstance, err = client.Stream[testMessage](streamName).Producer().Register(ctx, nil)
 	must(err)
 
 	batcherAbsenceScenario(ctx)
@@ -125,9 +125,9 @@ func batcherAbsenceScenario(ctx context.Context) {
 	step("default produce: concurrent batchers over a hot key pool never deadlock")
 	deadlocksBefore := deadlockCount(ctx)
 
-	instances := make([]*vulkan.ProducerInstance[testMessage], producerCount)
+	instances := make([]*sqlstreams.ProducerInstance[testMessage], producerCount)
 	for i := range instances {
-		instance, err := client.Topic[testMessage](topicName).Producer().Register(ctx, nil)
+		instance, err := client.Stream[testMessage](streamName).Producer().Register(ctx, nil)
 		must(err)
 		instances[i] = instance
 	}
@@ -145,11 +145,11 @@ func batcherAbsenceScenario(ctx context.Context) {
 	var wg sync.WaitGroup
 	for i := range goroutineCount {
 		wg.Add(1)
-		go func(instance *vulkan.ProducerInstance[testMessage], offset int) {
+		go func(instance *sqlstreams.ProducerInstance[testMessage], offset int) {
 			defer wg.Done()
 			for produced := range producesPerGoroutine {
 				key := keys[(offset+produced)%len(keys)]
-				if _, err := instance.Produce(ctx, &testMessage{Note: key}, &vulkan.ProduceOptions{MessageKey: key, Compaction: &vulkan.CompactionOptions{Enable: true}}); err != nil {
+				if _, err := instance.Produce(ctx, &testMessage{Note: key}, &sqlstreams.ProduceOptions{MessageKey: key, Compaction: &sqlstreams.CompactionOptions{Enable: true}}); err != nil {
 					record(err)
 					return
 				}
@@ -182,7 +182,7 @@ func produceInTxDeadlockScenario(ctx context.Context) {
 
 	// seed both head rows so the second produces contend on existing rows
 	for _, key := range []string{"tx-a", "tx-b"} {
-		_, err := wpInstance.Produce(ctx, &testMessage{Note: "seed"}, &vulkan.ProduceOptions{MessageKey: key, Compaction: &vulkan.CompactionOptions{Enable: true}})
+		_, err := wpInstance.Produce(ctx, &testMessage{Note: "seed"}, &sqlstreams.ProduceOptions{MessageKey: key, Compaction: &sqlstreams.CompactionOptions{Enable: true}})
 		must(err)
 	}
 	deadlocksBefore := deadlockCount(ctx)
@@ -239,7 +239,7 @@ func runCallerWithRetry(ctx context.Context, firstKey string, secondKey string, 
 	result := callerResult{}
 	for range 5 {
 		started := time.Now()
-		err := client.InTransaction(ctx, func(ctx context.Context, tx vulkan.Tx) error {
+		err := client.InTransaction(ctx, func(ctx context.Context, tx sqlstreams.Tx) error {
 			if err := produceKeyInTx(ctx, tx, firstKey, firstIdempotencyKey); err != nil {
 				return err
 			}
@@ -268,8 +268,8 @@ func runCallerWithRetry(ctx context.Context, firstKey string, secondKey string, 
 	return result
 }
 
-func produceKeyInTx(ctx context.Context, tx vulkan.Tx, key string, idempotencyKey string) error {
-	_, err := wpInstance.ProduceInTx(ctx, tx, &testMessage{Note: key}, &vulkan.ProduceOptions{MessageKey: key, Compaction: &vulkan.CompactionOptions{Enable: true}, IdempotencyKey: idempotencyKey})
+func produceKeyInTx(ctx context.Context, tx sqlstreams.Tx, key string, idempotencyKey string) error {
+	_, err := wpInstance.ProduceInTx(ctx, tx, &testMessage{Note: key}, &sqlstreams.ProduceOptions{MessageKey: key, Compaction: &sqlstreams.CompactionOptions{Enable: true}, IdempotencyKey: idempotencyKey})
 	return err
 }
 
@@ -301,14 +301,14 @@ func waitDeadlockCount(ctx context.Context, want int64) {
 func messageCount(ctx context.Context) int64 {
 	var count int64
 	must(ds.Pool.QueryRow(ctx,
-		fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE message_key LIKE 'hot-%%';`, ds.Schema, topic.MessageLogTable(topicId))).Scan(&count))
+		fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE message_key LIKE 'hot-%%';`, ds.Schema, stream.MessageLogTable(streamId))).Scan(&count))
 	return count
 }
 
 func keyMessageCount(ctx context.Context, key string) int64 {
 	var count int64
 	must(ds.Pool.QueryRow(ctx,
-		fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE message_key = $1;`, ds.Schema, topic.MessageLogTable(topicId)), key).Scan(&count))
+		fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE message_key = $1;`, ds.Schema, stream.MessageLogTable(streamId)), key).Scan(&count))
 	return count
 }
 
@@ -323,7 +323,7 @@ func assertHeadIsMaxId(ctx context.Context, key string) {
 			h.message_id,
 			(SELECT MAX(id) FROM %s.%s WHERE message_key = $1)
 		FROM %s.%s h
-		WHERE h.compaction_key = $1;`, ds.Schema, topic.MessageLogTable(topicId), ds.Schema, topic.CompactionHeadTable(topicId)), key).Scan(&headId, &maxId))
+		WHERE h.compaction_key = $1;`, ds.Schema, stream.MessageLogTable(streamId), ds.Schema, stream.CompactionHeadTable(streamId)), key).Scan(&headId, &maxId))
 	if headId != maxId {
 		die(fmt.Sprintf("head for %q must converge to the max id: got %d, want %d", key, headId, maxId))
 	}

@@ -5,13 +5,13 @@ const sandboxBootTimeout = 120_000;
 
 test('the home page renders with a board style applied', async ({ page }) => {
 	await page.goto('/');
-	await expect(page).toHaveTitle('Vulkan Board Index | Vulkan Docs');
+	await expect(page).toHaveTitle('SQLStreams Board Index | SQLStreams Docs');
 	await expect(page.locator('html')).toHaveAttribute('data-board-style', /classic|night/);
 });
 
 test('a thread suffixes its document title without changing its heading', async ({ page }) => {
 	await page.goto('/quickstart/');
-	await expect(page).toHaveTitle('Quickstart | Vulkan Docs');
+	await expect(page).toHaveTitle('Quickstart | SQLStreams Docs');
 	await expect(page.getByRole('heading', { level: 1 })).toHaveText('Quickstart');
 });
 
@@ -54,7 +54,7 @@ test('the sandbox boots and its panels show rows', async ({ page }) => {
 });
 
 test('search finds threads and back returns to the results', async ({ page }) => {
-	await page.goto('/search/?q=topic');
+	await page.goto('/search/?q=stream');
 	const results = page.locator('.search-results a');
 	await expect(results.first()).toBeVisible({ timeout: 20_000 });
 
@@ -64,7 +64,7 @@ test('search finds threads and back returns to the results', async ({ page }) =>
 	// one back returns to the query and its results (the history entry keeps
 	// the client router's state, so the router must handle the popstate)
 	await page.goBack();
-	await expect(page).toHaveURL(/\/search\/\?q=topic/);
+	await expect(page).toHaveURL(/\/search\/\?q=stream/);
 	await expect(results.first()).toBeVisible({ timeout: 20_000 });
 });
 
@@ -123,7 +123,7 @@ test('leaving a booted sandbox keeps the next page alive', async ({ page }) => {
 	await expect(page.locator('astro-island[component-url*="board-search"]:not([ssr])')).toBeAttached(
 		{ timeout: 15_000 },
 	);
-	await page.locator('input[type="search"]').fill('topic', { timeout: 15_000 });
+	await page.locator('input[type="search"]').fill('stream', { timeout: 15_000 });
 	await page.keyboard.press('Enter');
 	await expect(page.locator('.search-results a').first()).toBeVisible({ timeout: 20_000 });
 });

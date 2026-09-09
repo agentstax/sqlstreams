@@ -8,21 +8,21 @@
 	});
 </script>
 
-<!-- VK0029: the ordered pair most per-topic conditions want -- is the row
+<!-- SS0029: the ordered pair most per-stream conditions want -- is the row
      there, then what does its history say -->
 <Story
-	name="Two queries on per-topic tables"
+	name="Two queries on per-stream tables"
 	args={{
 		queries: [
 			{
 				label: 'the delivery row the dead-lettering wrote',
-				sql: 'SELECT\n\tstatus,\n\tattempts,\n\tlast_error,\n\tupdated_at\nFROM exception_queue_{topic_id}\nWHERE consumer_group_id = {group_id}\n\tAND message_id = {message_id};',
-				placeholders: ['topic_id', 'group_id', 'message_id'],
+				sql: 'SELECT\n\tstatus,\n\tattempts,\n\tlast_error,\n\tupdated_at\nFROM exception_queue_{stream_id}\nWHERE consumer_group_id = {group_id}\n\tAND message_id = {message_id};',
+				placeholders: ['stream_id', 'group_id', 'message_id'],
 			},
 			{
 				label: 'every attempt it made, oldest first',
-				sql: 'SELECT\n\tattempt,\n\tstatus,\n\terror,\n\tattempted_at\nFROM delivery_log_{topic_id}\nWHERE consumer_group_id = {group_id}\n\tAND message_id = {message_id}\nORDER BY attempt;',
-				placeholders: ['topic_id', 'group_id', 'message_id'],
+				sql: 'SELECT\n\tattempt,\n\tstatus,\n\terror,\n\tattempted_at\nFROM delivery_log_{stream_id}\nWHERE consumer_group_id = {group_id}\n\tAND message_id = {message_id}\nORDER BY attempt;',
+				placeholders: ['stream_id', 'group_id', 'message_id'],
 			},
 		],
 	}}
@@ -34,9 +34,9 @@
 	args={{
 		queries: [
 			{
-				label: 'the topic rows registered under that name',
-				sql: "SELECT\n\tid,\n\tname,\n\tschema_version,\n\tcreated_at\nFROM topic_config\nWHERE name = '{topic}';",
-				placeholders: ['topic'],
+				label: 'the stream rows registered under that name',
+				sql: "SELECT\n\tid,\n\tname,\n\tschema_version,\n\tcreated_at\nFROM stream_config\nWHERE name = '{stream}';",
+				placeholders: ['stream'],
 			},
 		],
 	}}

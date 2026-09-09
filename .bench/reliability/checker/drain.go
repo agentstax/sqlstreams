@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/.bench/reliability/checker/datastore"
-	"github.com/agentstax/vulkan/.bench/reliability/common"
+	"github.com/agentstax/sqlstreams/.bench/reliability/checker/datastore"
+	"github.com/agentstax/sqlstreams/.bench/reliability/common"
 )
 
 const drainPoll = 500 * time.Millisecond
 
 // drain waits until the group's cursor has passed the highest message the
-// topic holds -- not the records' last committed id, so a recovered or
+// stream holds -- not the records' last committed id, so a recovered or
 // unexpected row above it is settled too -- and the checks read finished
 // work, not work in flight. The budget spent is a verdict of unknown: the
 // checker cannot tell a slow consumer from a stuck one.

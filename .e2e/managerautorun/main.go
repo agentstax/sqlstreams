@@ -1,6 +1,6 @@
 // Command managerautorun proves the deployment's upkeep rides on Consume.
 //
-// Registers its own topic (destroyed on exit) and runs consumers against it
+// Registers its own stream (destroyed on exit) and runs consumers against it
 // while watching the system manager's own worker row. Consume runs the
 // system manager beside the session, and the row is declared
 // target_instances = 1, so the claim gate is what decides who reconciles --
@@ -9,7 +9,7 @@
 // Confirms: two sessions on one client -> ONE live manager instance, with
 // the survivor taking the claim over on RetryDelay and the last one out
 // releasing it; a second process takes it over the same way; target_instances = 0 suspends upkeep deployment-wide and
-// says so with VK0035; DisableManager runs none at all; and an explicit
+// says so with SS0035; DisableManager runs none at all; and an explicit
 // RunManager beside a Consume is still one claim, with the session covering
 // upkeep once the explicit call stops.
 package main
@@ -21,9 +21,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/agentstax/vulkan/e2e/common"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/e2e/common"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 // the manager re-claims a declined row on RunnerConfig.RetryDelay (30s
@@ -59,20 +59,20 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	topicName := fmt.Sprintf("managerautorun.%d", time.Now().UnixNano())
-	_, err = client.Topic[common.Work](topicName).Register(ctx, nil)
+	streamName := fmt.Sprintf("managerautorun.%d", time.Now().UnixNano())
+	_, err = client.Stream[common.Work](streamName).Register(ctx, nil)
 	must(err)
 	defer func() {
-		must(client.Topic[common.Work](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[common.Work](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	// the row is the e2e test's whole subject -- a stale installation still
@@ -86,8 +86,8 @@ func run() (err error) {
 
 	// ===== phase 1: two sessions, one claim =====
 	step("PHASE 1: two Consume sessions on one client -- one live manager, released when both end")
-	firstSession := start(ctx, client, topicName, "managerautorun-a")
-	secondSession := start(ctx, client, topicName, "managerautorun-b")
+	firstSession := start(ctx, client, streamName, "managerautorun-a")
+	secondSession := start(ctx, client, streamName, "managerautorun-b")
 	assertLive(ctx, ds, "two sessions claim one manager between them", 1)
 
 	firstSession.stop()
@@ -97,12 +97,12 @@ func run() (err error) {
 
 	// ===== phase 2: a second process takes over =====
 	step("PHASE 2: the claim moves to another process when its holder leaves")
-	holder := start(ctx, client, topicName, "managerautorun-a")
+	holder := start(ctx, client, streamName, "managerautorun-a")
 	assertLive(ctx, ds, "the first process claims", 1)
 
-	secondClient, err := vulkan.NewClient(ctx, pool, nil)
+	secondClient, err := sqlstreams.NewClient(ctx, pool, nil)
 	must(err)
-	waiting := start(ctx, secondClient, topicName, "managerautorun-b")
+	waiting := start(ctx, secondClient, streamName, "managerautorun-b")
 	assertLive(ctx, ds, "the second process is declined -- still one claim", 1)
 
 	holder.stop()
@@ -111,28 +111,28 @@ func run() (err error) {
 	assertLive(ctx, ds, "released again", 0)
 
 	// ===== phase 3: the row is the deployment's dial =====
-	step("PHASE 3: target_instances = 0 suspends upkeep deployment-wide (VK0035)")
+	step("PHASE 3: target_instances = 0 suspends upkeep deployment-wide (SS0035)")
 	setTarget(ctx, ds, 0)
 	defer setTarget(context.Background(), ds, 1)
 
 	capture := newCaptureLogger()
-	suspendedClient, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{Logger: capture})
+	suspendedClient, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{Logger: capture})
 	must(err)
-	suspended := start(ctx, suspendedClient, topicName, "managerautorun-a")
+	suspended := start(ctx, suspendedClient, streamName, "managerautorun-a")
 	assertLive(ctx, ds, "a suspended row runs no manager", 0)
-	if count := capture.countCode("warn", "VK0035"); count < 1 {
-		die(fmt.Sprintf("the suspended session logged %d VK0035 warns, want >= 1", count))
+	if count := capture.countCode("warn", "SS0035"); count < 1 {
+		die(fmt.Sprintf("the suspended session logged %d SS0035 warns, want >= 1", count))
 	}
-	fmt.Printf("  ✓ VK0035 warned %d time(s) -- the operator hears why\n", capture.countCode("warn", "VK0035"))
+	fmt.Printf("  ✓ SS0035 warned %d time(s) -- the operator hears why\n", capture.countCode("warn", "SS0035"))
 	suspended.stop()
 
 	setTarget(ctx, ds, 1)
 
 	// ===== phase 4: the opt-out =====
 	step("PHASE 4: DisableManager runs no manager at all")
-	disabledClient, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{DisableManager: true})
+	disabledClient, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{DisableManager: true})
 	must(err)
-	disabled := start(ctx, disabledClient, topicName, "managerautorun-a")
+	disabled := start(ctx, disabledClient, streamName, "managerautorun-a")
 	assertLive(ctx, ds, "a DisableManager session runs no manager", 0)
 	disabled.stop()
 
@@ -141,7 +141,7 @@ func run() (err error) {
 	explicitCtx, stopExplicit := context.WithCancel(ctx)
 	explicitDone := make(chan error, 1)
 	go func() { explicitDone <- client.Manager().Run(explicitCtx) }()
-	session := start(ctx, client, topicName, "managerautorun-a")
+	session := start(ctx, client, streamName, "managerautorun-a")
 	assertLive(ctx, ds, "the explicit run and the session share one claim", 1)
 
 	stopExplicit()
@@ -171,9 +171,9 @@ func (s *runningSession) stop() {
 	time.Sleep(2 * time.Second)
 }
 
-func start(ctx context.Context, client *vulkan.Client, topicName string, group string) *runningSession {
+func start(ctx context.Context, client *sqlstreams.Client, streamName string, group string) *runningSession {
 	lifecycleCtx, cancel := context.WithCancel(ctx)
-	instance, err := client.Topic[common.Work](topicName).Consumer(group).Register(lifecycleCtx, nil)
+	instance, err := client.Stream[common.Work](streamName).Consumer(group).Register(lifecycleCtx, nil)
 	must(err)
 
 	done := make(chan error, 1)

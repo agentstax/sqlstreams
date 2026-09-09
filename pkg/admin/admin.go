@@ -1,33 +1,33 @@
 package admin
 
 import (
-	"github.com/agentstax/vulkan/pkg/alert"
-	"github.com/agentstax/vulkan/pkg/alert/collectorprogress"
-	collectorprogresscontroller "github.com/agentstax/vulkan/pkg/alert/collectorprogress/controller"
-	"github.com/agentstax/vulkan/pkg/alert/compactionreadcost"
-	compactionreadcostcontroller "github.com/agentstax/vulkan/pkg/alert/compactionreadcost/controller"
-	"github.com/agentstax/vulkan/pkg/alert/partitioncount"
-	partitioncountcontroller "github.com/agentstax/vulkan/pkg/alert/partitioncount/controller"
-	"github.com/agentstax/vulkan/pkg/alert/workerliveness"
-	workerlivenesscontroller "github.com/agentstax/vulkan/pkg/alert/workerliveness/controller"
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	compactioncontroller "github.com/agentstax/vulkan/pkg/compaction/controller"
-	consumecontroller "github.com/agentstax/vulkan/pkg/consume/controller"
-	consumejanitor "github.com/agentstax/vulkan/pkg/consume/janitor"
-	"github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/metric/collector"
-	metricscontroller "github.com/agentstax/vulkan/pkg/metric/controller"
-	migratecontroller "github.com/agentstax/vulkan/pkg/migrate/controller"
-	schedulecontroller "github.com/agentstax/vulkan/pkg/schedule/controller"
-	scheduleproducer "github.com/agentstax/vulkan/pkg/schedule/producer"
-	"github.com/agentstax/vulkan/pkg/scheduler"
-	systemcontroller "github.com/agentstax/vulkan/pkg/system/controller"
-	topiccontroller "github.com/agentstax/vulkan/pkg/topic/controller"
-	topicjanitor "github.com/agentstax/vulkan/pkg/topic/janitor"
-	"github.com/agentstax/vulkan/pkg/worker"
-	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
-	"github.com/agentstax/vulkan/pkg/worker/manager"
+	"github.com/agentstax/sqlstreams/pkg/alert"
+	"github.com/agentstax/sqlstreams/pkg/alert/collectorprogress"
+	collectorprogresscontroller "github.com/agentstax/sqlstreams/pkg/alert/collectorprogress/controller"
+	"github.com/agentstax/sqlstreams/pkg/alert/compactionreadcost"
+	compactionreadcostcontroller "github.com/agentstax/sqlstreams/pkg/alert/compactionreadcost/controller"
+	"github.com/agentstax/sqlstreams/pkg/alert/partitioncount"
+	partitioncountcontroller "github.com/agentstax/sqlstreams/pkg/alert/partitioncount/controller"
+	"github.com/agentstax/sqlstreams/pkg/alert/workerliveness"
+	workerlivenesscontroller "github.com/agentstax/sqlstreams/pkg/alert/workerliveness/controller"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	compactioncontroller "github.com/agentstax/sqlstreams/pkg/compaction/controller"
+	consumecontroller "github.com/agentstax/sqlstreams/pkg/consume/controller"
+	consumejanitor "github.com/agentstax/sqlstreams/pkg/consume/janitor"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/metric/collector"
+	metricscontroller "github.com/agentstax/sqlstreams/pkg/metric/controller"
+	migratecontroller "github.com/agentstax/sqlstreams/pkg/migrate/controller"
+	schedulecontroller "github.com/agentstax/sqlstreams/pkg/schedule/controller"
+	scheduleproducer "github.com/agentstax/sqlstreams/pkg/schedule/producer"
+	"github.com/agentstax/sqlstreams/pkg/scheduler"
+	streamcontroller "github.com/agentstax/sqlstreams/pkg/stream/controller"
+	streamjanitor "github.com/agentstax/sqlstreams/pkg/stream/janitor"
+	systemcontroller "github.com/agentstax/sqlstreams/pkg/system/controller"
+	"github.com/agentstax/sqlstreams/pkg/worker"
+	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
+	"github.com/agentstax/sqlstreams/pkg/worker/manager"
 )
 
 type MessageAdmin struct {
@@ -36,7 +36,7 @@ type MessageAdmin struct {
 
 	ds                 *datastore.PostgresDatastore
 	systemController   *systemcontroller.SystemController
-	topicController    *topiccontroller.TopicController
+	streamController   *streamcontroller.StreamController
 	scheduleController *schedulecontroller.ScheduleController
 	consumerController *consumecontroller.ConsumeController
 	scheduler          *scheduler.Scheduler
@@ -63,7 +63,7 @@ func NewMessageAdmin(ds *datastore.PostgresDatastore, cfg *MessageAdminConfig) (
 		return nil, err
 	}
 
-	topicJanitorProvisioner, err := topicjanitor.NewJanitorProvisioner(ds, nil, ds.Logger)
+	streamJanitorProvisioner, err := streamjanitor.NewJanitorProvisioner(ds, nil, ds.Logger)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func NewMessageAdmin(ds *datastore.PostgresDatastore, cfg *MessageAdminConfig) (
 	}
 
 	// a declarer here, never run -- admin creates manager rows, it doesn't claim them
-	managerProvisioner, err := manager.NewManagerProvisioner(ds, 1, nil, ds.Logger, topicJanitorProvisioner, scheduleProducerProvisioner, metricCollectorProvisioner)
+	managerProvisioner, err := manager.NewManagerProvisioner(ds, 1, nil, ds.Logger, streamJanitorProvisioner, scheduleProducerProvisioner, metricCollectorProvisioner)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +89,7 @@ func NewMessageAdmin(ds *datastore.PostgresDatastore, cfg *MessageAdminConfig) (
 		return nil, err
 	}
 
-	topicController, err := topiccontroller.NewTopicController(ds, ds.Logger, topicJanitorProvisioner)
+	streamController, err := streamcontroller.NewStreamController(ds, ds.Logger, streamJanitorProvisioner)
 	if err != nil {
 		return nil, err
 	}
@@ -171,7 +171,7 @@ func NewMessageAdmin(ds *datastore.PostgresDatastore, cfg *MessageAdminConfig) (
 		Logger:             ds.Logger,
 		Retry:              ds.Retry,
 		systemController:   systemController,
-		topicController:    topicController,
+		streamController:   streamController,
 		scheduleController: scheduleController,
 		scheduler:          alertScheduler,
 		consumerController: consumerController,

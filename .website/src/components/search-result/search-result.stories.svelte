@@ -6,13 +6,13 @@
 		title: 'Board/SearchResult',
 		component: SearchResult,
 		args: {
-			title: 'topic not found [VK0005]',
-			href: '/errors/VK0005/',
+			title: 'stream not found [SS0005]',
+			href: '/errors/SS0005/',
 			excerpt: [
 				{ text: 'the ', marked: false },
-				{ text: 'topic', marked: true },
+				{ text: 'stream', marked: true },
 				{ text: ' named in the call is not registered — register it with ', marked: false },
-				{ text: 'Client.Topic(name).Register', marked: true },
+				{ text: 'Client.Stream(name).Register', marked: true },
 				{ text: ' first.', marked: false },
 			],
 		},

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 )
 
 func validScenario() Scenario {
@@ -12,9 +12,9 @@ func validScenario() Scenario {
 		Name:     "test",
 		Summary:  "a valid scenario for the validation tests",
 		Duration: time.Minute,
-		Topics: []TopicDeclaration{{
+		Streams: []StreamDeclaration{{
 			Name:            "orders",
-			DeliveryLogMode: topic.DeliveryLogModeAll,
+			DeliveryLogMode: stream.DeliveryLogModeAll,
 			Groups:          []GroupDeclaration{{Name: "fraud-scoring", MaxRetries: 3}},
 		}},
 		Producer:  []ProducerPhase{{Name: "hold", Rate: 200, Duration: time.Minute}},
@@ -23,17 +23,17 @@ func validScenario() Scenario {
 	}
 }
 
-func TestValidateRejectsARepeatedTopicOrGroup(t *testing.T) {
+func TestValidateRejectsARepeatedStreamOrGroup(t *testing.T) {
 	scenario := validScenario()
-	scenario.Topics = append(scenario.Topics, scenario.Topics[0])
+	scenario.Streams = append(scenario.Streams, scenario.Streams[0])
 	if err := scenario.Validate(); err == nil {
-		t.Fatal("Validate accepted the same topic declared twice")
+		t.Fatal("Validate accepted the same stream declared twice")
 	}
 
 	scenario = validScenario()
-	scenario.Topics[0].Groups = append(scenario.Topics[0].Groups, scenario.Topics[0].Groups[0])
+	scenario.Streams[0].Groups = append(scenario.Streams[0].Groups, scenario.Streams[0].Groups[0])
 	if err := scenario.Validate(); err == nil {
-		t.Fatal("Validate accepted the same group declared twice on one topic")
+		t.Fatal("Validate accepted the same group declared twice on one stream")
 	}
 }
 
@@ -78,7 +78,7 @@ func TestValidateRejectsATimelineEndingAtZeroConsumers(t *testing.T) {
 	scenario := validScenario()
 	scenario.Consumers = append(scenario.Consumers, ConsumerChange{At: 30 * time.Second, Instances: 0})
 	if err := scenario.Validate(); err == nil {
-		t.Fatal("Validate accepted a timeline ending with no consumer to drain the topic")
+		t.Fatal("Validate accepted a timeline ending with no consumer to drain the stream")
 	}
 }
 

@@ -3,10 +3,10 @@ title: Consumer Timeouts
 description: What the timeout actually does when consumerFunc runs past it — cancel, grace, abandon — and how to write a handler the cutoff never catches.
 ---
 
-Vulkan cannot kill a running consumerFunc — no Go program can kill a
+SQLStreams cannot kill a running consumerFunc — no Go program can kill a
 goroutine. What the timeout buys instead: at the resolved `Timeout`
 the func's ctx is cancelled, and for `TimeoutGrace` (100ms by
-default) Vulkan waits for it to notice and return. Past
+default) SQLStreams waits for it to notice and return. Past
 `Timeout + TimeoutGrace` the attempt is written off as failed — the
 delivery backs off and retries on the normal
 [lifecycle](/concepts/lifecycle/) — but the goroutine is left
@@ -25,7 +25,7 @@ message 214 hits a mail API that has stopped answering:
 
 - at 5s -> the ctx handed to consumerFunc is cancelled, with a cause
   naming the budget: `Timeout (5s) exceeded for message 214 attempt 1`
-- 5s to 5.1s -> Vulkan waits for the func to return
+- 5s to 5.1s -> SQLStreams waits for the func to return
 - at 5.1s -> the attempt is recorded as failed (`hard timeout after
   5.1s, goroutine abandoned for message 214`), the delivery backs
   off toward its retry, and the goroutine is on its own
@@ -93,14 +93,14 @@ Two knobs sit around the window, for two different problems:
 
 ## How you'd know it's happening
 
-- `abandoned_count` on the [consumer stopped](/errors/VK0041) line —
+- `abandoned_count` on the [consumer stopped](/errors/SS0041) line —
   a healthy session ends with it at 0.
-- `vulkan.consumer.session.abandoned`
-  ([VK0050](/errors/VK0050)), the same count as a metric, flushed
+- `sqlstreams.consumer.session.abandoned`
+  ([SS0050](/errors/SS0050)), the same count as a metric, flushed
   per session.
 - The cleared record on each abandoned goroutine's eventual return
   is what tells hung from merely slow — an outstanding count that
   never drains means the goroutines are still stuck. A storm of
   abandoned routines can overflow the metric queue and log
-  [VK0052](/errors/VK0052); at that rate, investigate the consumer,
+  [SS0052](/errors/SS0052); at that rate, investigate the consumer,
   not the metrics.

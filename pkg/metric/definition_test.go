@@ -3,28 +3,28 @@ package metric
 import (
 	"testing"
 
-	"github.com/agentstax/vulkan/pkg/common/diagnostic"
+	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
 )
 
 func TestDefinitionsCarriesRegisteredMetadata(t *testing.T) {
 	definitions := Definitions()
 	backlog := definitionByName(t, definitions, MetricCursorBacklog.Name)
 
-	if backlog.Code != "VK0083" || backlog.Kind != MetricKindGauge || backlog.Unit != MetricUnitCount("message") {
+	if backlog.Code != "SS0083" || backlog.Kind != MetricKindGauge || backlog.Unit != MetricUnitCount("message") {
 		t.Fatalf("definition = %+v", backlog)
 	}
 	if backlog.Scope != diagnostic.MetricScopeConsumerGroup {
 		t.Fatalf("scope = %q", backlog.Scope)
 	}
-	if len(backlog.AttributeKeys) != 2 || backlog.AttributeKeys[0] != "topic" || backlog.AttributeKeys[1] != "group" {
+	if len(backlog.AttributeKeys) != 2 || backlog.AttributeKeys[0] != "stream" || backlog.AttributeKeys[1] != "group" {
 		t.Fatalf("attribute keys = %v", backlog.AttributeKeys)
 	}
 }
 
 func TestDefinitionsFiltersScopes(t *testing.T) {
-	definitions := Definitions(diagnostic.MetricScopeTopic, diagnostic.MetricScopeConsumerSession)
+	definitions := Definitions(diagnostic.MetricScopeStream, diagnostic.MetricScopeConsumerSession)
 	for _, definition := range definitions {
-		if definition.Scope != diagnostic.MetricScopeTopic && definition.Scope != diagnostic.MetricScopeConsumerSession {
+		if definition.Scope != diagnostic.MetricScopeStream && definition.Scope != diagnostic.MetricScopeConsumerSession {
 			t.Fatalf("definition %s has unrequested scope %q", definition.Name, definition.Scope)
 		}
 	}
@@ -54,7 +54,7 @@ func TestDefinitionsReturnsDefensiveAttributeKeys(t *testing.T) {
 
 	second := Definitions(diagnostic.MetricScopeConsumerGroup)
 	backlog = definitionByName(t, second, MetricCursorBacklog.Name)
-	if backlog.AttributeKeys[0] != "topic" {
+	if backlog.AttributeKeys[0] != "stream" {
 		t.Fatalf("definition mutated catalog state: %v", backlog.AttributeKeys)
 	}
 }

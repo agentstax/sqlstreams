@@ -3,9 +3,9 @@ package controller
 import (
 	"errors"
 
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/schedule/producer/controller/datastore"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/schedule/producer/controller/datastore"
 )
 
 // ScheduleProducerController is the schedule producer kind's only path to

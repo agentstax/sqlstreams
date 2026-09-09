@@ -1,5 +1,5 @@
 name: Feature
-description: Something Vulkan should do.
+description: Something SQLStreams should do.
 body:
   - type: markdown
     attributes:

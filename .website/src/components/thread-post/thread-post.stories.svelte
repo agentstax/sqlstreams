@@ -15,7 +15,7 @@
 		{@const { children: _children, ...storyProps } = args}
 		<ThreadPost {...storyProps}>
 			<p>
-				Every queue makes you trust its dashboard. Vulkan is Postgres, so you can just look — the
+				Every queue makes you trust its dashboard. SQLStreams is Postgres, so you can just look — the
 				tables below are the ones the library creates.
 			</p>
 		</ThreadPost>
@@ -28,7 +28,7 @@
 		header: {
 			kind: 'posted',
 			postedDate: '2026-08-22',
-			reportHref: 'https://github.com/agentstax/vulkan/issues/new',
+			reportHref: 'https://github.com/agentstax/sqlstreams/issues/new',
 		},
 		postCount: 74,
 	}}
@@ -51,7 +51,7 @@
 	{#snippet template(args)}
 		{@const { children: _children, ...storyProps } = args}
 		<ThreadPost {...storyProps}>
-			<p><strong>register it with Client.Topic(name).Register first</strong></p>
+			<p><strong>register it with Client.Stream(name).Register first</strong></p>
 		</ThreadPost>
 	{/snippet}
 </Story>

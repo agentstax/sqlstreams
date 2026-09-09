@@ -39,7 +39,7 @@ export type MetricRecord = {
 	metric_kind: string;
 	unit?: string;
 	description: string;
-	scope: 'system' | 'topic' | 'consumer_group' | 'consumer_session';
+	scope: 'system' | 'stream' | 'consumer_group' | 'consumer_session';
 	attribute_keys?: string[];
 };
 
@@ -50,7 +50,7 @@ export type AlertRecord = {
 	kind: 'alert';
 	name: string;
 	description: string;
-	scope: 'system' | 'topic' | 'consumer_group';
+	scope: 'system' | 'stream' | 'consumer_group';
 	severity: string;
 };
 

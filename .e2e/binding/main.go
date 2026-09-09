@@ -3,7 +3,7 @@ package main
 // binding lifecycle e2e test: a group's set is declared at Register and replaced
 // only when no live instance still declares it.
 //
-// Registers its own topic, destroyed on exit. Drives the consumer API end to
+// Registers its own stream, destroyed on exit. Drives the consumer API end to
 // end -- real Register attempts, a real consuming incumbent whose heartbeats
 // block the swap, and a real Consume blocked in its declaration wait.
 //
@@ -23,11 +23,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/consume"
-	consumejanitorcontroller "github.com/agentstax/vulkan/pkg/consume/janitor/controller"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/topic"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/pkg/consume"
+	consumejanitorcontroller "github.com/agentstax/sqlstreams/pkg/consume/janitor/controller"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 )
 
 type testMessage struct {
@@ -39,11 +39,11 @@ func (testMessage) SchemaVersion() int { return 1 }
 const groupName = "binding.group"
 
 var (
-	ds        *iDatastore.PostgresDatastore
-	client    *vulkan.Client
-	topicName string
-	topicId   int64
-	groupId   int64
+	ds         *iDatastore.PostgresDatastore
+	client     *sqlstreams.Client
+	streamName string
+	streamId   int64
+	groupId    int64
 )
 
 func main() {
@@ -75,28 +75,28 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err = vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err = sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err = iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	topicName = fmt.Sprintf("binding.%d", time.Now().UnixNano())
-	registered, err := client.Topic[testMessage](topicName).Register(ctx, nil)
+	streamName = fmt.Sprintf("binding.%d", time.Now().UnixNano())
+	registered, err := client.Stream[testMessage](streamName).Register(ctx, nil)
 	must(err)
-	topicId = registered.Id
+	streamId = registered.Id
 	defer func() {
-		must(client.Topic[testMessage](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[testMessage](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	// ===== install + join =====
 	step("Register declares the set; a same-set Register joins without writing")
 	incumbent, err := registerConsumer(ctx, []string{"orders.*"})
 	must(err)
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT id FROM %s.consumer_group_config WHERE topic_id = $1 AND name = $2;`, ds.Schema),
+	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT id FROM %s.consumer_group_config WHERE stream_id = $1 AND name = $2;`, ds.Schema),
 		registered.Id, groupName).Scan(&groupId))
 	assertInt("one installed row", installedRows(ctx), 1)
 	assertString("binding rows", bindingDisplays(ctx), "orders.*")
@@ -105,7 +105,7 @@ func run() (err error) {
 	must(err)
 	assertInt("still one installed row after the same set re-registers", installedRows(ctx), 1)
 	assertString("Binding().Get reads the installed set", patterns(testBinding(ctx)), "orders.*")
-	absent, err := client.Topic[testMessage](topicName).Consumer("binding.never-declared").Binding().Get(ctx)
+	absent, err := client.Stream[testMessage](streamName).Consumer("binding.never-declared").Binding().Get(ctx)
 	must(err)
 	if absent != nil {
 		die("Binding().Get on an unregistered group must return nil")
@@ -181,9 +181,9 @@ func run() (err error) {
 	assertString("Binding().Get reads the swapped set", patterns(testBinding(ctx)), "payments.*")
 	fmt.Println("  ✓ swapped once the incumbent's heartbeats lapsed; wait left the listing")
 
-	wpInstance, err := client.Topic[testMessage](topicName).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[testMessage](streamName).Producer().Register(ctx, nil)
 	must(err)
-	_, err = wpInstance.Produce(ctx, &testMessage{Note: "charged"}, &vulkan.ProduceOptions{RoutingKey: "payments.charge"})
+	_, err = wpInstance.Produce(ctx, &testMessage{Note: "charged"}, &sqlstreams.ProduceOptions{RoutingKey: "payments.charge"})
 	must(err)
 	select {
 	case note := <-received:
@@ -200,7 +200,7 @@ func run() (err error) {
 	syntheticNewestId := insertSyntheticWaits(ctx)
 	beforeSweep := waitingRows(ctx)
 	_, err = ds.Pool.Exec(ctx,
-		fmt.Sprintf(`UPDATE %s.%s SET attempted_at = attempted_at - interval '8 days' WHERE consumer_group_id = $1;`, ds.Schema, topic.BindingConfigLogTable(topicId)),
+		fmt.Sprintf(`UPDATE %s.%s SET attempted_at = attempted_at - interval '8 days' WHERE consumer_group_id = $1;`, ds.Schema, stream.BindingConfigLogTable(streamId)),
 		groupId)
 	must(err)
 
@@ -214,7 +214,7 @@ func run() (err error) {
 
 	var survivingSyntheticId int64
 	must(ds.Pool.QueryRow(ctx,
-		fmt.Sprintf(`SELECT id FROM %s.%s WHERE consumer_group_id = $1 AND declared_by = 'binding.dead-declarer';`, ds.Schema, topic.BindingConfigLogTable(topicId)),
+		fmt.Sprintf(`SELECT id FROM %s.%s WHERE consumer_group_id = $1 AND declared_by = 'binding.dead-declarer';`, ds.Schema, stream.BindingConfigLogTable(streamId)),
 		groupId).Scan(&survivingSyntheticId))
 	if survivingSyntheticId != syntheticNewestId {
 		die(fmt.Sprintf("the dead declarer's newest waiting row must survive: got id %d, want %d", survivingSyntheticId, syntheticNewestId))
@@ -230,8 +230,8 @@ func run() (err error) {
 }
 
 // registerConsumer declares the e2e test group's set.
-func registerConsumer(ctx context.Context, bindings []string) (*vulkan.ConsumerInstance[testMessage], error) {
-	return client.Topic[testMessage](topicName).Consumer(groupName).Register(ctx, &vulkan.ConsumerConfig{
+func registerConsumer(ctx context.Context, bindings []string) (*sqlstreams.ConsumerInstance[testMessage], error) {
+	return client.Stream[testMessage](streamName).Consumer(groupName).Register(ctx, &sqlstreams.ConsumerConfig{
 		Bindings: bindings,
 	})
 
@@ -239,7 +239,7 @@ func registerConsumer(ctx context.Context, bindings []string) (*vulkan.ConsumerI
 
 // consumeOptions holds the e2e test's tight heartbeat and retry knobs, passed to
 // every Consume session.
-var consumeOptions = &vulkan.ConsumeOptions{
+var consumeOptions = &sqlstreams.ConsumeOptions{
 	ClaimPollRate:        500 * time.Millisecond,
 	InstanceTTL:          2 * time.Second,
 	BindingRetryInterval: 300 * time.Millisecond,
@@ -277,7 +277,7 @@ func insertSyntheticWaits(ctx context.Context) int64 {
 		must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`
 			INSERT INTO %s.%s (consumer_group_id, status, patterns, declared_by, declared_at)
 			VALUES ($1, 'waiting', '{"refunds.*"}', 'binding.dead-declarer', now())
-			RETURNING id;`, ds.Schema, topic.BindingConfigLogTable(topicId)), groupId).Scan(&newestId))
+			RETURNING id;`, ds.Schema, stream.BindingConfigLogTable(streamId)), groupId).Scan(&newestId))
 	}
 	return newestId
 }
@@ -285,7 +285,7 @@ func insertSyntheticWaits(ctx context.Context) int64 {
 func installedRows(ctx context.Context) int {
 	var count int
 	must(ds.Pool.QueryRow(ctx,
-		fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = $1 AND status = 'installed';`, ds.Schema, topic.BindingConfigLogTable(topicId)),
+		fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = $1 AND status = 'installed';`, ds.Schema, stream.BindingConfigLogTable(streamId)),
 		groupId).Scan(&count))
 	return count
 }
@@ -293,7 +293,7 @@ func installedRows(ctx context.Context) int {
 func waitingRows(ctx context.Context) int {
 	var count int
 	must(ds.Pool.QueryRow(ctx,
-		fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = $1 AND status = 'waiting';`, ds.Schema, topic.BindingConfigLogTable(topicId)),
+		fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = $1 AND status = 'waiting';`, ds.Schema, stream.BindingConfigLogTable(streamId)),
 		groupId).Scan(&count))
 	return count
 }
@@ -301,7 +301,7 @@ func waitingRows(ctx context.Context) int {
 func bindingDisplays(ctx context.Context) string {
 	var displays string
 	must(ds.Pool.QueryRow(ctx,
-		fmt.Sprintf(`SELECT COALESCE(string_agg(pattern, ',' ORDER BY pattern), '') FROM %s.%s WHERE consumer_group_id = $1;`, ds.Schema, topic.BindingConfigTable(topicId)),
+		fmt.Sprintf(`SELECT COALESCE(string_agg(pattern, ',' ORDER BY pattern), '') FROM %s.%s WHERE consumer_group_id = $1;`, ds.Schema, stream.BindingConfigTable(streamId)),
 		groupId).Scan(&displays))
 	return displays
 }
@@ -314,7 +314,7 @@ func testDeclarations(ctx context.Context) (*consume.Binding, *consume.Binding) 
 	var installed *consume.Binding
 	var waiter *consume.Binding
 	for _, declaration := range declarations {
-		if declaration.TopicName != topicName || declaration.ConsumerGroupName != groupName {
+		if declaration.StreamName != streamName || declaration.ConsumerGroupName != groupName {
 			continue
 		}
 		switch declaration.Status {
@@ -329,7 +329,7 @@ func testDeclarations(ctx context.Context) (*consume.Binding, *consume.Binding) 
 
 // testBinding reads the e2e test group's effective set through the group handle.
 func testBinding(ctx context.Context) *consume.Binding {
-	binding, err := client.Topic[testMessage](topicName).Consumer(groupName).Binding().Get(ctx)
+	binding, err := client.Stream[testMessage](streamName).Consumer(groupName).Binding().Get(ctx)
 	must(err)
 	if binding == nil {
 		die("Binding().Get must find the e2e test group's installed set")

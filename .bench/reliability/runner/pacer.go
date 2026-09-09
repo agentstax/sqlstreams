@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/agentstax/vulkan/.bench/reliability/common"
+	"github.com/agentstax/sqlstreams/.bench/reliability/common"
 )
 
 // Pacer runs an open loop: call i is due at start + i/rate whether or not

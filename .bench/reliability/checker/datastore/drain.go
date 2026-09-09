@@ -6,7 +6,7 @@ import (
 )
 
 // DrainPosition is the two ids the drain compares: the highest message id
-// the topic holds, and the group's cursor -- every id at or below committed
+// the stream holds, and the group's cursor -- every id at or below committed
 // is done or dead.
 type DrainPosition struct {
 	HighestMessage  int64

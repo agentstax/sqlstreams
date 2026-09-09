@@ -3,9 +3,9 @@ package otel
 import (
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/diagnostic"
-	"github.com/agentstax/vulkan/pkg/metric"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/agentstax/sqlstreams/pkg/metric"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/instrumentation"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"

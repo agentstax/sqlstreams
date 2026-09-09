@@ -1,9 +1,9 @@
 // Command outcome proves the four handler outcomes end to end through a
-// real Consume: nil succeeds, a plain error retries, vulkan.Terminal
-// dead-letters on the spot, and vulkan.Delay runs later without
+// real Consume: nil succeeds, a plain error retries, sqlstreams.Terminal
+// dead-letters on the spot, and sqlstreams.Delay runs later without
 // counting a failure.
 //
-// Registers its own topic (destroyed on exit), self-seeds four messages,
+// Registers its own stream (destroyed on exit), self-seeds four messages,
 // one per branch, and reads exception_queue_<id> / delivery_log_<id> for
 // the assertions.
 //
@@ -11,7 +11,7 @@
 //   - the succeeding message leaves no delivery row.
 //   - the plain error's row is 'ready' with attempts 0 and a 'failure' log row.
 //   - the Terminal error's row is 'dead' after ONE run, attempts 0, its
-//     last_error carrying VK0055 and the wrapped cause.
+//     last_error carrying SS0055 and the wrapped cause.
 //   - the Delay message's row is 'ready' with delays 1, attempts 0,
 //     can_run_after in the future, and a 'delayed' log row at attempt 0.
 //   - once its delay passes it runs again from the exception path; a second
@@ -25,20 +25,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 const (
-	topicName = "phase1.outcome"
-	group     = "phase1.outcome"
-	delay     = 2 * time.Second
+	streamName = "phase1.outcome"
+	group      = "phase1.outcome"
+	delay      = 2 * time.Second
 )
 
 type Payment struct {
@@ -76,22 +76,22 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{})
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{})
 	must(err)
 	defer func() {
-		must(client.Topic[Payment](tp.Name).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[Payment](tp.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
-	payments, err := client.Topic[Payment](tp.Name).Producer().Register(ctx, nil)
+	payments, err := client.Stream[Payment](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 
 	ids := map[string]int64{}
@@ -101,11 +101,11 @@ func run() (err error) {
 		ids[branch] = produced.Id
 	}
 
-	instance, err := client.Topic[Payment](tp.Name).Consumer(group).Register(ctx, &vulkan.ConsumerConfig{
+	instance, err := client.Stream[Payment](tp.Name).Consumer(group).Register(ctx, &sqlstreams.ConsumerConfig{
 		ExceptionInitialBackoff: 500 * time.Millisecond,
-		Message: &vulkan.MessageOptions{
+		Message: &sqlstreams.MessageOptions{
 			Timeout: 5 * time.Second,
-			Retry:   &vulkan.RetryPolicy{MaxRetries: 3, MaxDelays: 1, BaseDelay: 200 * time.Millisecond},
+			Retry:   &sqlstreams.RetryPolicy{MaxRetries: 3, MaxDelays: 1, BaseDelay: 200 * time.Millisecond},
 		},
 	})
 
@@ -120,7 +120,7 @@ func run() (err error) {
 	consumeDone := make(chan error, 1)
 	go func() {
 		consumeDone <- instance.Consume(consumeCtx, func(ctx context.Context, payment *Payment) error {
-			meta, _ := vulkan.MetaFromContext(ctx)
+			meta, _ := sqlstreams.MetaFromContext(ctx)
 			mu.Lock()
 			runs[payment.Branch]++
 			run := runs[payment.Branch]
@@ -134,7 +134,7 @@ func run() (err error) {
 				}
 				return nil
 			case "declined":
-				return vulkan.Terminal(errors.New("issuer said no"))
+				return sqlstreams.Terminal(errors.New("issuer said no"))
 			case "settles-later":
 				if run == 1 && (meta.Attempts != 0 || meta.Delays != 0) {
 					die(fmt.Sprintf("first run: meta.Attempts=%d meta.Delays=%d, want 0/0", meta.Attempts, meta.Delays))
@@ -142,10 +142,10 @@ func run() (err error) {
 				if run == 2 && (meta.Attempts != 1 || meta.Delays != 1) {
 					die(fmt.Sprintf("second run: meta.Attempts=%d meta.Delays=%d, want 1/1", meta.Attempts, meta.Delays))
 				}
-				return vulkan.Delay(delay)
+				return sqlstreams.Delay(delay)
 			}
 			return nil
-		}, &vulkan.ConsumeOptions{ClaimPollRate: 100 * time.Millisecond})
+		}, &sqlstreams.ConsumeOptions{ClaimPollRate: 100 * time.Millisecond})
 	}()
 
 	step("first delivery of all four branches")
@@ -162,8 +162,8 @@ func run() (err error) {
 	fmt.Println("PASS: plain error -> ready, attempts 0, 'failure' log row")
 
 	row = readRow(ctx, ds, tp.Id, groupId, ids["declined"])
-	if row.status != "dead" || row.attempts != 0 || !strings.Contains(row.lastError, "[VK0055]: issuer said no") {
-		die(fmt.Sprintf("terminal error row: %+v, want dead/0 with [VK0055]: issuer said no", row))
+	if row.status != "dead" || row.attempts != 0 || !strings.Contains(row.lastError, "[SS0055]: issuer said no") {
+		die(fmt.Sprintf("terminal error row: %+v, want dead/0 with [SS0055]: issuer said no", row))
 	}
 	assertLogStatus(ctx, ds, tp.Id, groupId, ids["declined"], 0, "failure")
 	fmt.Println("PASS: Terminal -> dead after one run, attempts 0, code and cause in last_error")
@@ -178,8 +178,8 @@ func run() (err error) {
 	step("the delay passes; the exception path runs it again")
 	waitFor(ctx, ds, tp.Id, groupId, ids["settles-later"], "dead", delay+10*time.Second)
 	row = readRow(ctx, ds, tp.Id, groupId, ids["settles-later"])
-	if row.attempts != 1 || row.delays != 1 || !strings.Contains(row.lastError, "[VK0054]") {
-		die(fmt.Sprintf("delay past MaxDelays: %+v, want dead/attempts 1/delays 1 with [VK0054]", row))
+	if row.attempts != 1 || row.delays != 1 || !strings.Contains(row.lastError, "[SS0054]") {
+		die(fmt.Sprintf("delay past MaxDelays: %+v, want dead/attempts 1/delays 1 with [SS0054]", row))
 	}
 	assertLogStatus(ctx, ds, tp.Id, groupId, ids["settles-later"], 1, "failure")
 	fmt.Println("PASS: second Delay past MaxDelays 1 -> dead, attempts - delays still 0")
@@ -207,50 +207,50 @@ type queueRow struct {
 	runsIn    time.Duration
 }
 
-func readRow(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, groupId int64, messageId int64) queueRow {
-	sql := fmt.Sprintf(`SELECT status, attempts, delays, COALESCE(last_error, ''), can_run_after - now() FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2`, ds.Schema, topic.ExceptionQueueTable(topicId))
+func readRow(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, groupId int64, messageId int64) queueRow {
+	sql := fmt.Sprintf(`SELECT status, attempts, delays, COALESCE(last_error, ''), can_run_after - now() FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2`, ds.Schema, stream.ExceptionQueueTable(streamId))
 	var row queueRow
 	must(ds.Pool.QueryRow(ctx, sql, groupId, messageId).Scan(&row.status, &row.attempts, &row.delays, &row.lastError, &row.runsIn))
 	return row
 }
 
-func rowStatus(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, groupId int64, messageId int64) string {
-	sql := fmt.Sprintf(`SELECT COALESCE(MAX(status), '') FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2`, ds.Schema, topic.ExceptionQueueTable(topicId))
+func rowStatus(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, groupId int64, messageId int64) string {
+	sql := fmt.Sprintf(`SELECT COALESCE(MAX(status), '') FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2`, ds.Schema, stream.ExceptionQueueTable(streamId))
 	var status string
 	must(ds.Pool.QueryRow(ctx, sql, groupId, messageId).Scan(&status))
 	return status
 }
 
-func waitFor(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, groupId int64, messageId int64, want string, timeout time.Duration) {
+func waitFor(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, groupId int64, messageId int64, want string, timeout time.Duration) {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		if rowStatus(ctx, ds, topicId, groupId, messageId) == want {
+		if rowStatus(ctx, ds, streamId, groupId, messageId) == want {
 			return
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	die(fmt.Sprintf("message %d never reached status %q (last %q)", messageId, want, rowStatus(ctx, ds, topicId, groupId, messageId)))
+	die(fmt.Sprintf("message %d never reached status %q (last %q)", messageId, want, rowStatus(ctx, ds, streamId, groupId, messageId)))
 }
 
-func waitForGone(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, groupId int64, messageId int64, timeout time.Duration) {
+func waitForGone(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, groupId int64, messageId int64, timeout time.Duration) {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		if rowStatus(ctx, ds, topicId, groupId, messageId) == "" {
+		if rowStatus(ctx, ds, streamId, groupId, messageId) == "" {
 			return
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	die(fmt.Sprintf("message %d's row never went away (last %q)", messageId, rowStatus(ctx, ds, topicId, groupId, messageId)))
+	die(fmt.Sprintf("message %d's row never went away (last %q)", messageId, rowStatus(ctx, ds, streamId, groupId, messageId)))
 }
 
-func assertNoRow(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, groupId int64, messageId int64) {
-	if status := rowStatus(ctx, ds, topicId, groupId, messageId); status != "" {
+func assertNoRow(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, groupId int64, messageId int64) {
+	if status := rowStatus(ctx, ds, streamId, groupId, messageId); status != "" {
 		die(fmt.Sprintf("message %d has a delivery row with status %q, want none", messageId, status))
 	}
 }
 
-func assertLogStatus(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, groupId int64, messageId int64, attempt int, want string) {
-	sql := fmt.Sprintf(`SELECT COALESCE(MAX(status), '') FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2 AND attempt = $3`, ds.Schema, topic.DeliveryLogTable(topicId))
+func assertLogStatus(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, groupId int64, messageId int64, attempt int, want string) {
+	sql := fmt.Sprintf(`SELECT COALESCE(MAX(status), '') FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2 AND attempt = $3`, ds.Schema, stream.DeliveryLogTable(streamId))
 	var status string
 	must(ds.Pool.QueryRow(ctx, sql, groupId, messageId, attempt).Scan(&status))
 	if status != want {
@@ -258,9 +258,9 @@ func assertLogStatus(ctx context.Context, ds *iDatastore.PostgresDatastore, topi
 	}
 }
 
-func groupIdOf(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64) int64 {
+func groupIdOf(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) int64 {
 	var id int64
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT id FROM %s.consumer_group_config WHERE topic_id = $1 AND name = $2`, ds.Schema), topicId, group).Scan(&id))
+	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT id FROM %s.consumer_group_config WHERE stream_id = $1 AND name = $2`, ds.Schema), streamId, group).Scan(&id))
 	return id
 }
 

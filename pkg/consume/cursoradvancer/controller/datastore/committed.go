@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 )
 
 // committed is the mark below which every offset is resolved.
@@ -20,11 +20,11 @@ import (
 //	This is due to READ COMMITTED: an UPDATE re-reads the row it modifies at its
 //	newest version, but its subqueries keep the snapshot from when the statement
 //	began -- so cursor comes back fresh, lease stale.
-func (d *CursorAdvancerDatastore) AdvanceCommitted(ctx context.Context, topicId int64, groupId int64) (int64, error) {
+func (d *CursorAdvancerDatastore) AdvanceCommitted(ctx context.Context, streamId int64, groupId int64) (int64, error) {
 	var committed int64
 	err := d.DatastoreRetry.Wrap(ctx, func() error {
 		var err error
-		committed, err = d.advanceCommitted(ctx, topicId, groupId)
+		committed, err = d.advanceCommitted(ctx, streamId, groupId)
 		return err
 	})
 	return committed, err
@@ -33,14 +33,14 @@ func (d *CursorAdvancerDatastore) AdvanceCommitted(ctx context.Context, topicId 
 // advanceCommitted needs no transaction across its two statements: a target
 // gone stale after the SELECT is only ever too low, and GREATEST makes a
 // too-low target a no-op.
-func (d *CursorAdvancerDatastore) advanceCommitted(ctx context.Context, topicId int64, groupId int64) (int64, error) {
+func (d *CursorAdvancerDatastore) advanceCommitted(ctx context.Context, streamId int64, groupId int64) (int64, error) {
 	// 1. compute the advance target, LEAST of:
 	// 		earliest open lease
 	// 		earliest unresolved delivery -- 'dead' by definition does not count
 	// 		claimed (its caught up to head of log)
 	// LEAST ignores NULLs so any/all of those can be absent.
 	targetSql := fmt.Sprintf(`
-		-- vulkan: cursoradvancer.advanceCommitted
+		-- sqlstreams: cursoradvancer.advanceCommitted
 		SELECT LEAST(
 			(SELECT MIN(low) FROM %[1]s.%[2]s WHERE consumer_group_id = $1),
 			(SELECT MIN(message_id) - 1 FROM %[1]s.%[3]s WHERE consumer_group_id = $1 AND status IN ('ready', 'inflight', 'deferred')),
@@ -48,7 +48,7 @@ func (d *CursorAdvancerDatastore) advanceCommitted(ctx context.Context, topicId 
 		)
 		FROM %[1]s.%[4]s
 		WHERE consumer_group_id = $1;
-	`, d.Datastore.Schema, topic.ClaimLeaseTable(topicId), topic.ExceptionQueueTable(topicId), topic.ConsumerGroupCursorTable(topicId))
+	`, d.Datastore.Schema, stream.ClaimLeaseTable(streamId), stream.ExceptionQueueTable(streamId), stream.ConsumerGroupCursorTable(streamId))
 
 	var target int64
 	if err := d.Datastore.Pool.QueryRow(ctx, targetSql, groupId).Scan(&target); err != nil {
@@ -57,12 +57,12 @@ func (d *CursorAdvancerDatastore) advanceCommitted(ctx context.Context, topicId 
 
 	// 2. apply it. GREATEST -> committed only ever moves forward.
 	advanceSql := fmt.Sprintf(`
-		-- vulkan: cursoradvancer.advanceCommitted
+		-- sqlstreams: cursoradvancer.advanceCommitted
 		UPDATE %[1]s.%[2]s
 		SET committed = GREATEST(committed, $2)
 		WHERE consumer_group_id = $1
 		RETURNING committed;
-	`, d.Datastore.Schema, topic.ConsumerGroupCursorTable(topicId))
+	`, d.Datastore.Schema, stream.ConsumerGroupCursorTable(streamId))
 
 	var committed int64
 	err := d.Datastore.Pool.QueryRow(ctx, advanceSql, groupId, target).Scan(&committed)

@@ -5,8 +5,8 @@ import (
 	"slices"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/consume"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/consume"
 )
 
 // ConsumerConfig is the group's declaration: what the group means, identical
@@ -39,7 +39,7 @@ type ConsumerConfig struct {
 	Start consume.CursorPosition
 
 	// Bindings - the group's whole pattern set, declared on every Register.
-	// Default: nil (the whole topic).
+	// Default: nil (the whole stream).
 	Bindings []string
 
 	ExceptionInitialBackoff time.Duration // can_run_after delay when an exception/terminal row is first written (Commit/PartialCommit) -- Message.Retry takes over on later retries. Default: 5s.

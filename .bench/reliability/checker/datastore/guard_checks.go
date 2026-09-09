@@ -30,15 +30,15 @@ func (d *CheckerDatastore) CountScheduleSlips(ctx context.Context, from time.Tim
 // BacklogSlope is the group's backlog trend over [from, to) in messages per
 // second, a least-squares fit over the observer's backlog samples; 0 with
 // fewer than two samples.
-func (d *CheckerDatastore) ReadBacklogSlope(ctx context.Context, from time.Time, to time.Time, topicName string, groupName string) (float64, error) {
+func (d *CheckerDatastore) ReadBacklogSlope(ctx context.Context, from time.Time, to time.Time, streamName string, groupName string) (float64, error) {
 	slopeSql := fmt.Sprintf(`
 		-- lab: datastore.ReadBacklogSlope
 		SELECT COALESCE(regr_slope((highest_message - committed)::double precision, EXTRACT(EPOCH FROM at)), 0)
 		FROM %[1]s
-		WHERE at >= $1 AND at < $2 AND topic = $3 AND "group" = $4;
+		WHERE at >= $1 AND at < $2 AND stream = $3 AND "group" = $4;
 	`, observerBacklog)
 	var slope float64
-	err := d.pool.QueryRow(ctx, slopeSql, from, to, topicName, groupName).Scan(&slope)
+	err := d.pool.QueryRow(ctx, slopeSql, from, to, streamName, groupName).Scan(&slope)
 	return slope, err
 }
 

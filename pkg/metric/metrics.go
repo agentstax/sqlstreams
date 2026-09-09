@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-// ConsumerGroupSnapshot is the live, DB-truth picture of one (group, topic),
+// ConsumerGroupSnapshot is the live, DB-truth picture of one (group, stream),
 // sectioned by the store each number reads -- answers "what's true right now"
 // for state that multiple consumer processes share.
 type ConsumerGroupSnapshot struct {

@@ -2,7 +2,7 @@ package main
 
 // Compaction-head lock lifecycle e2e test: the lockable row serializes the first
 // read-modify-write, an ordinary compacted produce fills that same row, and
-// the topic janitor removes only idle rows without heads. The final two races
+// the stream janitor removes only idle rows without heads. The final two races
 // force each side to win first and prove the janitor never waits on an active
 // locker while a lock following a delete safely recreates the row.
 
@@ -13,10 +13,10 @@ import (
 	"os"
 	"time"
 
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/topic"
-	janitorcontroller "github.com/agentstax/vulkan/pkg/topic/janitor/controller"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	"github.com/agentstax/sqlstreams/pkg/stream"
+	janitorcontroller "github.com/agentstax/sqlstreams/pkg/stream/janitor/controller"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -39,7 +39,7 @@ type headRow struct {
 
 type testKey struct {
 	name   string
-	handle *vulkan.KeyHandle[Counter]
+	handle *sqlstreams.KeyHandle[Counter]
 }
 
 func main() {
@@ -67,24 +67,24 @@ func run() (err error) {
 	}()
 
 	ctx := context.Background()
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	topicName := fmt.Sprintf("compactionheadlock.%d", time.Now().UnixNano())
-	counters := client.Topic[Counter](topicName)
-	registered, err := counters.Register(ctx, &vulkan.TopicConfig{
+	streamName := fmt.Sprintf("compactionheadlock.%d", time.Now().UnixNano())
+	counters := client.Stream[Counter](streamName)
+	registered, err := counters.Register(ctx, &sqlstreams.StreamConfig{
 		PartitionSize:          1000,
 		EmptyCompactionHeadTTL: emptyHeadTTL,
 	})
 	must(err)
 	defer func() {
-		must(counters.Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(counters.Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	producer, err := counters.Producer().Register(ctx, nil)
@@ -92,8 +92,8 @@ func run() (err error) {
 	janitor, err := janitorcontroller.NewJanitorController(ds, ds.Logger)
 	must(err)
 
-	firstWritesCompose(ctx, client, ds, producer, newLabKey(counters, "first-write"), &vulkan.CompactionOptions{Enable: true})
-	ordinaryProduceFillsEmptyRow(ctx, client, ds, producer, newLabKey(counters, "ordinary-fill"), &vulkan.CompactionOptions{Enable: true}, registered.Id)
+	firstWritesCompose(ctx, client, ds, producer, newLabKey(counters, "first-write"), &sqlstreams.CompactionOptions{Enable: true})
+	ordinaryProduceFillsEmptyRow(ctx, client, ds, producer, newLabKey(counters, "ordinary-fill"), &sqlstreams.CompactionOptions{Enable: true}, registered.Id)
 	ttlRemovesOnlyEmptyRows(ctx, client, ds, janitor, counters, registered.Id)
 	lockerFirstSkipsWithoutWaiting(ctx, client, ds, janitor, newLabKey(counters, "locker-first"), registered.Id)
 	janitorFirstDeletesThenLockerRecreates(ctx, client, ds, janitor, newLabKey(counters, "janitor-first"), registered.Id)
@@ -102,7 +102,7 @@ func run() (err error) {
 	return nil
 }
 
-func firstWritesCompose(ctx context.Context, client *vulkan.Client, ds *iDatastore.PostgresDatastore, producer *vulkan.ProducerInstance[Counter], key testKey, compaction *vulkan.CompactionOptions) {
+func firstWritesCompose(ctx context.Context, client *sqlstreams.Client, ds *iDatastore.PostgresDatastore, producer *sqlstreams.ProducerInstance[Counter], key testKey, compaction *sqlstreams.CompactionOptions) {
 	step("two transactions first-increment an absent key to 2")
 
 	firstLocked := make(chan struct{})
@@ -136,8 +136,8 @@ func firstWritesCompose(ctx context.Context, client *vulkan.Client, ds *iDatasto
 	fmt.Println("  ✓ second transaction waited on the first row lock")
 }
 
-func increment(ctx context.Context, client *vulkan.Client, producer *vulkan.ProducerInstance[Counter], key testKey, compaction *vulkan.CompactionOptions, afterLock func()) error {
-	return client.InTransaction(ctx, func(ctx context.Context, tx vulkan.Tx) error {
+func increment(ctx context.Context, client *sqlstreams.Client, producer *sqlstreams.ProducerInstance[Counter], key testKey, compaction *sqlstreams.CompactionOptions, afterLock func()) error {
+	return client.InTransaction(ctx, func(ctx context.Context, tx sqlstreams.Tx) error {
 		head, err := key.handle.LockCompactionHead(ctx, tx)
 		if err != nil {
 			return err
@@ -149,7 +149,7 @@ func increment(ctx context.Context, client *vulkan.Client, producer *vulkan.Prod
 		if afterLock != nil {
 			afterLock()
 		}
-		_, err = producer.ProduceInTx(ctx, tx, &Counter{Value: value + 1}, &vulkan.ProduceOptions{
+		_, err = producer.ProduceInTx(ctx, tx, &Counter{Value: value + 1}, &sqlstreams.ProduceOptions{
 			MessageKey: key.name,
 			Compaction: compaction,
 		})
@@ -157,46 +157,46 @@ func increment(ctx context.Context, client *vulkan.Client, producer *vulkan.Prod
 	})
 }
 
-func ordinaryProduceFillsEmptyRow(ctx context.Context, client *vulkan.Client, ds *iDatastore.PostgresDatastore, producer *vulkan.ProducerInstance[Counter], key testKey, compaction *vulkan.CompactionOptions, topicId int64) {
+func ordinaryProduceFillsEmptyRow(ctx context.Context, client *sqlstreams.Client, ds *iDatastore.PostgresDatastore, producer *sqlstreams.ProducerInstance[Counter], key testKey, compaction *sqlstreams.CompactionOptions, streamId int64) {
 	step("ordinary compacted produce fills an existing null-head row")
 	must(lockOnly(ctx, client, key))
-	before, exists := readHeadRow(ctx, ds, topicId, key.name)
+	before, exists := readHeadRow(ctx, ds, streamId, key.name)
 	assertTrue("null-head row exists before produce", exists && before.MessageId == nil)
 
-	produced, err := producer.Produce(ctx, &Counter{Value: 7}, &vulkan.ProduceOptions{
+	produced, err := producer.Produce(ctx, &Counter{Value: 7}, &sqlstreams.ProduceOptions{
 		MessageKey: key.name,
 		Compaction: compaction,
 	})
 	must(err)
-	after, exists := readHeadRow(ctx, ds, topicId, key.name)
+	after, exists := readHeadRow(ctx, ds, streamId, key.name)
 	assertTrue("row is materialized after ordinary produce", exists && after.MessageId != nil)
 	assertInt64("materialized head id", *after.MessageId, produced.Id)
 	assertTrue("produce filled the same row", after.CreatedAt.Equal(before.CreatedAt))
 }
 
-func ttlRemovesOnlyEmptyRows(ctx context.Context, client *vulkan.Client, ds *iDatastore.PostgresDatastore, janitor *janitorcontroller.JanitorController, counters *vulkan.TopicHandle[Counter], topicId int64) {
+func ttlRemovesOnlyEmptyRows(ctx context.Context, client *sqlstreams.Client, ds *iDatastore.PostgresDatastore, janitor *janitorcontroller.JanitorController, counters *sqlstreams.StreamHandle[Counter], streamId int64) {
 	step("TTL removes a committed lock-only row and preserves materialized heads")
 	empty := newLabKey(counters, "ttl-empty")
 	must(lockOnly(ctx, client, empty))
 	time.Sleep(emptyHeadTTL + 50*time.Millisecond)
 
-	must(janitor.SweepExpiredEmptyCompactionHeads(ctx, topicId, emptyHeadTTL, batchSize))
-	_, exists := readHeadRow(ctx, ds, topicId, empty.name)
+	must(janitor.SweepExpiredEmptyCompactionHeads(ctx, streamId, emptyHeadTTL, batchSize))
+	_, exists := readHeadRow(ctx, ds, streamId, empty.name)
 	assertTrue("expired null-head row was removed", !exists)
 	assertMaterialized(ctx, newLabKey(counters, "first-write"), 2)
 	assertMaterialized(ctx, newLabKey(counters, "ordinary-fill"), 7)
 }
 
-func lockerFirstSkipsWithoutWaiting(ctx context.Context, client *vulkan.Client, ds *iDatastore.PostgresDatastore, janitor *janitorcontroller.JanitorController, key testKey, topicId int64) {
+func lockerFirstSkipsWithoutWaiting(ctx context.Context, client *sqlstreams.Client, ds *iDatastore.PostgresDatastore, janitor *janitorcontroller.JanitorController, key testKey, streamId int64) {
 	step("locker-first: janitor skips the locked expired row without waiting")
 	must(lockOnly(ctx, client, key))
-	backdateHead(ctx, ds, topicId, key.name)
+	backdateHead(ctx, ds, streamId, key.name)
 
 	locked := make(chan struct{})
 	release := make(chan struct{})
 	lockerDone := make(chan error, 1)
 	go func() {
-		lockerDone <- client.InTransaction(ctx, func(ctx context.Context, tx vulkan.Tx) error {
+		lockerDone <- client.InTransaction(ctx, func(ctx context.Context, tx sqlstreams.Tx) error {
 			head, err := key.handle.LockCompactionHead(ctx, tx)
 			if err != nil {
 				return err
@@ -213,7 +213,7 @@ func lockerFirstSkipsWithoutWaiting(ctx context.Context, client *vulkan.Client, 
 
 	sweepDone := make(chan error, 1)
 	go func() {
-		sweepDone <- janitor.SweepExpiredEmptyCompactionHeads(ctx, topicId, emptyHeadTTL, batchSize)
+		sweepDone <- janitor.SweepExpiredEmptyCompactionHeads(ctx, streamId, emptyHeadTTL, batchSize)
 	}()
 	select {
 	case err := <-sweepDone:
@@ -227,22 +227,22 @@ func lockerFirstSkipsWithoutWaiting(ctx context.Context, client *vulkan.Client, 
 	close(release)
 	must(<-lockerDone)
 
-	row, exists := readHeadRow(ctx, ds, topicId, key.name)
+	row, exists := readHeadRow(ctx, ds, streamId, key.name)
 	assertTrue("locker-first row survived and remains empty", exists && row.MessageId == nil)
 }
 
-func janitorFirstDeletesThenLockerRecreates(ctx context.Context, client *vulkan.Client, ds *iDatastore.PostgresDatastore, janitor *janitorcontroller.JanitorController, key testKey, topicId int64) {
+func janitorFirstDeletesThenLockerRecreates(ctx context.Context, client *sqlstreams.Client, ds *iDatastore.PostgresDatastore, janitor *janitorcontroller.JanitorController, key testKey, streamId int64) {
 	step("janitor-first: waiting locker recreates the row after deletion")
 	must(lockOnly(ctx, client, key))
-	backdateHead(ctx, ds, topicId, key.name)
-	removePause := installDeletePause(ctx, ds, topicId)
+	backdateHead(ctx, ds, streamId, key.name)
+	removePause := installDeletePause(ctx, ds, streamId)
 	defer removePause()
 
 	sweepDone := make(chan error, 1)
 	go func() {
-		sweepDone <- janitor.SweepExpiredEmptyCompactionHeads(ctx, topicId, emptyHeadTTL, batchSize)
+		sweepDone <- janitor.SweepExpiredEmptyCompactionHeads(ctx, streamId, emptyHeadTTL, batchSize)
 	}()
-	must(waitForQueryWait(ctx, ds, "topicjanitor.sweepEmptyCompactionHeadsBatch", "Timeout", "PgSleep", time.Second))
+	must(waitForQueryWait(ctx, ds, "streamjanitor.sweepEmptyCompactionHeadsBatch", "Timeout", "PgSleep", time.Second))
 
 	lockerDone := make(chan error, 1)
 	go func() { lockerDone <- lockOnly(ctx, client, key) }()
@@ -250,12 +250,12 @@ func janitorFirstDeletesThenLockerRecreates(ctx context.Context, client *vulkan.
 	must(<-sweepDone)
 	must(<-lockerDone)
 
-	row, exists := readHeadRow(ctx, ds, topicId, key.name)
+	row, exists := readHeadRow(ctx, ds, streamId, key.name)
 	assertTrue("locker recreated the janitor-deleted row", exists && row.MessageId == nil)
 }
 
-func lockOnly(ctx context.Context, client *vulkan.Client, key testKey) error {
-	return client.InTransaction(ctx, func(ctx context.Context, tx vulkan.Tx) error {
+func lockOnly(ctx context.Context, client *sqlstreams.Client, key testKey) error {
+	return client.InTransaction(ctx, func(ctx context.Context, tx sqlstreams.Tx) error {
 		head, err := key.handle.LockCompactionHead(ctx, tx)
 		if err != nil {
 			return err
@@ -267,13 +267,13 @@ func lockOnly(ctx context.Context, client *vulkan.Client, key testKey) error {
 	})
 }
 
-func readHeadRow(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, messageKey string) (headRow, bool) {
+func readHeadRow(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, messageKey string) (headRow, bool) {
 	var row headRow
 	err := ds.Pool.QueryRow(ctx, fmt.Sprintf(`
 		SELECT message_id, created_at, updated_at
 		FROM %s.%s
 		WHERE compaction_key = $1;
-	`, ds.Schema, topic.CompactionHeadTable(topicId)), messageKey).Scan(&row.MessageId, &row.CreatedAt, &row.UpdatedAt)
+	`, ds.Schema, stream.CompactionHeadTable(streamId)), messageKey).Scan(&row.MessageId, &row.CreatedAt, &row.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return headRow{}, false
 	}
@@ -281,18 +281,18 @@ func readHeadRow(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId 
 	return row, true
 }
 
-func backdateHead(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, messageKey string) {
+func backdateHead(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, messageKey string) {
 	_, err := ds.Pool.Exec(ctx, fmt.Sprintf(`
 		UPDATE %s.%s
 		SET updated_at = NOW() - INTERVAL '1 hour'
 		WHERE compaction_key = $1 AND message_id IS NULL;
-	`, ds.Schema, topic.CompactionHeadTable(topicId)), messageKey)
+	`, ds.Schema, stream.CompactionHeadTable(streamId)), messageKey)
 	must(err)
 }
 
-func installDeletePause(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64) func() {
-	functionName := fmt.Sprintf("compaction_head_delete_pause_%d", topicId)
-	triggerName := fmt.Sprintf("compaction_head_delete_pause_%d", topicId)
+func installDeletePause(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) func() {
+	functionName := fmt.Sprintf("compaction_head_delete_pause_%d", streamId)
+	triggerName := fmt.Sprintf("compaction_head_delete_pause_%d", streamId)
 	_, err := ds.Pool.Exec(ctx, fmt.Sprintf(`
 		CREATE FUNCTION %s.%s() RETURNS trigger AS $$
 		BEGIN
@@ -303,13 +303,13 @@ func installDeletePause(ctx context.Context, ds *iDatastore.PostgresDatastore, t
 		CREATE TRIGGER %s
 			BEFORE DELETE ON %s.%s
 			FOR EACH ROW EXECUTE FUNCTION %s.%s();
-	`, ds.Schema, functionName, triggerName, ds.Schema, topic.CompactionHeadTable(topicId), ds.Schema, functionName))
+	`, ds.Schema, functionName, triggerName, ds.Schema, stream.CompactionHeadTable(streamId), ds.Schema, functionName))
 	must(err)
 	return func() {
 		_, err := ds.Pool.Exec(ctx, fmt.Sprintf(`
 			DROP TRIGGER IF EXISTS %s ON %s.%s;
 			DROP FUNCTION IF EXISTS %s.%s();
-		`, triggerName, ds.Schema, topic.CompactionHeadTable(topicId), ds.Schema, functionName))
+		`, triggerName, ds.Schema, stream.CompactionHeadTable(streamId), ds.Schema, functionName))
 		must(err)
 	}
 }
@@ -356,8 +356,8 @@ func assertMaterialized(ctx context.Context, key testKey, want int) {
 	assertInt(fmt.Sprintf("materialized key %q survived", key.name), head.Message.Value, want)
 }
 
-func newLabKey(topic *vulkan.TopicHandle[Counter], name string) testKey {
-	return testKey{name: name, handle: topic.Key(name)}
+func newLabKey(stream *sqlstreams.StreamHandle[Counter], name string) testKey {
+	return testKey{name: name, handle: stream.Key(name)}
 }
 
 func step(message string) { fmt.Printf("\n--- %s ---\n", message) }

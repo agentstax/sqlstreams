@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/worker"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/worker"
 )
 
 // ValidateOwner rejects an owner of the wrong kind for a worker family:

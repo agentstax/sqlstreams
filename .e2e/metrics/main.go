@@ -1,18 +1,18 @@
 package main
 
 // Chunk 5 e2e test: TWO independent MessageConsumer instances (simulating two
-// processes) share ONE consumer group on ONE topic. Each hard-times-out
+// processes) share ONE consumer group on ONE stream. Each hard-times-out
 // whatever it claims, proving the abandoned/cleared event stream aggregates
 // correctly ACROSS processes -- neither instance's in-memory state is ever
 // consulted, everything the assertions below read comes back out of the
-// shared __system.metrics topic via client.Topic[vulkan.RawPayload](...).Metrics, the same read path
-// `vulkan topic get` renders.
+// shared __system.metrics stream via client.Stream[sqlstreams.RawPayload](...).Metrics, the same read path
+// `sqlstreams stream get` renders.
 //
 // Retention-drop-out (events aging out of the window) is NOT exercised here:
-// __system.metrics is a single shared, already-populated topic with a fixed
+// __system.metrics is a single shared, already-populated stream with a fixed
 // 10,000-row partition size (PartitionSize is immutable after creation), so
 // forcing a partition boundary in a short-lived e2e test isn't practical without
-// either a huge event volume or a second, parallel metrics topic -- neither
+// either a huge event volume or a second, parallel metrics stream -- neither
 // of which this design supports. The read path applies no separate time
 // filter of its own (see pkg/metric/controller/datastore/event.go) -- once a
 // partition is physically dropped its rows are just gone from every query,
@@ -21,20 +21,20 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/agentstax/vulkan/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
 	"os"
 	"sync"
 	"time"
 
-	"github.com/agentstax/vulkan/e2e/common"
-	iCommon "github.com/agentstax/vulkan/pkg/common"
-	consumermessage "github.com/agentstax/vulkan/pkg/consume"
-	consumecontroller "github.com/agentstax/vulkan/pkg/consume/controller"
-	"github.com/agentstax/vulkan/pkg/consume/messageconsumer"
-	iMetrics "github.com/agentstax/vulkan/pkg/metric"
-	metricsproducer "github.com/agentstax/vulkan/pkg/metric/producer"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
-	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
+	"github.com/agentstax/sqlstreams/e2e/common"
+	iCommon "github.com/agentstax/sqlstreams/pkg/common"
+	consumermessage "github.com/agentstax/sqlstreams/pkg/consume"
+	consumecontroller "github.com/agentstax/sqlstreams/pkg/consume/controller"
+	"github.com/agentstax/sqlstreams/pkg/consume/messageconsumer"
+	iMetrics "github.com/agentstax/sqlstreams/pkg/metric"
+	metricsproducer "github.com/agentstax/sqlstreams/pkg/metric/producer"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
 )
 
 const group = "metrics"
@@ -69,40 +69,40 @@ func run() (err error) {
 	ctx := context.Background()
 	run := time.Now().UnixNano()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err := datastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	topicName := fmt.Sprintf("metrics.%d", run)
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{})
+	streamName := fmt.Sprintf("metrics.%d", run)
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{})
 	must(err)
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 	for range 4 {
-		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
+		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 			return common.NewWork(30, "admin@example.com")
 		}, nil)
 		must(err)
 	}
 
-	step("a lock-only key is visible without making the topic compacted")
-	emptySnapshot, err := topicMetrics(ctx, client, topicName)
+	step("a lock-only key is visible without making the stream compacted")
+	emptySnapshot, err := streamMetrics(ctx, client, streamName)
 	must(err)
 	assertInt64("headless compaction rows before lock", emptySnapshot.CompactionRowsWithoutHead, 0)
 	if emptySnapshot.OldestCompactionRowWithoutHeadAge != 0 {
 		die(fmt.Sprintf("oldest headless row age before lock = %v, want 0", emptySnapshot.OldestCompactionRowWithoutHeadAge))
 	}
-	emptyKey := client.Topic[common.Work](tp.Name).Key("lock-only")
-	must(client.InTransaction(ctx, func(ctx context.Context, tx vulkan.Tx) error {
+	emptyKey := client.Stream[common.Work](tp.Name).Key("lock-only")
+	must(client.InTransaction(ctx, func(ctx context.Context, tx sqlstreams.Tx) error {
 		head, err := emptyKey.LockCompactionHead(ctx, tx)
 		if err != nil {
 			return err
@@ -113,16 +113,16 @@ func run() (err error) {
 		return nil
 	}))
 	time.Sleep(10 * time.Millisecond)
-	topicSnapshot, err := topicMetrics(ctx, client, topicName)
+	streamSnapshot, err := streamMetrics(ctx, client, streamName)
 	must(err)
-	if topicSnapshot.Compacted {
+	if streamSnapshot.Compacted {
 		die("lock-only key made Compacted true")
 	}
-	assertInt64("headless compaction rows", topicSnapshot.CompactionRowsWithoutHead, 1)
-	if topicSnapshot.OldestCompactionRowWithoutHeadAge <= 0 {
+	assertInt64("headless compaction rows", streamSnapshot.CompactionRowsWithoutHead, 1)
+	if streamSnapshot.OldestCompactionRowWithoutHeadAge <= 0 {
 		die("expected OldestCompactionRowWithoutHeadAge > 0")
 	}
-	fmt.Printf("  ✓ oldest headless row age (%v)\n", topicSnapshot.OldestCompactionRowWithoutHeadAge)
+	fmt.Printf("  ✓ oldest headless row age (%v)\n", streamSnapshot.OldestCompactionRowWithoutHeadAge)
 
 	gates := newReleaseGates()
 	consumerFunc := func(ctx context.Context, work *common.Work) error {
@@ -184,13 +184,13 @@ func run() (err error) {
 
 	step("wait for all 4 messages to hard-timeout across both processes")
 	must(waitFor(10*time.Second, func() (bool, error) {
-		snap, err := topicMetrics(ctx, client, topicName)
+		snap, err := streamMetrics(ctx, client, streamName)
 		if err != nil || snap == nil || len(snap.Groups) == 0 {
 			return false, err
 		}
 		return snap.Groups[0].AbandonedRoutines.Total == 4, nil
 	}))
-	snap := mustTopicMetrics(ctx, client, topicName)
+	snap := mustStreamMetrics(ctx, client, streamName)
 	assertInt64("Total abandoned across both processes", snap.Groups[0].AbandonedRoutines.Total, 4)
 	assertInt64("Outstanding (nothing cleared yet)", snap.Groups[0].AbandonedRoutines.Outstanding, 4)
 
@@ -198,10 +198,10 @@ func run() (err error) {
 	gates.release(1)
 	gates.release(2)
 	must(waitFor(10*time.Second, func() (bool, error) {
-		snap := mustTopicMetrics(ctx, client, topicName)
+		snap := mustStreamMetrics(ctx, client, streamName)
 		return snap.Groups[0].AbandonedRoutines.Outstanding == 2, nil
 	}))
-	snap = mustTopicMetrics(ctx, client, topicName)
+	snap = mustStreamMetrics(ctx, client, streamName)
 	assertInt64("Total unchanged", snap.Groups[0].AbandonedRoutines.Total, 4)
 	assertInt64("Outstanding falls to 2", snap.Groups[0].AbandonedRoutines.Outstanding, 2)
 	if snap.Groups[0].AbandonedRoutines.SelfClearLatencyAvg <= 0 {
@@ -209,7 +209,7 @@ func run() (err error) {
 	}
 	fmt.Printf("  ✓ SelfClearLatencyAvg (%v)\n", snap.Groups[0].AbandonedRoutines.SelfClearLatencyAvg)
 
-	step("client.Topic[vulkan.RawPayload](...).Metrics().Snapshot is the live read `vulkan topic get` renders -- cursor/exception state came back too")
+	step("client.Stream[sqlstreams.RawPayload](...).Metrics().Snapshot is the live read `sqlstreams stream get` renders -- cursor/exception state came back too")
 	fmt.Printf("  ✓ cursor backlog=%d, ready exceptions=%d\n",
 		snap.Groups[0].Cursor.Backlog, snap.Groups[0].Exceptions.Ready)
 
@@ -247,12 +247,12 @@ func (g *releaseGates) release(id int64)              { close(g.gate(id)) }
 
 // ---- helpers ----
 
-func topicMetrics(ctx context.Context, client *vulkan.Client, name string) (*iMetrics.TopicSnapshot, error) {
-	return client.Topic[vulkan.RawPayload](name).Metrics().Snapshot(ctx)
+func streamMetrics(ctx context.Context, client *sqlstreams.Client, name string) (*iMetrics.StreamSnapshot, error) {
+	return client.Stream[sqlstreams.RawPayload](name).Metrics().Snapshot(ctx)
 }
 
-func mustTopicMetrics(ctx context.Context, client *vulkan.Client, name string) *iMetrics.TopicSnapshot {
-	snap, err := topicMetrics(ctx, client, name)
+func mustStreamMetrics(ctx context.Context, client *sqlstreams.Client, name string) *iMetrics.StreamSnapshot {
+	snap, err := streamMetrics(ctx, client, name)
 	must(err)
 	if len(snap.Groups) == 0 {
 		die("expected at least one bound group")

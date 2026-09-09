@@ -8,6 +8,7 @@ import svelte from '@astrojs/svelte';
 import { remarkDecisionRecords } from './src/helpers/decision-records.ts';
 import { isSearchEngineIndexable } from './src/search-engine-index.ts';
 import { siteUrl } from './src/site.ts';
+import codes from './src/data/codes.json' with { type: 'json' };
 
 // named keyword families only -- keyword.operator stays ink
 const keywordScopes = [
@@ -32,6 +33,11 @@ export default defineConfig({
 	site: siteUrl,
 	// threads that moved boards or split [0679]; the old URL keeps working
 	redirects: {
+		'/why-vulkan/': '/why-sqlstreams/',
+		'/reference/topic/': '/reference/stream/',
+		...Object.fromEntries(
+			Object.keys(codes.codes).map((code) => [`/errors/VK${code.slice(2)}`, `/errors/${code}`]),
+		),
 		'/guides/client/': '/reference/',
 		'/guides/consumer-group-config/': '/concepts/consumer-group-config/',
 		'/guides/handler-outcomes/': '/concepts/handler-outcomes/',
@@ -57,7 +63,7 @@ export default defineConfig({
 			// reader switching styles switches the code with the page.
 			themes: {
 				light: {
-					name: 'vulkan-board',
+					name: 'sqlstreams-board',
 					type: 'light',
 					// console-sql-pale, ink
 					colors: {
@@ -75,7 +81,7 @@ export default defineConfig({
 					],
 				},
 				dark: {
-					name: 'vulkan-board-night',
+					name: 'sqlstreams-board-night',
 					type: 'dark',
 					// console-sql-pitch, ink-silver
 					colors: {

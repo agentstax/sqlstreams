@@ -1,12 +1,12 @@
 package conventions
 
-// vulkan is the client plus aliases (CONVENTIONS.md ## Package layout): one
+// sqlstreams is the client plus aliases (CONVENTIONS.md ## Package layout): one
 // import spells every type, const, declared error, and declared event a
 // user meets. The set is computed, never hand-kept -- a go/types walk over
-// pkg/vulkan's exported surface finds every declaration from this module a
-// caller can reach, and each one must have a vulkan alias or var whose
+// pkg/sqlstreams's exported surface finds every declaration from this module a
+// caller can reach, and each one must have a sqlstreams alias or var whose
 // target is that very object, under the same name. Two roots declaring
-// `Kind` cannot both be spelled `vulkan.Kind`, so the check compares
+// `Kind` cannot both be spelled `sqlstreams.Kind`, so the check compares
 // targets, never bare names.
 
 import (
@@ -27,18 +27,18 @@ import (
 	"testing"
 )
 
-const vulkanPath = modulePath + "/pkg/vulkan"
+const sqlstreamsPath = modulePath + "/pkg/sqlstreams"
 
-func TestVulkanCoversEveryReachableDeclaration(t *testing.T) {
-	closure := vulkanClosure(t)
+func TestSQLStreamsCoversEveryReachableDeclaration(t *testing.T) {
+	closure := sqlstreamsClosure(t)
 
 	for _, reached := range closure.reachable() {
 		spelled, ok := closure.provided[reached]
 		switch {
 		case !ok:
-			t.Errorf("%s.%s is reachable from vulkan but vulkan declares no alias or var for it", reached.Pkg().Path(), reached.Name())
+			t.Errorf("%s.%s is reachable from sqlstreams but sqlstreams declares no alias or var for it", reached.Pkg().Path(), reached.Name())
 		case spelled != reached.Name():
-			t.Errorf("%s.%s is spelled vulkan.%s -- an alias keeps the declaration's name", reached.Pkg().Path(), reached.Name(), spelled)
+			t.Errorf("%s.%s is spelled sqlstreams.%s -- an alias keeps the declaration's name", reached.Pkg().Path(), reached.Name(), spelled)
 		}
 	}
 }
@@ -46,18 +46,18 @@ func TestVulkanCoversEveryReachableDeclaration(t *testing.T) {
 // The machinery floor: a controller, datastore, batcher, or worker package
 // declares nothing a user spells except its own Config and *Row structs and
 // its controller / datastore / instance / provisioner types. What a user
-// spells is exactly what vulkan reaches, so the check runs over the same
+// spells is exactly what sqlstreams reaches, so the check runs over the same
 // closure: every reachable object declared below a root must carry one of
 // those suffixes.
 func TestMachineryDeclaresNothingUserSpelled(t *testing.T) {
-	closure := vulkanClosure(t)
+	closure := sqlstreamsClosure(t)
 
 	for _, reached := range closure.reachable() {
 		if !isMachinery(reached.Pkg().Path()) {
 			continue
 		}
 		if !hasAnySuffix(reached.Name(), "Config", "Row", "Controller", "Datastore", "Instance", "Provisioner") {
-			t.Errorf("%s.%s is reachable from vulkan but declared in machinery -- move it to common, the root, or the assembler", reached.Pkg().Path(), reached.Name())
+			t.Errorf("%s.%s is reachable from sqlstreams but declared in machinery -- move it to common, the root, or the assembler", reached.Pkg().Path(), reached.Name())
 		}
 	}
 }
@@ -72,9 +72,9 @@ type exportListing struct {
 	Export     string
 }
 
-// closure is what one walk of pkg/vulkan found: every object from this
+// closure is what one walk of pkg/sqlstreams found: every object from this
 // module a caller can reach through its exported surface, and the objects
-// vulkan's own aliases, consts, and vars point at.
+// sqlstreams's own aliases, consts, and vars point at.
 type closure struct {
 	imp      types.Importer
 	seen     map[*types.Named]bool
@@ -82,15 +82,15 @@ type closure struct {
 	provided map[types.Object]string
 }
 
-// vulkanClosure type-checks pkg/vulkan from source over the export data of
+// sqlstreamsClosure type-checks pkg/sqlstreams from source over the export data of
 // its dependencies, then walks its exported scope. A package reached only
 // through another's export data holds the objects that data references and
 // nothing more, so each one is imported directly before its consts are read.
-func vulkanClosure(t *testing.T) *closure {
+func sqlstreamsClosure(t *testing.T) *closure {
 	t.Helper()
 	root := repoRoot(t)
 
-	list := exec.Command("go", "list", "-export", "-deps", "-json", vulkanPath)
+	list := exec.Command("go", "list", "-export", "-deps", "-json", sqlstreamsPath)
 	list.Dir = root
 	list.Stderr = os.Stderr
 	listed, err := list.Output()
@@ -110,7 +110,7 @@ func vulkanClosure(t *testing.T) *closure {
 		if entry.Export != "" {
 			exports[entry.ImportPath] = entry.Export
 		}
-		if strings.HasPrefix(entry.ImportPath, modulePath+"/") && entry.ImportPath != vulkanPath {
+		if strings.HasPrefix(entry.ImportPath, modulePath+"/") && entry.ImportPath != sqlstreamsPath {
 			dependencies = append(dependencies, entry.ImportPath)
 		}
 	}
@@ -124,7 +124,7 @@ func vulkanClosure(t *testing.T) *closure {
 		return os.Open(file)
 	})
 
-	paths, err := filepath.Glob(filepath.Join(root, "pkg", "vulkan", "*.go"))
+	paths, err := filepath.Glob(filepath.Join(root, "pkg", "sqlstreams", "*.go"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,13 +141,13 @@ func vulkanClosure(t *testing.T) *closure {
 	}
 	info := &types.Info{Uses: map[*ast.Ident]types.Object{}}
 	config := types.Config{Importer: imp}
-	vulkan, err := config.Check(vulkanPath, fileSet, files, info)
+	sqlstreams, err := config.Check(sqlstreamsPath, fileSet, files, info)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	c := &closure{imp: imp, seen: map[*types.Named]bool{}, reached: map[types.Object]bool{}, provided: map[types.Object]string{}}
-	scope := vulkan.Scope()
+	scope := sqlstreams.Scope()
 	for _, name := range scope.Names() {
 		object := scope.Lookup(name)
 		if !object.Exported() {
@@ -249,7 +249,7 @@ func (c *closure) walkNamed(t *types.Named) {
 	if object.Pkg() == nil || !strings.HasPrefix(object.Pkg().Path(), modulePath+"/") {
 		return
 	}
-	if object.Pkg().Path() != vulkanPath && object.Exported() {
+	if object.Pkg().Path() != sqlstreamsPath && object.Exported() {
 		c.reached[object] = true
 		c.reachConsts(object)
 	}
@@ -282,7 +282,7 @@ func (c *closure) reachConsts(typeName *types.TypeName) {
 }
 
 // reachVars records every exported Err* and Event* var of one package
-// vulkan links: a declared error or event is reachable the moment its
+// sqlstreams links: a declared error or event is reachable the moment its
 // package is, whether or not a signature mentions it.
 func (c *closure) reachVars(t *testing.T, path string) {
 	t.Helper()
@@ -302,7 +302,7 @@ func (c *closure) reachVars(t *testing.T, path string) {
 	}
 }
 
-// readProvided records, for every alias, const, and var in one vulkan file
+// readProvided records, for every alias, const, and var in one sqlstreams file
 // whose right-hand side is a qualified name, the object that name resolves
 // to.
 func (c *closure) readProvided(file *ast.File, info *types.Info) {

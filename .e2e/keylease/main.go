@@ -1,7 +1,7 @@
 // Command keylease proves the message_key_lease primitives in isolation (no
 // consumer wiring yet -- dispatch integration is proven by later e2e tests).
 //
-// Registers its own topic, self-seeds keyed messages, fully self-contained.
+// Registers its own stream, self-seeds keyed messages, fully self-contained.
 //
 // Confirms, in order:
 //   - a stale (non-head) message resolves superseded WITHOUT creating or
@@ -20,7 +20,7 @@
 //     message's own reclaim resolves superseded, and after release the new
 //     head acquires.
 //   - the janitor sweep removes expired rows and leaves live ones.
-//   - destroying the topic drops its message_key_lease table.
+//   - destroying the stream drops its message_key_lease table.
 package main
 
 import (
@@ -31,14 +31,14 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/consume"
-	keyleasecontroller "github.com/agentstax/vulkan/pkg/consume/base/controller"
-	consumecontroller "github.com/agentstax/vulkan/pkg/consume/controller"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/topic"
-	janitordatastore "github.com/agentstax/vulkan/pkg/topic/janitor/controller/datastore"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/consume"
+	keyleasecontroller "github.com/agentstax/sqlstreams/pkg/consume/base/controller"
+	consumecontroller "github.com/agentstax/sqlstreams/pkg/consume/controller"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	"github.com/agentstax/sqlstreams/pkg/stream"
+	janitordatastore "github.com/agentstax/sqlstreams/pkg/stream/janitor/controller/datastore"
 )
 
 const group = "keylease.group"
@@ -51,9 +51,9 @@ type Rec struct {
 func (Rec) SchemaVersion() int { return 1 }
 
 var (
-	ds      *iDatastore.PostgresDatastore
-	topicId int64
-	groupId int64
+	ds       *iDatastore.PostgresDatastore
+	streamId int64
+	groupId  int64
 )
 
 func main() {
@@ -85,19 +85,19 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err = iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	topicName := fmt.Sprintf("keylease.%d", time.Now().UnixNano())
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{})
+	streamName := fmt.Sprintf("keylease.%d", time.Now().UnixNano())
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{})
 	must(err)
-	topicId = tp.Id
+	streamId = tp.Id
 
 	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
 	must(err)
@@ -105,7 +105,7 @@ func run() (err error) {
 	must(err)
 	janitorDatastore, err := janitordatastore.NewJanitorDatastore(ds, ds.Logger)
 	must(err)
-	wpInstance, err := client.Topic[Rec](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[Rec](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 	g, err := cd.RegisterGroup(ctx, tp.Id, group, consume.Beginning())
 	must(err)
@@ -114,8 +114,8 @@ func run() (err error) {
 	step("seed: two versions of user:1 -- the newer is the compaction head")
 	publish(ctx, wpInstance, "user:1", 1)
 	publish(ctx, wpInstance, "user:1", 2)
-	staleID := scalarInt64(ctx, fmt.Sprintf(`SELECT MIN(id) FROM %s.%s WHERE message_key = 'user:1'`, ds.Schema, topic.MessageLogTable(topicId)))
-	headID := scalarInt64(ctx, fmt.Sprintf(`SELECT message_id FROM %s.%s WHERE compaction_key = 'user:1'`, ds.Schema, topic.CompactionHeadTable(topicId)))
+	staleID := scalarInt64(ctx, fmt.Sprintf(`SELECT MIN(id) FROM %s.%s WHERE message_key = 'user:1'`, ds.Schema, stream.MessageLogTable(streamId)))
+	headID := scalarInt64(ctx, fmt.Sprintf(`SELECT message_id FROM %s.%s WHERE compaction_key = 'user:1'`, ds.Schema, stream.CompactionHeadTable(streamId)))
 	if staleID == headID {
 		die("seed broken: stale and head ids match")
 	}
@@ -159,7 +159,7 @@ func run() (err error) {
 		WHERE consumer_group_id = $1
 			AND message_key = $2
 			AND token = $3;
-	`, ds.Schema, topic.MessageKeyLeaseTable(topicId)), groupId, "user:1", held.Token)
+	`, ds.Schema, stream.MessageKeyLeaseTable(streamId)), groupId, "user:1", held.Token)
 	must(err)
 	if tag.RowsAffected() != 1 {
 		die("the in-txn release should have matched the held row")
@@ -246,13 +246,13 @@ func run() (err error) {
 
 	step("old-then-new order: a newer head produced mid-hold waits for the release")
 	publish(ctx, wpInstance, "user:3", 1)
-	old3 := scalarInt64(ctx, fmt.Sprintf(`SELECT message_id FROM %s.%s WHERE compaction_key = 'user:3'`, ds.Schema, topic.CompactionHeadTable(topicId)))
+	old3 := scalarInt64(ctx, fmt.Sprintf(`SELECT message_id FROM %s.%s WHERE compaction_key = 'user:3'`, ds.Schema, stream.CompactionHeadTable(streamId)))
 	holding := claim(ctx, keyLeases, "user:3", old3, 30*time.Second)
 	if holding.Verdict != keyleasecontroller.KeyLeaseAcquired {
 		die(fmt.Sprintf("want acquired on user:3, got %s", holding.Verdict))
 	}
 	publish(ctx, wpInstance, "user:3", 2)
-	new3 := scalarInt64(ctx, fmt.Sprintf(`SELECT message_id FROM %s.%s WHERE compaction_key = 'user:3'`, ds.Schema, topic.CompactionHeadTable(topicId)))
+	new3 := scalarInt64(ctx, fmt.Sprintf(`SELECT message_id FROM %s.%s WHERE compaction_key = 'user:3'`, ds.Schema, stream.CompactionHeadTable(streamId)))
 	if c := claim(ctx, keyLeases, "user:3", new3, 30*time.Second); c.Verdict != keyleasecontroller.KeyLeaseBusy {
 		die(fmt.Sprintf("want busy for the new head while the old holds the key, got %s", c.Verdict))
 	}
@@ -277,7 +277,7 @@ func run() (err error) {
 
 	step("janitor sweep removes expired rows, leaves live ones")
 	publish(ctx, wpInstance, "user:2", 1)
-	head2 := scalarInt64(ctx, fmt.Sprintf(`SELECT message_id FROM %s.%s WHERE compaction_key = 'user:2'`, ds.Schema, topic.CompactionHeadTable(topicId)))
+	head2 := scalarInt64(ctx, fmt.Sprintf(`SELECT message_id FROM %s.%s WHERE compaction_key = 'user:2'`, ds.Schema, stream.CompactionHeadTable(streamId)))
 	expired := claim(ctx, keyLeases, "user:1", headID, 50*time.Millisecond)
 	if expired.Verdict != keyleasecontroller.KeyLeaseAcquired {
 		die(fmt.Sprintf("sweep setup: want acquired, got %s", expired.Verdict))
@@ -287,20 +287,20 @@ func run() (err error) {
 		die(fmt.Sprintf("sweep setup: want acquired, got %s", live.Verdict))
 	}
 	time.Sleep(100 * time.Millisecond)
-	must(janitorDatastore.SweepExpiredKeyLeases(ctx, topicId, 1)) // batchSize 1 forces the batch loop
+	must(janitorDatastore.SweepExpiredKeyLeases(ctx, streamId, 1)) // batchSize 1 forces the batch loop
 	if n := leaseCount(ctx); n != 1 {
 		die(fmt.Sprintf("want only the live row to survive the sweep, count=%d", n))
 	}
-	survivor := scalarString(ctx, fmt.Sprintf(`SELECT message_key FROM %s.%s WHERE consumer_group_id = $1`, ds.Schema, topic.MessageKeyLeaseTable(topicId)), groupId)
+	survivor := scalarString(ctx, fmt.Sprintf(`SELECT message_key FROM %s.%s WHERE consumer_group_id = $1`, ds.Schema, stream.MessageKeyLeaseTable(streamId)), groupId)
 	if survivor != "user:2" {
 		die(fmt.Sprintf("sweep removed the wrong row, survivor=%s", survivor))
 	}
 	fmt.Println("  ✓ expired swept, live kept")
 
-	step("destroying the topic drops its message_key_lease table")
-	must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+	step("destroying the stream drops its message_key_lease table")
+	must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	var keyLeaseTable *string
-	must(ds.Pool.QueryRow(ctx, `SELECT to_regclass($1)::text;`, fmt.Sprintf("%s.%s", ds.Schema, topic.MessageKeyLeaseTable(topicId))).Scan(&keyLeaseTable))
+	must(ds.Pool.QueryRow(ctx, `SELECT to_regclass($1)::text;`, fmt.Sprintf("%s.%s", ds.Schema, stream.MessageKeyLeaseTable(streamId))).Scan(&keyLeaseTable))
 	if keyLeaseTable != nil {
 		die("destroy left the message_key_lease table behind")
 	}
@@ -311,21 +311,21 @@ func run() (err error) {
 }
 
 func claim(ctx context.Context, cd *keyleasecontroller.KeyLeaseController, key string, msgID int64, d time.Duration) *keyleasecontroller.KeyLeaseClaim {
-	c, err := cd.Claim(ctx, topicId, groupId, key, msgID, true, common.ConcurrencyExclusive, keyleasecontroller.RangeBounds{}, d)
+	c, err := cd.Claim(ctx, streamId, groupId, key, msgID, true, common.ConcurrencyExclusive, keyleasecontroller.RangeBounds{}, d)
 	must(err)
 	return c
 }
 
-func publish(ctx context.Context, wpInstance *vulkan.ProducerInstance[Rec], key string, version int) {
-	_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*Rec, error) {
+func publish(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[Rec], key string, version int) {
+	_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*Rec, error) {
 		return &Rec{Key: key, Version: version}, nil
-	}, &vulkan.ProduceOptions{MessageKey: key, Compaction: &vulkan.CompactionOptions{Enable: true}})
+	}, &sqlstreams.ProduceOptions{MessageKey: key, Compaction: &sqlstreams.CompactionOptions{Enable: true}})
 	must(err)
 }
 
 func leaseCount(ctx context.Context) int {
 	var n int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = $1`, ds.Schema, topic.MessageKeyLeaseTable(topicId)), groupId).Scan(&n))
+	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = $1`, ds.Schema, stream.MessageKeyLeaseTable(streamId)), groupId).Scan(&n))
 	return n
 }
 

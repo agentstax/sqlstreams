@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/migrate"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/migrate"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -73,7 +73,7 @@ func (d *MigrateDatastore) runStepWithTx(ctx context.Context, conn *pgxpool.Conn
 
 	// cap every lock-queue wait in the step
 	lockSql := fmt.Sprintf(`
-		-- vulkan: migrate.runStepWithTx
+		-- sqlstreams: migrate.runStepWithTx
 		SET LOCAL lock_timeout = '%dms';
 	`, ddlLockTimeout.Milliseconds())
 	if _, err := tx.Exec(ctx, lockSql); err != nil {
@@ -81,11 +81,11 @@ func (d *MigrateDatastore) runStepWithTx(ctx context.Context, conn *pgxpool.Conn
 	}
 
 	if step.Validate != nil {
-		if err := step.Validate(ctx, tx, d.Datastore.Schema, owner.TopicId); err != nil {
+		if err := step.Validate(ctx, tx, d.Datastore.Schema, owner.StreamId); err != nil {
 			return err
 		}
 	}
-	if err := step.Apply(ctx, tx, d.Datastore.Schema, owner.TopicId); err != nil {
+	if err := step.Apply(ctx, tx, d.Datastore.Schema, owner.StreamId); err != nil {
 		return err
 	}
 	if err := d.recordSuccess(ctx, tx, owner, step.Version, step.MinCompatibleVersion); err != nil {
@@ -97,11 +97,11 @@ func (d *MigrateDatastore) runStepWithTx(ctx context.Context, conn *pgxpool.Conn
 // NoTxn step runs on the bare connection and records separately once its apply returns
 func (d *MigrateDatastore) runStepWithoutTx(ctx context.Context, conn *pgxpool.Conn, owner *common.Owner, step *Step) error {
 	if step.Validate != nil {
-		if err := step.Validate(ctx, conn, d.Datastore.Schema, owner.TopicId); err != nil {
+		if err := step.Validate(ctx, conn, d.Datastore.Schema, owner.StreamId); err != nil {
 			return err
 		}
 	}
-	if err := step.Apply(ctx, conn, d.Datastore.Schema, owner.TopicId); err != nil {
+	if err := step.Apply(ctx, conn, d.Datastore.Schema, owner.StreamId); err != nil {
 		return err
 	}
 	return d.recordSuccess(ctx, conn, owner, step.Version, step.MinCompatibleVersion)

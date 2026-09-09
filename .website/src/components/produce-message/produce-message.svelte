@@ -2,7 +2,7 @@
 	import ChromeButton from '../chrome-button/chrome-button.svelte';
 
 	type Props = {
-		topic: string;
+		stream: string;
 		text: string;
 		errorMessage: string | null;
 		disabled: boolean;
@@ -10,14 +10,14 @@
 		onproduce: () => void;
 	};
 
-	let { topic, text, errorMessage, disabled, ontext, onproduce }: Props = $props();
+	let { stream, text, errorMessage, disabled, ontext, onproduce }: Props = $props();
 
 	const fieldId = $props.id();
 </script>
 
 <div class="produce-message">
 	<label class="produce-label" for={fieldId}>
-		Produce to <span class="produce-topic">{topic}</span>
+		Produce to <span class="produce-stream">{stream}</span>
 	</label>
 	<input
 		class="produce-field"

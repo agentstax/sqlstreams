@@ -30,16 +30,16 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 	"os"
 	"strings"
 	"sync"
 	"time"
 	"uuid"
 
-	"github.com/agentstax/vulkan/e2e/common"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/e2e/common"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 const largePartitionSize = int64(1_000_000) // never rolls -- partition churn is its own scenario
@@ -73,13 +73,13 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", &vulkan.PostgresConnectionConfig{
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", &sqlstreams.PostgresConnectionConfig{
 		MaxConns: 60, // headroom above the per-call arms' 50 concurrent publishers -- batched callers wait on a channel, not a connection, so even the 800-caller saturated arm needs no more
 	})
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
@@ -102,14 +102,14 @@ func run() (err error) {
 // batchedExactlyOnceScenario: 50 goroutines x 20 payload-only Produce calls
 // -- every one must land exactly once (message + claim row), and xmin
 // grouping must show multi-row transactions, or "batching" never happened.
-func batchedExactlyOnceScenario(ctx context.Context, client *vulkan.Client, ds *iDatastore.PostgresDatastore) {
+func batchedExactlyOnceScenario(ctx context.Context, client *sqlstreams.Client, ds *iDatastore.PostgresDatastore) {
 	step("batched exactly-once: concurrent Produce calls share txns, land once each")
 
 	const producers, msgs = 50, 20
-	tp, client, cleanup := registerTopic(ctx, client, "exactlyonce", largePartitionSize)
+	tp, client, cleanup := registerStream(ctx, client, "exactlyonce", largePartitionSize)
 	defer cleanup()
 
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 
 	produceConcurrently(producers, msgs, func(p, s int) error {
@@ -122,8 +122,8 @@ func batchedExactlyOnceScenario(ctx context.Context, client *vulkan.Client, ds *
 	})
 
 	total := producers * msgs
-	assertCount(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, topic.MessageLogTable(tp.Id)), total, fmt.Sprintf("%d concurrent batched publishes all landed", total))
-	assertCount(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, topic.IdempotencyKeyTable(tp.Id)), total, "every batched publish wrote its own claim row")
+	assertCount(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, stream.MessageLogTable(tp.Id)), total, fmt.Sprintf("%d concurrent batched publishes all landed", total))
+	assertCount(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, stream.IdempotencyKeyTable(tp.Id)), total, "every batched publish wrote its own claim row")
 
 	// rows committed by one txn share xmin -- any multi-row xmin proves grouping
 	var sharedTxns, largestBatch int
@@ -131,7 +131,7 @@ func batchedExactlyOnceScenario(ctx context.Context, client *vulkan.Client, ds *
 		SELECT count(*), COALESCE(max(c), 0) FROM (
 			SELECT count(*) AS c FROM %s.%s GROUP BY xmin HAVING count(*) > 1
 		) shared;
-	`, ds.Schema, topic.MessageLogTable(tp.Id))).Scan(&sharedTxns, &largestBatch))
+	`, ds.Schema, stream.MessageLogTable(tp.Id))).Scan(&sharedTxns, &largestBatch))
 	if sharedTxns == 0 {
 		die("no shared transactions observed -- 50 concurrent callers never grouped into a batch")
 	}
@@ -142,29 +142,29 @@ func batchedExactlyOnceScenario(ctx context.Context, client *vulkan.Client, ds *
 	for range 2 {
 		work, err := common.NewWork(31, "keyed@example.com")
 		must(err)
-		_, err = wpInstance.Produce(ctx, work, &vulkan.ProduceOptions{IdempotencyKey: key})
+		_, err = wpInstance.Produce(ctx, work, &sqlstreams.ProduceOptions{IdempotencyKey: key})
 		must(err)
 	}
-	assertCount(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, topic.MessageLogTable(tp.Id)), total+1, "a caller-keyed Produce routed per-call and deduped its retry")
+	assertCount(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, stream.MessageLogTable(tp.Id)), total+1, "a caller-keyed Produce routed per-call and deduped its retry")
 }
 
 // produceBatchScenario: the explicit batch verb -- unlike the batcher's
 // collapsed singles, the caller hands over the whole batch and gets
 // all-or-nothing back.
-func produceBatchScenario(ctx context.Context, client *vulkan.Client, ds *iDatastore.PostgresDatastore) {
+func produceBatchScenario(ctx context.Context, client *sqlstreams.Client, ds *iDatastore.PostgresDatastore) {
 	step("ProduceBatch: one transaction, argument order, all-or-nothing")
 
 	const total = 30
-	tp, client, cleanup := registerTopic(ctx, client, "producebatch", largePartitionSize)
+	tp, client, cleanup := registerStream(ctx, client, "producebatch", largePartitionSize)
 	defer cleanup()
 
-	wpInstance, err := client.Topic[rawPayload](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[rawPayload](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 
-	items := make([]*vulkan.ProduceItem[rawPayload], 0, total)
+	items := make([]*sqlstreams.ProduceItem[rawPayload], 0, total)
 	for s := range total {
 		payload := rawPayload(fmt.Sprintf(`{"seq": %d}`, s))
-		item, err := vulkan.NewProduceItem(&payload, nil)
+		item, err := sqlstreams.NewProduceItem(&payload, nil)
 		must(err)
 		items = append(items, item)
 	}
@@ -179,10 +179,10 @@ func produceBatchScenario(ctx context.Context, client *vulkan.Client, ds *iDatas
 		}
 	}
 	fmt.Println("  ✓ ids strictly ascending in argument order")
-	assertCount(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, topic.MessageLogTable(tp.Id)), total, "every item landed")
+	assertCount(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, stream.MessageLogTable(tp.Id)), total, "every item landed")
 
 	var txns int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT count(DISTINCT xmin::text) FROM %s.%s;`, ds.Schema, topic.MessageLogTable(tp.Id))).Scan(&txns))
+	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT count(DISTINCT xmin::text) FROM %s.%s;`, ds.Schema, stream.MessageLogTable(tp.Id))).Scan(&txns))
 	if txns != 1 {
 		die(fmt.Sprintf("batch spread across %d transactions, want 1", txns))
 	}
@@ -190,13 +190,13 @@ func produceBatchScenario(ctx context.Context, client *vulkan.Client, ds *iDatas
 
 	// all-or-nothing: item 2 is rejected server-side (jsonb refuses \u0000),
 	// so items 0-1 that already appended must roll back with it
-	badItems := make([]*vulkan.ProduceItem[rawPayload], 0, 5)
+	badItems := make([]*sqlstreams.ProduceItem[rawPayload], 0, 5)
 	for s := range 5 {
 		payload := rawPayload(fmt.Sprintf(`{"seq": %d}`, s))
 		if s == 2 {
 			payload = rawPayload(`{"seq": "\u0000"}`)
 		}
-		item, err := vulkan.NewProduceItem(&payload, nil)
+		item, err := sqlstreams.NewProduceItem(&payload, nil)
 		must(err)
 		badItems = append(badItems, item)
 	}
@@ -207,11 +207,11 @@ func produceBatchScenario(ctx context.Context, client *vulkan.Client, ds *iDatas
 	if !strings.Contains(err.Error(), "item 2") {
 		die(fmt.Sprintf("batch error must name the failed item, got: %v", err))
 	}
-	assertCount(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, topic.MessageLogTable(tp.Id)), total, "the poisoned batch rolled back whole -- nothing landed")
+	assertCount(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, stream.MessageLogTable(tp.Id)), total, "the poisoned batch rolled back whole -- nothing landed")
 
 	// caller keys are single-Produce-only; an empty batch is a usage error
 	keyedPayload := rawPayload(`{"seq": 0}`)
-	if _, err := vulkan.NewProduceItem(&keyedPayload, &vulkan.ProduceOptions{IdempotencyKey: uuid.NewV7().String()}); err == nil {
+	if _, err := sqlstreams.NewProduceItem(&keyedPayload, &sqlstreams.ProduceOptions{IdempotencyKey: uuid.NewV7().String()}); err == nil {
 		die("NewProduceItem accepted a caller IdempotencyKey")
 	}
 	if _, err := wpInstance.ProduceBatch(ctx); err == nil {
@@ -224,15 +224,15 @@ func produceBatchScenario(ctx context.Context, client *vulkan.Client, ds *iDatas
 // server-side (jsonb refuses \u0000 -- poisons every rerun, evicted by
 // statement index) and payload 13 fails client-side before anything is sent
 // (batch splits to singles) -- each error reaches ONLY its own caller.
-func faultIsolationScenario(ctx context.Context, client *vulkan.Client, ds *iDatastore.PostgresDatastore) {
+func faultIsolationScenario(ctx context.Context, client *sqlstreams.Client, ds *iDatastore.PostgresDatastore) {
 	step("fault isolation: a bad payload fails its caller, never its batchmates")
 
 	const total = 20
 	const poisonSeq, brokenSeq = 7, 13
-	tp, client, cleanup := registerTopic(ctx, client, "faults", largePartitionSize)
+	tp, client, cleanup := registerStream(ctx, client, "faults", largePartitionSize)
 	defer cleanup()
 
-	wpInstance, err := client.Topic[rawPayload](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[rawPayload](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 
 	errs := make([]error, total)
@@ -264,7 +264,7 @@ func faultIsolationScenario(ctx context.Context, client *vulkan.Client, ds *iDat
 		}
 	}
 	fmt.Println("  ✓ both bad payloads errored, all good payloads did not")
-	assertCount(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, topic.MessageLogTable(tp.Id)), total-2, "every good payload landed despite sharing batches with the bad ones")
+	assertCount(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, stream.MessageLogTable(tp.Id)), total-2, "every good payload landed despite sharing batches with the bad ones")
 }
 
 // hotCompactedKeysScenario: 20 goroutines x 20 keyed produces across only 3
@@ -272,15 +272,15 @@ func faultIsolationScenario(ctx context.Context, client *vulkan.Client, ds *iDat
 // real cross-batch compaction_head contention. A deadlock would surface as an
 // evicted operation's error; zero errors + every compaction_head row at its key's
 // max id is the pass.
-func hotCompactedKeysScenario(ctx context.Context, client *vulkan.Client, ds *iDatastore.PostgresDatastore) {
+func hotCompactedKeysScenario(ctx context.Context, client *sqlstreams.Client, ds *iDatastore.PostgresDatastore) {
 	step("hot compacted keys: concurrent batches contend on compaction_head without deadlock")
 
 	const producers, msgs, keys = 20, 20, 3
-	tp, client, cleanup := registerTopic(ctx, client, "hotkeys", largePartitionSize)
+	tp, client, cleanup := registerStream(ctx, client, "hotkeys", largePartitionSize)
 	defer cleanup()
 
 	// tiny cap -> backlog pressure -> concurrent workers -> real lock contention
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, &vulkan.ProducerConfig{Batch: vulkan.BatcherConfig{MaxSize: 5}})
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, &sqlstreams.ProducerConfig{Batch: sqlstreams.BatcherConfig{MaxSize: 5}})
 	must(err)
 
 	produceConcurrently(producers, msgs, func(p, s int) error {
@@ -288,12 +288,12 @@ func hotCompactedKeysScenario(ctx context.Context, client *vulkan.Client, ds *iD
 		if err != nil {
 			return err
 		}
-		_, err = wpInstance.Produce(ctx, work, &vulkan.ProduceOptions{MessageKey: fmt.Sprintf("hot:%d", (p+s)%keys), Compaction: &vulkan.CompactionOptions{Enable: true}})
+		_, err = wpInstance.Produce(ctx, work, &sqlstreams.ProduceOptions{MessageKey: fmt.Sprintf("hot:%d", (p+s)%keys), Compaction: &sqlstreams.CompactionOptions{Enable: true}})
 		return err
 	})
 
 	total := producers * msgs
-	assertCount(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, topic.MessageLogTable(tp.Id)), total, fmt.Sprintf("%d hot-keyed publishes all landed, none deadlocked", total))
+	assertCount(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, stream.MessageLogTable(tp.Id)), total, fmt.Sprintf("%d hot-keyed publishes all landed, none deadlocked", total))
 
 	var stale int
 	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`
@@ -302,7 +302,7 @@ func hotCompactedKeysScenario(ctx context.Context, client *vulkan.Client, ds *iD
 			SELECT message_key, max(id) AS max_id FROM %s.%s GROUP BY message_key
 		) m ON m.message_key = lk.compaction_key
 		WHERE lk.message_id <> m.max_id;
-	`, ds.Schema, topic.CompactionHeadTable(tp.Id), ds.Schema, topic.MessageLogTable(tp.Id))).Scan(&stale))
+	`, ds.Schema, stream.CompactionHeadTable(tp.Id), ds.Schema, stream.MessageLogTable(tp.Id))).Scan(&stale))
 	if stale != 0 {
 		die(fmt.Sprintf("%d compaction_head rows not pointing at their key's max id", stale))
 	}
@@ -312,14 +312,14 @@ func hotCompactedKeysScenario(ctx context.Context, client *vulkan.Client, ds *iD
 // partitionHealScenario: PartitionSize 10 and no janitor, so produces past
 // partition 0 MUST self-heal -- first sequentially (head advances one heal at
 // a time), then as a concurrent burst.
-func partitionHealScenario(ctx context.Context, client *vulkan.Client, ds *iDatastore.PostgresDatastore) {
+func partitionHealScenario(ctx context.Context, client *sqlstreams.Client, ds *iDatastore.PostgresDatastore) {
 	step("partition heal: a burst past the create-ahead self-heals, no janitor running")
 
-	tp, client, cleanup := registerTopic(ctx, client, "heal", 10)
+	tp, client, cleanup := registerStream(ctx, client, "heal", 10)
 	defer cleanup()
 
 	// a batch of 5 can straddle a 10-row boundary: the rerun heals a second time
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, &vulkan.ProducerConfig{Batch: vulkan.BatcherConfig{MaxSize: 5}})
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, &sqlstreams.ProducerConfig{Batch: sqlstreams.BatcherConfig{MaxSize: 5}})
 	must(err)
 
 	for range 15 {
@@ -337,24 +337,24 @@ func partitionHealScenario(ctx context.Context, client *vulkan.Client, ds *iData
 		return err
 	})
 
-	assertCount(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, topic.MessageLogTable(tp.Id)), 55, "all 55 publishes landed across self-healed partitions")
+	assertCount(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, stream.MessageLogTable(tp.Id)), 55, "all 55 publishes landed across self-healed partitions")
 }
 
 // throughputScenario: the same workload down both paths -- how much the
 // shared-transaction fsync amortization buys over per-call commits, at equal
 // concurrency and then saturated.
-func throughputScenario(ctx context.Context, client *vulkan.Client, ds *iDatastore.PostgresDatastore) {
+func throughputScenario(ctx context.Context, client *sqlstreams.Client, ds *iDatastore.PostgresDatastore) {
 	step("throughput: batched Produce vs per-call ProduceFunc, then saturated")
 
 	const producers, msgs = 50, 400 // ~2s per arm -- sub-second runs are all warmup noise
 	total := producers * msgs
 
-	batched := timeArm(ctx, client, ds, "batched", producers, msgs, func(wpInstance *vulkan.ProducerInstance[common.Work], work *common.Work) error {
+	batched := timeArm(ctx, client, ds, "batched", producers, msgs, func(wpInstance *sqlstreams.ProducerInstance[common.Work], work *common.Work) error {
 		_, err := wpInstance.Produce(ctx, work, nil)
 		return err
 	})
-	perCall := timeArm(ctx, client, ds, "percall", producers, msgs, func(wpInstance *vulkan.ProducerInstance[common.Work], work *common.Work) error {
-		_, err := wpInstance.ProduceFunc(ctx, func(context.Context, vulkan.Tx) (*common.Work, error) { return work, nil }, nil)
+	perCall := timeArm(ctx, client, ds, "percall", producers, msgs, func(wpInstance *sqlstreams.ProducerInstance[common.Work], work *common.Work) error {
+		_, err := wpInstance.ProduceFunc(ctx, func(context.Context, sqlstreams.Tx) (*common.Work, error) { return work, nil }, nil)
 		return err
 	})
 
@@ -364,7 +364,7 @@ func throughputScenario(ctx context.Context, client *vulkan.Client, ds *iDatasto
 	// batches ride at Batch.MaxSize, which only the batched path can absorb
 	// (a per-call arm would need a pool connection per caller).
 	const satProducers, satMsgs = 800, 50
-	saturated := timeArm(ctx, client, ds, "saturated", satProducers, satMsgs, func(wpInstance *vulkan.ProducerInstance[common.Work], work *common.Work) error {
+	saturated := timeArm(ctx, client, ds, "saturated", satProducers, satMsgs, func(wpInstance *sqlstreams.ProducerInstance[common.Work], work *common.Work) error {
 		_, err := wpInstance.Produce(ctx, work, nil)
 		return err
 	})
@@ -379,14 +379,14 @@ func throughputScenario(ctx context.Context, client *vulkan.Client, ds *iDatasto
 	fmt.Printf("     saturate the batch cap\n")
 }
 
-// timeArm registers its own topic, warms the pool untimed, then times the
+// timeArm registers its own stream, warms the pool untimed, then times the
 // full concurrent run -- asserting afterward that every publish landed
 // exactly once (throughput that loses messages doesn't count).
-func timeArm(ctx context.Context, client *vulkan.Client, ds *iDatastore.PostgresDatastore, label string, producers, msgs int, produce func(wpInstance *vulkan.ProducerInstance[common.Work], work *common.Work) error) time.Duration {
-	tp, client, cleanup := registerTopic(ctx, client, "throughput."+label, largePartitionSize)
+func timeArm(ctx context.Context, client *sqlstreams.Client, ds *iDatastore.PostgresDatastore, label string, producers, msgs int, produce func(wpInstance *sqlstreams.ProducerInstance[common.Work], work *common.Work) error) time.Duration {
+	tp, client, cleanup := registerStream(ctx, client, "throughput."+label, largePartitionSize)
 	defer cleanup()
 
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 
 	// warm pool connections so the first arm doesn't pay the dial cost
@@ -409,19 +409,19 @@ func timeArm(ctx context.Context, client *vulkan.Client, ds *iDatastore.Postgres
 	})
 	elapsed := time.Since(start)
 
-	assertCount(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, topic.MessageLogTable(tp.Id)), warm+producers*msgs, label+" arm landed every publish exactly once")
+	assertCount(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, stream.MessageLogTable(tp.Id)), warm+producers*msgs, label+" arm landed every publish exactly once")
 	return elapsed
 }
 
 // ---- helpers ----
 
-// registerTopic registers a topic unique to this e2e test and returns its cleanup.
-func registerTopic(ctx context.Context, client *vulkan.Client, label string, partitionSize int64) (*vulkan.Topic, *vulkan.Client, func()) {
+// registerStream registers a stream unique to this e2e test and returns its cleanup.
+func registerStream(ctx context.Context, client *sqlstreams.Client, label string, partitionSize int64) (*sqlstreams.Stream, *sqlstreams.Client, func()) {
 	name := fmt.Sprintf("producerbatch.%s.%d", label, time.Now().UnixNano())
-	tp, err := client.Topic[vulkan.RawPayload](name).Register(ctx, &vulkan.TopicConfig{PartitionSize: partitionSize})
+	tp, err := client.Stream[sqlstreams.RawPayload](name).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: partitionSize})
 	must(err)
 	return tp, client, func() {
-		must(client.Topic[vulkan.RawPayload](name).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}
 }
 

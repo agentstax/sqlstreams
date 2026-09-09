@@ -1,5 +1,5 @@
 import { SvelteSet } from 'svelte/reactivity';
-import type { DatabaseStage, VulkanDatabase } from './database';
+import type { DatabaseStage, SQLStreamsDatabase } from './database';
 import type { ClaimedMessage, ClaimedRange, RunResult } from './model';
 
 // idle: nothing has asked for the database yet
@@ -20,7 +20,7 @@ export class DatabaseState {
 
 	// the panels mount together and each asks to run: the first call owns the
 	// boot and the rest await the same promise
-	private connecting: Promise<VulkanDatabase> | null = null;
+	private connecting: Promise<SQLStreamsDatabase> | null = null;
 
 	// operations still running; close() waits them out, because closing
 	// PGlite with a statement in flight leaves its wasm spinning on the
@@ -31,7 +31,7 @@ export class DatabaseState {
 	// island's teardown is refused instead of reaching a closed database
 	private closing = false;
 
-	connect(): Promise<VulkanDatabase> {
+	connect(): Promise<SQLStreamsDatabase> {
 		this.connecting ??= this.create();
 		return this.connecting;
 	}
@@ -39,7 +39,7 @@ export class DatabaseState {
 	// the one path every statement-running verb takes: the operation is
 	// registered before its first await, so close() sees it the moment it
 	// exists and can wait for it
-	private perform<T>(work: (database: VulkanDatabase) => Promise<T>): Promise<T> {
+	private perform<T>(work: (database: SQLStreamsDatabase) => Promise<T>): Promise<T> {
 		if (this.closing) {
 			return Promise.reject(new Error('the database is closing'));
 		}
@@ -138,13 +138,13 @@ export class DatabaseState {
 		return this.perform((database) => database.listGroups());
 	}
 
-	private async create(): Promise<VulkanDatabase> {
+	private async create(): Promise<SQLStreamsDatabase> {
 		this.status = 'connecting';
 		this.stage = 'downloading';
 
 		try {
-			const { createVulkanDatabase } = await import('./database');
-			const database = await createVulkanDatabase((stage) => {
+			const { createSQLStreamsDatabase } = await import('./database');
+			const database = await createSQLStreamsDatabase((stage) => {
 				this.stage = stage;
 			});
 			this.status = 'ready';

@@ -5,27 +5,27 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/consume"
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/consume"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 )
 
 // RecordSuccess deletes the row.
 // DeliveryLogModeAll also writes the 'success' log row in the same statement.
 // A non-nil keyClaim frees the key in the same transaction.
-func (d *ExceptionConsumerGroupDatastore) RecordSuccess(ctx context.Context, exception *ExceptionQueueRow, deliveryLogMode topic.DeliveryLogMode, keyClaim *KeyLease) error {
+func (d *ExceptionConsumerGroupDatastore) RecordSuccess(ctx context.Context, exception *ExceptionQueueRow, deliveryLogMode stream.DeliveryLogMode, keyClaim *KeyLease) error {
 	return d.DatastoreRetry.Wrap(ctx, func() error {
 		return d.recordSuccess(ctx, exception, deliveryLogMode, keyClaim)
 	})
 }
 
-func (d *ExceptionConsumerGroupDatastore) recordSuccess(ctx context.Context, exception *ExceptionQueueRow, deliveryLogMode topic.DeliveryLogMode, keyClaim *KeyLease) error {
+func (d *ExceptionConsumerGroupDatastore) recordSuccess(ctx context.Context, exception *ExceptionQueueRow, deliveryLogMode stream.DeliveryLogMode, keyClaim *KeyLease) error {
 	var sql string
-	if deliveryLogMode == topic.DeliveryLogModeAll {
+	if deliveryLogMode == stream.DeliveryLogModeAll {
 		// deleted CTE + INSERT keeps the success-deletion and its
-		// delivery_log_<topic_id> row atomic
+		// delivery_log_<stream_id> row atomic
 		sql = fmt.Sprintf(`
-			-- vulkan: exceptionconsumer.recordSuccess
+			-- sqlstreams: exceptionconsumer.recordSuccess
 			WITH deleted AS (
 				DELETE FROM %[1]s.%[2]s
 				WHERE consumer_group_id = $1
@@ -36,15 +36,15 @@ func (d *ExceptionConsumerGroupDatastore) recordSuccess(ctx context.Context, exc
 			INSERT INTO %[1]s.%[3]s (consumer_group_id, message_id, attempt, status, error)
 			SELECT $1, $2, attempts, 'success', ''
 			FROM deleted;
-		`, d.Datastore.Schema, topic.ExceptionQueueTable(exception.TopicId), topic.DeliveryLogTable(exception.TopicId))
+		`, d.Datastore.Schema, stream.ExceptionQueueTable(exception.StreamId), stream.DeliveryLogTable(exception.StreamId))
 	} else {
 		sql = fmt.Sprintf(`
-			-- vulkan: exceptionconsumer.recordSuccess
+			-- sqlstreams: exceptionconsumer.recordSuccess
 			DELETE FROM %[1]s.%[2]s
 			WHERE consumer_group_id = $1
 				AND message_id = $2
 				AND lease_token = $3;
-		`, d.Datastore.Schema, topic.ExceptionQueueTable(exception.TopicId))
+		`, d.Datastore.Schema, stream.ExceptionQueueTable(exception.StreamId))
 	}
 
 	if keyClaim == nil {
@@ -57,18 +57,18 @@ func (d *ExceptionConsumerGroupDatastore) recordSuccess(ctx context.Context, exc
 // be retried. Exhausted attempts are the caller's call -- it records those
 // through RecordTerminal instead.
 // A non-nil keyClaim frees the key in the same transaction.
-func (d *ExceptionConsumerGroupDatastore) RecordFailure(ctx context.Context, retryPolicy *common.RetryPolicy, exception *ExceptionQueueRow, failureErr error, deliveryLogMode topic.DeliveryLogMode, keyClaim *KeyLease) error {
+func (d *ExceptionConsumerGroupDatastore) RecordFailure(ctx context.Context, retryPolicy *common.RetryPolicy, exception *ExceptionQueueRow, failureErr error, deliveryLogMode stream.DeliveryLogMode, keyClaim *KeyLease) error {
 	return d.DatastoreRetry.Wrap(ctx, func() error {
 		return d.recordFailure(ctx, retryPolicy, exception, failureErr, deliveryLogMode, keyClaim)
 	})
 }
 
-func (d *ExceptionConsumerGroupDatastore) recordFailure(ctx context.Context, retryPolicy *common.RetryPolicy, exception *ExceptionQueueRow, failureErr error, deliveryLogMode topic.DeliveryLogMode, keyClaim *KeyLease) error {
+func (d *ExceptionConsumerGroupDatastore) recordFailure(ctx context.Context, retryPolicy *common.RetryPolicy, exception *ExceptionQueueRow, failureErr error, deliveryLogMode stream.DeliveryLogMode, keyClaim *KeyLease) error {
 	// clears the lease so it's claimable as a fresh 'ready' retry once can_run_after passes.
 	var sql string
-	if deliveryLogMode == topic.DeliveryLogModeOff {
+	if deliveryLogMode == stream.DeliveryLogModeOff {
 		sql = fmt.Sprintf(`
-			-- vulkan: exceptionconsumer.recordFailure
+			-- sqlstreams: exceptionconsumer.recordFailure
 			UPDATE %[1]s.%[2]s
 			SET
 				status = 'ready',
@@ -80,10 +80,10 @@ func (d *ExceptionConsumerGroupDatastore) recordFailure(ctx context.Context, ret
 			WHERE consumer_group_id = $1
 				AND message_id = $2
 				AND lease_token = $5;
-		`, d.Datastore.Schema, topic.ExceptionQueueTable(exception.TopicId))
+		`, d.Datastore.Schema, stream.ExceptionQueueTable(exception.StreamId))
 	} else {
 		sql = fmt.Sprintf(`
-			-- vulkan: exceptionconsumer.recordFailure
+			-- sqlstreams: exceptionconsumer.recordFailure
 			WITH updated AS (
 				UPDATE %[1]s.%[2]s
 				SET
@@ -101,11 +101,11 @@ func (d *ExceptionConsumerGroupDatastore) recordFailure(ctx context.Context, ret
 			INSERT INTO %[1]s.%[3]s (consumer_group_id, message_id, attempt, error)
 			SELECT $1, $2, $6, $3
 			WHERE EXISTS (SELECT 1 FROM updated);
-		`, d.Datastore.Schema, topic.ExceptionQueueTable(exception.TopicId), topic.DeliveryLogTable(exception.TopicId))
+		`, d.Datastore.Schema, stream.ExceptionQueueTable(exception.StreamId), stream.DeliveryLogTable(exception.StreamId))
 	}
 
 	args := []any{exception.ConsumerGroupId, exception.MessageId, failureErr.Error(), retryPolicy.CalculateDelay(exception.Attempts - exception.Delays - 1).Seconds(), exception.LeaseToken}
-	if deliveryLogMode != topic.DeliveryLogModeOff {
+	if deliveryLogMode != stream.DeliveryLogModeOff {
 		args = append(args, exception.Attempts)
 	}
 
@@ -119,17 +119,17 @@ func (d *ExceptionConsumerGroupDatastore) recordFailure(ctx context.Context, ret
 // counts it in delays, not as a failure. The delivery_log row lands at this
 // attempt with status 'delayed'.
 // A non-nil keyClaim frees the key in the same transaction.
-func (d *ExceptionConsumerGroupDatastore) RecordDelayed(ctx context.Context, delay time.Duration, exception *ExceptionQueueRow, delayErr error, deliveryLogMode topic.DeliveryLogMode, keyClaim *KeyLease) error {
+func (d *ExceptionConsumerGroupDatastore) RecordDelayed(ctx context.Context, delay time.Duration, exception *ExceptionQueueRow, delayErr error, deliveryLogMode stream.DeliveryLogMode, keyClaim *KeyLease) error {
 	return d.DatastoreRetry.Wrap(ctx, func() error {
 		return d.recordDelayed(ctx, delay, exception, delayErr, deliveryLogMode, keyClaim)
 	})
 }
 
-func (d *ExceptionConsumerGroupDatastore) recordDelayed(ctx context.Context, delay time.Duration, exception *ExceptionQueueRow, delayErr error, deliveryLogMode topic.DeliveryLogMode, keyClaim *KeyLease) error {
+func (d *ExceptionConsumerGroupDatastore) recordDelayed(ctx context.Context, delay time.Duration, exception *ExceptionQueueRow, delayErr error, deliveryLogMode stream.DeliveryLogMode, keyClaim *KeyLease) error {
 	var sql string
-	if deliveryLogMode == topic.DeliveryLogModeOff {
+	if deliveryLogMode == stream.DeliveryLogModeOff {
 		sql = fmt.Sprintf(`
-			-- vulkan: exceptionconsumer.recordDelayed
+			-- sqlstreams: exceptionconsumer.recordDelayed
 			UPDATE %[1]s.%[2]s
 			SET
 				status = 'ready',
@@ -142,10 +142,10 @@ func (d *ExceptionConsumerGroupDatastore) recordDelayed(ctx context.Context, del
 			WHERE consumer_group_id = $1
 				AND message_id = $2
 				AND lease_token = $5;
-		`, d.Datastore.Schema, topic.ExceptionQueueTable(exception.TopicId))
+		`, d.Datastore.Schema, stream.ExceptionQueueTable(exception.StreamId))
 	} else {
 		sql = fmt.Sprintf(`
-			-- vulkan: exceptionconsumer.recordDelayed
+			-- sqlstreams: exceptionconsumer.recordDelayed
 			WITH updated AS (
 				UPDATE %[1]s.%[2]s
 				SET
@@ -164,11 +164,11 @@ func (d *ExceptionConsumerGroupDatastore) recordDelayed(ctx context.Context, del
 			INSERT INTO %[1]s.%[3]s (consumer_group_id, message_id, attempt, status, error)
 			SELECT $1, $2, $6, 'delayed', $3
 			WHERE EXISTS (SELECT 1 FROM updated);
-		`, d.Datastore.Schema, topic.ExceptionQueueTable(exception.TopicId), topic.DeliveryLogTable(exception.TopicId))
+		`, d.Datastore.Schema, stream.ExceptionQueueTable(exception.StreamId), stream.DeliveryLogTable(exception.StreamId))
 	}
 
 	args := []any{exception.ConsumerGroupId, exception.MessageId, delayErr.Error(), delay.Seconds(), exception.LeaseToken}
-	if deliveryLogMode != topic.DeliveryLogModeOff {
+	if deliveryLogMode != stream.DeliveryLogModeOff {
 		args = append(args, exception.Attempts)
 	}
 
@@ -180,17 +180,17 @@ func (d *ExceptionConsumerGroupDatastore) recordDelayed(ctx context.Context, del
 
 // RecordTerminal marks the row 'dead' -- no retry could succeed.
 // A non-nil keyClaim frees the key in the same transaction.
-func (d *ExceptionConsumerGroupDatastore) RecordTerminal(ctx context.Context, exception *ExceptionQueueRow, failureErr error, deliveryLogMode topic.DeliveryLogMode, keyClaim *KeyLease) error {
+func (d *ExceptionConsumerGroupDatastore) RecordTerminal(ctx context.Context, exception *ExceptionQueueRow, failureErr error, deliveryLogMode stream.DeliveryLogMode, keyClaim *KeyLease) error {
 	return d.DatastoreRetry.Wrap(ctx, func() error {
 		return d.recordTerminal(ctx, exception, failureErr, deliveryLogMode, keyClaim)
 	})
 }
 
-func (d *ExceptionConsumerGroupDatastore) recordTerminal(ctx context.Context, exception *ExceptionQueueRow, failureErr error, deliveryLogMode topic.DeliveryLogMode, keyClaim *KeyLease) error {
+func (d *ExceptionConsumerGroupDatastore) recordTerminal(ctx context.Context, exception *ExceptionQueueRow, failureErr error, deliveryLogMode stream.DeliveryLogMode, keyClaim *KeyLease) error {
 	var sql string
-	if deliveryLogMode == topic.DeliveryLogModeOff {
+	if deliveryLogMode == stream.DeliveryLogModeOff {
 		sql = fmt.Sprintf(`
-			-- vulkan: exceptionconsumer.recordTerminal
+			-- sqlstreams: exceptionconsumer.recordTerminal
 			UPDATE %[1]s.%[2]s
 			SET
 				status = 'dead',
@@ -201,12 +201,12 @@ func (d *ExceptionConsumerGroupDatastore) recordTerminal(ctx context.Context, ex
 			WHERE consumer_group_id = $1
 				AND message_id = $2
 				AND lease_token = $4;
-		`, d.Datastore.Schema, topic.ExceptionQueueTable(exception.TopicId))
+		`, d.Datastore.Schema, stream.ExceptionQueueTable(exception.StreamId))
 	} else {
 		// updated CTE + INSERT ... WHERE EXISTS keeps the UPDATE and its
-		// delivery_log_<topic_id> row atomic
+		// delivery_log_<stream_id> row atomic
 		sql = fmt.Sprintf(`
-			-- vulkan: exceptionconsumer.recordTerminal
+			-- sqlstreams: exceptionconsumer.recordTerminal
 			WITH updated AS (
 				UPDATE %[1]s.%[2]s
 				SET
@@ -223,11 +223,11 @@ func (d *ExceptionConsumerGroupDatastore) recordTerminal(ctx context.Context, ex
 			INSERT INTO %[1]s.%[3]s (consumer_group_id, message_id, attempt, error)
 			SELECT $1, $2, $5, $3
 			WHERE EXISTS (SELECT 1 FROM updated);
-		`, d.Datastore.Schema, topic.ExceptionQueueTable(exception.TopicId), topic.DeliveryLogTable(exception.TopicId))
+		`, d.Datastore.Schema, stream.ExceptionQueueTable(exception.StreamId), stream.DeliveryLogTable(exception.StreamId))
 	}
 
 	args := []any{exception.ConsumerGroupId, exception.MessageId, failureErr.Error(), exception.LeaseToken}
-	if deliveryLogMode != topic.DeliveryLogModeOff {
+	if deliveryLogMode != stream.DeliveryLogModeOff {
 		args = append(args, exception.Attempts)
 	}
 
@@ -241,23 +241,23 @@ func (d *ExceptionConsumerGroupDatastore) recordTerminal(ctx context.Context, ex
 		}
 	}
 
-	d.Logger.WarnContext(ctx, consume.EventExceptionDeadLettered.Message(), "code", consume.EventExceptionDeadLettered.GetCode(), "group_id", exception.ConsumerGroupId, "topic_id", exception.TopicId, "message_id", exception.MessageId, "attempts", exception.Attempts)
+	d.Logger.WarnContext(ctx, consume.EventExceptionDeadLettered.Message(), "code", consume.EventExceptionDeadLettered.GetCode(), "group_id", exception.ConsumerGroupId, "stream_id", exception.StreamId, "message_id", exception.MessageId, "attempts", exception.Attempts)
 	return nil
 }
 
 // RecordSuperseded never runs the row again: the claim's attempts
 // increment is decremented back and the log row lands at that attempt.
-func (d *ExceptionConsumerGroupDatastore) RecordSuperseded(ctx context.Context, exception *ExceptionQueueRow, deliveryLogMode topic.DeliveryLogMode) error {
+func (d *ExceptionConsumerGroupDatastore) RecordSuperseded(ctx context.Context, exception *ExceptionQueueRow, deliveryLogMode stream.DeliveryLogMode) error {
 	return d.DatastoreRetry.Wrap(ctx, func() error {
 		return d.recordSuperseded(ctx, exception, deliveryLogMode)
 	})
 }
 
-func (d *ExceptionConsumerGroupDatastore) recordSuperseded(ctx context.Context, exception *ExceptionQueueRow, deliveryLogMode topic.DeliveryLogMode) error {
+func (d *ExceptionConsumerGroupDatastore) recordSuperseded(ctx context.Context, exception *ExceptionQueueRow, deliveryLogMode stream.DeliveryLogMode) error {
 	var sql string
-	if deliveryLogMode == topic.DeliveryLogModeOff {
+	if deliveryLogMode == stream.DeliveryLogModeOff {
 		sql = fmt.Sprintf(`
-			-- vulkan: exceptionconsumer.recordSuperseded
+			-- sqlstreams: exceptionconsumer.recordSuperseded
 			UPDATE %[1]s.%[2]s
 			SET
 				status = 'superseded',
@@ -268,12 +268,12 @@ func (d *ExceptionConsumerGroupDatastore) recordSuperseded(ctx context.Context, 
 			WHERE consumer_group_id = $1
 				AND message_id = $2
 				AND lease_token = $3;
-		`, d.Datastore.Schema, topic.ExceptionQueueTable(exception.TopicId))
+		`, d.Datastore.Schema, stream.ExceptionQueueTable(exception.StreamId))
 	} else {
-		// updated CTE + INSERT keeps the mark and its delivery_log_<topic_id>
+		// updated CTE + INSERT keeps the mark and its delivery_log_<stream_id>
 		// row atomic
 		sql = fmt.Sprintf(`
-			-- vulkan: exceptionconsumer.recordSuperseded
+			-- sqlstreams: exceptionconsumer.recordSuperseded
 			WITH updated AS (
 				UPDATE %[1]s.%[2]s
 				SET
@@ -290,11 +290,11 @@ func (d *ExceptionConsumerGroupDatastore) recordSuperseded(ctx context.Context, 
 			INSERT INTO %[1]s.%[3]s (consumer_group_id, message_id, attempt, status, error)
 			SELECT $1, $2, attempts + 1, 'superseded', $4
 			FROM updated;
-		`, d.Datastore.Schema, topic.ExceptionQueueTable(exception.TopicId), topic.DeliveryLogTable(exception.TopicId))
+		`, d.Datastore.Schema, stream.ExceptionQueueTable(exception.StreamId), stream.DeliveryLogTable(exception.StreamId))
 	}
 
 	args := []any{exception.ConsumerGroupId, exception.MessageId, exception.LeaseToken}
-	if deliveryLogMode != topic.DeliveryLogModeOff {
+	if deliveryLogMode != stream.DeliveryLogModeOff {
 		args = append(args, "a newer version of the same message key superseded this delivery")
 	}
 	return d.record(ctx, sql, args...)
@@ -304,17 +304,17 @@ func (d *ExceptionConsumerGroupDatastore) recordSuperseded(ctx context.Context, 
 // claim reached the gate, so no run started. The claim's attempts increment
 // is decremented back and the log row lands at that attempt; the next claim
 // takes the row once the key frees.
-func (d *ExceptionConsumerGroupDatastore) RecordDeferred(ctx context.Context, exception *ExceptionQueueRow, concurrency common.ConcurrencyPolicy, deliveryLogMode topic.DeliveryLogMode) error {
+func (d *ExceptionConsumerGroupDatastore) RecordDeferred(ctx context.Context, exception *ExceptionQueueRow, concurrency common.ConcurrencyPolicy, deliveryLogMode stream.DeliveryLogMode) error {
 	return d.DatastoreRetry.Wrap(ctx, func() error {
 		return d.recordDeferred(ctx, exception, concurrency, deliveryLogMode)
 	})
 }
 
-func (d *ExceptionConsumerGroupDatastore) recordDeferred(ctx context.Context, exception *ExceptionQueueRow, concurrency common.ConcurrencyPolicy, deliveryLogMode topic.DeliveryLogMode) error {
+func (d *ExceptionConsumerGroupDatastore) recordDeferred(ctx context.Context, exception *ExceptionQueueRow, concurrency common.ConcurrencyPolicy, deliveryLogMode stream.DeliveryLogMode) error {
 	var sql string
-	if deliveryLogMode == topic.DeliveryLogModeOff {
+	if deliveryLogMode == stream.DeliveryLogModeOff {
 		sql = fmt.Sprintf(`
-			-- vulkan: exceptionconsumer.recordDeferred
+			-- sqlstreams: exceptionconsumer.recordDeferred
 			UPDATE %[1]s.%[2]s
 			SET
 				status = 'deferred',
@@ -326,12 +326,12 @@ func (d *ExceptionConsumerGroupDatastore) recordDeferred(ctx context.Context, ex
 			WHERE consumer_group_id = $1
 				AND message_id = $2
 				AND lease_token = $3;
-		`, d.Datastore.Schema, topic.ExceptionQueueTable(exception.TopicId))
+		`, d.Datastore.Schema, stream.ExceptionQueueTable(exception.StreamId))
 	} else {
-		// updated CTE + INSERT keeps the mark and its delivery_log_<topic_id>
+		// updated CTE + INSERT keeps the mark and its delivery_log_<stream_id>
 		// row atomic
 		sql = fmt.Sprintf(`
-			-- vulkan: exceptionconsumer.recordDeferred
+			-- sqlstreams: exceptionconsumer.recordDeferred
 			WITH updated AS (
 				UPDATE %[1]s.%[2]s
 				SET
@@ -349,11 +349,11 @@ func (d *ExceptionConsumerGroupDatastore) recordDeferred(ctx context.Context, ex
 			INSERT INTO %[1]s.%[3]s (consumer_group_id, message_id, attempt, status, error)
 			SELECT $1, $2, attempts + 1, 'deferred', $5
 			FROM updated;
-		`, d.Datastore.Schema, topic.ExceptionQueueTable(exception.TopicId), topic.DeliveryLogTable(exception.TopicId))
+		`, d.Datastore.Schema, stream.ExceptionQueueTable(exception.StreamId), stream.DeliveryLogTable(exception.StreamId))
 	}
 
 	args := []any{exception.ConsumerGroupId, exception.MessageId, exception.LeaseToken, concurrency}
-	if deliveryLogMode != topic.DeliveryLogModeOff {
+	if deliveryLogMode != stream.DeliveryLogModeOff {
 		args = append(args, "another delivery held the message key when this claim reached its gate")
 	}
 	return d.record(ctx, sql, args...)
@@ -374,12 +374,12 @@ func (d *ExceptionConsumerGroupDatastore) recordAndReleaseKey(ctx context.Contex
 	}
 
 	releaseSql := fmt.Sprintf(`
-		-- vulkan: exceptionconsumer.recordAndReleaseKey
+		-- sqlstreams: exceptionconsumer.recordAndReleaseKey
 		DELETE FROM %[1]s.%[2]s
 		WHERE consumer_group_id = $1
 			AND message_key = $2
 			AND token = $3;
-	`, d.Datastore.Schema, topic.MessageKeyLeaseTable(keyClaim.TopicId))
+	`, d.Datastore.Schema, stream.MessageKeyLeaseTable(keyClaim.StreamId))
 	releaseTag, err := tx.Exec(ctx, releaseSql, keyClaim.ConsumerGroupId, keyClaim.MessageKey, keyClaim.Token)
 	if err != nil {
 		return err

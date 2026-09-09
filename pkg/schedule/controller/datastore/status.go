@@ -5,39 +5,39 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 	"github.com/jackc/pgx/v5"
 )
 
 // Status is one ScheduleConsumerGroupSummaryRow per consumer group that receives the
-// schedule's messages. Counts cover the topic's retention window.
-func (d *ScheduleDatastore) Status(ctx context.Context, topicId int64, name string) ([]ScheduleConsumerGroupSummaryRow, error) {
+// schedule's messages. Counts cover the stream's retention window.
+func (d *ScheduleDatastore) Status(ctx context.Context, streamId int64, name string) ([]ScheduleConsumerGroupSummaryRow, error) {
 	var statuses []ScheduleConsumerGroupSummaryRow
 	err := d.DatastoreRetry.Wrap(ctx, func() error {
 		var err error
-		statuses, err = d.status(ctx, topicId, name)
+		statuses, err = d.status(ctx, streamId, name)
 		return err
 	})
 	return statuses, err
 }
 
-func (d *ScheduleDatastore) status(ctx context.Context, topicId int64, name string) ([]ScheduleConsumerGroupSummaryRow, error) {
-	groups, err := d.matchingGroups(ctx, topicId, name)
+func (d *ScheduleDatastore) status(ctx context.Context, streamId int64, name string) ([]ScheduleConsumerGroupSummaryRow, error) {
+	groups, err := d.matchingGroups(ctx, streamId, name)
 	if err != nil {
 		return nil, err
 	}
-	messageIds, err := d.keyMessageIds(ctx, topicId, name)
+	messageIds, err := d.keyMessageIds(ctx, streamId, name)
 	if err != nil {
 		return nil, err
 	}
-	headId, err := d.headId(ctx, topicId, name)
+	headId, err := d.headId(ctx, streamId, name)
 	if err != nil {
 		return nil, err
 	}
 
 	var statuses []ScheduleConsumerGroupSummaryRow
 	for _, group := range groups {
-		outcomes, err := d.messageOutcomes(ctx, topicId, group.Id, messageIds)
+		outcomes, err := d.messageOutcomes(ctx, streamId, group.Id, messageIds)
 		if err != nil {
 			return nil, err
 		}
@@ -48,12 +48,12 @@ func (d *ScheduleDatastore) status(ctx context.Context, topicId int64, name stri
 
 // matchingGroups is every consumer group that receives the schedule's requests,
 // ordered by name.
-func (d *ScheduleDatastore) matchingGroups(ctx context.Context, topicId int64, name string) ([]matchingGroupRow, error) {
+func (d *ScheduleDatastore) matchingGroups(ctx context.Context, streamId int64, name string) ([]matchingGroupRow, error) {
 	sql := fmt.Sprintf(`
-		-- vulkan: schedule.matchingGroups
+		-- sqlstreams: schedule.matchingGroups
 		SELECT cg.id, cg.name
 		FROM %[1]s.consumer_group_config cg
-		WHERE cg.topic_id = $1
+		WHERE cg.stream_id = $1
 		  AND (
 			-- a group with no bindings receives every routing key
 			NOT EXISTS (SELECT 1 FROM %[1]s.%[2]s b WHERE b.consumer_group_id = cg.id)
@@ -61,8 +61,8 @@ func (d *ScheduleDatastore) matchingGroups(ctx context.Context, topicId int64, n
 			OR EXISTS (SELECT 1 FROM %[1]s.%[2]s b WHERE b.consumer_group_id = cg.id AND $2 ~ b.pattern_regex)
 		  )
 		ORDER BY cg.name;
-	`, d.Datastore.Schema, topic.BindingConfigTable(topicId))
-	rows, err := d.Datastore.Pool.Query(ctx, sql, topicId, name)
+	`, d.Datastore.Schema, stream.BindingConfigTable(streamId))
+	rows, err := d.Datastore.Pool.Query(ctx, sql, streamId, name)
 	if err != nil {
 		return nil, err
 	}
@@ -84,13 +84,13 @@ func (d *ScheduleDatastore) matchingGroups(ctx context.Context, topicId int64, n
 
 // keyMessageIds is every message id on the schedule's message key still inside
 // the retention window.
-func (d *ScheduleDatastore) keyMessageIds(ctx context.Context, topicId int64, name string) ([]int64, error) {
+func (d *ScheduleDatastore) keyMessageIds(ctx context.Context, streamId int64, name string) ([]int64, error) {
 	sql := fmt.Sprintf(`
-		-- vulkan: schedule.keyMessageIds
+		-- sqlstreams: schedule.keyMessageIds
 		SELECT m.id
 		FROM %[1]s.%[2]s m
 		WHERE m.message_key = $1;
-	`, d.Datastore.Schema, topic.MessageLogTable(topicId))
+	`, d.Datastore.Schema, stream.MessageLogTable(streamId))
 
 	rows, err := d.Datastore.Pool.Query(ctx, sql, name)
 	if err != nil {
@@ -113,14 +113,14 @@ func (d *ScheduleDatastore) keyMessageIds(ctx context.Context, topicId int64, na
 }
 
 // headId is the key's compaction_head pointer; 0 when the schedule has no messages.
-func (d *ScheduleDatastore) headId(ctx context.Context, topicId int64, name string) (int64, error) {
+func (d *ScheduleDatastore) headId(ctx context.Context, streamId int64, name string) (int64, error) {
 	sql := fmt.Sprintf(`
-		-- vulkan: schedule.headId
+		-- sqlstreams: schedule.headId
 		SELECT message_id
 		FROM %[1]s.%[2]s
 		WHERE compaction_key = $1
 			AND message_id IS NOT NULL;
-	`, d.Datastore.Schema, topic.CompactionHeadTable(topicId))
+	`, d.Datastore.Schema, stream.CompactionHeadTable(streamId))
 
 	var headId int64
 	err := d.Datastore.Pool.QueryRow(ctx, sql, name).Scan(&headId)
@@ -135,9 +135,9 @@ func (d *ScheduleDatastore) headId(ctx context.Context, topicId int64, name stri
 
 // messageOutcomes is one consumer group's delivery history per message,
 // rolled up to booleans and indexed by message id.
-func (d *ScheduleDatastore) messageOutcomes(ctx context.Context, topicId int64, consumerGroupId int64, messageIds []int64) (map[int64]messageOutcomeRow, error) {
+func (d *ScheduleDatastore) messageOutcomes(ctx context.Context, streamId int64, consumerGroupId int64, messageIds []int64) (map[int64]messageOutcomeRow, error) {
 	sql := fmt.Sprintf(`
-		-- vulkan: schedule.messageOutcomes
+		-- sqlstreams: schedule.messageOutcomes
 		SELECT
 			d.message_id,
 			bool_or(d.status = 'success')                          AS succeeded,
@@ -147,7 +147,7 @@ func (d *ScheduleDatastore) messageOutcomes(ctx context.Context, topicId int64, 
 		WHERE d.consumer_group_id = $1
 		  AND d.message_id = ANY($2)
 		GROUP BY d.message_id;
-	`, d.Datastore.Schema, topic.DeliveryLogTable(topicId))
+	`, d.Datastore.Schema, stream.DeliveryLogTable(streamId))
 
 	rows, err := d.Datastore.Pool.Query(ctx, sql, consumerGroupId, messageIds)
 	if err != nil {

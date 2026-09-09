@@ -15,7 +15,7 @@ import (
 // its doc comment. gopls hover renders the doc comment and the type but not
 // the initializer, so the queries are invisible at the surface where callers
 // write errors.Is -- the pointer is what carries them there.
-const pointerLine = "Diagnose queries: vulkan explain "
+const pointerLine = "Diagnose queries: sqlstreams explain "
 
 func TestDeclarationsWithQueriesPointAtExplain(t *testing.T) {
 	declarations := declarationDocComments(t)
@@ -118,7 +118,7 @@ func declarationDocComments(t *testing.T) []declaration {
 // *** HELPERS ***
 // ***************
 
-// declaredCode returns the VK code a declaration call opens with. The call
+// declaredCode returns the SS code a declaration call opens with. The call
 // is identified by its constructor name.
 func declaredCode(value ast.Expr) (string, bool) {
 	code := ""

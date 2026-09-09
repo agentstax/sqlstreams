@@ -23,15 +23,15 @@ type Tx interface {
 // once -- InTransaction never reruns it.
 type TransactionFunc func(ctx context.Context, tx Tx) error
 
-type vulkanTx struct {
+type sqlstreamsTx struct {
 	pgx.Tx
 }
 
-func newTx(tx pgx.Tx) *vulkanTx {
-	return &vulkanTx{tx}
+func newTx(tx pgx.Tx) *sqlstreamsTx {
+	return &sqlstreamsTx{tx}
 }
 
-func (t *vulkanTx) Raw() pgx.Tx {
+func (t *sqlstreamsTx) Raw() pgx.Tx {
 	return t.Tx
 }
 

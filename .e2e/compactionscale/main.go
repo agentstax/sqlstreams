@@ -1,14 +1,14 @@
 package main
 
 // Log compaction SCALE e2e test: how bad does "prove a negative" actually get as
-// a topic's history grows? compactionwidth (11 partitions) showed the
+// a stream's history grows? compactionwidth (11 partitions) showed the
 // SHAPE -- a full scan, no early termination. This e2e test pushes the same
 // question to the case that actually worries someone running this in
 // production: a backlog consumer replaying a never-superseded key from near
-// the start of a long-lived, high-volume topic, where "current tail" keeps
-// getting further away as the topic ages.
+// the start of a long-lived, high-volume stream, where "current tail" keeps
+// getting further away as the stream ages.
 //
-// One row (id=1, message_key="stale") is never superseded. The topic's
+// One row (id=1, message_key="stale") is never superseded. The stream's
 // history is grown in checkpoints -- more partitions, more filler rows
 // behind it -- and at each checkpoint the SAME row's "is this the latest"
 // check is EXPLAIN ANALYZEd fresh, so partitions-touched and wall-clock
@@ -22,24 +22,24 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 const partitionSize = int64(10)
 
-// partition counts to measure at -- each step extends the SAME topic rather
+// partition counts to measure at -- each step extends the SAME stream rather
 // than reseeding from scratch, so total seeding work is proportional to the
 // final size, not the sum of every checkpoint.
 //
-// capped at 1000: topic.Destroy's cleanup DROPs the whole partitioned table
+// capped at 1000: stream.Destroy's cleanup DROPs the whole partitioned table
 // in one transaction, which needs one lock per partition -- past a few
 // thousand that exceeds Postgres's default max_locks_per_transaction and
 // the e2e test's own teardown fails with "out of shared memory." That's a real
@@ -83,26 +83,26 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	topicName := fmt.Sprintf("phase8c.compactionscale.%d", time.Now().UnixNano())
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{PartitionSize: partitionSize})
+	streamName := fmt.Sprintf("phase8c.compactionscale.%d", time.Now().UnixNano())
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: partitionSize})
 	must(err)
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	step("insert the never-superseded row -- id=1, message_key=\"stale\"")
 	insertStaleRow(ctx, ds, tp.Id)
 
-	step("grow the topic's history in checkpoints, measuring the SAME row's negative-proof cost fresh each time")
+	step("grow the stream's history in checkpoints, measuring the SAME row's negative-proof cost fresh each time")
 	fmt.Printf("  %-12s %-10s %-10s %-10s\n", "partitions", "rows", "touched", "exec_ms")
 
 	var createdPartitions int64 = 1 // partition 0 already exists from Register
@@ -149,8 +149,8 @@ func run() (err error) {
 
 // ---- helpers ----
 
-func insertStaleRow(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64) {
-	sql := fmt.Sprintf(`INSERT INTO %s.%s (payload, schema_version, message_key, compaction_rank) VALUES ('{}'::jsonb, 1, 'stale', 0);`, ds.Schema, topic.MessageLogTable(topicId))
+func insertStaleRow(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) {
+	sql := fmt.Sprintf(`INSERT INTO %s.%s (payload, schema_version, message_key, compaction_rank) VALUES ('{}'::jsonb, 1, 'stale', 0);`, ds.Schema, stream.MessageLogTable(streamId))
 	_, err := ds.Pool.Exec(ctx, sql)
 	must(err)
 }
@@ -158,11 +158,11 @@ func insertStaleRow(ctx context.Context, ds *iDatastore.PostgresDatastore, topic
 // createPartitions issues every CREATE TABLE ... PARTITION OF statement for
 // [from, to) as ONE multi-statement Exec -- a network round trip per
 // partition would dominate the e2e test's own runtime at these checkpoint sizes.
-func createPartitions(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId, from, to int64) {
+func createPartitions(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId, from, to int64) {
 	if to <= from {
 		return
 	}
-	logName := topic.MessageLogTable(topicId)
+	logName := stream.MessageLogTable(streamId)
 	logTable := fmt.Sprintf("%s.%s", ds.Schema, logName)
 	var sql strings.Builder
 	for n := from; n < to; n++ {
@@ -175,16 +175,16 @@ func createPartitions(ctx context.Context, ds *iDatastore.PostgresDatastore, top
 
 // bulkInsertFiller adds `count` unkeyed rows in one set-based INSERT --
 // unkeyed traffic never touches the compaction subplan (compaction
-// already proved that), so it's free filler for growing the topic's row
+// already proved that), so it's free filler for growing the stream's row
 // count/tail position without affecting what's being measured.
-func bulkInsertFiller(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId, count int64) {
+func bulkInsertFiller(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId, count int64) {
 	if count <= 0 {
 		return
 	}
 	sql := fmt.Sprintf(`
 		INSERT INTO %s.%s (payload, schema_version, message_key)
 		SELECT '{}'::jsonb, 1, NULL FROM generate_series(1, $1);
-	`, ds.Schema, topic.MessageLogTable(topicId))
+	`, ds.Schema, stream.MessageLogTable(streamId))
 	_, err := ds.Pool.Exec(ctx, sql, count)
 	must(err)
 }
@@ -193,8 +193,8 @@ func bulkInsertFiller(ctx context.Context, ds *iDatastore.PostgresDatastore, top
 // latest for its key, counting only partitions the Append node ACTUALLY
 // EXECUTED against (see compactionwidth for why mentions alone don't
 // mean touched), plus the plan's own reported wall-clock Execution Time.
-func explainStaleNegative(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64) (int, float64, string) {
-	logName := topic.MessageLogTable(topicId)
+func explainStaleNegative(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) (int, float64, string) {
+	logName := stream.MessageLogTable(streamId)
 	logTable := fmt.Sprintf("%s.%s", ds.Schema, logName)
 	sql := fmt.Sprintf(`
 		EXPLAIN (ANALYZE, COSTS OFF) SELECT 1 FROM %s m

@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/agentstax/vulkan/.bench/reliability/common"
-	"github.com/agentstax/vulkan/.bench/reliability/record"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/.bench/reliability/common"
+	"github.com/agentstax/sqlstreams/.bench/reliability/record"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 // Instances is the consumer instances one process runs on one group,
@@ -18,10 +18,10 @@ import (
 // moves to it. Every group's Instances in a process share one failed
 // channel, so the runner has one place to wait.
 type Instances struct {
-	handle   *vulkan.ConsumerHandle[common.Order]
-	cfg      *vulkan.ConsumerConfig
-	consume  *vulkan.ConsumeOptions
-	topic    string
+	handle   *sqlstreams.ConsumerHandle[common.Order]
+	cfg      *sqlstreams.ConsumerConfig
+	consume  *sqlstreams.ConsumeOptions
+	stream   string
 	group    string
 	failRate float64
 	writer   *record.Writer
@@ -37,7 +37,7 @@ type runningInstance struct {
 	done chan struct{}
 }
 
-func NewInstances(handle *vulkan.ConsumerHandle[common.Order], cfg *vulkan.ConsumerConfig, consume *vulkan.ConsumeOptions, topic string, group string, failRate float64, writer *record.Writer, name string, failed chan error) (*Instances, error) {
+func NewInstances(handle *sqlstreams.ConsumerHandle[common.Order], cfg *sqlstreams.ConsumerConfig, consume *sqlstreams.ConsumeOptions, stream string, group string, failRate float64, writer *record.Writer, name string, failed chan error) (*Instances, error) {
 	if handle == nil {
 		return nil, errors.New("handle must not be nil")
 	}
@@ -47,8 +47,8 @@ func NewInstances(handle *vulkan.ConsumerHandle[common.Order], cfg *vulkan.Consu
 	if consume == nil {
 		return nil, errors.New("consume must not be nil")
 	}
-	if topic == "" {
-		return nil, errors.New("topic must not be empty")
+	if stream == "" {
+		return nil, errors.New("stream must not be empty")
 	}
 	if group == "" {
 		return nil, errors.New("group must not be empty")
@@ -65,7 +65,7 @@ func NewInstances(handle *vulkan.ConsumerHandle[common.Order], cfg *vulkan.Consu
 	if failed == nil {
 		return nil, errors.New("failed must not be nil")
 	}
-	return &Instances{handle: handle, cfg: cfg, consume: consume, topic: topic, group: group, failRate: failRate, writer: writer, name: name, failed: failed}, nil
+	return &Instances{handle: handle, cfg: cfg, consume: consume, stream: stream, group: group, failRate: failRate, writer: writer, name: name, failed: failed}, nil
 }
 
 // SetCount starts or stops instances until count are running. Stopping
@@ -91,8 +91,8 @@ func (i *Instances) SetCount(ctx context.Context, count int) error {
 }
 
 func (i *Instances) start(ctx context.Context, number int) (*runningInstance, error) {
-	consumerName := fmt.Sprintf("%s/%s/%s/c-%d", i.name, i.topic, i.group, number)
-	handler, err := NewHandler(consumerName, i.topic, i.group, i.failRate, i.writer, i.failed)
+	consumerName := fmt.Sprintf("%s/%s/%s/c-%d", i.name, i.stream, i.group, number)
+	handler, err := NewHandler(consumerName, i.stream, i.group, i.failRate, i.writer, i.failed)
 	if err != nil {
 		return nil, err
 	}

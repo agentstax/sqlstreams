@@ -5,7 +5,7 @@ import { interpolate } from './interpolate';
 import { consumerGroupCursorTable } from './table-names';
 
 export const claimCursorSqlTemplate = `
-		-- vulkan: messageconsumer.freshClaimMessagesWithCursor
+		-- sqlstreams: messageconsumer.freshClaimMessagesWithCursor
 		WITH old_values AS ( -- PG18+ has old / new syntax in returning but we want older version compatibility so use CTE
 			SELECT
 				claimed,
@@ -120,10 +120,10 @@ export const claimCursorSqlTemplate = `
 		SELECT u.low, u.high FROM updated u;
 	`;
 
-export function claimCursorSql(topicId: number): string {
+export function claimCursorSql(streamId: number): string {
 	return interpolate(
 		claimCursorSqlTemplate,
-		consumerGroupCursorTable(topicId),
-		consumerGroupCursorTable(topicId),
+		consumerGroupCursorTable(streamId),
+		consumerGroupCursorTable(streamId),
 	);
 }

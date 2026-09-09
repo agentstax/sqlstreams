@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/worker"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/worker"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -34,14 +34,14 @@ func (d *WorkerDatastore) registerWorker(ctx context.Context, name string, owner
 	// three partial unique indexes cover the owner columns, so no single
 	// ON CONFLICT target names the one this row lands on
 	insertSql := fmt.Sprintf(`
-		-- vulkan: worker.registerWorker
-		INSERT INTO %[1]s.worker_config (system_id, topic_id, consumer_group_id, name, metadata, target_instances)
+		-- sqlstreams: worker.registerWorker
+		INSERT INTO %[1]s.worker_config (system_id, stream_id, consumer_group_id, name, metadata, target_instances)
 		VALUES ($1, $2, $3, $4, COALESCE($5, '{}'::jsonb), $6)
 		ON CONFLICT DO NOTHING
 		RETURNING id;
 	`, d.Datastore.Schema)
 	var createdId int64
-	err = tx.QueryRow(ctx, insertSql, columns.SystemId, columns.TopicId, columns.ConsumerGroupId, name, metadata, targetInstances).Scan(&createdId)
+	err = tx.QueryRow(ctx, insertSql, columns.SystemId, columns.StreamId, columns.ConsumerGroupId, name, metadata, targetInstances).Scan(&createdId)
 	if err == nil {
 		if err := d.appendWorkerConfigLog(ctx, tx, createdId, declaredBy); err != nil {
 			return err
@@ -59,18 +59,18 @@ func (d *WorkerDatastore) registerWorker(ctx context.Context, name string, owner
 	// do metadata comparision in db as it is normalized there
 	// if we compared go marshaled bytes we could report false changes
 	readSql := fmt.Sprintf(`
-		-- vulkan: worker.registerWorker
+		-- sqlstreams: worker.registerWorker
 		SELECT id, metadata, metadata = COALESCE($5, '{}'::jsonb) AS unchanged
 		FROM %[1]s.worker_config
 		WHERE name = $4
 			AND system_id IS NOT DISTINCT FROM $1
-			AND topic_id IS NOT DISTINCT FROM $2
+			AND stream_id IS NOT DISTINCT FROM $2
 			AND consumer_group_id IS NOT DISTINCT FROM $3;
 	`, d.Datastore.Schema)
 	var workerId int64
 	var storedMetadata json.RawMessage
 	var unchanged bool
-	err = tx.QueryRow(ctx, readSql, columns.SystemId, columns.TopicId, columns.ConsumerGroupId, name, metadata).
+	err = tx.QueryRow(ctx, readSql, columns.SystemId, columns.StreamId, columns.ConsumerGroupId, name, metadata).
 		Scan(&workerId, &storedMetadata, &unchanged)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return worker.ErrWorkerDeclarationInterrupted.With("worker", name)
@@ -84,7 +84,7 @@ func (d *WorkerDatastore) registerWorker(ctx context.Context, name string, owner
 	}
 
 	updateSql := fmt.Sprintf(`
-		-- vulkan: worker.registerWorker
+		-- sqlstreams: worker.registerWorker
 		UPDATE %[1]s.worker_config
 		SET metadata = COALESCE($2, '{}'::jsonb), updated_at = NOW()
 		WHERE id = $1
@@ -117,7 +117,7 @@ func (d *WorkerDatastore) registerWorker(ctx context.Context, name string, owner
 // row, inside the transaction that changed the worker row.
 func (d *WorkerDatastore) appendWorkerConfigLog(ctx context.Context, q datastore.Querier, workerId int64, declaredBy string) error {
 	sql := fmt.Sprintf(`
-		-- vulkan: worker.appendWorkerConfigLog
+		-- sqlstreams: worker.appendWorkerConfigLog
 		INSERT INTO %[1]s.worker_config_log (worker_id, name, metadata, target_instances, declared_by)
 		SELECT
 			id,
@@ -148,11 +148,11 @@ func (d *WorkerDatastore) listWorkers(ctx context.Context, owner *common.Owner) 
 	// one clause per level of the owner chain
 	// or all workers if owner is system.
 	sql := fmt.Sprintf(`
-		-- vulkan: worker.listWorkers
+		-- sqlstreams: worker.listWorkers
 		SELECT
 			w.id,
 			w.system_id,
-			w.topic_id,
+			w.stream_id,
 			w.consumer_group_id,
 			w.name,
 			w.metadata,
@@ -163,14 +163,14 @@ func (d *WorkerDatastore) listWorkers(ctx context.Context, owner *common.Owner) 
 			COALESCE(g.name, '')
 		FROM %[1]s.worker_config w
 		LEFT JOIN %[1]s.consumer_group_config g ON g.id = w.consumer_group_id
-		LEFT JOIN %[1]s.topic_config t ON t.id = COALESCE(w.topic_id, g.topic_id)
+		LEFT JOIN %[1]s.stream_config t ON t.id = COALESCE(w.stream_id, g.stream_id)
 		WHERE w.system_id = $1
-			OR w.topic_id = $2
+			OR w.stream_id = $2
 			OR w.consumer_group_id = $3
 			-- if owner is system we want every worker
 			OR ($2 = 0 AND $3 = 0 AND t.system_id = $1);
 	`, d.Datastore.Schema)
-	rows, err := d.Datastore.Pool.Query(ctx, sql, owner.SystemId, owner.TopicId, owner.ConsumerGroupId)
+	rows, err := d.Datastore.Pool.Query(ctx, sql, owner.SystemId, owner.StreamId, owner.ConsumerGroupId)
 	if err != nil {
 		return nil, err
 	}
@@ -179,8 +179,8 @@ func (d *WorkerDatastore) listWorkers(ctx context.Context, owner *common.Owner) 
 	var workers []ListWorkersRow
 	for rows.Next() {
 		var data ListWorkersRow
-		if err := rows.Scan(&data.Id, &data.SystemId, &data.TopicId, &data.ConsumerGroupId, &data.Name, &data.Metadata, &data.TargetInstances,
-			&data.OwnerSystemId, &data.OwnerTopicId, &data.TopicName, &data.ConsumerGroup); err != nil {
+		if err := rows.Scan(&data.Id, &data.SystemId, &data.StreamId, &data.ConsumerGroupId, &data.Name, &data.Metadata, &data.TargetInstances,
+			&data.OwnerSystemId, &data.OwnerStreamId, &data.StreamName, &data.ConsumerGroup); err != nil {
 			return nil, err
 		}
 		workers = append(workers, data)
@@ -200,22 +200,22 @@ func (d *WorkerDatastore) ListConsumerGroupWorkers(ctx context.Context, consumer
 
 func (d *WorkerDatastore) listConsumerGroupWorkers(ctx context.Context, consumerGroupId int64) ([]ListWorkersRow, error) {
 	sql := fmt.Sprintf(`
-		-- vulkan: worker.listConsumerGroupWorkers
+		-- sqlstreams: worker.listConsumerGroupWorkers
 		SELECT
 			w.id,
 			w.system_id,
-			w.topic_id,
+			w.stream_id,
 			w.consumer_group_id,
 			w.name,
 			w.metadata,
 			w.target_instances,
 			COALESCE(w.system_id, t.system_id, 0) AS owner_system_id,
-			COALESCE(t.id, 0) AS owner_topic_id,
-			COALESCE(t.name, '') AS topic_name,
+			COALESCE(t.id, 0) AS owner_stream_id,
+			COALESCE(t.name, '') AS stream_name,
 			COALESCE(g.name, '') AS consumer_group
 		FROM %[1]s.worker_config w
 		LEFT JOIN %[1]s.consumer_group_config g ON g.id = w.consumer_group_id
-		LEFT JOIN %[1]s.topic_config t ON t.id = COALESCE(w.topic_id, g.topic_id)
+		LEFT JOIN %[1]s.stream_config t ON t.id = COALESCE(w.stream_id, g.stream_id)
 		WHERE w.consumer_group_id = $1;
 	`, d.Datastore.Schema)
 	rows, err := d.Datastore.Pool.Query(ctx, sql, consumerGroupId)
@@ -227,8 +227,8 @@ func (d *WorkerDatastore) listConsumerGroupWorkers(ctx context.Context, consumer
 	var workers []ListWorkersRow
 	for rows.Next() {
 		var data ListWorkersRow
-		if err := rows.Scan(&data.Id, &data.SystemId, &data.TopicId, &data.ConsumerGroupId, &data.Name, &data.Metadata, &data.TargetInstances,
-			&data.OwnerSystemId, &data.OwnerTopicId, &data.TopicName, &data.ConsumerGroup); err != nil {
+		if err := rows.Scan(&data.Id, &data.SystemId, &data.StreamId, &data.ConsumerGroupId, &data.Name, &data.Metadata, &data.TargetInstances,
+			&data.OwnerSystemId, &data.OwnerStreamId, &data.StreamName, &data.ConsumerGroup); err != nil {
 			return nil, err
 		}
 		workers = append(workers, data)
@@ -252,11 +252,11 @@ func (d *WorkerDatastore) getWorker(ctx context.Context, name string, owner *com
 	columns := datastore.NewOwnerColumns(*owner)
 
 	sql := fmt.Sprintf(`
-		-- vulkan: worker.getWorker
+		-- sqlstreams: worker.getWorker
 		SELECT 
 			id, 
 			system_id, 
-			topic_id, 
+			stream_id, 
 			consumer_group_id, 
 			name, 
 			metadata, 
@@ -264,12 +264,12 @@ func (d *WorkerDatastore) getWorker(ctx context.Context, name string, owner *com
 		FROM %[1]s.worker_config
 		WHERE name = $1
 			AND system_id IS NOT DISTINCT FROM $2
-			AND topic_id IS NOT DISTINCT FROM $3
+			AND stream_id IS NOT DISTINCT FROM $3
 			AND consumer_group_id IS NOT DISTINCT FROM $4;
 	`, d.Datastore.Schema)
 	var data WorkerConfigRow
-	err := d.Datastore.Pool.QueryRow(ctx, sql, name, columns.SystemId, columns.TopicId, columns.ConsumerGroupId).
-		Scan(&data.Id, &data.SystemId, &data.TopicId, &data.ConsumerGroupId, &data.Name, &data.Metadata, &data.TargetInstances)
+	err := d.Datastore.Pool.QueryRow(ctx, sql, name, columns.SystemId, columns.StreamId, columns.ConsumerGroupId).
+		Scan(&data.Id, &data.SystemId, &data.StreamId, &data.ConsumerGroupId, &data.Name, &data.Metadata, &data.TargetInstances)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, fmt.Errorf("worker %q has no worker row -- the owner's register declares it", name)
 	}

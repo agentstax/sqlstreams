@@ -4,7 +4,7 @@ import type { ConsentButton } from './answers';
 // The site sets no cookies, so this notice is the privacy statement wearing
 // a consent banner's clothes: act one asks what every site asks, act two
 // answers it. The stored answer is the only thing the notice itself keeps.
-const answeredKey = 'vulkan-board:cookie-notice';
+const answeredKey = 'sqlstreams-board:cookie-notice';
 
 // consent: the banner as any site would show it
 // answered: the reader pressed one of act one's controls and is reading

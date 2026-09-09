@@ -4,7 +4,7 @@ import "time"
 
 type GoRoutineEvent struct {
 	EventType EventType `json:"type"`
-	TopicId   int64     `json:"topic_id"`
+	StreamId  int64     `json:"stream_id"`
 	Group     string    `json:"group"`
 	MessageId int64     `json:"message_id"`
 	Attempt   int       `json:"attempt"`
@@ -13,10 +13,10 @@ type GoRoutineEvent struct {
 
 func (GoRoutineEvent) SchemaVersion() int { return 1 }
 
-func NewGoRoutineEvent(eventType EventType, topicId int64, group string, messageId int64, attempt int, at time.Time) *GoRoutineEvent {
+func NewGoRoutineEvent(eventType EventType, streamId int64, group string, messageId int64, attempt int, at time.Time) *GoRoutineEvent {
 	return &GoRoutineEvent{
 		EventType: eventType,
-		TopicId:   topicId,
+		StreamId:  streamId,
 		Group:     group,
 		MessageId: messageId,
 		Attempt:   attempt,

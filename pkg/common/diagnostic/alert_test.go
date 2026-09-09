@@ -3,15 +3,15 @@ package diagnostic
 import "testing"
 
 var alertTestPartitionCount = NewDiagnosticAlert(
-	"VK9930",
+	"SS9930",
 	"test_partition_count",
-	"a test topic holds more partitions than the threshold",
-	MetricScopeTopic,
+	"a test stream holds more partitions than the threshold",
+	MetricScopeStream,
 	"warn",
 )
 
 func TestAlertCarriesMetadata(t *testing.T) {
-	if alertTestPartitionCount.Scope != MetricScopeTopic || alertTestPartitionCount.Severity != "warn" {
+	if alertTestPartitionCount.Scope != MetricScopeStream || alertTestPartitionCount.Severity != "warn" {
 		t.Fatalf("declaration = %+v", alertTestPartitionCount)
 	}
 	if alertTestPartitionCount.GetKind() != DiagnosticKindAlert {
@@ -38,14 +38,14 @@ func TestNewAlertRejectsInvalidMetadata(t *testing.T) {
 		scope       MetricScope
 		severity    string
 	}{
-		{name: "empty name", code: "VK9931", description: "test condition", scope: MetricScopeTopic, severity: "warn"},
-		{name: "empty description", code: "VK9932", alertName: "test_empty_description", scope: MetricScopeTopic, severity: "warn"},
-		{name: "empty scope", code: "VK9933", alertName: "test_empty_scope", description: "test condition", severity: "warn"},
-		{name: "unknown scope", code: "VK9934", alertName: "test_unknown_scope", description: "test condition", scope: MetricScope("worker"), severity: "warn"},
-		{name: "session scope", code: "VK9935", alertName: "test_session_scope", description: "test condition", scope: MetricScopeConsumerSession, severity: "warn"},
-		{name: "exporter scope", code: "VK9938", alertName: "test_exporter_scope", description: "test condition", scope: MetricScopeExporter, severity: "warn"},
-		{name: "empty severity", code: "VK9936", alertName: "test_empty_severity", description: "test condition", scope: MetricScopeTopic},
-		{name: "duplicate name", code: "VK9937", alertName: "test_partition_count", description: "test condition", scope: MetricScopeTopic, severity: "warn"},
+		{name: "empty name", code: "SS9931", description: "test condition", scope: MetricScopeStream, severity: "warn"},
+		{name: "empty description", code: "SS9932", alertName: "test_empty_description", scope: MetricScopeStream, severity: "warn"},
+		{name: "empty scope", code: "SS9933", alertName: "test_empty_scope", description: "test condition", severity: "warn"},
+		{name: "unknown scope", code: "SS9934", alertName: "test_unknown_scope", description: "test condition", scope: MetricScope("worker"), severity: "warn"},
+		{name: "session scope", code: "SS9935", alertName: "test_session_scope", description: "test condition", scope: MetricScopeConsumerSession, severity: "warn"},
+		{name: "exporter scope", code: "SS9938", alertName: "test_exporter_scope", description: "test condition", scope: MetricScopeExporter, severity: "warn"},
+		{name: "empty severity", code: "SS9936", alertName: "test_empty_severity", description: "test condition", scope: MetricScopeStream},
+		{name: "duplicate name", code: "SS9937", alertName: "test_partition_count", description: "test condition", scope: MetricScopeStream, severity: "warn"},
 	}
 
 	for _, test := range tests {

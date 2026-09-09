@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	"github.com/agentstax/vulkan/pkg/worker"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	"github.com/agentstax/sqlstreams/pkg/worker"
 	"golang.org/x/sync/errgroup"
 )
 

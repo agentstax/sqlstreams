@@ -11,12 +11,12 @@ package main
 //     trip a synchronous call chains onto every Commit, isolated from any
 //     lock contention.
 //   - Concurrent contention: G goroutines committing against the SAME
-//     (group, topic) cursor row -- Commit itself never touches that row
+//     (group, stream) cursor row -- Commit itself never touches that row
 //     today (only lease + delivery), so a synchronous AdvanceCommitted
 //     call is new contention on it, not a cost that already existed. Same
 //     shape as compactionheadwrite's hot-key scenario, applied to cursor.
 //
-// Registers its own topics (destroyed on exit), self-seeded.
+// Registers its own streams (destroyed on exit), self-seeded.
 
 import (
 	"context"
@@ -25,14 +25,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/agentstax/vulkan/e2e/common"
-	"github.com/agentstax/vulkan/pkg/consume"
-	consumecontroller "github.com/agentstax/vulkan/pkg/consume/controller"
-	cursoradvancerdatastore "github.com/agentstax/vulkan/pkg/consume/cursoradvancer/controller/datastore"
-	messageconsumercontroller "github.com/agentstax/vulkan/pkg/consume/messageconsumer/controller"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/topic"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/e2e/common"
+	"github.com/agentstax/sqlstreams/pkg/consume"
+	consumecontroller "github.com/agentstax/sqlstreams/pkg/consume/controller"
+	cursoradvancerdatastore "github.com/agentstax/sqlstreams/pkg/consume/cursoradvancer/controller/datastore"
+	messageconsumercontroller "github.com/agentstax/sqlstreams/pkg/consume/messageconsumer/controller"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -71,7 +71,7 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", &vulkan.PostgresConnectionConfig{
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", &sqlstreams.PostgresConnectionConfig{
 		MaxConns: 40, // headroom above the contention scenario's 20 concurrent goroutines
 	})
 	must(err)
@@ -122,17 +122,17 @@ func stalenessScenario(ctx context.Context, pool *pgxpool.Pool) {
 // the role of AdvanceCommitted, and a fast poller independently samples
 // `committed` so staleness is measured from the outside, not self-reported.
 func runLazyStaleness(ctx context.Context, pool *pgxpool.Pool) ([]rangeEvent, []sample) {
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	topicName := fmt.Sprintf("phase10.rollup.staleness.lazy.%d", time.Now().UnixNano())
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{})
+	streamName := fmt.Sprintf("phase10.rollup.staleness.lazy.%d", time.Now().UnixNano())
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{})
 	must(err)
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
@@ -141,7 +141,7 @@ func runLazyStaleness(ctx context.Context, pool *pgxpool.Pool) ([]rangeEvent, []
 	must(err)
 	cursorAdvancerDatastore, err := cursoradvancerdatastore.NewCursorAdvancerDatastore(ds, ds.Logger)
 	must(err)
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 	groupId := mustGroupID(cd.RegisterGroup(ctx, tp.Id, group, consume.Beginning()))
 	seed(ctx, wpInstance, int(int64(numRanges)*batchSize))
@@ -181,13 +181,13 @@ func runLazyStaleness(ctx context.Context, pool *pgxpool.Pool) ([]rangeEvent, []
 
 	var events []rangeEvent
 	for i := range numRanges {
-		claim, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, int(batchSize), maxRangeReclaims, lease, topic.DeliveryLogModeFailures)
+		claim, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, int(batchSize), maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
 		must(err)
 		if claim == nil {
 			break
 		}
 		time.Sleep(jitter(i))
-		must(messageConsumers.Commit(ctx, tp.Id, groupId, claim.Lease.Token, nil, 5*time.Second, topic.DeliveryLogModeFailures))
+		must(messageConsumers.Commit(ctx, tp.Id, groupId, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 		events = append(events, rangeEvent{commitTime: time.Now(), high: claim.Lease.High})
 	}
 
@@ -202,17 +202,17 @@ func runLazyStaleness(ctx context.Context, pool *pgxpool.Pool) ([]rangeEvent, []
 // runSyncStaleness commits numRanges ranges, calling AdvanceCommitted
 // immediately after each Commit -- staleness is just that call's own latency.
 func runSyncStaleness(ctx context.Context, pool *pgxpool.Pool) []float64 {
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	topicName := fmt.Sprintf("phase10.rollup.staleness.sync.%d", time.Now().UnixNano())
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{})
+	streamName := fmt.Sprintf("phase10.rollup.staleness.sync.%d", time.Now().UnixNano())
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{})
 	must(err)
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
@@ -221,20 +221,20 @@ func runSyncStaleness(ctx context.Context, pool *pgxpool.Pool) []float64 {
 	must(err)
 	cursorAdvancerDatastore, err := cursoradvancerdatastore.NewCursorAdvancerDatastore(ds, ds.Logger)
 	must(err)
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 	groupId := mustGroupID(cd.RegisterGroup(ctx, tp.Id, group, consume.Beginning()))
 	seed(ctx, wpInstance, int(int64(numRanges)*batchSize))
 
 	var stalenesses []float64
 	for i := range numRanges {
-		claim, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, int(batchSize), maxRangeReclaims, lease, topic.DeliveryLogModeFailures)
+		claim, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, int(batchSize), maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
 		must(err)
 		if claim == nil {
 			break
 		}
 		time.Sleep(jitter(i))
-		must(messageConsumers.Commit(ctx, tp.Id, groupId, claim.Lease.Token, nil, 5*time.Second, topic.DeliveryLogModeFailures))
+		must(messageConsumers.Commit(ctx, tp.Id, groupId, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 
 		start := time.Now()
 		_, err = cursorAdvancerDatastore.AdvanceCommitted(ctx, tp.Id, groupId)
@@ -290,17 +290,17 @@ func fixedCostScenario(ctx context.Context, pool *pgxpool.Pool) {
 }
 
 func timeSequentialCommits(ctx context.Context, pool *pgxpool.Pool, label string, n float64, syncAdvance bool) float64 {
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	topicName := fmt.Sprintf("phase10.rollup.fixedcost.%s.%d", label, time.Now().UnixNano())
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{})
+	streamName := fmt.Sprintf("phase10.rollup.fixedcost.%s.%d", label, time.Now().UnixNano())
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{})
 	must(err)
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
@@ -309,19 +309,19 @@ func timeSequentialCommits(ctx context.Context, pool *pgxpool.Pool, label string
 	must(err)
 	cursorAdvancerDatastore, err := cursoradvancerdatastore.NewCursorAdvancerDatastore(ds, ds.Logger)
 	must(err)
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 	groupId := mustGroupID(cd.RegisterGroup(ctx, tp.Id, group, consume.Beginning()))
 	seed(ctx, wpInstance, int(n))
 
 	start := time.Now()
 	for range int(n) {
-		claim, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, 1, maxRangeReclaims, lease, topic.DeliveryLogModeFailures)
+		claim, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, 1, maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
 		must(err)
 		if claim == nil {
 			break
 		}
-		must(messageConsumers.Commit(ctx, tp.Id, groupId, claim.Lease.Token, nil, 5*time.Second, topic.DeliveryLogModeFailures))
+		must(messageConsumers.Commit(ctx, tp.Id, groupId, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 		if syncAdvance {
 			_, err := cursorAdvancerDatastore.AdvanceCommitted(ctx, tp.Id, groupId)
 			must(err)
@@ -349,17 +349,17 @@ func contentionScenario(ctx context.Context, pool *pgxpool.Pool) {
 
 func timeConcurrentCommits(ctx context.Context, pool *pgxpool.Pool, label string, goroutines, perGoroutine int, syncAdvance bool) float64 {
 	total := goroutines * perGoroutine
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	topicName := fmt.Sprintf("phase10.rollup.contention.%s.%d", label, time.Now().UnixNano())
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{})
+	streamName := fmt.Sprintf("phase10.rollup.contention.%s.%d", label, time.Now().UnixNano())
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{})
 	must(err)
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
@@ -368,7 +368,7 @@ func timeConcurrentCommits(ctx context.Context, pool *pgxpool.Pool, label string
 	must(err)
 	cursorAdvancerDatastore, err := cursoradvancerdatastore.NewCursorAdvancerDatastore(ds, ds.Logger)
 	must(err)
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 	groupId := mustGroupID(cd.RegisterGroup(ctx, tp.Id, group, consume.Beginning()))
 	seed(ctx, wpInstance, total)
@@ -378,12 +378,12 @@ func timeConcurrentCommits(ctx context.Context, pool *pgxpool.Pool, label string
 	for range goroutines {
 		wg.Go(func() {
 			for range perGoroutine {
-				claim, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, 1, maxRangeReclaims, lease, topic.DeliveryLogModeFailures)
+				claim, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, 1, maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
 				must(err)
 				if claim == nil {
 					return
 				}
-				must(messageConsumers.Commit(ctx, tp.Id, groupId, claim.Lease.Token, nil, 5*time.Second, topic.DeliveryLogModeFailures))
+				must(messageConsumers.Commit(ctx, tp.Id, groupId, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 				if syncAdvance {
 					_, err := cursorAdvancerDatastore.AdvanceCommitted(ctx, tp.Id, groupId)
 					must(err)
@@ -397,18 +397,18 @@ func timeConcurrentCommits(ctx context.Context, pool *pgxpool.Pool, label string
 
 // ---- helpers ----
 
-func seed(ctx context.Context, wpInstance *vulkan.ProducerInstance[common.Work], n int) {
+func seed(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[common.Work], n int) {
 	for range n {
-		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
+		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 			return common.NewWork(30, "admin@example.com")
 		}, nil)
 		must(err)
 	}
 }
 
-func committedCol(ctx context.Context, ds *iDatastore.PostgresDatastore, groupId int64, topicId int64) int64 {
+func committedCol(ctx context.Context, ds *iDatastore.PostgresDatastore, groupId int64, streamId int64) int64 {
 	var v int64
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT committed FROM %s.%s WHERE consumer_group_id=$1`, ds.Schema, topic.ConsumerGroupCursorTable(topicId)), groupId).Scan(&v))
+	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT committed FROM %s.%s WHERE consumer_group_id=$1`, ds.Schema, stream.ConsumerGroupCursorTable(streamId)), groupId).Scan(&v))
 	return v
 }
 

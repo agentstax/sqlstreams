@@ -3,7 +3,7 @@ package worker
 import (
 	"fmt"
 
-	"github.com/agentstax/vulkan/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common"
 )
 
 // InstanceTarget is how many live instances of one worker row may run at once
@@ -31,7 +31,7 @@ func (t InstanceTarget) Validate() error {
 // Worker is one row of the worker_config table.
 type Worker struct {
 	Id    int64         `json:"id"`
-	Name  string        `json:"worker"` // the worker kind: topic_janitor, message_consumer, metrics_collector, ...
+	Name  string        `json:"worker"` // the worker kind: stream_janitor, message_consumer, metrics_collector, ...
 	Owner *common.Owner `json:"owner"`  // the resource whose row this is
 	// Metadata is a stored configuration snapshot with worker-specific fields and omitted defaults.
 	// It is not an instance's effective configuration; editing it does not update the worker.

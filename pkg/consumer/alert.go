@@ -4,36 +4,36 @@ import (
 	"context"
 	"errors"
 
-	"github.com/agentstax/vulkan/pkg/alert"
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/alert"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 )
 
-// logAlerts measures the topic against the same conditions the system's
+// logAlerts measures the stream against the same conditions the system's
 // alert jobs evaluate on a schedule, and logs any that hold. Log-only:
 //   - a register path never writes alerts
 //   - a failed measure never fails Register
-func (c *Consumer) logAlerts(ctx context.Context, current *topic.Topic, logger logging.Logger, evaluators []alert.Evaluator) {
-	owner, err := common.NewTopicOwner(current.SystemId, current.Id, current.Name)
+func (c *Consumer) logAlerts(ctx context.Context, current *stream.Stream, logger logging.Logger, evaluators []alert.Evaluator) {
+	owner, err := common.NewStreamOwner(current.SystemId, current.Id, current.Name)
 	if err != nil {
-		logger.WarnContext(ctx, "could not run register-time alert pass", "topic", current.Name, "error", err)
+		logger.WarnContext(ctx, "could not run register-time alert pass", "stream", current.Name, "error", err)
 		return
 	}
 
 	for _, evaluator := range evaluators {
 		policy, err := alert.NewJobPayload(0, 0, 0, true)
 		if err != nil {
-			logger.WarnContext(ctx, "could not run register-time alert pass", "topic", current.Name, "error", err)
+			logger.WarnContext(ctx, "could not run register-time alert pass", "stream", current.Name, "error", err)
 			continue
 		}
 		result, err := evaluator.Evaluate(ctx, owner, policy)
 		if err != nil {
-			logger.WarnContext(ctx, "could not run register-time alert pass", "topic", current.Name, "error", err)
+			logger.WarnContext(ctx, "could not run register-time alert pass", "stream", current.Name, "error", err)
 			continue
 		}
 		if result.State == alert.AlertEvaluationStateInsufficientEvidence {
-			logger.WarnContext(ctx, "could not run register-time alert pass", "topic", current.Name, "error", errors.New("alert evidence is insufficient"))
+			logger.WarnContext(ctx, "could not run register-time alert pass", "stream", current.Name, "error", errors.New("alert evidence is insufficient"))
 			continue
 		}
 		if result.State != alert.AlertEvaluationStateActive && result.State != alert.AlertEvaluationStatePending {

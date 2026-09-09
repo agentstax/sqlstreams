@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/agentstax/vulkan/pkg/common/diagnostic"
+	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
 )
 
-// Export is every VK-coded declaration keyed by its code. One document, so a
+// Export is every SS-coded declaration keyed by its code. One document, so a
 // page reads the record it needs by code and the drift check compares the
 // whole registry in one pass.
 type Export struct {

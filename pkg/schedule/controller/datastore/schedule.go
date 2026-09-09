@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/schedule"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/schedule"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -24,11 +24,11 @@ func (d *ScheduleDatastore) Get(ctx context.Context, name string) (*ScheduleConf
 
 func (d *ScheduleDatastore) get(ctx context.Context, q datastore.Querier, name string) (*ScheduleConfigRow, error) {
 	sql := fmt.Sprintf(`
-		-- vulkan: schedule.get
+		-- sqlstreams: schedule.get
 		SELECT
 			schedule_config.id,
 			schedule_config.system_id,
-			schedule_config.topic_id,
+			schedule_config.stream_id,
 			schedule_config.name,
 			schedule_config.expression,
 			schedule_config.schema_version,
@@ -58,11 +58,11 @@ func (d *ScheduleDatastore) List(ctx context.Context) ([]ScheduleConfigRow, erro
 
 func (d *ScheduleDatastore) list(ctx context.Context) ([]ScheduleConfigRow, error) {
 	sql := fmt.Sprintf(`
-		-- vulkan: schedule.list
+		-- sqlstreams: schedule.list
 		SELECT
 			schedule_config.id,
 			schedule_config.system_id,
-			schedule_config.topic_id,
+			schedule_config.stream_id,
 			schedule_config.name,
 			schedule_config.expression,
 			schedule_config.schema_version,
@@ -105,7 +105,7 @@ func (d *ScheduleDatastore) Suspend(ctx context.Context, name string) error {
 
 func (d *ScheduleDatastore) suspend(ctx context.Context, name string) error {
 	sql := fmt.Sprintf(`
-		-- vulkan: schedule.suspend
+		-- sqlstreams: schedule.suspend
 		UPDATE %[1]s.schedule_config SET suspended = true, updated_at = NOW() WHERE name = $1;
 	`, d.Datastore.Schema)
 	tag, err := d.Datastore.Pool.Exec(ctx, sql, name)
@@ -152,7 +152,7 @@ func (d *ScheduleDatastore) unsuspend(ctx context.Context, name string) error {
 	defer tx.Rollback(ctx)
 
 	configSql := fmt.Sprintf(`
-		-- vulkan: schedule.unsuspend
+		-- sqlstreams: schedule.unsuspend
 		UPDATE %[1]s.schedule_config SET suspended = false, updated_at = NOW() WHERE name = $1;
 	`, d.Datastore.Schema)
 	tag, err := tx.Exec(ctx, configSql, name)
@@ -164,7 +164,7 @@ func (d *ScheduleDatastore) unsuspend(ctx context.Context, name string) error {
 	}
 
 	cursorSql := fmt.Sprintf(`
-		-- vulkan: schedule.unsuspend
+		-- sqlstreams: schedule.unsuspend
 		UPDATE %[1]s.schedule_cursor SET next_scheduled_at = $2 WHERE schedule_id = $1;
 	`, d.Datastore.Schema)
 	if _, err := tx.Exec(ctx, cursorSql, found.Id, next); err != nil {
@@ -184,7 +184,7 @@ func (d *ScheduleDatastore) unsuspend(ctx context.Context, name string) error {
 func (d *ScheduleDatastore) dbNow(ctx context.Context, q datastore.Querier) (time.Time, error) {
 	var now time.Time
 	err := q.QueryRow(ctx, `
-		-- vulkan: schedule.dbNow
+		-- sqlstreams: schedule.dbNow
 		SELECT now();
 	`).Scan(&now)
 	return now, err
@@ -213,7 +213,7 @@ func (d *ScheduleDatastore) Delete(ctx context.Context, name string) error {
 
 func (d *ScheduleDatastore) delete(ctx context.Context, name string) error {
 	sql := fmt.Sprintf(`
-		-- vulkan: schedule.delete
+		-- sqlstreams: schedule.delete
 		DELETE FROM %[1]s.schedule_config WHERE name = $1;
 	`, d.Datastore.Schema)
 	tag, err := d.Datastore.Pool.Exec(ctx, sql, name)
@@ -234,7 +234,7 @@ func (d *ScheduleDatastore) scanScheduleConfigRow(row pgx.Row) (*ScheduleConfigR
 	err := row.Scan(
 		&data.Id,
 		&data.SystemId,
-		&data.TopicId,
+		&data.StreamId,
 		&data.Name,
 		&data.Expression,
 		&data.SchemaVersion,

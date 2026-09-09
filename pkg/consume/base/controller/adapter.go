@@ -3,14 +3,14 @@ package controller
 import (
 	"uuid"
 
-	"github.com/agentstax/vulkan/pkg/consume/base/controller/datastore"
+	"github.com/agentstax/sqlstreams/pkg/consume/base/controller/datastore"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 func toKeyLeaseClaim(data *datastore.KeyLease) *KeyLeaseClaim {
 	return &KeyLeaseClaim{
 		Verdict:         KeyLeaseVerdict(data.Verdict),
-		TopicId:         data.TopicId,
+		StreamId:        data.StreamId,
 		ConsumerGroupId: data.ConsumerGroupId,
 		MessageKey:      data.MessageKey,
 		Token:           uuid.UUID(data.Token.Bytes),
@@ -20,7 +20,7 @@ func toKeyLeaseClaim(data *datastore.KeyLease) *KeyLeaseClaim {
 func toKeyLease(claim *KeyLeaseClaim) *datastore.KeyLease {
 	return &datastore.KeyLease{
 		Verdict:         datastore.KeyLeaseVerdict(claim.Verdict),
-		TopicId:         claim.TopicId,
+		StreamId:        claim.StreamId,
 		ConsumerGroupId: claim.ConsumerGroupId,
 		MessageKey:      claim.MessageKey,
 		Token:           toTokenData(claim.Token),

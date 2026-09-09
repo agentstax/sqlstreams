@@ -5,7 +5,7 @@ import { interpolate } from './interpolate';
 import { claimLeaseTable, consumerGroupCursorTable, messageLogTable } from './table-names';
 
 export const claimSnapshotSqlTemplate = `
-		-- vulkan: messageconsumer.readClaimSnapshot
+		-- sqlstreams: messageconsumer.readClaimSnapshot
 		SELECT
 			(SELECT COALESCE(MAX(id), 0) FROM %[1]s.%[2]s) AS head,
 			pg_snapshot_xmax(pg_current_snapshot())::text AS xmax,
@@ -21,11 +21,11 @@ export const claimSnapshotSqlTemplate = `
 		WHERE c.consumer_group_id = $1;
 	`;
 
-export function claimSnapshotSql(topicId: number): string {
+export function claimSnapshotSql(streamId: number): string {
 	return interpolate(
 		claimSnapshotSqlTemplate,
-		messageLogTable(topicId),
-		consumerGroupCursorTable(topicId),
-		claimLeaseTable(topicId),
+		messageLogTable(streamId),
+		consumerGroupCursorTable(streamId),
+		claimLeaseTable(streamId),
 	);
 }

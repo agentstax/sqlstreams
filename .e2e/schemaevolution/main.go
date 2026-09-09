@@ -1,10 +1,10 @@
 package main
 
 // schema evolution bridge e2e test: the end-to-end proof of the payload-version
-// design on one topic -- the reference implementation of the user-space
+// design on one stream -- the reference implementation of the user-space
 // BRIDGE pattern the library documents but doesn't ship a verb for.
 //
-// Scenario: one topic holds live keyed traffic written by a V1Order
+// Scenario: one stream holds live keyed traffic written by a V1Order
 // producer. The application evolves to V2Order (adds Currency). A bridge
 // consumer group bound to V1Order reads each key's current head and
 // re-produces it as V2Order at CompactionRank -1 (a backfill, never a live
@@ -30,24 +30,24 @@ package main
 //     count, not a timer) to stay non-flaky; it is not trying to win a race
 //     against an in-flight commit -- idempotencykeysrace already covers
 //     dedup-under-true-concurrency.
-//   - the retire verdict is a query: TopicHealth reports v1 safe once no
+//   - the retire verdict is a query: StreamHealth reports v1 safe once no
 //     compaction head points at a v1 row and the bridge group has read past
 //     every v1 row, and v2 not safe while the heads are at v2.
 //
-// Self-contained: registers the topic, destroys it on exit.
+// Self-contained: registers the stream, destroys it on exit.
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 	"os"
 	"strconv"
 	"sync/atomic"
 	"time"
 
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 const group = "phase14a.schemaevolution.bridge"
@@ -101,35 +101,35 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
 	name := fmt.Sprintf("phase14a.schemaevolution.%d", time.Now().UnixNano())
-	registered, err := client.Topic[V1Order](name).Register(ctx, &vulkan.TopicConfig{})
+	registered, err := client.Stream[V1Order](name).Register(ctx, &sqlstreams.StreamConfig{})
 	must(err)
 	defer func() {
-		must(client.Topic[V1Order](name).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[V1Order](name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
-	wp1Instance, err := client.Topic[V1Order](name).Producer().Register(ctx, nil)
+	wp1Instance, err := client.Stream[V1Order](name).Producer().Register(ctx, nil)
 	must(err)
 
-	step("the topic holds live keyed V1Order traffic for 5 users")
+	step("the stream holds live keyed V1Order traffic for 5 users")
 	for i, key := range keys {
 		cents := int64(i+1) * 100
-		_, err := wp1Instance.Produce(ctx, &V1Order{Key: key, Cents: cents}, &vulkan.ProduceOptions{MessageKey: key, Compaction: &vulkan.CompactionOptions{Enable: true}})
+		_, err := wp1Instance.Produce(ctx, &V1Order{Key: key, Cents: cents}, &sqlstreams.ProduceOptions{MessageKey: key, Compaction: &sqlstreams.CompactionOptions{Enable: true}})
 		must(err)
 		fmt.Printf("  wrote %s cents=%d as V1Order\n", key, cents)
 	}
 
-	step("a V2Order producer registers on the same topic -- its rows carry schema_version 2")
-	wp2Instance, err := client.Topic[V2Order](name).Producer().Register(ctx, nil)
+	step("a V2Order producer registers on the same stream -- its rows carry schema_version 2")
+	wp2Instance, err := client.Stream[V2Order](name).Producer().Register(ctx, nil)
 	must(err)
 
 	step("user:1 cuts over to v2 BEFORE the bridge ever sees it (live-then-backfill)")
@@ -151,13 +151,13 @@ func run() (err error) {
 			}
 		}
 
-		meta, ok := vulkan.MetaFromContext(ctx)
+		meta, ok := sqlstreams.MetaFromContext(ctx)
 		if !ok {
 			return fmt.Errorf("no MessageMeta in context for key %q", work.Key)
 		}
-		_, err := wp2Instance.Produce(ctx, &V2Order{Key: work.Key, Cents: work.Cents, Currency: "USD"}, &vulkan.ProduceOptions{
+		_, err := wp2Instance.Produce(ctx, &V2Order{Key: work.Key, Cents: work.Cents, Currency: "USD"}, &sqlstreams.ProduceOptions{
 			MessageKey:     work.Key,
-			Compaction:     &vulkan.CompactionOptions{Enable: true, Rank: -1},
+			Compaction:     &sqlstreams.CompactionOptions{Enable: true, Rank: -1},
 			IdempotencyKey: bridgeIdempotencyKey(meta.Id),
 		})
 		if err == nil {
@@ -202,7 +202,7 @@ func run() (err error) {
 	assertInt("every v1 row still physically present -- superseded, never rewritten", rowCountAtVersion(ctx, ds, registered.Id, 1), 5)
 
 	step("the retire verdict is a query: v1 safe, v2 not")
-	health, err := client.Topic[V1Order](name).Health(ctx)
+	health, err := client.Stream[V1Order](name).Health(ctx)
 	must(err)
 	v1Health := versionHealth(health, 1)
 	assertInt("no compaction head still points at a v1 row", v1Health.CompactionHeads, 0)
@@ -216,7 +216,7 @@ func run() (err error) {
 	fmt.Printf("  verdict v2: %s\n", v2Health.Reason)
 
 	step("new readers prevent retirement; compaction heads still take precedence")
-	orders := client.Topic[V1Order](name)
+	orders := client.Stream[V1Order](name)
 	billing := orders.Consumer("schemaevolution.billing")
 	_, err = billing.Register(ctx, nil)
 	must(err)
@@ -229,7 +229,7 @@ func run() (err error) {
 	for i, version := range lagging {
 		assertInt("version ordering is unchanged", int64(version.Version), int64(health[i].Version))
 		assertInt("message count is unchanged", version.Messages, health[i].Messages)
-		assertInt("topic identity is unchanged", version.Topic.Id, registered.Id)
+		assertInt("stream identity is unchanged", version.Stream.Id, registered.Id)
 	}
 	laggingV1 := versionHealth(lagging, 1)
 	assertTrue("unread v1 is unsafe", !laggingV1.Safe)
@@ -246,8 +246,8 @@ func run() (err error) {
 
 // ---- helpers ----
 
-func liveWrite(ctx context.Context, wp *vulkan.ProducerInstance[V2Order], key string, cents int64, currency string) error {
-	_, err := wp.Produce(ctx, &V2Order{Key: key, Cents: cents, Currency: currency}, &vulkan.ProduceOptions{MessageKey: key, Compaction: &vulkan.CompactionOptions{Enable: true}})
+func liveWrite(ctx context.Context, wp *sqlstreams.ProducerInstance[V2Order], key string, cents int64, currency string) error {
+	_, err := wp.Produce(ctx, &V2Order{Key: key, Cents: cents, Currency: currency}, &sqlstreams.ProduceOptions{MessageKey: key, Compaction: &sqlstreams.CompactionOptions{Enable: true}})
 	return err
 }
 
@@ -262,9 +262,9 @@ func bridgeIdempotencyKey(sourceID int64) string {
 // ExceptionInitialBackoff keeps the crash/retry path fast instead of waiting
 // out the library's production-sized defaults; the session knobs are
 // bridgeConsumeOptions.
-func newBridgeConsumer(ctx context.Context, client *vulkan.Client, name string) *vulkan.ConsumerInstance[V1Order] {
-	cInstance, err := client.Topic[V1Order](name).Consumer(group).Register(ctx, &vulkan.ConsumerConfig{
-		Message:                 &vulkan.MessageOptions{Timeout: 2 * time.Second},
+func newBridgeConsumer(ctx context.Context, client *sqlstreams.Client, name string) *sqlstreams.ConsumerInstance[V1Order] {
+	cInstance, err := client.Stream[V1Order](name).Consumer(group).Register(ctx, &sqlstreams.ConsumerConfig{
+		Message:                 &sqlstreams.MessageOptions{Timeout: 2 * time.Second},
 		ExceptionInitialBackoff: 200 * time.Millisecond,
 	})
 
@@ -275,7 +275,7 @@ func newBridgeConsumer(ctx context.Context, client *vulkan.Client, name string) 
 // bridgeConsumeOptions - BatchLimit 1 and a single-permit pool keep the
 // bridge's own delivery order deterministic (ascending v1 id), so this e2e test's
 // stop points are reproducible; short margins keep the crash/retry path fast.
-var bridgeConsumeOptions = &vulkan.ConsumeOptions{
+var bridgeConsumeOptions = &sqlstreams.ConsumeOptions{
 	BatchLimit:              1,
 	QueueSize:               4,
 	MessageConcurrency:      1,
@@ -289,11 +289,11 @@ var bridgeConsumeOptions = &vulkan.ConsumeOptions{
 // passed the last v1 row -- a durable, DB-observed stop signal instead of a
 // timer, taken after the commit so the retire verdict below reads a settled
 // cursor.
-func waitForCommitted(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, timeout time.Duration, stop context.CancelFunc) error {
-	lastV1 := scalar(ctx, ds, fmt.Sprintf(`SELECT max(id) FROM %s.%s WHERE schema_version = 1;`, ds.Schema, topic.MessageLogTable(topicId)))
+func waitForCommitted(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, timeout time.Duration, stop context.CancelFunc) error {
+	lastV1 := scalar(ctx, ds, fmt.Sprintf(`SELECT max(id) FROM %s.%s WHERE schema_version = 1;`, ds.Schema, stream.MessageLogTable(streamId)))
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		if committed(ctx, ds, topicId) >= lastV1 {
+		if committed(ctx, ds, streamId) >= lastV1 {
 			stop()
 			return nil
 		}
@@ -307,34 +307,34 @@ func waitForCommitted(ctx context.Context, ds *iDatastore.PostgresDatastore, top
 	return nil
 }
 
-func versionHealth(all []*vulkan.TopicVersionHealth, version int) *vulkan.TopicVersionHealth {
+func versionHealth(all []*sqlstreams.StreamVersionHealth, version int) *sqlstreams.StreamVersionHealth {
 	for _, h := range all {
 		if h.Version == version {
 			return h
 		}
 	}
-	die(fmt.Sprintf("no TopicVersionHealth entry for version %d", version))
+	die(fmt.Sprintf("no StreamVersionHealth entry for version %d", version))
 	return nil
 }
 
-func committed(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64) int64 {
+func committed(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) int64 {
 	return scalar(ctx, ds, fmt.Sprintf(`
 		SELECT c.committed FROM %s.%s c
 		JOIN %s.consumer_group_config g ON g.id = c.consumer_group_id
-		WHERE g.name = $1;`, ds.Schema, topic.ConsumerGroupCursorTable(topicId), ds.Schema), group)
+		WHERE g.name = $1;`, ds.Schema, stream.ConsumerGroupCursorTable(streamId), ds.Schema), group)
 }
 
-func rowCount(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64) int64 {
-	return scalar(ctx, ds, fmt.Sprintf(`SELECT count(*) FROM %s.%s`, ds.Schema, topic.MessageLogTable(topicId)))
+func rowCount(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) int64 {
+	return scalar(ctx, ds, fmt.Sprintf(`SELECT count(*) FROM %s.%s`, ds.Schema, stream.MessageLogTable(streamId)))
 }
 
-func rowCountAtVersion(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, version int64) int64 {
-	return scalar(ctx, ds, fmt.Sprintf(`SELECT count(*) FROM %s.%s WHERE schema_version = $1`, ds.Schema, topic.MessageLogTable(topicId)), version)
+func rowCountAtVersion(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, version int64) int64 {
+	return scalar(ctx, ds, fmt.Sprintf(`SELECT count(*) FROM %s.%s WHERE schema_version = $1`, ds.Schema, stream.MessageLogTable(streamId)), version)
 }
 
-func winner(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, key string) *V2Order {
+func winner(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, key string) *V2Order {
 	var payload []byte
-	err := ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT m.payload FROM %s.%s ch JOIN %s.%s m ON m.id = ch.message_id WHERE ch.compaction_key=$1;`, ds.Schema, topic.CompactionHeadTable(topicId), ds.Schema, topic.MessageLogTable(topicId)),
+	err := ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT m.payload FROM %s.%s ch JOIN %s.%s m ON m.id = ch.message_id WHERE ch.compaction_key=$1;`, ds.Schema, stream.CompactionHeadTable(streamId), ds.Schema, stream.MessageLogTable(streamId)),
 		key).Scan(&payload)
 	must(err)
 	var v V2Order
@@ -369,8 +369,8 @@ func assertTrue(label string, cond bool) {
 	}
 	fmt.Printf("  ✓ %s\n", label)
 }
-func assertWinner(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, key string, wantCents int64, wantCurrency string) {
-	got := winner(ctx, ds, topicId, key)
+func assertWinner(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, key string, wantCents int64, wantCurrency string) {
+	got := winner(ctx, ds, streamId, key)
 	if got.Cents != wantCents || got.Currency != wantCurrency {
 		die(fmt.Sprintf("%s winner: got {%d %s}, want {%d %s}", key, got.Cents, got.Currency, wantCents, wantCurrency))
 	}

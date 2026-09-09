@@ -2,7 +2,7 @@ package main
 
 // idempotency_key concurrency e2e test: the permanent regression counterpart to
 // the throwaway pgxpool test that verified this during the idempotency_key
-// per-topic redesign -- every other idempotency e2e test only ever publishes
+// per-stream redesign -- every other idempotency e2e test only ever publishes
 // sequentially, so the claim+insert CTE's true concurrent behavior (as
 // opposed to sequential "retries") has never been exercised as a standing
 // test. Mirrors compactionheadrace's concurrent-race precedent.
@@ -19,16 +19,16 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 	"os"
 	"sync"
 	"sync/atomic"
 	"time"
 	"uuid"
 
-	"github.com/agentstax/vulkan/e2e/common"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/e2e/common"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -61,7 +61,7 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", &vulkan.PostgresConnectionConfig{
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", &sqlstreams.PostgresConnectionConfig{
 		MaxConns: 60, // headroom above both scenarios' 50 concurrent publishers
 	})
 	must(err)
@@ -84,20 +84,20 @@ func sameKeyConcurrentScenario(ctx context.Context, pool *pgxpool.Pool) {
 	step("same key, concurrent: N goroutines sharing one idempotency key must land exactly once")
 
 	const n = 50
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	topicName := fmt.Sprintf("phase9.idempotencykeysrace.same.%d", time.Now().UnixNano())
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{PartitionSize: 1000})
+	streamName := fmt.Sprintf("phase9.idempotencykeysrace.same.%d", time.Now().UnixNano())
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: 1000})
 	must(err)
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 
 	key := uuid.NewV7().String()
@@ -106,9 +106,9 @@ func sameKeyConcurrentScenario(ctx context.Context, pool *pgxpool.Pool) {
 	var duplicateCount atomic.Int64
 	for range n {
 		wg.Go(func() {
-			produced, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
+			produced, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 				return common.NewWork(30, "admin@example.com")
-			}, &vulkan.ProduceOptions{IdempotencyKey: key})
+			}, &sqlstreams.ProduceOptions{IdempotencyKey: key})
 			must(err)
 			if produced.Duplicate {
 				duplicateCount.Add(1)
@@ -121,11 +121,11 @@ func sameKeyConcurrentScenario(ctx context.Context, pool *pgxpool.Pool) {
 		die(fmt.Sprintf("%d of %d calls reported Duplicate, want %d -- exactly 1 winner", duplicateCount.Load(), n, n-1))
 	}
 	fmt.Printf("  ✓ exactly 1 of %d concurrent calls stored the message, %d reported Duplicate\n", n, n-1)
-	assertCount(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, topic.MessageLogTable(tp.Id)), 1, fmt.Sprintf("%d concurrent publishes under one shared key landed exactly 1 message", n))
-	assertCount(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, topic.IdempotencyKeyTable(tp.Id)), 1, fmt.Sprintf("%d concurrent publishes under one shared key left exactly 1 claim row", n))
+	assertCount(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, stream.MessageLogTable(tp.Id)), 1, fmt.Sprintf("%d concurrent publishes under one shared key landed exactly 1 message", n))
+	assertCount(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, stream.IdempotencyKeyTable(tp.Id)), 1, fmt.Sprintf("%d concurrent publishes under one shared key left exactly 1 claim row", n))
 
 	var exists bool
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT EXISTS(SELECT 1 FROM %s.%s WHERE idempotency_key = $1);`, ds.Schema, topic.IdempotencyKeyTable(tp.Id)), key).Scan(&exists))
+	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT EXISTS(SELECT 1 FROM %s.%s WHERE idempotency_key = $1);`, ds.Schema, stream.IdempotencyKeyTable(tp.Id)), key).Scan(&exists))
 	if !exists {
 		die("the one surviving claim row is not keyed to the idempotency key every goroutine shared")
 	}
@@ -139,36 +139,36 @@ func distinctKeysConcurrentScenario(ctx context.Context, pool *pgxpool.Pool) {
 	step("distinct keys, concurrent: N goroutines each with their own key must all land")
 
 	const n = 50
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	topicName := fmt.Sprintf("phase9.idempotencykeysrace.distinct.%d", time.Now().UnixNano())
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{PartitionSize: 1000})
+	streamName := fmt.Sprintf("phase9.idempotencykeysrace.distinct.%d", time.Now().UnixNano())
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: 1000})
 	must(err)
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 
 	var wg sync.WaitGroup
 	for range n {
 		wg.Go(func() {
 			key := uuid.NewV7().String()
-			_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
+			_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 				return common.NewWork(30, "admin@example.com")
-			}, &vulkan.ProduceOptions{IdempotencyKey: key})
+			}, &sqlstreams.ProduceOptions{IdempotencyKey: key})
 			must(err)
 		})
 	}
 	wg.Wait()
 
-	assertCount(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, topic.MessageLogTable(tp.Id)), n, fmt.Sprintf("%d concurrent publishes under %d distinct keys all landed", n, n))
-	assertCount(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, topic.IdempotencyKeyTable(tp.Id)), n, fmt.Sprintf("%d concurrent publishes under %d distinct keys left %d distinct claim rows", n, n, n))
+	assertCount(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, stream.MessageLogTable(tp.Id)), n, fmt.Sprintf("%d concurrent publishes under %d distinct keys all landed", n, n))
+	assertCount(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, stream.IdempotencyKeyTable(tp.Id)), n, fmt.Sprintf("%d concurrent publishes under %d distinct keys left %d distinct claim rows", n, n, n))
 }
 
 // ---- helpers ----

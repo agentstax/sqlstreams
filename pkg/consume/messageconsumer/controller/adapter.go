@@ -3,7 +3,7 @@ package controller
 import (
 	"uuid"
 
-	"github.com/agentstax/vulkan/pkg/consume/messageconsumer/controller/datastore"
+	"github.com/agentstax/sqlstreams/pkg/consume/messageconsumer/controller/datastore"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 

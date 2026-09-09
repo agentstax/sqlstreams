@@ -19,11 +19,11 @@ func (d *MetricDatastore) WorkerSnapshots(ctx context.Context) ([]WorkerSnapshot
 
 func (d *MetricDatastore) workerSnapshots(ctx context.Context) ([]WorkerSnapshotRow, error) {
 	sql := fmt.Sprintf(`
-		-- vulkan: metric.workerSnapshots
+		-- sqlstreams: metric.workerSnapshots
 		SELECT
 			w.name,
 			COALESCE(w.system_id, t.system_id, 0),                        -- w.system_id is NULL unless system-owned
-			COALESCE(w.topic_id, g.topic_id, 0),                          -- w.topic_id is NULL unless topic-owned
+			COALESCE(w.stream_id, g.stream_id, 0),                          -- w.stream_id is NULL unless stream-owned
 			COALESCE(w.consumer_group_id, 0),                             -- w.consumer_group_id is NULL unless group-owned
 			COALESCE(t.name, ''),
 			COALESCE(g.name, ''),
@@ -33,9 +33,9 @@ func (d *MetricDatastore) workerSnapshots(ctx context.Context) ([]WorkerSnapshot
 			COALESCE(EXTRACT(EPOCH FROM (now() - MAX(i.expires_at))), 0) AS unclaimed_for_secs  -- dead rows feed this until something deletes them
 		FROM %[1]s.worker_config w
 		LEFT JOIN %[1]s.consumer_group_config g ON g.id = w.consumer_group_id
-		LEFT JOIN %[1]s.topic_config t ON t.id = COALESCE(w.topic_id, g.topic_id)      -- group rows reach their topic through the group
+		LEFT JOIN %[1]s.stream_config t ON t.id = COALESCE(w.stream_id, g.stream_id)      -- group rows reach their stream through the group
 		LEFT JOIN %[1]s.worker_instance i ON i.worker_id = w.id
-		GROUP BY w.id, w.name, w.system_id, w.topic_id, w.consumer_group_id, w.target_instances, t.system_id, t.name, g.topic_id, g.name
+		GROUP BY w.id, w.name, w.system_id, w.stream_id, w.consumer_group_id, w.target_instances, t.system_id, t.name, g.stream_id, g.name
 		ORDER BY t.name, w.name, g.name;
 	`, d.Datastore.Schema)
 	rows, err := d.Datastore.Pool.Query(ctx, sql)
@@ -47,7 +47,7 @@ func (d *MetricDatastore) workerSnapshots(ctx context.Context) ([]WorkerSnapshot
 	var workers []WorkerSnapshotRow
 	for rows.Next() {
 		var data WorkerSnapshotRow
-		if err := rows.Scan(&data.Name, &data.SystemId, &data.TopicId, &data.ConsumerGroupId, &data.TopicName, &data.GroupName,
+		if err := rows.Scan(&data.Name, &data.SystemId, &data.StreamId, &data.ConsumerGroupId, &data.StreamName, &data.GroupName,
 			&data.TargetInstances, &data.LiveInstances, &data.MaxAttempts, &data.UnclaimedForSecs); err != nil {
 			return nil, err
 		}

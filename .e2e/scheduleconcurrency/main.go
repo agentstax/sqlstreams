@@ -9,12 +9,12 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/agentstax/vulkan/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"os"
 	"time"
 
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 type ReportRequestedV1 struct {
@@ -53,20 +53,20 @@ func run() (err error) {
 	ctx := context.Background()
 	run := time.Now().UnixNano()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 
-	topicName := fmt.Sprintf("scheduleconcurrency.reports.%d", run)
-	_, err = client.Topic[vulkan.RawPayload](topicName).Register(ctx, nil)
+	streamName := fmt.Sprintf("scheduleconcurrency.reports.%d", run)
+	_, err = client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, nil)
 	must(err)
 
 	step("RegisterSchedule returns an instance; Scheduler.Get reads the row")
 	scheduleName := fmt.Sprintf("scheduleconcurrency.nightly.%d", run)
-	nightly, err := client.Scheduler(scheduleName).Register[ReportRequestedV1](ctx, topicName, "0 3 * * *", &ReportRequestedV1{Kind: "nightly"}, nil)
+	nightly, err := client.Scheduler(scheduleName).Register[ReportRequestedV1](ctx, streamName, "0 3 * * *", &ReportRequestedV1{Kind: "nightly"}, nil)
 	must(err)
 	row, err := client.Scheduler(scheduleName).Get(ctx)
 	must(err)
@@ -123,7 +123,7 @@ func run() (err error) {
 
 	step("cleanup")
 	must(client.Scheduler(scheduleName).Destroy(ctx))
-	must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+	must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 
 	fmt.Println("\n✅ SCHEDULE CONCURRENCY E2E TEST PASSED")
 	return nil

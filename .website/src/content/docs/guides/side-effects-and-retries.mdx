@@ -17,13 +17,13 @@ undo its half but that email can't be 'unsent'. The transaction covers
 your statements and the produced message; a plain function call inside
 the closure runs the moment it's reached, and no `ROLLBACK` reaches it.
 
-Here's [the multi-topic closure](/guides/transactional-produce/#several-topics-one-commit)
+Here's [the multi-stream closure](/guides/transactional-produce/#several-streams-one-commit)
 with an email in the wrong place. Say `orderId` is `4127` and the
 customer is `jamie@example.com`:
 
 ```go
 // ❌ the email fires whether or not the commit happens
-err := client.InTransaction(ctx, func(ctx context.Context, tx vulkan.Tx) error {
+err := client.InTransaction(ctx, func(ctx context.Context, tx sqlstreams.Tx) error {
 	if _, err := tx.Exec(ctx, `UPDATE orders SET status = 'paid' WHERE id = $1`, orderId); err != nil {
 		return err
 	}
@@ -47,7 +47,7 @@ rollback either — an ambiguous commit failure surfaces as-is (see
 move is still no email.
 
 ```go
-err := client.InTransaction(ctx, func(ctx context.Context, tx vulkan.Tx) error {
+err := client.InTransaction(ctx, func(ctx context.Context, tx sqlstreams.Tx) error {
 	// statements and produces only -- everything in here can roll back
 	_, err := tx.Exec(ctx, `UPDATE orders SET status = 'paid' WHERE id = $1`, orderId)
 	return err
@@ -60,7 +60,7 @@ sendEmailConfirmation("jamie@example.com") // the commit is known here
 
 Now walk *this* failure: the process crashes after the commit, before
 the send. The payment is recorded, but the email never goes out. This is
-the [dual-write failure window](/why-vulkan/#one-commit-for-the-business-write-and-message):
+the [dual-write failure window](/why-sqlstreams/#one-commit-for-the-business-write-and-message):
 database first, side effect second.
 Make the email a message:
 
@@ -90,7 +90,7 @@ per call, so a naive rerun can produce a second message.
 ```go
 // any stable string works as the key -- here the order id already is one
 produced, err := instance.Produce(ctx, &OrderCreated{OrderId: order.Id},
-	&vulkan.ProduceOptions{IdempotencyKey: "order-created-" + order.Id})
+	&sqlstreams.ProduceOptions{IdempotencyKey: "order-created-" + order.Id})
 if err != nil {
 	return err
 }
@@ -112,11 +112,11 @@ reuse keys short. A caller-supplied key also takes the call
 out of batching: it runs in its own transaction, so a producer that
 keys every message has left the batch path under load.
 
-The claim lives for `TopicConfig.IdempotencyKeyTTL`, 24 hours by
-default, then the topic janitor sweeps it. A retry that arrives after
+The claim lives for `StreamConfig.IdempotencyKeyTTL`, 24 hours by
+default, then the stream janitor sweeps it. A retry that arrives after
 that window is a new message, not a duplicate, and nothing logs it.
 Size the TTL to your upstream's retry horizon: a webhook provider
-that retries for three days needs a three-day TTL on that topic.
+that retries for three days needs a three-day TTL on that stream.
 
 The key is an identifier and is logged as one: a duplicate publish narrates
 `idempotency_key` at Debug, and a produce failure line carries that

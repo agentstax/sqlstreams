@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/alert"
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/metric"
+	"github.com/agentstax/sqlstreams/pkg/alert"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/metric"
 )
 
 func TestEvaluateValidatesBeforeReading(t *testing.T) {
-	owner, err := common.NewTopicOwner(1, 41, "orders")
+	owner, err := common.NewStreamOwner(1, 41, "orders")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,7 +29,7 @@ func TestEvaluateValidatesBeforeReading(t *testing.T) {
 
 func TestEvaluateHistory(t *testing.T) {
 	current := time.Date(2026, time.September, 7, 10, 2, 0, 0, time.UTC)
-	owner, err := common.NewTopicOwner(1, 41, "orders")
+	owner, err := common.NewStreamOwner(1, 41, "orders")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func TestEvaluateHistory(t *testing.T) {
 			for i, age := range test.ages {
 				history.Messages = append(history.Messages, &common.StoredMessage[metric.Measurement]{
 					Id: int64(7104 - i), CreatedAt: current.Add(-age),
-					Message: &metric.Measurement{Name: metric.MetricTopicPartitions.Name, Kind: metric.MetricKindGauge, Unit: metric.MetricUnit(metric.MetricTopicPartitions.Unit), Value: test.values[i], At: current.Add(-24 * time.Hour)},
+					Message: &metric.Measurement{Name: metric.MetricStreamPartitions.Name, Kind: metric.MetricKindGauge, Unit: metric.MetricUnit(metric.MetricStreamPartitions.Unit), Value: test.values[i], At: current.Add(-24 * time.Hour)},
 				})
 			}
 			controller := &PartitionCountController{}
@@ -98,7 +98,7 @@ func TestEvaluateHistory(t *testing.T) {
 }
 
 func TestEmptyMeasurementIsNotHealthy(t *testing.T) {
-	owner, err := common.NewTopicOwner(1, 41, "orders")
+	owner, err := common.NewStreamOwner(1, 41, "orders")
 	if err != nil {
 		t.Fatal(err)
 	}

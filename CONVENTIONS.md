@@ -2,8 +2,9 @@
 
 Codebase-wide rules. Violations are bugs, not style nits.
 
-Five parts, each a reader's question: where code lives, how it reads,
-how it persists, how it reports, and what sits outside the library. A
+Six parts, each a reader's question: where code lives, how it reads,
+how it persists, how it reports, how it is tested, and what sits
+outside the library. A
 rule ending in `(checked)` is enforced by a test in `.tools/conventions`
 (`just verify`); every other rule is enforced by review. The why behind
 a rule lives in `.docs/decisions/`, indexed by `.docs/DECISION_MAP.md`;
@@ -20,7 +21,7 @@ this file states only the rule.
   package with provenance headers, take only the parts needed, keep local diffs
   to marked one-liners. Hand-roll only when nothing battle-tested fits.
 - The nested modules are the sanctioned exception -- separate modules, not
-  the library: cmd/vulkan (cobra/fang/lipgloss) and otel
+  the library: cmd/sqlstreams (cobra/fang/lipgloss) and otel
   (otel/prometheus).
 
 ## Tooling
@@ -34,7 +35,7 @@ this file states only the rule.
   tests, via `just verify`. It reads library source as data, so its
   tests run with `-count=1` or a pass caches across library edits.
 - `.tools/compat` is its own nested module so its go.mod can pin a prior
-  vulkan release; `just compat-lab` drives it.
+  sqlstreams release; `just compat-lab` drives it.
 - `.tools/codeexport` and `.tools/conventions` link every root that
   declares codes; a new declaring root is added to both.
 
@@ -47,24 +48,24 @@ Every package is exactly one of three kinds:
   `datastore`. Vocabulary and seams importable by everything.
 - **Domain** -- a `pkg/<root>` vocabulary root, its `controller` and
   `controller/datastore`, and the worker packages that maintain the
-  domain's tables (template: topic, consume). A thing domain's root is
-  named for the resource (topic, system, worker, alert, metric); an
+  domain's tables (template: stream, consume). A thing domain's root is
+  named for the resource (stream, system, worker, alert, metric); an
   activity domain's root for the verb (schedule, migrate, compaction,
   consume, produce). The root's own controller and datastore are
   `<Root>Controller` / `<Root>Datastore` (ScheduleController); a worker
   package's keep the worker's name.
 - **API package** (`producer`, `consumer`, `scheduler`, `admin`,
-  `systemmanager`, `vulkan`) -- constructors, configs, instances;
+  `systemmanager`, `sqlstreams`) -- constructors, configs, instances;
   assembles domains and workers. An activity domain's assembler is its
   agent noun (produce -> producer, consume -> consumer, schedule ->
   scheduler). Declares no codes, owns no SQL, holds no vocabulary.
-  `vulkan` is the client plus aliases: it declares Client, ClientConfig,
+  `sqlstreams` is the client plus aliases: it declares Client, ClientConfig,
   the pool and its config, the handles, and the three instance wrappers;
   every other exported name is an alias or var into the declaring package,
   and the client holds assemblers only.
 
 Admin owns assembly, cross-domain identity resolution, operation policy,
-and delegation. System bootstrap, migration dispatch, reserved-topic
+and delegation. System bootstrap, migration dispatch, reserved-stream
 protection, AllowDestroy/Force, and composed destruction guards belong
 there. A forwarding method needs no additional logic to justify its place.
 Controllers own domain verbs and persistence invariants; datastores own SQL.
@@ -97,10 +98,10 @@ once, in the lowest package that reads it, with a floor:
 - A resource declaration stays with its domain even when an assembler
   applies it across several domains; the orchestration's location does
   not determine the declaration's owner.
-- The only `type X = pkg.X` lines in the repo are pkg/vulkan/alias.go,
+- The only `type X = pkg.X` lines in the repo are pkg/sqlstreams/alias.go,
   an alias keeps its declaration's name, and the alias set is computed
-  by the closure test, never hand-kept: whatever pkg/vulkan's exported
-  surface reaches must be spelled there. pkg/vulkan imports no
+  by the closure test, never hand-kept: whatever pkg/sqlstreams's exported
+  surface reaches must be spelled there. pkg/sqlstreams imports no
   machinery. (checked)
 - A root type whose bare name is a generic noun (Kind, Status, Severity,
   Unit, Error, Expression) takes the root's noun as its prefix --
@@ -113,7 +114,7 @@ once, in the lowest package that reads it, with a floor:
 
 - `pkg/<x>` -- vocabulary: pure read-models, consts, named error
   variables, declared events and metrics, and resource declaration inputs
-  (TopicConfig, SystemConfig), including declarations applied by an assembler.
+  (StreamConfig, SystemConfig), including declarations applied by an assembler.
   Imports infrastructure and, for domain-owned data composition, other
   vocabulary roots. Root-to-root dependencies must remain acyclic; roots
   never import controllers, datastores, workers, or assemblers, except the
@@ -131,12 +132,12 @@ once, in the lowest package that reads it, with a floor:
 - Every public read-model field carries a `json:"snake_case"` tag -- the
   wire name is the field's contract, the json sibling of the datastore
   `db:` rule. Keys spell the log attribute registry's name where one exists
-  (topic, version, group, message_id); otherwise the field's own name
+  (stream, version, group, message_id); otherwise the field's own name
   snake_cased. Write shapes, configs, and instances carry no tags.
 
 ## Supported public API
 
-- `pkg/vulkan` is the supported public entry point. Its exported names and
+- `pkg/sqlstreams` is the supported public entry point. Its exported names and
   all exported fields and methods reachable through its types, aliases,
   parameters, and results belong to that contract. Moving the entry package
   later does not change this boundary.
@@ -147,9 +148,9 @@ once, in the lowest package that reads it, with a floor:
   commitment or guides presenting them as alternative public entry points.
   Do not move them to `internal/` solely to reduce the supported surface.
 - Review exposure at its source. An alias exposes its exported methods as
-  well as its fields; a declaration below `pkg/vulkan` is not exempt from
+  well as its fields; a declaration below `pkg/sqlstreams` is not exempt from
   review when reachable. The alias-closure tests verify that reachable
-  library types can be named through `vulkan`; deleting an alias while
+  library types can be named through `sqlstreams`; deleting an alias while
   leaving its type reachable is not a surface trim. Third-party types keep
   their upstream contracts.
 - Every reachable declaration states its contract in its comment; the
@@ -209,10 +210,10 @@ once, in the lowest package that reads it, with a floor:
   much.
 - Single letters are for loop indices and receivers only (`i`, `p`, `c`), and
   the receiver matches the initial of the type's FINAL word -- `d` on
-  `*TopicDatastore`, `c` on `*ControllerConfig`, `i` on `*JanitorInstance`,
+  `*StreamDatastore`, `c` on `*ControllerConfig`, `i` on `*JanitorInstance`,
   `d` on every `*Definition`. A single letter never holds a domain value.
 - Every func param carries its own explicit type, never combined
-  (`(topicId int64, version int32)`, not `(topicId, version int64)`).
+  (`(streamId int64, version int32)`, not `(streamId, version int64)`).
 
 ### Exported type suffixes
 
@@ -242,7 +243,7 @@ fields. (checked)
   concept use `<Noun>Options` (MessageOptions, CompactionOptions, AlertOptions).
 - `Data` and `Info` are not exported type suffixes. They describe
   representation without identifying the value's role. Qualify a projection
-  by its subject instead (`ScheduleGroupSummary`, `TopicVersionHealth`).
+  by its subject instead (`ScheduleGroupSummary`, `StreamVersionHealth`).
 
 ## Vocabulary
 
@@ -257,23 +258,23 @@ One registry of banned terms for the whole repo -- code identifiers,
 comments, log messages, and all user-facing prose including the doc site.
 A term is banned when it hides the mechanism behind borrowed or coined
 language; the replacement is the system's own noun in its plainest form,
-understandable to a developer who has never seen Vulkan. A new banned
+understandable to a developer who has never seen SQLStreams. A new banned
 term or approved alternative adds its row in the same change that
 surfaces it.
 
 | Banned | Why | Use instead |
 | --- | --- | --- |
-| stream (Vulkan's noun) | a second name for what the API calls a topic | topic |
-| event (Vulkan's rows) | the system's noun is message; "event" smuggles in event-sourcing expectations | message; the message log |
-| offset | Kafka's position model; Vulkan positions are ids and cursors | message id; cursor |
+| topic (SQLStreams' resource) | a second name for what the API calls a stream | stream |
+| event (SQLStreams's rows) | the system's noun is message; "event" smuggles in event-sourcing expectations | message; the message log |
+| offset | Kafka's position model; SQLStreams positions are ids and cursors | message id; cursor |
 | enqueue, publish | extra names for the API's one verb | produce |
 | subscribe | not the API's verb | consume; declare the consumer group |
 | job (the unit a consumer processes) | job-queue framing for what is a message | message |
 | cron job | a second name for the resource the API calls a schedule | schedule; "cron expression" for the string it runs on |
-| worker (a consuming process) | collides with Vulkan's own worker fleet | consumer instance; "worker" only for Vulkan's maintenance workers |
-| ack, nack | protocol jargon for a protocol Vulkan doesn't have | the handler succeeds / returns an error; the delivery is recorded |
+| worker (a consuming process) | collides with SQLStreams's own worker fleet | consumer instance; "worker" only for SQLStreams's maintenance workers |
+| ack, nack | protocol jargon for a protocol SQLStreams doesn't have | the handler succeeds / returns an error; the delivery is recorded |
 | reaper | vivid coinage for lease reclaim | "expired leases are reclaimed" |
-| visibility timeout | SQS's term for what Vulkan calls a lease | lease; lease expiry |
+| visibility timeout | SQS's term for what SQLStreams calls a lease | lease; lease expiry |
 | DLQ, dead-letter queue (as a place) | dead is a delivery status, not a separate queue | dead-lettered messages; delivery status dead |
 | door | coinage for the controller layer | API package; "the controller -- the only path to persistence" |
 | sentinel | coinage for a declared error value | named error variable; error value |
@@ -286,7 +287,7 @@ surfaces it.
 | snooze | a job-queue verb for what is a handler-requested later run | delay; `consume.Delay`, the `delays` column, `RetryPolicy.MaxDelays` |
 | allow, defer (concurrency policy values) | verbs for what the new message does; the values name what the key permits | parallel, exclusive, ordered (`deferred` stays the row status) |
 | compaction key (the message's key) | the key is a message property; compaction is one of its two readers | message key (compaction_head's own compaction_key column keeps its name) |
-| schema (a migration target) | a third sense of a word Postgres already owns; the rows a migrate command reports are the system and its topics, not schemas | name the resource -- `system`, `topic`; `schema` is the Postgres namespace and nothing else |
+| schema (a migration target) | a third sense of a word Postgres already owns; the rows a migrate command reports are the system and its streams, not schemas | name the resource -- `system`, `stream`; `schema` is the Postgres namespace and nothing else |
 | control-plane schema (the shared tables) | same collision: the shared tables are not a Postgres schema | the control-plane tables |
 
 ## Constructors & configs
@@ -320,7 +321,7 @@ surfaces it.
 - A Config holds static values only -- never a func or other runnable
   field, even an optional one. Two things that must run together are
   composed in the layer that already holds both (the
-  `vulkan.ConsumerInstance` wrapper running the system manager beside
+  `sqlstreams.ConsumerInstance` wrapper running the system manager beside
   Consume), never through a callable on a config or a runnable param.
 - Config fields order domain-first, grouped by concern with blank lines,
   ending with any per-loop retry curves (SweepRetry, TickRetry).
@@ -370,7 +371,7 @@ direct callers.
   (`time.Time`, `uuid.UUID`) pass by value; nested read-models travel as
   pointers end to end. Slices and maps are already reference-backed, so
   element types are values (`[]Data` out of datastores) unless the element
-  is itself pointer-classified (`[]*Topic`); never `[]*T` to make room for
+  is itself pointer-classified (`[]*Stream`); never `[]*T` to make room for
   nil entries.
 - Config structs are passed as `*Config` while being resolved --
   `WithDefaults()` mutates in place. A long-lived instance stores the
@@ -477,7 +478,7 @@ inside a step.
 ### The supported surface
 
 The exception to "default is no comment": every declaration a caller
-reaches through `vulkan` (the alias closure) states its contract.
+reaches through `sqlstreams` (the alias closure) states its contract.
 
 - A field WithDefaults fills ends its comment with `Default: <value>.`
   (checked)
@@ -486,7 +487,7 @@ reaches through `vulkan` (the alias closure) states its contract.
   beside it.
 - A destructive verb names what it deletes and the
   ClientConfig.AllowDestroy gate.
-- The path spelled is the caller's own (`client.Topic(name).Register`),
+- The path spelled is the caller's own (`client.Stream(name).Register`),
   never the machinery verb behind it.
 - An aliased declaration's public-contract comments stay with its owning
   declaration.
@@ -547,28 +548,28 @@ reaches through `vulkan` (the alias closure) states its contract.
 ## Tables
 
 Every table is either shared control-plane schema or a member of one
-topic's family -- never both.
+stream's family -- never both.
 
-- Shared: the catalog (system_config, topic_config, topic_config_log,
+- Shared: the catalog (system_config, stream_config, stream_config_log,
   consumer_group_config), the fleet (worker_config, worker_config_log,
   worker_instance, worker_instance_log, schedule_config, schedule_cursor), and cross-scope
   history (migration_log). Created by system createSystemTables.
-- Per-topic: everything else -- message_log, idempotency_key,
+- Per-stream: everything else -- message_log, idempotency_key,
   exception_queue, delivery_log, consumer_group_cursor, claim_lease,
   message_key_lease, compaction_head, binding_config, binding_config_log
-  -- one physical table per topic, created by topic createTopicTables.
-  Everything names them ONLY through pkg/topic's table-name funcs
-  (`topic.MessageLogTable(topicId)`) -- library code, e2e tests, and a user
+  -- one physical table per stream, created by stream createStreamTables.
+  Everything names them ONLY through pkg/stream's table-name funcs
+  (`stream.MessageLogTable(streamId)`) -- library code, e2e tests, and a user
   writing a diagnostic query alike.
-- A new table splits per-topic when every row has exactly one owning topic
+- A new table splits per-stream when every row has exactly one owning stream
   (directly or through its consumer group) and no reader needs the table
-  before knowing the topic. It stays shared when rows can exist at system
-  scope with no topic at all, or when it is the catalog that resolves
-  names to topic ids.
-- A per-topic table carries no topic_id column -- the table name is the
-  scope. A cross-topic read resolves topic ids from the catalog first,
-  then loops the per-topic tables.
-- Topic destroy DROPs the family's tables outright -- cleanup never runs
+  before knowing the stream. It stays shared when rows can exist at system
+  scope with no stream at all, or when it is the catalog that resolves
+  names to stream ids.
+- A per-stream table carries no stream_id column -- the table name is the
+  scope. A cross-stream read resolves stream ids from the catalog first,
+  then loops the per-stream tables.
+- Stream destroy DROPs the family's tables outright -- cleanup never runs
   cross-table DELETEs, and an after-destroy assertion checks table absence
   (to_regclass), never zero rows.
 
@@ -591,7 +592,7 @@ a row is about, the trailing word the table's kind. (checked)
   (consumer_group_cursor, schedule_cursor); a `_cursor` table keeps its
   own `id BIGSERIAL PRIMARY KEY` first and the owner's id as
   `NOT NULL UNIQUE`. (checked)
-- FK columns keep the resource's noun (topic_id), never the table's name.
+- FK columns keep the resource's noun (stream_id), never the table's name.
 - idempotency_key is the standing exception outside the kind set.
 - Every `_config` table carries `created_at` and `updated_at`, both
   `TIMESTAMPTZ NOT NULL DEFAULT NOW()`, as its last two columns before
@@ -624,9 +625,9 @@ a row is about, the trailing word the table's kind. (checked)
 An index is named `<table>_<columns>`: its table, then its leading
 columns in index order, as many as it takes to be distinct from the
 primary key and the table's other indexes (`worker_instance_expires_at`,
-`worker_config_name_topic_id`). A partial predicate adds nothing to the
-name. Postgres truncates names at 63 bytes, so a per-topic index checks
-its length with a ten-digit topic id. (checked)
+`worker_config_name_stream_id`). A partial predicate adds nothing to the
+name. Postgres truncates names at 63 bytes, so a per-stream index checks
+its length with a ten-digit stream id. (checked)
 
 ## SQL
 
@@ -655,11 +656,11 @@ its length with a ten-digit topic id. (checked)
 ### The literal
 
 - Every SQL literal's first line is a comment naming its owner --
-  `-- vulkan: <package>.<method>`. Constant text per query, so statement
+  `-- sqlstreams: <package>.<method>`. Constant text per query, so statement
   caching is unaffected; pg_stat_statements and the server log attribute
   load back to library verbs. (checked)
 - A SQL literal is a raw string shaped one way everywhere: opening
-  backtick then newline, the `-- vulkan:` owner comment and the statement
+  backtick then newline, the `-- sqlstreams:` owner comment and the statement
   indented one level past the declaring line, closing backtick on its own
   line at the declaring line's indent.
 - Every table a literal names is schema-qualified `%[1]s.<name>`: the
@@ -705,21 +706,21 @@ are the choices the mechanism cannot make.
 
 The whole shape, one example:
 
-    // pkg/topic/errors.go -- the declaration owns everything but the values
-    var ErrTopicNotFound = diagnostic.NewDiagnosticError("VK0005", diagnostic.RecoveryPermanent,
-    	"topic not found",
-    	"register it with Client.Topic(name).Register first")
+    // pkg/stream/errors.go -- the declaration owns everything but the values
+    var ErrStreamNotFound = diagnostic.NewDiagnosticError("SS0005", diagnostic.RecoveryPermanent,
+    	"stream not found",
+    	"register it with Client.Stream(name).Register first")
 
     // raise site -- attach values, nothing else
-    return topic.ErrTopicNotFound.With("topic", topicName, "version", version)
+    return stream.ErrStreamNotFound.With("stream", streamName, "version", version)
 
     // Error() one-liner (logs, wrapped chains) -- the code is the docs link
-    topic not found: topic "orders", version 3 -- register it with
-    Client.Topic(name).Register first [VK0005]
+    stream not found: stream "orders", version 3 -- register it with
+    Client.Stream(name).Register first [SS0005]
 
 The CLI block, slog output, and --output json render these same parts as
 fields; only the fix wording differs per surface (Go API in the library, a
-vulkan command in the CLI).
+sqlstreams command in the CLI).
 
 Error and event declaration data is private and read through accessors.
 Declare queries as trailing NewDiagnosticError/NewDiagnosticEvent arguments;
@@ -747,19 +748,19 @@ arbitrary attached application values are not deep-copied.
   declare none. Whichever layer detects the condition raises it -- admin
   for guards it composes, a datastore for facts its own query discovers.
   (checked)
-- Code = "VK" + the next four-digit serial after the current max (same
+- Code = "SS" + the next four-digit serial after the current max (same
   scheme as decision records). Never reuse or renumber; a deleted
   condition retires its number.
 - Classify recovery by one question -- can an unchanged retry succeed?
   Transient = yes; Permanent = no. Retry machinery stops immediately on
   Permanent, so a wrong Transient burns a backoff curve on a lost cause.
-- Land the docs page (…/errors/VK0005, headed by the verbatim problem
+- Land the docs page (…/errors/SS0005, headed by the verbatim problem
   text) in the same change -- readers and agents find it by pasting the
   message into search. Pages are hand-written under
   .website/src/content/docs/errors/ (never generated); a change to a
   declaration's problem, recovery, or fix updates its page in the same
   change, and the page title stays the verbatim problem text.
-- A declaration that carries diagnose queries points at `vulkan explain`
+- A declaration that carries diagnose queries points at `sqlstreams explain`
   by its own code; a query's placeholders name registered attributes,
   its columns are named, and its tables are schema-qualified. (checked)
 
@@ -798,7 +799,7 @@ arbitrary attached application values are not deep-copied.
   id-keyed query can sit side by side and whichever value the line
   carries finds one it can fill. (checked)
 - A closed set names every legal value, so the caller fixes the input
-  without opening docs; a near-miss gets offered ("a topic with a similar
+  without opening docs; a near-miss gets offered ("a stream with a similar
   name exists: \"order\"").
 - Leave the fix empty only when the code cannot know it -- never guess a
   cause or remedy.
@@ -827,7 +828,7 @@ internal invariants, same-package control-flow signals.
 - The problem-line templates, banned words, and tense rules above apply
   identically -- a plain error is the same fact minus the code, recovery,
   and registry. Before writing prose, check every root's `errors.go` (or
-  `vulkan explain`): restating a declared condition is a bug, raise the
+  `sqlstreams explain`): restating a declared condition is a bug, raise the
   Err* variable. (checked)
 - A constraint guard ends with the violating value:
   `<name> must be <constraint>, got <value>` -- %d for ints, %v for
@@ -882,14 +883,14 @@ classification question. The returned-or-logged rule is under ## Errors.
 Classify by one question -- who must act? -- the sibling of
 Transient/Permanent (can an unchanged retry succeed?).
 
-- Error: vulkan's own machinery stopped doing its job and no caller
+- Error: sqlstreams's own machinery stopped doing its job and no caller
   receives an error value -- a backoff curve exhausted, a worker
   suspended, a lock that could not be released. An operator must act.
 - Warn: degraded but self-healing, or a durable data consequence -- a
   lease reclaimed from an expired worker, a message dead-lettered,
   stored options clamped. An operator should learn of it eventually.
 - Info: lifecycle transitions and completed admin verbs only -- instance
-  started/stopped, topic registered/destroyed, partition dropped, N rows
+  started/stopped, stream registered/destroyed, partition dropped, N rows
   swept. Info volume tracks state changes, never traffic.
 - Debug: per-message and per-attempt narration -- claims, produces,
   batches, retries in progress. The domain working as designed
@@ -907,7 +908,7 @@ per row.
   interpolated into a message is a bug.
 - Problem-line rules apply verbatim: the banned words, tense follows the
   fact (a self-healing failure reads "could not <verb>"; a completed
-  transition reads past participle -- "topic registered", "lease
+  transition reads past participle -- "stream registered", "lease
   reclaimed"), consequence or next action after ` -- `. (checked)
 - Nothing branches or filters on message text -- not code, not e2e tests.
   E2E tests assert on log events by level and attributes through a counting
@@ -925,13 +926,13 @@ the code is the line's breadcrumb to its own explanation.
 
 - Declare in the owning vocabulary package's events.go via
   diagnostic.NewDiagnosticEvent(code, message, consequence) -- the codes
-  share the errors' VK serial space, next four-digit serial after the
+  share the errors' SS serial space, next four-digit serial after the
   current max across both registries.
 - Call sites log the declaration's Message() and attach `"code",
   Event.GetCode()` as the first attribute pair -- the message stays
   static, the code is the greppable pointer.
 - Land the hand-written docs page (same /errors/ path) in the same
-  change; `vulkan explain` lists events beside errors.
+  change; `sqlstreams explain` lists events beside errors.
 - The message follows the ### Messages grammar; the consequence clause
   is fixed at declaration, never at the call site.
 
@@ -952,19 +953,19 @@ placeholder not in this table is a bug. (checked)
 | `hint` | the alert's hint clause |
 | `severity` | the alert's severity |
 | `message` | a buffered record's own message, inside a `preceding` group attribute |
-| `topic` | topic name |
-| `topic_id` | topic id |
-| `topics` | the topic names a guard names, comma-separated |
-| `new_name` | a rename's target topic name |
-| `declared_partition_size`, `existing_partition_size` | the PartitionSize a declaration carries against the one the topic row already holds |
-| `version` | schema version (on VK0022/VK0023: the scope's current migration version) |
+| `stream` | stream name |
+| `stream_id` | stream id |
+| `streams` | the stream names a guard names, comma-separated |
+| `new_name` | a rename's target stream name |
+| `declared_partition_size`, `existing_partition_size` | the PartitionSize a declaration carries against the one the stream row already holds |
+| `version` | schema version (on SS0022/SS0023: the scope's current migration version) |
 | `build_version` | the migration version a build defines for a scope |
 | `min_compatible_version` | the strictest MinCompatibleVersion among the applied migration steps |
 | `group` | consumer group name |
 | `group_id` | consumer group id |
 | `session` | consumer session id -- one Consume call's uuid |
 | `system_id` | system id |
-| `schema` | the Postgres schema vulkan's tables live in |
+| `schema` | the Postgres schema sqlstreams's tables live in |
 | `owner` | owner name (Owner.Name) |
 | `owner_kind` | owner kind (Owner.Kind()) |
 | `worker` | worker name |
@@ -985,8 +986,8 @@ placeholder not in this table is a bug. (checked)
 | `duration` | elapsed wall time of the operation the line reports |
 | `lease_remaining` | time until a queued message's range lease expires; negative after expiry |
 | `threshold` | the configured duration ceiling the line compares against |
-| `vulkan_version` | module version (common.BuildVersion) -- start lines |
-| `help` | plain words ending in the verbatim command that explains the line ("metrics explained: vulkan explain VK0041") -- summary lines only |
+| `sqlstreams_version` | module version (common.BuildVersion) -- start lines |
+| `help` | plain words ending in the verbatim command that explains the line ("metrics explained: sqlstreams explain SS0041") -- summary lines only |
 | `<verb>_count` | rows affected by the named action (swept_count, reclaimed_count, dead_count) |
 | `suppressed_count` | repeats of the same Warn/Error line dropped inside the suppression window |
 
@@ -1032,20 +1033,148 @@ trailing `help` attribute, so the line itself points at its explanation.
   per-delivery dispatch, the worker tick; a new operation shape adds its
   boundary when built.
 
-# Part 5 -- Outside the library
+# Part 5 -- How code is tested
+
+## Test kinds
+
+Every test is exactly one of three kinds, named by footprint:
+
+- A **pure test** runs in one process with no I/O and no wait on the
+  clock: no connection, no `time.Sleep`, no goroutine blocked on a timer
+  outside a `testing/synctest` bubble.
+- A **database test** runs in one process against a real Postgres, in a
+  schema the fixture creates for it and drops at cleanup.
+- An **e2e test** is a program under `.e2e/`, and exists only because a
+  database test cannot observe the behavior: a second process, a signal,
+  a killed backend, or a controlled Postgres server.
+
+Pure and database tests live in `_test.go` files beside the code they
+test and run under `go test ./...`; a database test skips with a visible
+message when `SQLSTREAMS_TEST_DATABASE_URL` is unset, never through a build
+tag. The reliability lab (`.bench/reliability`) is the whole-system
+layer and keeps its own rules; `.tools/conventions` tests the rule
+sheet, not the library.
+
+- The lowest kind that can observe the behavior is the kind. A behavior a
+  higher kind catches with no lower kind failing gets the lower test
+  written; a higher test that duplicates a lower one is deleted.
+- Postgres is never faked, mocked, or stood in for: the behavior under
+  test is the lock manager and MVCC, and no in-memory datastore exists.
+- `testing/synctest` is for pure tests of in-process timing (a flush
+  timer, the suppression window, a retry curve). A goroutine blocked on
+  Postgres is never durably blocked, so a bubble cannot host a database
+  call; a loop's body is a synchronous function a test calls directly.
+
+## What a test earns its place by
+
+A test states, in its name or its first comment, which of four reasons
+it exists for:
+
+- behavior -- a caller or operator can observe the outcome at a public
+  boundary: a `sqlstreams` handle verb, a controller verb, a log line's
+  level and code, a CLI exit status.
+- invariant -- a fact SQL enforces that a rewrite could silently lose:
+  no loss, one live lease, the monotonic cursor, the snapshot fence,
+  per-key order, idempotent produce, crash consistency.
+- regression -- it fails before the fix and passes after.
+- closed set -- a table over every legal value (SQLSTATE
+  classification, error rendering per surface, cron expressions).
+
+A test is deleted, not fixed, when it restates the code (asserts a call
+sequence, matches error text, compares a whole internal row), guards a
+constructor nil check or a Validate branch with no constraint math,
+cannot name its invariant, or flakes. A flaky test is skipped the day it
+flakes with the reason in the skip text, and made deterministic or
+deleted within the milestone. There is no coverage target.
+
+## Test shape
+
+One shape per kind, the same in every module.
+
+- `testing` from the standard library and nothing else: no assertion
+  library, mock generator, container library, clock library, or leak
+  checker, in any module.
+- A failure line reads got-before-want and names the verb and its
+  input: `Verb(%v) = %v, want %v`. Structs compare with
+  `reflect.DeepEqual` and print with `%+v`. Errors branch with
+  `errors.Is` against the `Err*` variable, never message text.
+- `t.Fatal` for setup and for any step later steps depend on; `t.Error`
+  for independent checks in one case; never either from a goroutine the
+  test spawned -- send to a channel the test reads.
+- A closed set is table-driven under `t.Run` with a name per case,
+  never an index. A multi-step database narrative (claim, hold a
+  transaction, claim again) is one sequential test with no table.
+- A test name is a sentence in the repo's nouns:
+  `TestEmptyClaimPersistsPendingObservation`.
+- A helper takes `testing.TB`, calls `t.Helper()`, registers teardown
+  with `t.Cleanup`, and fails only for setup. Assertion helpers are not
+  written: the failure line belongs in the test function.
+- A test never sleeps for work to happen. It reads a channel the handler
+  closes, or polls through the fixture's `WaitFor`, whose deadline fails
+  with the last error.
+- A database test is in-package by default; one that needs the real
+  table set is an external test package (`package datastore_test`)
+  built through the fixture, reaching internals through
+  `export_test.go`. Tests create tables only through the real
+  registration verbs, never a copy of `CREATE TABLE` text -- the DDL
+  sibling of "tests call the real datastore methods, never a copy of
+  their SQL".
+- Time is config: a test sets intervals and lease durations short and
+  observes through `WaitFor`; there is no clock seam.
+- No `t.Parallel()`; no goroutine-count assertions.
+
+## The fixture package
+
+`pkg/sqlstreamstest` is the one fixture, published so a user's handler tests
+use what the library's own tests use:
+
+- `NewDatastore(t)` -- a `*datastore.PostgresDatastore` bound to a fresh
+  schema in the database `SQLSTREAMS_TEST_DATABASE_URL` names, dropped at
+  cleanup; skips when the variable is unset.
+- `NewClient(t)` -- `NewDatastore` plus system registration through the
+  public client, so tables come from the migration registry.
+- `WaitFor(t, condition)` -- the deadline poller.
+- `NewCountingLogger()` -- the `logging.Logger` that counts by level and
+  code, the one shape for log assertions.
+
+It holds test verbs only, declares no codes, owns no SQL beyond the
+schema create and drop, and is the only package that reads a
+`SQLSTREAMS_TEST_*` variable. Its exported names are supported surface under
+## Supported public API.
+
+## Running tests
+
+- `go test ./...` with no variable set runs every pure test and skips
+  every database test visibly; with `SQLSTREAMS_TEST_DATABASE_URL` set it
+  runs both. Per change, the test cache stays on.
+- `just verify` runs `go test -race -count=1 -shuffle=on` in every
+  module that has tests, against the dev Postgres; CI provides one.
+- `-race` is on everywhere; a test whose memory makes that impossible
+  moves to a no-race lane by name.
 
 ## E2E tests
 
-- End-to-end tests and their support programs live under `.e2e/`, in their own
-  dev-only module. The root Justfile exposes the tests as `*-e2e` recipes.
-- An e2e test that hand-copies a production query (EXPLAIN demos) goes silently
-  stale when the real query changes -- grep e2e tests for mirrors whenever a
-  production query moves. Prefer driving the real datastore method.
+- End-to-end tests and their support programs live under `.e2e/`, in
+  their own dev-only module. The root Justfile exposes the tests as
+  `*-e2e` recipes.
+- Every program is `run() error` recovering one private failure value
+  and exiting 1; `must`, `die`, `assert`, and the pool from
+  `SQLSTREAMS_TEST_DATABASE_URL` come from `.e2e/common`, never a private
+  copy.
+- A new single-process scenario is a database test, not an e2e program.
+- E2E tests assert on log events by level and attributes through the
+  fixture's counting logger, never by matching message substrings.
+- An e2e test that hand-copies a production query (EXPLAIN demos) goes
+  silently stale when the real query changes -- grep e2e tests for
+  mirrors whenever a production query moves. Prefer driving the real
+  datastore method.
+
+# Part 6 -- Outside the library
 
 ## Playground examples
 
 - Runnable user examples live under `.examples/`, in their own dev-only module.
-- Create each topic handle once and reuse it for registration and operations.
+- Create each stream handle once and reuse it for registration and operations.
 - Handles use domain names (`uploads`, `transcoder`); registered instances use
   activity names (`producer`, `consumer`, `scheduler`). Qualify instance names
   when several of the same kind exist (`uploadsProducer`, `usageProducer`).

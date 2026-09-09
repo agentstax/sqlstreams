@@ -3,16 +3,16 @@ package main
 // Phase 8a e2e test (c): the low-volume tail -- a partition that never fills wide
 // enough to earn a whole-partition drop still needs its expired rows to leave.
 //
-// Registers its own topic at the real migration-shipped partition width
+// Registers its own stream at the real migration-shipped partition width
 // (1,000,000), destroyed on exit -- staying under that width (never rolling to
 // a second partition) is exactly the condition the sweep exists to cover, so no
-// schema swap is needed, unlike partition/dropfloor. A dedicated topic
+// schema swap is needed, unlike partition/dropfloor. A dedicated stream
 // also means this e2e test's own cursorFloor is isolated from every other e2e test and
 // group sharing the dev DB, so unlike the pre-8b version it no longer needs to
 // force AllowDropPastCommitted=true just to dodge a floor some unrelated
 // group's leftover state might be pinning.
 //
-// Confirms: DropExpiredPartitions is a no-op here (the topic's first partition
+// Confirms: DropExpiredPartitions is a no-op here (the stream's first partition
 // is still active, nowhere near partitionSize, so the whole-partition path
 // never engages at this volume) while SweepExpiredPartitions deletes exactly
 // the expired prefix and leaves the fresher rows and the partition itself
@@ -21,14 +21,14 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 	"os"
 	"time"
 
-	"github.com/agentstax/vulkan/e2e/common"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	janitordatastore "github.com/agentstax/vulkan/pkg/topic/janitor/controller/datastore"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/e2e/common"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	janitordatastore "github.com/agentstax/sqlstreams/pkg/stream/janitor/controller/datastore"
 )
 
 const (
@@ -67,23 +67,23 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	topicName := fmt.Sprintf("phase8a.sweep.%d", time.Now().UnixNano())
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{PartitionSize: partitionSize})
+	streamName := fmt.Sprintf("phase8a.sweep.%d", time.Now().UnixNano())
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: partitionSize})
 	must(err)
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 	janitorDatastore, err := janitordatastore.NewJanitorDatastore(ds, ds.Logger)
 	must(err)
@@ -103,7 +103,7 @@ func run() (err error) {
 	}
 	fmt.Printf("  old ids (%d,%d], fresh ids (%d,%d]\n", oldLow, oldHigh, freshLow, freshHigh)
 
-	step("DropExpiredPartitions -- no-op, the topic's first partition is still active at this volume")
+	step("DropExpiredPartitions -- no-op, the stream's first partition is still active at this volume")
 	must(janitorDatastore.DropExpiredPartitions(ctx, tp.Id, partitionSize, ttl, true, tp.DeliveryLogMode))
 	assertInt("partition 0 survives", partitionCount(ctx, ds, tp.Id), 1)
 	assertInt("old rows untouched by drop", countInRange(ctx, ds, tp.Id, oldLow, oldHigh), 4)
@@ -123,27 +123,27 @@ func run() (err error) {
 
 // ---- helpers ----
 
-func publish(ctx context.Context, wpInstance *vulkan.ProducerInstance[common.Work]) {
-	_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
+func publish(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[common.Work]) {
+	_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 		return common.NewWork(30, "admin@example.com")
 	}, nil)
 	must(err)
 }
 
-func head(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64) int64 {
-	return scalar(ctx, ds, fmt.Sprintf(`SELECT COALESCE(MAX(id), 0) FROM %s.%s`, ds.Schema, topic.MessageLogTable(topicId)))
+func head(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) int64 {
+	return scalar(ctx, ds, fmt.Sprintf(`SELECT COALESCE(MAX(id), 0) FROM %s.%s`, ds.Schema, stream.MessageLogTable(streamId)))
 }
 
-func countInRange(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId, low, high int64) int64 {
-	return scalar(ctx, ds, fmt.Sprintf(`SELECT count(*) FROM %s.%s WHERE id > $1 AND id <= $2`, ds.Schema, topic.MessageLogTable(topicId)), low, high)
+func countInRange(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId, low, high int64) int64 {
+	return scalar(ctx, ds, fmt.Sprintf(`SELECT count(*) FROM %s.%s WHERE id > $1 AND id <= $2`, ds.Schema, stream.MessageLogTable(streamId)), low, high)
 }
 
-func partitionCount(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64) int64 {
+func partitionCount(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) int64 {
 	return scalar(ctx, ds, fmt.Sprintf(`
 		SELECT count(*) FROM pg_inherits i
 		JOIN pg_class c ON c.oid = i.inhrelid
 		WHERE i.inhparent = '%s.%s'::regclass;
-	`, ds.Schema, topic.MessageLogTable(topicId)))
+	`, ds.Schema, stream.MessageLogTable(streamId)))
 }
 
 func scalar(ctx context.Context, ds *iDatastore.PostgresDatastore, q string, args ...any) int64 {

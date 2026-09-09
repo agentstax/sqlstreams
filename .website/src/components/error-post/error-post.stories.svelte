@@ -7,9 +7,9 @@
 		title: 'Board/ErrorPost',
 		component: ErrorPost,
 		args: {
-			code: 'VK0005',
+			code: 'SS0005',
 			rank: 'Permanent error',
-			reportHref: 'https://github.com/agentstax/vulkan/issues/new',
+			reportHref: 'https://github.com/agentstax/sqlstreams/issues/new',
 			actions: null,
 		},
 	});

@@ -260,7 +260,7 @@ preprocessor, no utility framework, no third-party token pack.
   Troubleshooting (code lookup), Compare, Decision records. A thread
   joins the board of its kind; one that fits two boards is two threads.
 - Page size has mechanical triggers, not taste [0679]: a guide or
-  concept thread splits past six H2s or roughly 1,500 words; a topic
+  concept thread splits past six H2s or roughly 1,500 words; a stream
   under three sentences folds into its neighbor; a reference thread may
   run long but never mixes kinds. A thread that has become several kinds
   of page (a tutorial, an explanation, a reference, a changelog) splits
@@ -290,7 +290,7 @@ preprocessor, no utility framework, no third-party token pack.
   the delivery states`, never `learn more`). Review this as prose: there is
   no link quota, generated related-thread box, or mechanically added link.
 - Vale runs in CI with the Google developer-docs style plus the
-  Vulkan style; the Vulkan substitution rule mirrors the root
+  SQLStreams style; the SQLStreams substitution rule mirrors the root
   ## Vocabulary table, and a new vocabulary row updates the Vale rule
   in the same change. Code blocks are exempt (IgnoredScopes = code).
 
@@ -314,7 +314,7 @@ preprocessor, no utility framework, no third-party token pack.
 
 - The compat widget reads a build-time JSON export of the migration
   registry -- the gate logic is never reimplemented in TS.
-- An embedded SQL literal keeps its `-- vulkan: <package>.<method>`
+- An embedded SQL literal keeps its `-- sqlstreams: <package>.<method>`
   first line and is drift-checked against the Go source in CI; a
   diverged literal is a failing build.
 - Every number on the site is real or absent -- no invented member

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/.bench/reliability/checker"
+	"github.com/agentstax/sqlstreams/.bench/reliability/checker"
 )
 
 // RunChecker judges the run from the record files the other roles left and

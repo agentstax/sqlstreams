@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/alert"
-	"github.com/agentstax/vulkan/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/alert"
+	"github.com/agentstax/sqlstreams/pkg/common"
 )
 
 // The crossing decision is the caller's -- an alert built below threshold is
@@ -18,9 +18,9 @@ func newPartitionCountAlert(owner *common.Owner, count int64, ceiling int64, thr
 		return nil, fmt.Errorf("count %d is below threshold %d", count, threshold)
 	}
 
-	message := fmt.Sprintf("topic %q has %d partitions, approaching the lock-table ceiling (~%d)", owner.Name, count, ceiling)
-	detail := `Dropping or destroying the topic locks ~5 relations per partition in one transaction; past the ceiling that fails with "out of shared memory".`
-	hint := "Lower the topic's retention so the janitor drops old partitions, or raise max_locks_per_transaction."
+	message := fmt.Sprintf("stream %q has %d partitions, approaching the lock-table ceiling (~%d)", owner.Name, count, ceiling)
+	detail := `Dropping or destroying the stream locks ~5 relations per partition in one transaction; past the ceiling that fails with "out of shared memory".`
+	hint := "Lower the stream's retention so the janitor drops old partitions, or raise max_locks_per_transaction."
 	data := map[string]any{
 		"partition_count": count,
 		"lock_ceiling":    ceiling,

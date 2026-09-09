@@ -5,28 +5,28 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 	"github.com/jackc/pgx/v5"
 )
 
 // Claim claims 'ready', expired 'inflight', and 'deferred' rows whose
 // failures (attempts - delays) are under maxRetries. A leased message key
 // excludes its rows.
-func (d *ExceptionConsumerGroupDatastore) Claim(ctx context.Context, topicId int64, groupId int64, schemaVersion int64, limit int, maxRetries int, leaseDuration time.Duration, deliveryLogMode topic.DeliveryLogMode) ([]ExceptionQueueRow, error) {
+func (d *ExceptionConsumerGroupDatastore) Claim(ctx context.Context, streamId int64, groupId int64, schemaVersion int64, limit int, maxRetries int, leaseDuration time.Duration, deliveryLogMode stream.DeliveryLogMode) ([]ExceptionQueueRow, error) {
 	var claimed []ExceptionQueueRow
 	err := d.DatastoreRetry.Wrap(ctx, func() error {
 		var err error
-		claimed, err = d.claim(ctx, topicId, groupId, schemaVersion, limit, maxRetries, leaseDuration, deliveryLogMode)
+		claimed, err = d.claim(ctx, streamId, groupId, schemaVersion, limit, maxRetries, leaseDuration, deliveryLogMode)
 		return err
 	})
 	return claimed, err
 }
 
-func (d *ExceptionConsumerGroupDatastore) claim(ctx context.Context, topicId int64, groupId int64, schemaVersion int64, limit int, maxRetries int, leaseDuration time.Duration, deliveryLogMode topic.DeliveryLogMode) ([]ExceptionQueueRow, error) {
+func (d *ExceptionConsumerGroupDatastore) claim(ctx context.Context, streamId int64, groupId int64, schemaVersion int64, limit int, maxRetries int, leaseDuration time.Duration, deliveryLogMode stream.DeliveryLogMode) ([]ExceptionQueueRow, error) {
 	var claimSql string
-	if deliveryLogMode == topic.DeliveryLogModeOff {
+	if deliveryLogMode == stream.DeliveryLogModeOff {
 		claimSql = fmt.Sprintf(`
-			-- vulkan: exceptionconsumer.claim
+			-- sqlstreams: exceptionconsumer.claim
 			WITH claimed AS (
 				UPDATE %[1]s.%[2]s
 				SET
@@ -79,7 +79,7 @@ func (d *ExceptionConsumerGroupDatastore) claim(ctx context.Context, topicId int
 			)
 			SELECT
 				c.consumer_group_id,
-				$4::bigint AS topic_id,
+				$4::bigint AS stream_id,
 				c.message_id,
 				c.attempts,
 				c.delays,
@@ -95,13 +95,13 @@ func (d *ExceptionConsumerGroupDatastore) claim(ctx context.Context, topicId int
 			FROM claimed c
 			JOIN %[1]s.%[3]s m ON m.id = c.message_id
 			ORDER BY c.message_id;
-		`, d.Datastore.Schema, topic.ExceptionQueueTable(topicId), topic.MessageLogTable(topicId), topic.MessageKeyLeaseTable(topicId))
+		`, d.Datastore.Schema, stream.ExceptionQueueTable(streamId), stream.MessageLogTable(streamId), stream.MessageKeyLeaseTable(streamId))
 	} else {
 		// eligible is split out so it can remember each row's pre-claim status
 		// and attempts -- the expired_logged CTE needs both, atomically with
 		// the claim itself.
 		claimSql = fmt.Sprintf(`
-			-- vulkan: exceptionconsumer.claim
+			-- sqlstreams: exceptionconsumer.claim
 			WITH eligible AS (
 				SELECT d.consumer_group_id, d.message_id, d.status, d.attempts
 				FROM %[1]s.%[2]s d
@@ -164,7 +164,7 @@ func (d *ExceptionConsumerGroupDatastore) claim(ctx context.Context, topicId int
 			)
 			SELECT
 				c.consumer_group_id,
-				$4::bigint AS topic_id,
+				$4::bigint AS stream_id,
 				c.message_id,
 				c.attempts,
 				c.delays,
@@ -180,10 +180,10 @@ func (d *ExceptionConsumerGroupDatastore) claim(ctx context.Context, topicId int
 			FROM claimed c
 			JOIN %[1]s.%[3]s m ON m.id = c.message_id
 			ORDER BY c.message_id;
-		`, d.Datastore.Schema, topic.ExceptionQueueTable(topicId), topic.MessageLogTable(topicId), topic.DeliveryLogTable(topicId), topic.MessageKeyLeaseTable(topicId))
+		`, d.Datastore.Schema, stream.ExceptionQueueTable(streamId), stream.MessageLogTable(streamId), stream.DeliveryLogTable(streamId), stream.MessageKeyLeaseTable(streamId))
 	}
 
-	rows, err := d.Datastore.Pool.Query(ctx, claimSql, groupId, limit, leaseDuration.Seconds(), topicId, maxRetries, schemaVersion)
+	rows, err := d.Datastore.Pool.Query(ctx, claimSql, groupId, limit, leaseDuration.Seconds(), streamId, maxRetries, schemaVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +205,7 @@ func (d *ExceptionConsumerGroupDatastore) RenewLease(ctx context.Context, except
 
 func (d *ExceptionConsumerGroupDatastore) renewLease(ctx context.Context, exception *ExceptionQueueRow, duration time.Duration) (bool, error) {
 	sql := fmt.Sprintf(`
-		-- vulkan: exceptionconsumer.renewLease
+		-- sqlstreams: exceptionconsumer.renewLease
 		UPDATE %[1]s.%[2]s
 		SET
 			lease_expires_at = now() + make_interval(secs => $4),
@@ -213,7 +213,7 @@ func (d *ExceptionConsumerGroupDatastore) renewLease(ctx context.Context, except
 		WHERE consumer_group_id = $1
 			AND message_id = $2
 			AND lease_token = $3;
-	`, d.Datastore.Schema, topic.ExceptionQueueTable(exception.TopicId))
+	`, d.Datastore.Schema, stream.ExceptionQueueTable(exception.StreamId))
 
 	tag, err := d.Datastore.Pool.Exec(ctx, sql, exception.ConsumerGroupId, exception.MessageId, exception.LeaseToken, duration.Seconds())
 	if err != nil {

@@ -7,8 +7,8 @@ import (
 	"math/rand/v2"
 	"os"
 
-	"github.com/agentstax/vulkan/e2e/common"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/e2e/common"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 func main() {
@@ -27,48 +27,48 @@ func run() error {
 	// -routing-key key
 	routingKeyPtr := flag.String("routing-key", "", "routing key attached to each message (optional)")
 
-	// -topic name
-	topicPtr := flag.String("topic", "learning.v1", "topic to publish to (this command declares it -- the other examples only read it)")
+	// -stream name
+	streamPtr := flag.String("stream", "learning.v1", "stream to publish to (this command declares it -- the other examples only read it)")
 
 	// must always parse
 	flag.Parse()
 
-	fmt.Printf("count: %d, routing-key: %q, topic: %q\n", *countPtr, *routingKeyPtr, *topicPtr)
+	fmt.Printf("count: %d, routing-key: %q, stream: %q\n", *countPtr, *routingKeyPtr, *streamPtr)
 
 	// SETUP
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	if err != nil {
 		return err
 	}
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	if err != nil {
 		return err
 	}
 
-	t, err := client.Topic[vulkan.RawPayload](*topicPtr).Register(ctx, &vulkan.TopicConfig{})
+	t, err := client.Stream[sqlstreams.RawPayload](*streamPtr).Register(ctx, &sqlstreams.StreamConfig{})
 	if err != nil {
 		return err
 	}
 
-	wpInstance, err := client.Topic[common.Work](t.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[common.Work](t.Name).Producer().Register(ctx, nil)
 	if err != nil {
 		return err
 	}
 
 	// WORK
 	for range *countPtr {
-		produced, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
+		produced, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 			work, err := common.NewWork(rand.IntN(100), "admin@example.com")
 			if err != nil {
 				return nil, err
 			}
 
 			return work, nil
-		}, &vulkan.ProduceOptions{RoutingKey: *routingKeyPtr})
+		}, &sqlstreams.ProduceOptions{RoutingKey: *routingKeyPtr})
 		if err != nil {
 			return err
 		}

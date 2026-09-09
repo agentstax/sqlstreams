@@ -51,7 +51,7 @@ variable and holds the one `must` / `die` / `assert` set.
 The four existing variable names collapse into one. `claim_test.go` moves
 to an external test package over `NewClient` and keeps its narratives. The
 four exported verbs are supported surface and the alias-closure test treats
-the package as reachable. The reference page `/reference/vulkantest/` is
-the spec and stays marked proposed until the package ships; CI gains a
+the package as reachable. CONVENTIONS Part 5's fixture section is the
+spec; the site carries no page for the package until it ships. CI gains a
 Postgres service in the change that lands the first test on the fixture.
 The project rename [0725] carries the package name with it.

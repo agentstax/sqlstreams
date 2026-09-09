@@ -1,6 +1,6 @@
 package main
 
-// Scenario 13 -- a compacted topic used as a key/value store.
+// Scenario 13 -- a compacted stream used as a key/value store.
 //
 // One current processing document per video id. Read the current value,
 // write a new one, and increment its attempt count safely under concurrent
@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"os"
 
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 type VideoProcessingStateV1 struct {
@@ -31,21 +31,21 @@ func main() {
 }
 
 func run() error {
-	ctx, stop := vulkan.LifecycleContext(nil)
+	ctx, stop := sqlstreams.LifecycleContext(nil)
 	defer stop()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	if err != nil {
 		return err
 	}
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, nil)
+	client, err := sqlstreams.NewClient(ctx, pool, nil)
 	if err != nil {
 		return err
 	}
 
-	states := client.Topic[VideoProcessingStateV1]("videos.processing-state")
+	states := client.Stream[VideoProcessingStateV1]("videos.processing-state")
 	_, err = states.Register(ctx, nil)
 	if err != nil {
 		return err
@@ -60,12 +60,12 @@ func run() error {
 
 	// Put
 	_, err = producer.Produce(ctx, &VideoProcessingStateV1{VideoId: "video-42", Stage: "transcoding", Attempts: 1},
-		&vulkan.ProduceOptions{MessageKey: "video-42", Compaction: &vulkan.CompactionOptions{Enable: true}})
+		&sqlstreams.ProduceOptions{MessageKey: "video-42", Compaction: &sqlstreams.CompactionOptions{Enable: true}})
 	if err != nil {
 		return err
 	}
 
-	// Get (outside a transaction) -- the topic handle's read
+	// Get (outside a transaction) -- the stream handle's read
 	current, err := video.CompactionHead(ctx)
 	if err != nil {
 		return err
@@ -73,7 +73,7 @@ func run() error {
 	fmt.Printf("current: id=%d stage=%s attempts=%d\n", current.Id, current.Message.Stage, current.Message.Attempts)
 
 	// Update (compare-and-set): lock the head, write the next version
-	if err := client.InTransaction(ctx, func(ctx context.Context, tx vulkan.Tx) error {
+	if err := client.InTransaction(ctx, func(ctx context.Context, tx sqlstreams.Tx) error {
 		head, err := video.LockCompactionHead(ctx, tx)
 		if err != nil {
 			return err
@@ -83,7 +83,7 @@ func run() error {
 			next = *head.Message
 		}
 		next.Attempts++
-		_, err = producer.ProduceInTx(ctx, tx, &next, &vulkan.ProduceOptions{MessageKey: "video-42", Compaction: &vulkan.CompactionOptions{Enable: true}})
+		_, err = producer.ProduceInTx(ctx, tx, &next, &sqlstreams.ProduceOptions{MessageKey: "video-42", Compaction: &sqlstreams.CompactionOptions{Enable: true}})
 		return err
 	}); err != nil {
 		return err

@@ -17,7 +17,7 @@ func (d *WorkerDatastore) CurrentTime(ctx context.Context) (time.Time, error) {
 
 func (d *WorkerDatastore) currentTime(ctx context.Context) (time.Time, error) {
 	sql := `
-		-- vulkan: worker.currentTime
+		-- sqlstreams: worker.currentTime
 		SELECT now();
 	`
 	var current time.Time

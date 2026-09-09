@@ -6,7 +6,7 @@
 		title: 'Board/CodeFacts',
 		component: CodeFacts,
 		args: {
-			code: 'VK0005',
+			code: 'SS0005',
 			classification: 'recovery permanent',
 			consequence: 'an unchanged retry cannot succeed; retry machinery stops immediately',
 		},
@@ -18,7 +18,7 @@
 <Story
 	name="Event"
 	args={{
-		code: 'VK0028',
+		code: 'SS0028',
 		classification: 'log event at warn',
 		consequence:
 			'degraded but self-healing, or a durable data consequence; an operator should learn of it eventually',

@@ -3,7 +3,7 @@ title: Ordered Delivery per Key
 description: Configure a consumer group to process each key in id order, including retries, and inspect messages waiting behind a failure.
 ---
 
-Set `ConsumerConfig.ConcurrencyOverride` to `vulkan.ConcurrencyOrdered`
+Set `ConsumerConfig.ConcurrencyOverride` to `sqlstreams.ConcurrencyOrdered`
 and give every ordered message a `MessageKey`. The group then waits for
 earlier same-key deliveries to resolve before starting later ones.
 
@@ -12,22 +12,22 @@ earlier same-key deliveries to resolve before starting later ones.
 The `apply-balance` group processes deltas on `ledger.adjustments`:
 
 ```go
-adjustments := client.Topic[BalanceAdjusted]("ledger.adjustments")
+adjustments := client.Stream[BalanceAdjusted]("ledger.adjustments")
 ledger := adjustments.Consumer("apply-balance")
-consumer, err := ledger.Register(ctx, &vulkan.ConsumerConfig{
-	ConcurrencyOverride: vulkan.ConcurrencyOrdered,
+consumer, err := ledger.Register(ctx, &sqlstreams.ConsumerConfig{
+	ConcurrencyOverride: sqlstreams.ConcurrencyOrdered,
 })
 if err != nil {
 	return err
 }
 ```
 
-Assuming the topic and producer are registered, produce each delta with
+Assuming the stream and producer are registered, produce each delta with
 its account key:
 
 ```go
 produced, err := producer.Produce(ctx, &BalanceAdjusted{Account: "acct-42", Delta: -500},
-	&vulkan.ProduceOptions{MessageKey: "acct-42"})
+	&sqlstreams.ProduceOptions{MessageKey: "acct-42"})
 if err != nil {
 	return err
 }
@@ -40,7 +40,7 @@ compares the three policies and the per-message alternative.
 
 ## Check a blocked key
 
-Suppose `apply-balance` has group id `7`, `ledger.adjustments` has topic
+Suppose `apply-balance` has group id `7`, `ledger.adjustments` has stream
 id `1`, and messages 101–104 use `acct-42`. Message 101 fails; 102–104
 wait without running. Inspect that key:
 
@@ -51,7 +51,7 @@ SELECT
     status,
     attempts,
     can_run_after
-FROM vulkan.exception_queue_1
+FROM sqlstreams.exception_queue_1
 WHERE consumer_group_id = 7 AND message_key = 'acct-42'
 ORDER BY message_id;
 ```

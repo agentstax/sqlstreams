@@ -7,7 +7,7 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/agentstax/vulkan/pkg/worker"
+	"github.com/agentstax/sqlstreams/pkg/worker"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -36,7 +36,7 @@ func (d *WorkerDatastore) claimInstance(ctx context.Context, workerId int64, ttl
 	// counts both see room under target and both insert
 	var target int
 	targetSql := fmt.Sprintf(`
-		-- vulkan: worker.claimInstance
+		-- sqlstreams: worker.claimInstance
 		SELECT target_instances FROM %[1]s.worker_config WHERE id = $1 FOR UPDATE;
 	`, d.Datastore.Schema)
 	err = tx.QueryRow(ctx, targetSql, workerId).Scan(&target)
@@ -48,7 +48,7 @@ func (d *WorkerDatastore) claimInstance(ctx context.Context, workerId int64, ttl
 	}
 
 	insertSql := fmt.Sprintf(`
-		-- vulkan: worker.claimInstance
+		-- sqlstreams: worker.claimInstance
 		INSERT INTO %[1]s.worker_instance (worker_id, expires_at)
 		SELECT $1, now() + make_interval(secs => $2)
 		WHERE $3 = -1 -- '-1' means unbound (can always claim)
@@ -92,7 +92,7 @@ func (d *WorkerDatastore) renewInstance(ctx context.Context, instanceId int64, t
 	// an expired row may already be replaced -- renewing it past expiry
 	// would put live instances over target_instances
 	sql := fmt.Sprintf(`
-		-- vulkan: worker.renewInstance
+		-- sqlstreams: worker.renewInstance
 		UPDATE %[1]s.worker_instance
 		SET expires_at = now() + make_interval(secs => $3)
 		WHERE id = $1
@@ -122,7 +122,7 @@ func (d *WorkerDatastore) RecordInstanceSuccess(ctx context.Context, instanceId 
 
 func (d *WorkerDatastore) recordInstanceSuccess(ctx context.Context, instanceId int64, token uuid.UUID) error {
 	sql := fmt.Sprintf(`
-		-- vulkan: worker.recordInstanceSuccess
+		-- sqlstreams: worker.recordInstanceSuccess
 		UPDATE %[1]s.worker_instance
 		SET attempts = 0
 		WHERE id = $1
@@ -152,7 +152,7 @@ func (d *WorkerDatastore) RecordInstanceFailure(ctx context.Context, instanceId 
 
 func (d *WorkerDatastore) recordInstanceFailure(ctx context.Context, instanceId int64, token uuid.UUID) (int, error) {
 	sql := fmt.Sprintf(`
-		-- vulkan: worker.recordInstanceFailure
+		-- sqlstreams: worker.recordInstanceFailure
 		UPDATE %[1]s.worker_instance
 		SET attempts = attempts + 1
 		WHERE id = $1
@@ -180,7 +180,7 @@ func (d *WorkerDatastore) ReleaseInstance(ctx context.Context, instanceId int64,
 
 func (d *WorkerDatastore) releaseInstance(ctx context.Context, instanceId int64, token uuid.UUID) error {
 	sql := fmt.Sprintf(`
-		-- vulkan: worker.releaseInstance
+		-- sqlstreams: worker.releaseInstance
 		DELETE FROM %[1]s.worker_instance
 		WHERE id = $1
 			AND token = $2;
@@ -209,7 +209,7 @@ func (d *WorkerDatastore) SweepExpiredInstances(ctx context.Context) (int64, err
 
 func (d *WorkerDatastore) sweepExpiredInstances(ctx context.Context) (int64, error) {
 	sql := fmt.Sprintf(`
-		-- vulkan: worker.sweepExpiredInstances
+		-- sqlstreams: worker.sweepExpiredInstances
 		DELETE FROM %[1]s.worker_instance WHERE expires_at <= now();
 	`, d.Datastore.Schema)
 	tag, err := d.Datastore.Pool.Exec(ctx, sql)

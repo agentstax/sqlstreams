@@ -16,8 +16,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/agentstax/vulkan/e2e/common"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/e2e/common"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 func main() {
@@ -33,7 +33,7 @@ func run() error {
 	countPtr := flag.Int("count", 20000, "messages to process before stopping (should be <= seeded rows)")
 	maxConnsPtr := flag.Int("maxconns", 25, "pgxpool max connections (must exceed concurrency+1)")
 	groupPtr := flag.String("group", "phase3.bench", "consumer group name")
-	topicPtr := flag.String("topic", "learning.v1", "topic to drain (must already have a seeded backlog, e.g. via `just produce`)")
+	streamPtr := flag.String("stream", "learning.v1", "stream to drain (must already have a seeded backlog, e.g. via `just produce`)")
 	flag.Parse()
 
 	conc := *concurrencyPtr
@@ -46,27 +46,27 @@ func run() error {
 	// safety watchdog: never let a stalled run hang the sweep
 	time.AfterFunc(180*time.Second, stop)
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", &vulkan.PostgresConnectionConfig{MaxConns: *maxConnsPtr})
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", &sqlstreams.PostgresConnectionConfig{MaxConns: *maxConnsPtr})
 	if err != nil {
 		return err
 	}
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	if err != nil {
 		return err
 	}
 
-	t, err := client.Topic[vulkan.RawPayload](*topicPtr).Get(ctx)
+	t, err := client.Stream[sqlstreams.RawPayload](*streamPtr).Get(ctx)
 	if err != nil {
 		return err
 	}
 	if t == nil {
-		return fmt.Errorf("topic %q is not registered -- `just produce` declares it\n", *topicPtr)
+		return fmt.Errorf("stream %q is not registered -- `just produce` declares it\n", *streamPtr)
 	}
 
-	wcInstance, err := client.Topic[common.Work](t.Name).Consumer(*groupPtr).Register(ctx, &vulkan.ConsumerConfig{
-		Message: &vulkan.MessageOptions{Timeout: 30 * time.Second, Retry: &vulkan.RetryPolicy{MaxRetries: 3}},
+	wcInstance, err := client.Stream[common.Work](t.Name).Consumer(*groupPtr).Register(ctx, &sqlstreams.ConsumerConfig{
+		Message: &sqlstreams.MessageOptions{Timeout: 30 * time.Second, Retry: &sqlstreams.RetryPolicy{MaxRetries: 3}},
 	})
 
 	if err != nil {
@@ -87,7 +87,7 @@ func run() error {
 			stop() // backlog target hit -> begin graceful shutdown
 		}
 		return nil // no-op: measures the queue machinery ceiling, not handler work
-	}, &vulkan.ConsumeOptions{
+	}, &sqlstreams.ConsumeOptions{
 		BatchLimit: batch,
 		// buffer stays shallow but must be >= batch (validate) and big enough to keep the pool fed
 		QueueSize:          batch + conc,

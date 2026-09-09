@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/agentstax/vulkan/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common"
 )
 
 // A Definition is what one worker kind declares: the row's name, the config

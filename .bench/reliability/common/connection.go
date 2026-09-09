@@ -8,14 +8,14 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 // Connection is the pool and client a role runs on, built from the
 // POSTGRES_* environment the compose file sets.
 type Connection struct {
 	Pool   *pgxpool.Pool
-	Client *vulkan.Client
+	Client *sqlstreams.Client
 }
 
 func NewConnection(ctx context.Context, maxConns int) (*Connection, error) {
@@ -32,13 +32,13 @@ func NewConnection(ctx context.Context, maxConns int) (*Connection, error) {
 		host = "localhost"
 	}
 
-	pool, err := vulkan.NewPostgresPool(ctx,
+	pool, err := sqlstreams.NewPostgresPool(ctx,
 		os.Getenv("POSTGRES_USER"), os.Getenv("POSTGRES_PASSWORD"), host, os.Getenv("POSTGRES_DB"),
-		&vulkan.PostgresConnectionConfig{Port: port, MaxConns: maxConns})
+		&sqlstreams.PostgresConnectionConfig{Port: port, MaxConns: maxConns})
 	if err != nil {
 		return nil, err
 	}
-	client, err := vulkan.NewClient(ctx, pool, nil)
+	client, err := sqlstreams.NewClient(ctx, pool, nil)
 	if err != nil {
 		pool.Close()
 		return nil, err

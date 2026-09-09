@@ -1,7 +1,7 @@
 # tbls config: snapshot the live dev database's schema (just schema-diagram).
-# Documents the shared control-plane tables plus ONE per-topic family. Every
-# family shares the same DDL (topic createTopicTables), so which topic's
-# family is shown does not matter; *_1 belongs to the first topic
+# Documents the shared control-plane tables plus ONE per-stream family. Every
+# family shares the same DDL (stream createStreamTables), so which stream's
+# family is shown does not matter; *_1 belongs to the first stream
 # RegisterSystem creates (__system.metrics) and always exists.
 dsn: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable
 
@@ -9,8 +9,8 @@ docPath: .bin/schema
 
 include:
   - system_config
-  - topic_config
-  - topic_config_log
+  - stream_config
+  - stream_config_log
   - consumer_group_config
   - worker_config
   - worker_config_log
@@ -25,8 +25,8 @@ include:
 exclude:
   - "message_log_1_*"
 
-# The per-topic family declares no foreign keys -- the family is DROPped
-# wholesale on topic destroy -- so its relations are declared here instead.
+# The per-stream family declares no foreign keys -- the family is DROPped
+# wholesale on stream destroy -- so its relations are declared here instead.
 relations:
   - table: binding_config_1
     columns: [consumer_group_id]

@@ -3,11 +3,11 @@ package main
 // Phase 8a e2e test (b): partition-drop is a hole in the log, and the cursor
 // committed floor decides whether a lagging group is allowed to fall into it.
 //
-// Registers its own topic with a test-scale PartitionSize (5 rows), destroyed on
-// exit -- under 8b, partition width is a per-topic Register() param, so this e2e test
+// Registers its own stream with a test-scale PartitionSize (5 rows), destroyed on
+// exit -- under 8b, partition width is a per-stream Register() param, so this e2e test
 // no longer needs the pre-8b schema-swap hack partition's own comment used to
 // describe (DROP+recreate the shared message_log table, permanently discarding
-// its rows). A dedicated topic gets its own message_log_<id> at exactly the
+// its rows). A dedicated stream gets its own message_log_<id> at exactly the
 // width this e2e test wants, and its own cursorFloor -- so this e2e test's groups can't be
 // blocked by, or block, any other e2e test's leftover state either, another thing the
 // pre-8b version had to work around.
@@ -20,7 +20,7 @@ package main
 //     EMPTY batch once it's gone, yet still advances its `claimed` frontier
 //     past the hole -- FreshClaimMessagesWithCursor computes the next range
 //     from id arithmetic against MAX(id), never from what rows still exist.
-//  3. the drop floor (MIN(committed) across cursors, now scoped to this topic)
+//  3. the drop floor (MIN(committed) across cursors, now scoped to this stream)
 //     refuses to drop a partition a lagging group hasn't committed past yet,
 //     and AllowDropPastCommitted is the explicit override that waives it.
 
@@ -30,14 +30,14 @@ import (
 	"os"
 	"time"
 
-	"github.com/agentstax/vulkan/e2e/common"
-	"github.com/agentstax/vulkan/pkg/consume"
-	consumecontroller "github.com/agentstax/vulkan/pkg/consume/controller"
-	messageconsumercontroller "github.com/agentstax/vulkan/pkg/consume/messageconsumer/controller"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/topic"
-	janitordatastore "github.com/agentstax/vulkan/pkg/topic/janitor/controller/datastore"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/e2e/common"
+	"github.com/agentstax/sqlstreams/pkg/consume"
+	consumecontroller "github.com/agentstax/sqlstreams/pkg/consume/controller"
+	messageconsumercontroller "github.com/agentstax/sqlstreams/pkg/consume/messageconsumer/controller"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	"github.com/agentstax/sqlstreams/pkg/stream"
+	janitordatastore "github.com/agentstax/sqlstreams/pkg/stream/janitor/controller/datastore"
 )
 
 const (
@@ -81,20 +81,20 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	topicName := fmt.Sprintf("phase8a.dropfloor.%d", time.Now().UnixNano())
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{PartitionSize: partitionSize})
+	streamName := fmt.Sprintf("phase8a.dropfloor.%d", time.Now().UnixNano())
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: partitionSize})
 	must(err)
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
@@ -103,7 +103,7 @@ func run() (err error) {
 	must(err)
 	janitorDatastore, err := janitordatastore.NewJanitorDatastore(ds, ds.Logger)
 	must(err)
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 
 	step("publish ids 1-4 into message_log_<id>_0, then let them age past ttl")
@@ -166,43 +166,43 @@ func run() (err error) {
 
 // ---- helpers ----
 
-func publish(ctx context.Context, wpInstance *vulkan.ProducerInstance[common.Work]) {
-	_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
+func publish(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[common.Work]) {
+	_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 		return common.NewWork(30, "admin@example.com")
 	}, nil)
 	must(err)
 }
 
-// createPartition pre-creates message_log_<topicId>_<n> so the e2e test's ids stay
+// createPartition pre-creates message_log_<streamId>_<n> so the e2e test's ids stay
 // dense -- production creates partitions on the produce path's self-heal,
 // which burns an id per boundary and would shift every id asserted below.
-func createPartition(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, n int64) {
+func createPartition(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, n int64) {
 	_, err := ds.Pool.Exec(ctx, fmt.Sprintf(`
 		CREATE TABLE IF NOT EXISTS %[1]s.%[2]s
 			PARTITION OF %[1]s.%[3]s
 			FOR VALUES FROM (%[4]d) TO (%[5]d);
-	`, ds.Schema, topic.MessageLogPartitionTable(topicId, n), topic.MessageLogTable(topicId), n*partitionSize, (n+1)*partitionSize))
+	`, ds.Schema, stream.MessageLogPartitionTable(streamId, n), stream.MessageLogTable(streamId), n*partitionSize, (n+1)*partitionSize))
 	must(err)
 }
 
-func reset(ctx context.Context, cd *consumecontroller.ConsumeController, ds *iDatastore.PostgresDatastore, topicId int64, group string) {
-	groupId = mustGroupID(cd.RegisterGroup(ctx, topicId, group, consume.Beginning()))
-	_, err := ds.Pool.Exec(ctx, fmt.Sprintf(`DELETE FROM %s.%s WHERE consumer_group_id=$1`, ds.Schema, topic.ClaimLeaseTable(topicId)), groupId)
+func reset(ctx context.Context, cd *consumecontroller.ConsumeController, ds *iDatastore.PostgresDatastore, streamId int64, group string) {
+	groupId = mustGroupID(cd.RegisterGroup(ctx, streamId, group, consume.Beginning()))
+	_, err := ds.Pool.Exec(ctx, fmt.Sprintf(`DELETE FROM %s.%s WHERE consumer_group_id=$1`, ds.Schema, stream.ClaimLeaseTable(streamId)), groupId)
 	must(err)
-	_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`DELETE FROM %s.%s WHERE consumer_group_id=$1`, ds.Schema, topic.ExceptionQueueTable(topicId)), groupId)
+	_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`DELETE FROM %s.%s WHERE consumer_group_id=$1`, ds.Schema, stream.ExceptionQueueTable(streamId)), groupId)
 	must(err)
-	_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`UPDATE %s.%s SET claimed=0, committed=0, settled_head=0, pending_head=0, pending_xmax=NULL WHERE consumer_group_id=$1`, ds.Schema, topic.ConsumerGroupCursorTable(topicId)), groupId)
+	_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`UPDATE %s.%s SET claimed=0, committed=0, settled_head=0, pending_head=0, pending_xmax=NULL WHERE consumer_group_id=$1`, ds.Schema, stream.ConsumerGroupCursorTable(streamId)), groupId)
 	must(err)
 }
 
-func setCursor(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, group string, claimed, committed int64) {
+func setCursor(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, group string, claimed, committed int64) {
 	_ = group // groups are id-keyed; the name stays in the signature for the call sites' readability
-	_, err := ds.Pool.Exec(ctx, fmt.Sprintf(`UPDATE %s.%s SET claimed=$2, committed=$3 WHERE consumer_group_id=$1`, ds.Schema, topic.ConsumerGroupCursorTable(topicId)), groupId, claimed, committed)
+	_, err := ds.Pool.Exec(ctx, fmt.Sprintf(`UPDATE %s.%s SET claimed=$2, committed=$3 WHERE consumer_group_id=$1`, ds.Schema, stream.ConsumerGroupCursorTable(streamId)), groupId, claimed, committed)
 	must(err)
 }
 
-func freshClaim(ctx context.Context, cd *messageconsumercontroller.MessageConsumerGroupController, topicId int64, group string, limit int) *messageconsumercontroller.ClaimedRange {
-	claim, err := cd.ClaimMessagesWithCursor(ctx, topicId, groupId, 1, limit, 3, 30*time.Second, topic.DeliveryLogModeFailures)
+func freshClaim(ctx context.Context, cd *messageconsumercontroller.MessageConsumerGroupController, streamId int64, group string, limit int) *messageconsumercontroller.ClaimedRange {
+	claim, err := cd.ClaimMessagesWithCursor(ctx, streamId, groupId, 1, limit, 3, 30*time.Second, stream.DeliveryLogModeFailures)
 	must(err)
 	if claim == nil {
 		die(fmt.Sprintf("%s: expected a claim, got nil (already caught up?)", group))
@@ -210,9 +210,9 @@ func freshClaim(ctx context.Context, cd *messageconsumercontroller.MessageConsum
 	return claim
 }
 
-func partitionNumbers(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64) []int64 {
+func partitionNumbers(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) []int64 {
 	// pg_class.relname is unqualified, so the prefix compared against it is too
-	prefix := topic.MessageLogTable(topicId) + "_"
+	prefix := stream.MessageLogTable(streamId) + "_"
 	rows, err := ds.Pool.Query(ctx, `
 		SELECT REPLACE(c.relname, $2, '')::bigint AS n
 		FROM pg_inherits i
@@ -220,7 +220,7 @@ func partitionNumbers(ctx context.Context, ds *iDatastore.PostgresDatastore, top
 		WHERE i.inhparent = $1::regclass
 			AND c.relname LIKE $2 || '%'
 		ORDER BY n;
-	`, fmt.Sprintf("%s.%s", ds.Schema, topic.MessageLogTable(topicId)), prefix)
+	`, fmt.Sprintf("%s.%s", ds.Schema, stream.MessageLogTable(streamId)), prefix)
 	must(err)
 	defer rows.Close()
 

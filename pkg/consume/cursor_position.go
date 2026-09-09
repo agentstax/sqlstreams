@@ -22,7 +22,7 @@ func (k CursorPositionKind) Validate() error {
 	}
 }
 
-// CursorPosition is a place in a topic's message log a group's cursor is set
+// CursorPosition is a place in a stream's message log a group's cursor is set
 // to -- by Register for a group that has no cursor row yet.
 type CursorPosition struct {
 	Kind CursorPositionKind

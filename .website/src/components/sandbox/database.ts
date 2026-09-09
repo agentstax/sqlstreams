@@ -19,7 +19,7 @@ import { claimCursorSql } from './sql/claim-cursor';
 import { claimLeaseSql } from './sql/claim-lease';
 import { claimSnapshotSql } from './sql/claim-snapshot';
 import { createSystemTablesStatements } from './sql/create-system-tables/statements';
-import { createTopicTablesStatements } from './sql/create-topic-tables/statements';
+import { createStreamTablesStatements } from './sql/create-stream-tables/statements';
 import { freeLeaseSql } from './sql/free-lease';
 import { getGroupSql } from './sql/get-group';
 import { protectedInsertUncompactedSql } from './sql/protected-insert-uncompacted';
@@ -28,8 +28,8 @@ import { insertCursorBeginningSql } from './sql/register-group-cursor';
 import { registerGroupInsertSql } from './sql/register-group-insert';
 import { registerGroupLockSql } from './sql/register-group-lock';
 
-// the seeded demo topic: id 1, the library's default partition size
-const demoTopicId = 1;
+// the seeded demo stream: id 1, the library's default partition size
+const demoStreamId = 1;
 
 // stands in for the bigint common.NewAdvisoryLockKey derives per schema and
 // group; one PGlite backend never contends the lock, so the value is arbitrary
@@ -62,7 +62,7 @@ const seedOrders = [
 // message id -- four digits so the two never read as the same number
 const firstOrderId = 4001;
 
-export const demoTopicName = 'orders';
+export const demoStreamName = 'orders';
 
 // routing_key is left out: nothing here declares a binding, so it selects
 // nothing, and a column beside a claim reads as though it did
@@ -80,7 +80,7 @@ export type DatabaseStage = 'downloading' | 'starting postgres' | 'creating tabl
 // library's datastore.Querier seam
 type Querier = Pick<PGlite, 'query'>;
 
-export class VulkanDatabase {
+export class SQLStreamsDatabase {
 	private db: PGlite;
 
 	// order numbers continue where the seed left off, so a produced message is
@@ -116,7 +116,7 @@ export class VulkanDatabase {
 	// the reader's own message, produced through the same statement the seed
 	// uses -- a fresh idempotency key every time, so every click lands a row
 	async produce(description: string): Promise<void> {
-		await this.db.query(protectedInsertUncompactedSql(demoTopicId), [
+		await this.db.query(protectedInsertUncompactedSql(demoStreamId), [
 			crypto.randomUUID(),
 			orderPayload(this.nextOrderId, description),
 			'orders.eu.created',
@@ -140,8 +140,8 @@ export class VulkanDatabase {
 			await tx.query(registerGroupLockSql, [sandboxGroupLockKey]);
 			if ((await this.getGroup(tx, name)) !== null) return;
 
-			const inserted = await tx.query<GroupRow>(registerGroupInsertSql(), [demoTopicId, name]);
-			await tx.query(insertCursorBeginningSql(demoTopicId), [inserted.rows[0]!.id]);
+			const inserted = await tx.query<GroupRow>(registerGroupInsertSql(), [demoStreamId, name]);
+			await tx.query(insertCursorBeginningSql(demoStreamId), [inserted.rows[0]!.id]);
 		});
 	}
 
@@ -161,7 +161,7 @@ export class VulkanDatabase {
 		// read outside the transaction, as the library does: the gate below
 		// proves this pair against a later snapshot, and a pure SELECT holds
 		// no txid of its own
-		const snapshot = await this.db.query<SnapshotRow>(claimSnapshotSql(demoTopicId), [group.id]);
+		const snapshot = await this.db.query<SnapshotRow>(claimSnapshotSql(demoStreamId), [group.id]);
 		const pair = snapshot.rows[0];
 		if (pair === undefined) throw noCursor(group.id);
 
@@ -176,7 +176,7 @@ export class VulkanDatabase {
 		}
 
 		return this.db.transaction(async (tx) => {
-			const advanced = await tx.query<CursorRow>(claimCursorSql(demoTopicId), [
+			const advanced = await tx.query<CursorRow>(claimCursorSql(demoStreamId), [
 				group.id,
 				batchLimit,
 				pair.head,
@@ -189,13 +189,13 @@ export class VulkanDatabase {
 			// claimed did not, so there is no range to lease
 			if (range.low === range.high) return null;
 
-			const lease = await tx.query<LeaseRow>(claimLeaseSql(demoTopicId), [
+			const lease = await tx.query<LeaseRow>(claimLeaseSql(demoStreamId), [
 				group.id,
 				range.low,
 				range.high,
 				leaseSeconds,
 			]);
-			const messages = await tx.query<MessageRow>(readMessagesSql(demoTopicId), [
+			const messages = await tx.query<MessageRow>(readMessagesSql(demoStreamId), [
 				range.low,
 				range.high,
 				group.id,
@@ -213,11 +213,11 @@ export class VulkanDatabase {
 	}
 
 	// Commit frees the range's lease and nothing else. The handler above succeeds
-	// on every message, and under the demo topic's delivery_log_mode -- the
+	// on every message, and under the demo stream's delivery_log_mode -- the
 	// library default 'failures' -- a successful outcome is never collected, so
 	// commit's batch is empty: no exception_queue_1 row and no delivery_log_1 row.
 	async commit(groupId: number, token: string): Promise<void> {
-		const freed = await this.db.query(freeLeaseSql(demoTopicId), [groupId, token]);
+		const freed = await this.db.query(freeLeaseSql(demoStreamId), [groupId, token]);
 		if (freed.affectedRows === 0) {
 			throw new Error('lease lost to another consumer');
 		}
@@ -225,14 +225,14 @@ export class VulkanDatabase {
 
 	async listGroups(): Promise<string[]> {
 		const groups = await this.db.query<GroupNameRow>(
-			`SELECT name FROM consumer_group_config WHERE topic_id = $1 ORDER BY id;`,
-			[demoTopicId],
+			`SELECT name FROM consumer_group_config WHERE stream_id = $1 ORDER BY id;`,
+			[demoStreamId],
 		);
 		return groups.rows.map((group) => group.name);
 	}
 
 	private async getGroup(q: Querier, name: string): Promise<GroupRow | null> {
-		const found = await q.query<GroupRow>(getGroupSql(), [demoTopicId, name]);
+		const found = await q.query<GroupRow>(getGroupSql(), [demoStreamId, name]);
 		return found.rows[0] ?? null;
 	}
 
@@ -241,9 +241,9 @@ export class VulkanDatabase {
 	}
 }
 
-export async function createVulkanDatabase(
+export async function createSQLStreamsDatabase(
 	onStage: (stage: DatabaseStage) => void,
-): Promise<VulkanDatabase> {
+): Promise<SQLStreamsDatabase> {
 	onStage('downloading');
 	const { PGlite } = await import('@electric-sql/pglite');
 
@@ -254,10 +254,10 @@ export async function createVulkanDatabase(
 	for (const statement of createSystemTablesStatements()) {
 		await db.exec(statement);
 	}
-	for (const statement of createTopicTablesStatements(demoTopicId, demoPartitionSize)) {
+	for (const statement of createStreamTablesStatements(demoStreamId, demoPartitionSize)) {
 		await db.exec(statement);
 	}
-	const database = new VulkanDatabase(db);
+	const database = new SQLStreamsDatabase(db);
 	await seed(db);
 
 	// the demo group goes through the same verb the reader's Add uses, so it
@@ -275,7 +275,7 @@ export async function createVulkanDatabase(
 // poll forever while messages pile up
 function noCursor(groupId: number): Error {
 	return new Error(
-		`cursor not found for group ${groupId} on topic ${demoTopicId} — register the group before claiming`,
+		`cursor not found for group ${groupId} on stream ${demoStreamId} — register the group before claiming`,
 	);
 }
 
@@ -283,15 +283,15 @@ function noCursor(groupId: number): Error {
 // own produce statement -- that path is the page's claim, so it stays verbatim
 async function seed(db: PGlite): Promise<void> {
 	await db.query(`INSERT INTO system_config DEFAULT VALUES`);
-	await db.query(`INSERT INTO topic_config (system_id, name, partition_size) VALUES ($1, $2, $3)`, [
+	await db.query(`INSERT INTO stream_config (system_id, name, partition_size) VALUES ($1, $2, $3)`, [
 		1,
-		demoTopicName,
+		demoStreamName,
 		demoPartitionSize,
 	]);
 
 	for (const [index, description] of seedOrders.entries()) {
 		const orderId = firstOrderId + index;
-		await db.query<ProducedRow>(protectedInsertUncompactedSql(demoTopicId), [
+		await db.query<ProducedRow>(protectedInsertUncompactedSql(demoStreamId), [
 			crypto.randomUUID(),
 			orderPayload(orderId, description),
 			'orders.eu.created',

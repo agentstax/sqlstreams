@@ -3,8 +3,8 @@ package producer
 import (
 	"errors"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/produce"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/produce"
 )
 
 // ProduceItem is one message plus its options -- the unit ProduceBatch takes.

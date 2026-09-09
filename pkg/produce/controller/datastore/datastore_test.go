@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
 )
 
 func TestNewProduceDatastoreRejectsTimeoutOverflow(t *testing.T) {

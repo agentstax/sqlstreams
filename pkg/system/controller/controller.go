@@ -4,10 +4,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/system/controller/datastore"
-	"github.com/agentstax/vulkan/pkg/worker"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/system/controller/datastore"
+	"github.com/agentstax/sqlstreams/pkg/worker"
 )
 
 type SystemController struct {

@@ -6,13 +6,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/alert"
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/metric"
+	"github.com/agentstax/sqlstreams/pkg/alert"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/metric"
 )
 
 func TestWorkerHistory(t *testing.T) {
-	owner, err := common.NewTopicOwner(1, 41, "orders")
+	owner, err := common.NewStreamOwner(1, 41, "orders")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +53,7 @@ func TestWorkerHistory(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			measurement, err := metric.NewBuiltInMeasurement(metric.MetricTopicUnclaimedWorkers, test.count, map[string]string{"topic": "orders"}, current)
+			measurement, err := metric.NewBuiltInMeasurement(metric.MetricStreamUnclaimedWorkers, test.count, map[string]string{"stream": "orders"}, current)
 			if err != nil {
 				t.Fatal(err)
 			}

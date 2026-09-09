@@ -11,8 +11,8 @@ import (
 	"fmt"
 	"os"
 
-	systemMigrations "github.com/agentstax/vulkan/pkg/system/migrations"
-	topicMigrations "github.com/agentstax/vulkan/pkg/topic/migrations"
+	streamMigrations "github.com/agentstax/sqlstreams/pkg/stream/migrations"
+	systemMigrations "github.com/agentstax/sqlstreams/pkg/system/migrations"
 )
 
 func main() {
@@ -26,7 +26,7 @@ func run() error {
 	out := flag.String("out", "", "file to write the JSON to; empty writes to stdout")
 	flag.Parse()
 
-	export, err := NewExport(systemMigrations.Registry, topicMigrations.Registry)
+	export, err := NewExport(systemMigrations.Registry, streamMigrations.Registry)
 	if err != nil {
 		return err
 	}

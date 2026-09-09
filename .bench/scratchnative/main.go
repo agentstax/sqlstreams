@@ -19,8 +19,8 @@ import (
 	"time"
 	"uuid"
 
-	topicDomain "github.com/agentstax/vulkan/pkg/topic"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	streamDomain "github.com/agentstax/sqlstreams/pkg/stream"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -67,14 +67,14 @@ func run() error {
 	minimumConnections := flag.Int("minimum-connections", 0, "minimum pool connections")
 	threadLimit := flag.Int("max-threads", 10000, "Go OS-thread safety limit")
 	connections := flag.Int("connections", 32, "pool connections")
-	partitionSize := flag.Int64("partition-size", 5000000, "messages per topic partition")
+	partitionSize := flag.Int64("partition-size", 5000000, "messages per stream partition")
 	retentionTTL := flag.Duration("retention-ttl", 0, "scratch message retention; zero keeps messages")
 	idempotencyTTL := flag.Duration("idempotency-ttl", 24*time.Hour, "scratch duplicate-prevention window")
 	queryMode := flag.String("query-mode", "cache_statement", "pgx default query execution mode")
 	statementCache := flag.Int("statement-cache", 512, "prepared statement cache capacity")
 	planCacheMode := flag.String("plan-cache-mode", "auto", "PostgreSQL prepared plan selection")
 	rawSQL := flag.String("raw-sql", "", "production SQL template for direct pgx control")
-	topicId := flag.Int64("topic-id", 0, "registered topic id for direct pgx control")
+	streamId := flag.Int64("stream-id", 0, "registered stream id for direct pgx control")
 	profile := flag.String("profile", "", "optional CPU profile file")
 	contention := flag.Bool("contention", false, "sample mutex and goroutine blocking profiles")
 	explicit := flag.Bool("explicit-batch", false, "use ProduceBatch with callers concurrent batch calls")
@@ -109,7 +109,7 @@ func run() error {
 			rateValues = append(rateValues, value)
 		}
 	}
-	ctx, stop := vulkan.LifecycleContext(nil)
+	ctx, stop := sqlstreams.LifecycleContext(nil)
 	defer stop()
 	if *startFile != "" {
 		ticker := time.NewTicker(100 * time.Millisecond)
@@ -147,17 +147,17 @@ func run() error {
 	emit(map[string]any{"kind": "session_config", "role": *role, "plan_cache_mode": effectivePlanCacheMode})
 	emit(map[string]any{"kind": "pool_config", "role": *role, "query_mode": pool.Config().ConnConfig.DefaultQueryExecMode.String(), "statement_cache": pool.Config().ConnConfig.StatementCacheCapacity, "max_connections": pool.Config().MaxConns, "min_connections": pool.Config().MinConns, "max_conn_lifetime": pool.Config().MaxConnLifetime.String(), "max_conn_idle_time": pool.Config().MaxConnIdleTime.String(), "health_check_period": pool.Config().HealthCheckPeriod.String(), "gomaxprocs": runtime.GOMAXPROCS(0), "max_threads": *threadLimit, "gogc": os.Getenv("GOGC"), "gomemlimit": os.Getenv("GOMEMLIMIT"), "host": pool.Config().ConnConfig.Host})
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{Logger: logger})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{Logger: logger})
 	if err != nil {
 		return err
 	}
-	topic := client.Topic[Message]("orders")
-	consumer := topic.Consumer("processor")
+	stream := client.Stream[Message]("orders")
+	consumer := stream.Consumer("processor")
 	if *role == "setup" {
 		if err = client.System().Register(ctx, nil); err != nil {
 			return err
 		}
-		if _, err = topic.Register(ctx, &vulkan.TopicConfig{PartitionSize: *partitionSize, RetentionTTL: *retentionTTL, IdempotencyKeyTTL: *idempotencyTTL, DeliveryLogMode: vulkan.DeliveryLogModeFailures}); err != nil {
+		if _, err = stream.Register(ctx, &sqlstreams.StreamConfig{PartitionSize: *partitionSize, RetentionTTL: *retentionTTL, IdempotencyKeyTTL: *idempotencyTTL, DeliveryLogMode: sqlstreams.DeliveryLogModeFailures}); err != nil {
 			return err
 		}
 		_, err = consumer.Register(ctx, nil)
@@ -238,7 +238,7 @@ func run() error {
 				}
 			}()
 		}
-		options := (&vulkan.ConsumeOptions{BatchLimit: *claim, QueueSize: *queue, MessageConcurrency: *handlers, ClaimPollRate: *poll}).WithDefaults()
+		options := (&sqlstreams.ConsumeOptions{BatchLimit: *claim, QueueSize: *queue, MessageConcurrency: *handlers, ClaimPollRate: *poll}).WithDefaults()
 		if err = options.Validate(); err != nil {
 			return err
 		}
@@ -249,26 +249,26 @@ func run() error {
 		}
 		return instance.Consume(ctx, handle, options)
 	case "producer":
-		cfg := (&vulkan.ProducerConfig{}).WithDefaults()
+		cfg := (&sqlstreams.ProducerConfig{}).WithDefaults()
 		cfg.Batch.MaxSize = *batch
 		cfg.Batch.ConcurrencyLimit = *transactions
 		if err = cfg.Validate(); err != nil {
 			return err
 		}
-		instance, err := topic.Producer().Register(ctx, cfg)
+		instance, err := stream.Producer().Register(ctx, cfg)
 		if err != nil {
 			return err
 		}
 		var statement string
 		if *rawSQL != "" {
-			if !*explicit || *topicId < 1 {
-				return fmt.Errorf("raw-sql requires explicit-batch and a positive topic-id")
+			if !*explicit || *streamId < 1 {
+				return fmt.Errorf("raw-sql requires explicit-batch and a positive stream-id")
 			}
 			template, err := os.ReadFile(*rawSQL)
 			if err != nil {
 				return err
 			}
-			statement = fmt.Sprintf(string(template), "vulkan", topicDomain.IdempotencyKeyTable(*topicId), topicDomain.MessageLogTable(*topicId))
+			statement = fmt.Sprintf(string(template), "sqlstreams", streamDomain.IdempotencyKeyTable(*streamId), streamDomain.MessageLogTable(*streamId))
 			emit(map[string]any{"kind": "raw_sql", "statement": statement})
 		}
 		emit(map[string]any{"kind": "config", "role": *role, "config": cfg, "pool_max": pool.Config().MaxConns, "postgres_host": pool.Config().ConnConfig.Host, "callers": *callers, "explicit_batch": *explicit, "target_messages_s": *rate, "application_name": pool.Config().ConnConfig.RuntimeParams["application_name"], "gomaxprocs": runtime.GOMAXPROCS(0)})
@@ -333,14 +333,14 @@ func run() error {
 						if !pace(*batch) {
 							return
 						}
-						items := make([]*vulkan.ProduceItem[Message], 0, *batch)
+						items := make([]*sqlstreams.ProduceItem[Message], 0, *batch)
 						for range *batch {
 							number := sequence.Add(1)
 							if number > *maximum {
 								break
 							}
 							message := &Message{Sequence: number, Started: time.Now().UnixNano(), Padding: padding[:paddingSize+1-len(strconv.FormatInt(number, 10))]}
-							item, err := vulkan.NewProduceItem(message, nil)
+							item, err := sqlstreams.NewProduceItem(message, nil)
 							if err != nil {
 								panic(err)
 							}
@@ -405,7 +405,7 @@ func run() error {
 	}
 }
 
-func produceRaw(ctx context.Context, pool *pgxpool.Pool, statement string, items []*vulkan.ProduceItem[Message]) error {
+func produceRaw(ctx context.Context, pool *pgxpool.Pool, statement string, items []*sqlstreams.ProduceItem[Message]) error {
 	keys := make([]uuid.UUID, len(items))
 	for i := range keys {
 		keys[i] = uuid.NewV7()

@@ -3,7 +3,7 @@ package systemmanager
 import (
 	"fmt"
 
-	"github.com/agentstax/vulkan/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common"
 )
 
 type SystemManagerConfig struct {

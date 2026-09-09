@@ -1,0 +1,32 @@
+package stream
+
+import (
+	"regexp"
+	"time"
+)
+
+// stream name can't contain '*' as it's the binding wildcard
+var SlugPattern = regexp.MustCompile(`^[a-z0-9._-]+$`)
+
+// DeliveryLogMode selects which delivery outcomes write delivery_log_<id> rows.
+type DeliveryLogMode string
+
+const (
+	DeliveryLogModeOff      DeliveryLogMode = "off"      // no rows at all
+	DeliveryLogModeFailures DeliveryLogMode = "failures" // every outcome except success
+	DeliveryLogModeAll      DeliveryLogMode = "all"      // every outcome, including a 'success' row per success
+)
+
+// Stream is the registered stream row; Id addresses this stream's own
+// message_log_<id>. The remaining fields hold StreamConfig's resolved values.
+type Stream struct {
+	Id                     int64           `json:"stream_id"`
+	SystemId               int64           `json:"system_id"`
+	Name                   string          `json:"stream"`
+	PartitionSize          int64           `json:"partition_size"`
+	RetentionTTL           time.Duration   `json:"retention_ttl"`
+	AllowDropPastCommitted bool            `json:"allow_drop_past_committed"`
+	IdempotencyKeyTTL      time.Duration   `json:"idempotency_key_ttl"`
+	EmptyCompactionHeadTTL time.Duration   `json:"empty_compaction_head_ttl"`
+	DeliveryLogMode        DeliveryLogMode `json:"delivery_log_mode"`
+}

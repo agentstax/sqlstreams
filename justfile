@@ -5,7 +5,7 @@ set dotenv-required := true
 # Build, vet, and race-test every Go module, including the conventions checks.
 verify:
     go build ./... && go vet ./... && go test -race ./...
-    cd cmd/vulkan && go build ./... && go vet ./...
+    cd cmd/sqlstreams && go build ./... && go vet ./...
     cd otel && go build ./... && go vet ./...
     cd .e2e && go build ./...
     cd .examples && go build ./...
@@ -197,21 +197,21 @@ drop-floor-e2e:
 sweep-e2e:
     go run ./.e2e/sweep/main.go
 
-# Verify per-topic tables, cursors, routing, and retention are isolated by topic.
-topic-e2e:
-    go run ./.e2e/topic/main.go
+# Verify per-stream tables, cursors, routing, and retention are isolated by stream.
+stream-e2e:
+    go run ./.e2e/stream/main.go
 
-# Verify users cannot alter the system's reserved topics.
-reserved-topic-e2e:
-    go run ./.e2e/reservedtopic/main.go
+# Verify users cannot alter the system's reserved streams.
+reserved-stream-e2e:
+    go run ./.e2e/reservedstream/main.go
 
-# Verify topic registration is idempotent and rejects a conflicting configuration.
+# Verify stream registration is idempotent and rejects a conflicting configuration.
 register-idempotency-e2e:
     go run ./.e2e/registeridempotency/main.go
 
-# Verify topic destruction clears every topic-scoped control-plane and message row.
-delete-topic-e2e:
-    go run ./.e2e/deletetopic/main.go
+# Verify stream destruction clears every stream-scoped control-plane and message row.
+delete-stream-e2e:
+    go run ./.e2e/deletestream/main.go
 
 # Verify system destruction refuses unsafe states and leaves a fresh registration possible.
 destroy-system-e2e:
@@ -265,7 +265,7 @@ delivery-log-e2e:
 
 ### E2E TESTS: COMPACTION ###
 
-# Verify a compacted topic delivers only its latest eligible message per key.
+# Verify a compacted stream delivers only its latest eligible message per key.
 compaction-e2e:
     go run ./.e2e/compaction/main.go
 
@@ -277,7 +277,7 @@ compaction-rank-e2e:
 compaction-width-e2e:
     go run ./.e2e/compactionwidth/main.go
 
-# Measure how latest-message lookup cost grows with compacted-topic history.
+# Measure how latest-message lookup cost grows with compacted-stream history.
 compaction-scale-e2e:
     go run ./.e2e/compactionscale/main.go
 
@@ -309,7 +309,7 @@ metrics-e2e:
 
 # Verify concurrent metric collection and an HTTP scrape from a manager process.
 metrics-collector-e2e:
-    cd cmd/vulkan && go build -o ../../.bin/vulkan .
+    cd cmd/sqlstreams && go build -o ../../.bin/sqlstreams .
     go run -race ./.e2e/metricscollector/main.go
 
 # Verify built-in alert thresholds classify, refresh, change severity, and resolve.
@@ -326,20 +326,20 @@ schedule-concurrency-e2e:
 
 ### INSPECT ###
 
-# List the messages stored for one topic. EX: just peek 1
-peek topic_id:
+# List the messages stored for one stream. EX: just peek 1
+peek stream_id:
     psql "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable" \
-      -c "SELECT * FROM message_log_{{ topic_id }} ORDER BY id;"
+      -c "SELECT * FROM message_log_{{ stream_id }} ORDER BY id;"
 
 # List rows in the example users table.
 peek-users:
     psql "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable" \
       -c "SELECT * FROM users ORDER BY id;"
 
-# List each group cursor and its distance from a topic's message-log head. EX: just lag 1
-lag topic_id:
+# List each group cursor and its distance from a stream's message-log head. EX: just lag 1
+lag stream_id:
     psql "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable" \
-      -c "SELECT g.name AS consumer_group, c.claimed, COALESCE((SELECT max(id) FROM message_log_{{ topic_id }}), 0) AS head, COALESCE((SELECT max(id) FROM message_log_{{ topic_id }}), 0) - c.claimed AS lag FROM consumer_group_cursor_{{ topic_id }} c JOIN consumer_group_config g ON g.id = c.consumer_group_id ORDER BY lag DESC;"
+      -c "SELECT g.name AS consumer_group, c.claimed, COALESCE((SELECT max(id) FROM message_log_{{ stream_id }}), 0) AS head, COALESCE((SELECT max(id) FROM message_log_{{ stream_id }}), 0) - c.claimed AS lag FROM consumer_group_cursor_{{ stream_id }} c JOIN consumer_group_config g ON g.id = c.consumer_group_id ORDER BY lag DESC;"
 
 ### DOC SITE (https://vulkan-5ss.pages.dev) ###
 
@@ -359,7 +359,7 @@ site-verify:
 site-compat:
     cd .tools && go run ./compatexport -out ../.website/src/data/compat.json
 
-# Regenerate the documentation site's Vulkan error-code records.
+# Regenerate the documentation site's SQLStreams error-code records.
 site-codes:
     cd .tools && go run ./codeexport -out ../.website/src/data/codes.json
 

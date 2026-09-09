@@ -2705,16 +2705,45 @@ lease, schedule and system; this rename does not change their semantics.
   `Streams` stays light against the blue header. Desktop/mobile previews updated.
 - [x] Show README/header/mobile, 16/32px favicon, repository avatar
   and social-preview placements. Specify colors, typography, clear space,
-  minimum sizes and accessible labels. Existing lettering provenance is
-  stated; its original typeface/license remains to verify before final export.
+  minimum sizes and accessible labels. Existing repository lettering is
+  reused without adding a font; its source does not identify the original
+  typeface, retained as a provenance limit in [0729].
   Chromium desktop/mobile review passed: no horizontal overflow at 390px,
   no page errors; all direction controls and draft SVG download work.
-- [ ] Review the sheet, then deliver editable vector masters and required
-  PNG exports. Inspect rendered artwork; changing SVG labels alone does
-  not change outlined lettering. Keep the site's board design unless a
-  separate change is agreed.
+- [x] User approved the corrected semicolon direction [0729]. Exported
+  light/dark/monochrome/reversed SVG wordmarks, standalone symbol, avatar,
+  favicon and social SVGs under `.website/public`, plus wordmark PNGs,
+  16/32px favicons, 180px touch icon, 512px avatar and 1200x630 share PNG.
+  Website header uses the approved wordmark; board layout/palette retained.
+  Asset formatting/lint and site build passed; built header inspected at
+  1280px light and 360px light/dark with no horizontal overflow. Not deployed.
 
 ### 3. Library, storage and operator interfaces
+
+Implementation progress 2026-09-09: mechanical rename prepared in
+`/tmp/sqlstreams-rename-work`, not applied to shared Go files while the
+other sessions' edit coordination is pending. Snapshot hashes and path map
+are `/tmp/sqlstreams-rename-baseline.json` and
+`/tmp/sqlstreams-rename-paths.json`; reconcile newer source/rules before
+applying. The active testing session is adding `vulkantest` and new test
+conventions, so include their final names in the rename once settled.
+
+- Isolated root, CLI, otel and .tools build/vet/race checks passed; .e2e
+  and .examples build/vet passed. Benchmark build/vet passed; reliability
+  tests passed after regenerating renamed scenario fixtures (the previously
+  passing packages plus a targeted scenarios rerun).
+- Table-name and SQL-owner scanners rejected deliberately wrong inputs in
+  renamed stream files; restored-source checks passed. CLI alignment fixtures
+  were adjusted for the longer `stream` label.
+- Isolated site build and 20 diagnostic-page/placeholder tests passed.
+  Existing lowercase vk0100-vk0104 filenames are normalized to SS names.
+  SQL sandbox parity still has three baseline failures also reproduced in
+  the shared tree: missing system DDL statements and claim/fresh-claim
+  examples behind the current Go source. Reconcile when its owner is ready.
+- Fresh-DB e2e, live metrics/alerts, old-route inspection, downstream-module
+  validation and compatibility-harness handling remain unverified. Existing
+  .tools/compat still exercises the old API and was not rewritten into the
+  renamed build. No shared database reset performed.
 
 - [ ] Rename topic-derived declarations at their owning roots, then public
   aliases/handles, packages, files, methods, configs, owners, worker names,

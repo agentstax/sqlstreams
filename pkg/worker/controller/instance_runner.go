@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	"github.com/agentstax/vulkan/pkg/worker"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	"github.com/agentstax/sqlstreams/pkg/worker"
 )
 
 // releaseWindow caps the instance release on shutdown.

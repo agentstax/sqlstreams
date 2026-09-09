@@ -11,10 +11,10 @@ producer's `ProducerConfig.Message`, then the consumer's
 ([consumer group config](/concepts/consumer-group-config/)).
 
 ```go
-options := &vulkan.MessageOptions{
+options := &sqlstreams.MessageOptions{
 	Timeout:     10 * time.Second,
-	Concurrency: vulkan.ConcurrencyExclusive,
-	Retry:       &vulkan.RetryPolicy{MaxRetries: 5, BaseDelay: 2 * time.Second},
+	Concurrency: sqlstreams.ConcurrencyExclusive,
+	Retry:       &sqlstreams.RetryPolicy{MaxRetries: 5, BaseDelay: 2 * time.Second},
 }
 ```
 
@@ -37,7 +37,7 @@ The same type serves two jobs, `ClientConfig.Retry` for Postgres calls and
 | field | default | what it decides |
 | --- | --- | --- |
 | `MaxRetries` | `6` (`3` as a consumer's `Message.Retry`) | failed attempts allowed, the first included; a delivery dead-letters once it is reached |
-| `MaxDelays` | `0` (no cap) | handler-requested later runs (`vulkan.Delay`) before the delivery dead-letters; redelivery only |
+| `MaxDelays` | `0` (no cap) | handler-requested later runs (`sqlstreams.Delay`) before the delivery dead-letters; redelivery only |
 | `BaseDelay` | `1s` | the first backoff delay |
 | `MaxDelay` | `5m` | the ceiling every later delay is capped at |
 | `Exponent` | `2` | delay = `BaseDelay * Exponent^attempt` |

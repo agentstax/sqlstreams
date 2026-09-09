@@ -5,19 +5,19 @@ description: Independent consumer groups share a retained message log; cursor pr
 
 import ThreadAside from '../../../components/thread-aside/thread-aside.svelte';
 
-A topic retains messages independently of consumption. Each consumer
+A stream retains messages independently of consumption. Each consumer
 group has its own cursor and exception rows, so several groups can
 process the same message with different handlers and retry policies.
-They share database capacity and the topic's retention policy.
+They share database capacity and the stream's retention policy.
 
 ## Independent groups
 
 On `orders.created`, `email-receipts` sends receipts while
 `fraud-screening` scores the same orders. Each group registers against
-the same topic handle:
+the same stream handle:
 
 ```go
-orders := client.Topic[OrderCreated]("orders.created")
+orders := client.Stream[OrderCreated]("orders.created")
 receipts := orders.Consumer("email-receipts")
 receiptsConsumer, err := receipts.Register(ctx, nil)
 if err != nil {
@@ -42,7 +42,7 @@ A new group reads retained history by default. Add `search-indexer` after
 orders have been flowing for months and it can build its projection from
 the messages still retained, then continue into live traffic.
 
-A group that only needs new traffic declares `Start: vulkan.Head()`.
+A group that only needs new traffic declares `Start: sqlstreams.Head()`.
 This chooses its initial cursor once; redeclaring an existing group does
 not move it. [Where a New Group Starts](/guides/new-group-start/) shows
 the declaration and how to check its position.
@@ -58,7 +58,7 @@ the proposed rewind separately.
 ## The registration boundary
 
 `Head()` uses the visible `MAX(id)` inside the registration transaction.
-Suppose `orders.created` (topic id `1`) has a visible head of `1204318`.
+Suppose `orders.created` (stream id `1`) has a visible head of `1204318`.
 The new `search-indexer` group (id `7`) gets this cursor:
 
 ```sql
@@ -67,7 +67,7 @@ SELECT
     claimed,
     committed,
     settled_head
-FROM vulkan.consumer_group_cursor_1
+FROM sqlstreams.consumer_group_cursor_1
 WHERE consumer_group_id = 7;
 -- consumer_group_id | claimed | committed | settled_head
 -- 7                 | 1204318 | 1204318   | 1204318
@@ -89,16 +89,16 @@ Read cursor progress alongside pending and dead deliveries. In the
 example above, `fraud-screening` can reach the head while message 101
 remains dead. Zero cursor lag does not mean every handler succeeded.
 
-For topic id `1`, inspect the cursors:
+For stream id `1`, inspect the cursors:
 
 ```sql
 SELECT
     g.name AS consumer_group,
     c.claimed,
     c.committed,
-    (SELECT COALESCE(max(id), 0) FROM vulkan.message_log_1) - c.committed AS cursor_distance
-FROM vulkan.consumer_group_cursor_1 c
-JOIN vulkan.consumer_group_config g ON g.id = c.consumer_group_id;
+    (SELECT COALESCE(max(id), 0) FROM sqlstreams.message_log_1) - c.committed AS cursor_distance
+FROM sqlstreams.consumer_group_cursor_1 c
+JOIN sqlstreams.consumer_group_config g ON g.id = c.consumer_group_id;
 ```
 
 The distance is measured in ids, not a count of messages: ids can have
@@ -111,8 +111,8 @@ SELECT
     d.status,
     count(*) AS messages,
     min(d.created_at) AS oldest_created_at
-FROM vulkan.exception_queue_1 d
-JOIN vulkan.consumer_group_config g ON g.id = d.consumer_group_id
+FROM sqlstreams.exception_queue_1 d
+JOIN sqlstreams.consumer_group_config g ON g.id = d.consumer_group_id
 GROUP BY g.name, d.status
 ORDER BY g.name, d.status;
 ```
@@ -130,7 +130,7 @@ backlog and [Dead-lettered Messages](/guides/dead-letters/) for dead rows.
 
 ## Retention
 
-`TopicConfig.RetentionTTL` defaults to `0`, which retains messages
+`StreamConfig.RetentionTTL` defaults to `0`, which retains messages
 indefinitely. A nonzero TTL lets the janitor drop whole id-range
 partitions whose newest message has expired and sweep the remaining
 expired rows. Consuming a message does not delete it.
@@ -143,4 +143,4 @@ has caught up. Observe storage as well as delivery progress.
 Set `AllowDropPastCommitted: true` only when dropping unread history is
 acceptable. Exception rows do not provide separate retention: when
 retention deletes the source message, its retry, delayed, or dead state
-is deleted too. See [Topic](/reference/topic/#config) for the fields.
+is deleted too. See [Stream](/reference/stream/#config) for the fields.

@@ -17,7 +17,7 @@ func (d *MetricDatastore) CurrentTime(ctx context.Context) (time.Time, error) {
 
 func (d *MetricDatastore) currentTime(ctx context.Context) (time.Time, error) {
 	sql := `
-		-- vulkan: metric.currentTime
+		-- sqlstreams: metric.currentTime
 		SELECT now();
 	`
 	var current time.Time

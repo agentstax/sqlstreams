@@ -1,5 +1,5 @@
 name: Bug
-description: Something Vulkan does is wrong.
+description: Something SQLStreams does is wrong.
 labels: [bug]
 body:
   - type: markdown
@@ -8,22 +8,22 @@ body:
   - type: input
     id: versions
     attributes:
-      label: Vulkan and Postgres versions
-      placeholder: vulkan v0.x.y, postgres 17
+      label: SQLStreams and Postgres versions
+      placeholder: sqlstreams v0.x.y, postgres 17
     validations:
       required: true
   - type: textarea
     id: line
     attributes:
       label: Error or log line
-      description: The rendered line with its VKnnnn code and attributes.
+      description: The rendered line with its SSnnnn code and attributes.
       render: text
     validations:
       required: true
   - type: textarea
     id: explain
     attributes:
-      label: Output of `vulkan explain VKnnnn`
+      label: Output of `sqlstreams explain SSnnnn`
       description: Including what its diagnose queries returned.
       render: text
   - type: textarea

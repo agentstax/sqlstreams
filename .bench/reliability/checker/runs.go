@@ -15,7 +15,7 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/agentstax/vulkan/.bench/reliability/scenario"
+	"github.com/agentstax/sqlstreams/.bench/reliability/scenario"
 )
 
 // runsFile is the tracked, append-only record under <dir>/<scenario>/: one

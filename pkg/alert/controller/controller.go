@@ -6,15 +6,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/alert"
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	compactioncontroller "github.com/agentstax/vulkan/pkg/compaction/controller"
-	"github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/producer"
+	"github.com/agentstax/sqlstreams/pkg/alert"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	compactioncontroller "github.com/agentstax/sqlstreams/pkg/compaction/controller"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/producer"
 )
 
 // AlertController is the alert domain's write path: it records what a run
-// found to the __system.alerts topic and logs status changes.
+// found to the __system.alerts stream and logs status changes.
 type AlertController struct {
 	Logger logging.Logger
 
@@ -44,10 +44,10 @@ func NewAlertController(ctx context.Context, alerts *producer.ProducerInstance[a
 
 	// alert repeat needs to be less than retention ttl otherwise could sweep
 	// alert head and fake repeat early
-	retention := alerts.Topic.RetentionTTL
+	retention := alerts.Stream.RetentionTTL
 	if retention > 0 && repeat >= retention {
 		clamped := retention / 2
-		logger.WarnContext(ctx, "alert repeat interval at or above the alerts topic's retention -- clamped",
+		logger.WarnContext(ctx, "alert repeat interval at or above the alerts stream's retention -- clamped",
 			"repeat", repeat, "retention", retention, "clamped", clamped)
 		repeat = clamped
 	}

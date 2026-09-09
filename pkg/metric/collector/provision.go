@@ -3,10 +3,10 @@ package collector
 import (
 	"context"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/metric"
-	"github.com/agentstax/vulkan/pkg/worker"
-	"github.com/agentstax/vulkan/pkg/worker/controller"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/metric"
+	"github.com/agentstax/sqlstreams/pkg/worker"
+	"github.com/agentstax/sqlstreams/pkg/worker/controller"
 )
 
 // Declare writes the definition as the owner's worker row -- the newest
@@ -29,7 +29,7 @@ func (d *MetricCollectorProvisioner) Provision(ctx context.Context, declared *wo
 
 	// producer registration before the claim: a failure here leaves no
 	// claimed instance behind to block reconciles until its TTL lapses
-	producerInstance, err := d.producer.Register[metric.Measurement](ctx, metric.MetricTopicName, nil)
+	producerInstance, err := d.producer.Register[metric.Measurement](ctx, metric.MetricStreamName, nil)
 	if err != nil {
 		return nil, err
 	}

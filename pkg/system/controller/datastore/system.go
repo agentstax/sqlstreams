@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/system"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/system"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -38,7 +38,7 @@ func (d *SystemDatastore) register(ctx context.Context) (*SystemConfigRow, error
 
 	// txn-scoped -- acquired here, auto-released at commit.
 	if _, err := tx.Exec(ctx, `
-		-- vulkan: system.register
+		-- sqlstreams: system.register
 		SELECT pg_advisory_xact_lock($1);
 	`, lockKey.Value()); err != nil {
 		return nil, err
@@ -70,7 +70,7 @@ func (d *SystemDatastore) register(ctx context.Context) (*SystemConfigRow, error
 func (d *SystemDatastore) createSchema(ctx context.Context, tx pgx.Tx) error {
 	// the name passed PostgresConnectionConfig.Validate's identifier guard
 	createSchemaSql := fmt.Sprintf(`
-		-- vulkan: system.createSchema
+		-- sqlstreams: system.createSchema
 		CREATE SCHEMA IF NOT EXISTS %s;
 	`, d.Datastore.Schema)
 
@@ -87,7 +87,7 @@ func (d *SystemDatastore) createSchema(ctx context.Context, tx pgx.Tx) error {
 // seedSystem seeds the singleton row, first register wins.
 func (d *SystemDatastore) seedSystem(ctx context.Context, tx pgx.Tx) (*SystemConfigRow, error) {
 	seedSystemSql := fmt.Sprintf(`
-		-- vulkan: system.seedSystem
+		-- sqlstreams: system.seedSystem
 		INSERT INTO %[1]s.system_config (created_at, updated_at)
 		SELECT NOW(), NOW()
 		WHERE NOT EXISTS (SELECT 1 FROM %[1]s.system_config)
@@ -115,7 +115,7 @@ func (d *SystemDatastore) seedSystem(ctx context.Context, tx pgx.Tx) (*SystemCon
 // success row yet.
 func (d *SystemDatastore) recordBaseline(ctx context.Context, tx pgx.Tx, systemId int64) error {
 	recordBaselineSql := fmt.Sprintf(`
-		-- vulkan: system.recordBaseline
+		-- sqlstreams: system.recordBaseline
 		INSERT INTO %[1]s.migration_log (system_id, version, status)
 		SELECT $1, 1, 'success'
 		WHERE NOT EXISTS (
@@ -141,7 +141,7 @@ func (d *SystemDatastore) Get(ctx context.Context) (*SystemConfigRow, error) {
 
 func (d *SystemDatastore) get(ctx context.Context, q datastore.Querier) (*SystemConfigRow, error) {
 	sql := fmt.Sprintf(`
-		-- vulkan: system.get
+		-- sqlstreams: system.get
 		SELECT id, created_at, updated_at
 		FROM %[1]s.system_config;
 	`, d.Datastore.Schema)

@@ -3,9 +3,9 @@ package datastore
 import (
 	"errors"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	"github.com/agentstax/vulkan/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
 )
 
 // JanitorDatastore owns the waiting-row sweep on binding_log.

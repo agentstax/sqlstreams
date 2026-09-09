@@ -3,7 +3,7 @@ title: 'Exporting retained measurements'
 description: OTel producer behavior, source-read health, portable naming, and lifecycle ownership.
 ---
 
-Vulkan derives alerts from recorded measurement history and exports
+SQLStreams derives alerts from recorded measurement history and exports
 retained values through an OTel producer. Core owns alert timing and restart
 behavior; integrations consume actionable `active` and `resolved` alerts
 without maintaining pending timers or suppressing startup alerts themselves.
@@ -60,8 +60,8 @@ scope is `exporter`; they have no stored `Latest` or `History` values:
 
 | OTel name | Unit | Prometheus name |
 | --- | --- | --- |
-| `vulkan.otel.source.read_success` | none | `vulkan_otel_source_read_success` |
-| `vulkan.otel.measurements.rejected` | `{measurement}` | `vulkan_otel_measurements_rejected` |
+| `sqlstreams.otel.source.read_success` | none | `sqlstreams_otel_source_read_success` |
+| `sqlstreams.otel.measurements.rejected` | `{measurement}` | `sqlstreams_otel_measurements_rejected` |
 
 They describe this adapter's collection, never persisted core measurements.
 The rejection value counts retained rows omitted, once each, not families or
@@ -76,7 +76,7 @@ a lifetime total. A rejected family omits all its rows.
 On read failure, omit the rejection count because nothing was inspected.
 The SDK's [manual reader](https://github.com/open-telemetry/opentelemetry-go/blob/v1.44.0/sdk/metric/manual_reader.go)
 preserves producer data alongside its error when it reaches the producer.
-An already-canceled reader call stops before Vulkan runs and supplies no health
+An already-canceled reader call stops before SQLStreams runs and supplies no health
 gauge. Periodic export instead reports the error and skips that collection.
 Prometheus collection does not inherit
 the HTTP request context, so the producer's own timeout bounds its reads.
@@ -86,9 +86,9 @@ Both entry points enforce one portable export contract. They use upstream
 `UnderscoreEscapingWithSuffixes` translation to check final metric and
 attribute names. Reject conflicting kind or unit within a metric family,
 ambiguous translated names or attribute keys, and custom names that enter
-the reserved `vulkan_` or exporter-owned namespace. Healthy families still
+the reserved `sqlstreams_` or exporter-owned namespace. Healthy families still
 export; a current-collection rejection count and diagnostic identify loss.
-The warning [measurements cannot be exported](/errors/VK0104/) names the
+The warning [measurements cannot be exported](/errors/SS0104/) names the
 rejected family and reason, without payloads.
 Partial rejection does not return a
 collection error: periodic readers must still export the healthy families.
@@ -109,17 +109,17 @@ Partition count, compaction read cost, worker liveness, and collector progress
 use the existing alert framework. Conditions stay check-specific; shared
 policy decides pending, recovery, and repeats. The
 [history page](/concepts/alert-history/) covers pseudocode, timing,
-diagnostic visibility, and restart/concurrency boundaries. Topic alerts check
+diagnostic visibility, and restart/concurrency boundaries. Stream alerts check
 every minute by default; collection keeps its independent 30-second interval.
 
 ## Observe collector progress independently
 
 The collector records completion only after the whole pass succeeds. Read it
 through `System().Metrics().CollectorCompletedTimestamp()`. The attribute-free
-`vulkan.metrics.collector.completed_timestamp` gauge stores Unix seconds with
+`sqlstreams.metrics.collector.completed_timestamp` gauge stores Unix seconds with
 unit `s`. `System().Alerts().MetricCollectorProgress()` selects the alert.
 
-Completion follows all collection reads and writes, including concurrent topic
+Completion follows all collection reads and writes, including concurrent stream
 work. Startup and partial passes do not refresh it. Rank-zero compaction and
 stored `CreatedAt` retain the [storage-time contract](/decisions/0690/).
 
@@ -160,7 +160,7 @@ explicit positive override. A running collector keeps its old rate until its
 next claim. This check runs every minute and requires two unhealthy minutes;
 configure it through [SystemConfig](/reference/system/#metricscollectorprogressalertconfig).
 Insufficient evidence logs a warning and leaves recorded alerts unchanged.
-If all checking machinery stops, Vulkan cannot produce an outage report while
+If all checking machinery stops, SQLStreams cannot produce an outage report while
 it is stopped.
 
 ## Own the export lifecycle
@@ -170,15 +170,15 @@ replicas read the same deployment totals; summing those replicas duplicates
 the measurement. Provider resource identity belongs to the caller and must
 identify the installation; the adapter adds no replica coordination.
 
-Use a dedicated Vulkan reader/provider for periodic export. A source error
+Use a dedicated SQLStreams reader/provider for periodic export. A source error
 skips the reader's whole collection, including application metrics attached
 to that same reader. A separate application pipeline continues exporting.
-The read-health 0 returned by Vulkan does not reach a periodic exporter when
+The read-health 0 returned by SQLStreams does not reach a periodic exporter when
 collection fails; monitor pipeline errors or missing exports there.
 
 For example, `billing` loses Postgres while its payment handler stays healthy.
-Its Vulkan periodic reader reports the error and skips export; the separate
-payment-metrics provider continues exporting. The next successful Vulkan read
+Its SQLStreams periodic reader reports the error and skips export; the separate
+payment-metrics provider continues exporting. The next successful SQLStreams read
 exports normally, with no cached failure to clear.
 
 Periodic-provider shutdown cancels its active periodic collection, attempts a
@@ -189,5 +189,5 @@ For the convenience Prometheus endpoint, drain the HTTP server first, call
 `Exporter.Close(ctx)`, then close the caller-owned pool after all its users stop.
 Close prevents new collections but does not wait for an in-flight scrape;
 that scrape can finish afterward. A stopped reader can leave the HTTP endpoint
-responding without Vulkan data. Health reports source reads, not provider or
+responding without SQLStreams data. Health reports source reads, not provider or
 HTTP-server health. Do not mutate resolved config pointers while readers run.

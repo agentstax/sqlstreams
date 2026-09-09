@@ -3,12 +3,12 @@ package producer
 import (
 	"errors"
 
-	"github.com/agentstax/vulkan/.bench/reliability/record"
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/diagnostic"
+	"github.com/agentstax/sqlstreams/.bench/reliability/record"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
 )
 
-// classify sorts a Produce error into the records' outcome. A declared VK
+// classify sorts a Produce error into the records' outcome. A declared SS
 // error is a rejection the library stands behind, except a lost commit
 // confirmation, which is the one declared error that means "unknown".
 // Anything else -- a dropped connection, a cancelled ctx at shutdown -- is

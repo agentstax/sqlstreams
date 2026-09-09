@@ -12,15 +12,15 @@ package conventions
 // test fails until it is).
 
 import (
-	_ "github.com/agentstax/vulkan/pkg/alert"
-	_ "github.com/agentstax/vulkan/pkg/common"
-	_ "github.com/agentstax/vulkan/pkg/compaction"
-	_ "github.com/agentstax/vulkan/pkg/consume"
-	_ "github.com/agentstax/vulkan/pkg/metric"
-	_ "github.com/agentstax/vulkan/pkg/migrate"
-	_ "github.com/agentstax/vulkan/pkg/produce"
-	_ "github.com/agentstax/vulkan/pkg/schedule"
-	_ "github.com/agentstax/vulkan/pkg/system"
-	_ "github.com/agentstax/vulkan/pkg/topic"
-	_ "github.com/agentstax/vulkan/pkg/worker"
+	_ "github.com/agentstax/sqlstreams/pkg/alert"
+	_ "github.com/agentstax/sqlstreams/pkg/common"
+	_ "github.com/agentstax/sqlstreams/pkg/compaction"
+	_ "github.com/agentstax/sqlstreams/pkg/consume"
+	_ "github.com/agentstax/sqlstreams/pkg/metric"
+	_ "github.com/agentstax/sqlstreams/pkg/migrate"
+	_ "github.com/agentstax/sqlstreams/pkg/produce"
+	_ "github.com/agentstax/sqlstreams/pkg/schedule"
+	_ "github.com/agentstax/sqlstreams/pkg/stream"
+	_ "github.com/agentstax/sqlstreams/pkg/system"
+	_ "github.com/agentstax/sqlstreams/pkg/worker"
 )

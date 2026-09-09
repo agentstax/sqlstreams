@@ -4,15 +4,15 @@ import (
 	"context"
 	"errors"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type PostgresDatastore struct {
 	Pool *pgxpool.Pool
 
-	// Schema is the namespace every vulkan table lives in
+	// Schema is the namespace every sqlstreams table lives in
 	Schema string
 
 	// Logger is the one logger every layer built over this datastore reads,
@@ -25,7 +25,7 @@ type PostgresDatastore struct {
 
 // NewPostgresDatastore wraps a pool you built and pings it once, so a wrong
 // address or credential fails here instead of at the first query.
-// cfg may be nil or sparse; the schema defaults to "vulkan".
+// cfg may be nil or sparse; the schema defaults to "sqlstreams".
 func NewPostgresDatastore(ctx context.Context, pool *pgxpool.Pool, cfg *PostgresDatastoreConfig) (*PostgresDatastore, error) {
 	if pool == nil {
 		return nil, errors.New("pool must not be nil")

@@ -3,11 +3,11 @@ package main
 // destroy-system e2e test: DestroySystem is RegisterSystem's inverse (decision
 // record [0514]). Walks the verb through its guards and its teardown:
 //
-//   - a registered user topic refuses the destroy (ErrTopicsRegistered)
+//   - a registered user stream refuses the destroy (ErrStreamsRegistered)
 //   - a running consumer refuses it first (ErrSystemLive) -- the worker
-//     guard outranks the topic guard
-//   - with the consumer stopped and the user topic destroyed, the unforced
-//     destroy succeeds: every control-plane table and every system topic's
+//     guard outranks the stream guard
+//   - with the consumer stopped and the user stream destroyed, the unforced
+//     destroy succeeds: every control-plane table and every system stream's
 //     physical tables are gone; a second destroy is a no-op (idempotent)
 //   - RegisterSystem stands the schema back up, leaving the database usable
 //
@@ -17,21 +17,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 	"os"
 	"time"
 
-	"github.com/agentstax/vulkan/e2e/common"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/system"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/e2e/common"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	"github.com/agentstax/sqlstreams/pkg/system"
 )
 
 // every table createSystemTables creates -- the teardown assertion list
 var controlPlaneTables = []string{
 	"system_config",
-	"topic_config",
-	"topic_config_log",
+	"stream_config",
+	"stream_config_log",
 	"consumer_group_config",
 	"worker_config",
 	"worker_config_log",
@@ -72,42 +72,42 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err = iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 	must(client.System().Register(ctx, nil))
 
-	step("seed a user topic with messages")
-	topicName := fmt.Sprintf("destroysystem.%d", time.Now().UnixNano())
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, nil)
+	step("seed a user stream with messages")
+	streamName := fmt.Sprintf("destroysystem.%d", time.Now().UnixNano())
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, nil)
 	must(err)
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 	for range 3 {
-		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
+		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 			return common.NewWork(30, "admin@example.com")
 		}, nil)
 		must(err)
 	}
 
-	step("a registered user topic refuses the destroy")
+	step("a registered user stream refuses the destroy")
 	err = client.System().Destroy(ctx, nil)
-	assertErrorIs("ErrTopicsRegistered", err, system.ErrTopicsRegistered)
+	assertErrorIs("ErrStreamsRegistered", err, system.ErrStreamsRegistered)
 
-	step("a running consumer refuses it first -- the worker guard outranks the topic guard")
-	wcInstance, err := client.Topic[common.Work](tp.Name).Consumer("destroysystem-group").Register(ctx, nil)
+	step("a running consumer refuses it first -- the worker guard outranks the stream guard")
+	wcInstance, err := client.Stream[common.Work](tp.Name).Consumer("destroysystem-group").Register(ctx, nil)
 	must(err)
 	consumeCtx, stopConsumer := context.WithCancel(ctx)
 	consumeDone := make(chan error, 1)
 	go func() {
 		consumeDone <- wcInstance.Consume(consumeCtx, func(ctx context.Context, work *common.Work) error {
 			return nil
-		}, &vulkan.ConsumeOptions{
+		}, &sqlstreams.ConsumeOptions{
 			ClaimPollRate: 500 * time.Millisecond,
 			InstanceTTL:   2 * time.Second,
 		})
@@ -121,23 +121,23 @@ func run() (err error) {
 	must(<-consumeDone)
 	waitLiveInstances(ctx, false)
 
-	step("consumer stopped: the topic guard is back")
+	step("consumer stopped: the stream guard is back")
 	err = client.System().Destroy(ctx, nil)
-	assertErrorIs("ErrTopicsRegistered", err, system.ErrTopicsRegistered)
+	assertErrorIs("ErrStreamsRegistered", err, system.ErrStreamsRegistered)
 
-	step("user topic destroyed: the unforced destroy succeeds")
-	// a system topic's id, so the teardown assert can cover a physical
-	// table the destroy itself must drop (not one DestroyTopic already took)
-	var alertsTopicId int64
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT id FROM %s.topic_config WHERE name = '__system.alerts';`, ds.Schema)).Scan(&alertsTopicId))
+	step("user stream destroyed: the unforced destroy succeeds")
+	// a system stream's id, so the teardown assert can cover a physical
+	// table the destroy itself must drop (not one DestroyStream already took)
+	var alertsStreamId int64
+	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT id FROM %s.stream_config WHERE name = '__system.alerts';`, ds.Schema)).Scan(&alertsStreamId))
 
-	must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+	must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	must(client.System().Destroy(ctx, nil))
 
 	for _, table := range controlPlaneTables {
 		assertTableExists(ctx, ds.Schema+"."+table, false)
 	}
-	assertTableExists(ctx, fmt.Sprintf("%s.%s", ds.Schema, topic.MessageLogTable(alertsTopicId)), false)
+	assertTableExists(ctx, fmt.Sprintf("%s.%s", ds.Schema, stream.MessageLogTable(alertsStreamId)), false)
 
 	step("a second destroy is a no-op, not an error")
 	must(client.System().Destroy(ctx, nil))
@@ -148,12 +148,12 @@ func run() (err error) {
 	for _, table := range controlPlaneTables {
 		assertTableExists(ctx, ds.Schema+"."+table, true)
 	}
-	var topicCount int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.topic_config;`, ds.Schema)).Scan(&topicCount))
-	assertTrue(fmt.Sprintf("the 3 system topics re-registered (got %d)", topicCount), topicCount == 3)
+	var streamCount int
+	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.stream_config;`, ds.Schema)).Scan(&streamCount))
+	assertTrue(fmt.Sprintf("the 3 system streams re-registered (got %d)", streamCount), streamCount == 3)
 
 	fmt.Println("\n✅ DESTROY SYSTEM E2E TEST PASSED")
-	fmt.Println("   guards refuse while workers run or topics remain; the unforced destroy")
+	fmt.Println("   guards refuse while workers run or streams remain; the unforced destroy")
 	fmt.Println("   returns the database to its pre-register state, and RegisterSystem rebuilds it.")
 	return nil
 }

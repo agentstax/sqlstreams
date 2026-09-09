@@ -5,31 +5,31 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 )
 
 // ListMessages is the schedule's newest limit messages, one row per
 // (message, consumer group that receives it), newest message first.
-func (d *ScheduleDatastore) ListMessages(ctx context.Context, topicId int64, name string, limit int) ([]ScheduleMessageStatusRow, error) {
+func (d *ScheduleDatastore) ListMessages(ctx context.Context, streamId int64, name string, limit int) ([]ScheduleMessageStatusRow, error) {
 	var requests []ScheduleMessageStatusRow
 	err := d.DatastoreRetry.Wrap(ctx, func() error {
 		var err error
-		requests, err = d.listMessages(ctx, topicId, name, limit)
+		requests, err = d.listMessages(ctx, streamId, name, limit)
 		return err
 	})
 	return requests, err
 }
 
-func (d *ScheduleDatastore) listMessages(ctx context.Context, topicId int64, name string, limit int) ([]ScheduleMessageStatusRow, error) {
-	groups, err := d.matchingGroups(ctx, topicId, name)
+func (d *ScheduleDatastore) listMessages(ctx context.Context, streamId int64, name string, limit int) ([]ScheduleMessageStatusRow, error) {
+	groups, err := d.matchingGroups(ctx, streamId, name)
 	if err != nil {
 		return nil, err
 	}
-	messages, err := d.keyMessages(ctx, topicId, name, limit)
+	messages, err := d.keyMessages(ctx, streamId, name, limit)
 	if err != nil {
 		return nil, err
 	}
-	headId, err := d.headId(ctx, topicId, name)
+	headId, err := d.headId(ctx, streamId, name)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +37,7 @@ func (d *ScheduleDatastore) listMessages(ctx context.Context, topicId int64, nam
 	ids := messageIds(messages)
 	var statuses []ScheduleMessageStatusRow
 	for _, group := range groups {
-		outcomes, err := d.messageOutcomes(ctx, topicId, group.Id, ids)
+		outcomes, err := d.messageOutcomes(ctx, streamId, group.Id, ids)
 		if err != nil {
 			return nil, err
 		}
@@ -56,9 +56,9 @@ func (d *ScheduleDatastore) listMessages(ctx context.Context, topicId int64, nam
 
 // keyMessages is the newest limit message-log rows on the schedule's message
 // key, newest first.
-func (d *ScheduleDatastore) keyMessages(ctx context.Context, topicId int64, name string, limit int) ([]keyMessageRow, error) {
+func (d *ScheduleDatastore) keyMessages(ctx context.Context, streamId int64, name string, limit int) ([]keyMessageRow, error) {
 	sql := fmt.Sprintf(`
-		-- vulkan: schedule.keyMessages
+		-- sqlstreams: schedule.keyMessages
 		SELECT
 			m.id,
 			(m.options->>'scheduled_at')::timestamptz,
@@ -67,7 +67,7 @@ func (d *ScheduleDatastore) keyMessages(ctx context.Context, topicId int64, name
 		WHERE m.message_key = $1
 		ORDER BY m.id DESC
 		LIMIT $2;
-	`, d.Datastore.Schema, topic.MessageLogTable(topicId))
+	`, d.Datastore.Schema, stream.MessageLogTable(streamId))
 
 	rows, err := d.Datastore.Pool.Query(ctx, sql, name, limit)
 	if err != nil {

@@ -4,11 +4,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common"
 )
 
 func TestNewAlertCarriesAt(t *testing.T) {
-	owner, err := common.NewTopicOwner(1, 41, "payments.requested")
+	owner, err := common.NewStreamOwner(1, 41, "payments.requested")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -24,7 +24,7 @@ func TestNewAlertCarriesAt(t *testing.T) {
 }
 
 func TestNewAlertRejectsZeroAt(t *testing.T) {
-	owner, err := common.NewTopicOwner(1, 41, "payments.requested")
+	owner, err := common.NewStreamOwner(1, 41, "payments.requested")
 	if err != nil {
 		t.Fatal(err)
 	}

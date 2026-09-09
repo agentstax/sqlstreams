@@ -1,19 +1,19 @@
 ---
 title: Where a New Group Starts
-description: A new consumer group reads retained history by default; a cursor position of vulkan.Head() makes it read live traffic only.
+description: A new consumer group reads retained history by default; a cursor position of sqlstreams.Head() makes it read live traffic only.
 ---
 
 A new consumer group starts at the beginning of retained history unless
-its config's `Start` says otherwise, and `vulkan.Head()` says
+its config's `Start` says otherwise, and `sqlstreams.Head()` says
 "the head of the log": the group sees only messages produced after it
 was registered. The position is used once, when `Register` creates the
 group's cursor row; an existing group keeps its position no matter
 what the config says on a later `Register`.
 
 ```go
-scoring, err := client.Topic[OrderPlaced]("orders.placed").Consumer("fraud-scoring").Register(ctx,
-	&vulkan.ConsumerConfig{
-		Start: vulkan.Head(),
+scoring, err := client.Stream[OrderPlaced]("orders.placed").Consumer("fraud-scoring").Register(ctx,
+	&sqlstreams.ConsumerConfig{
+		Start: sqlstreams.Head(),
 	})
 if err != nil {
 	return err
@@ -21,7 +21,7 @@ if err != nil {
 return scoring.Consume(ctx, scoreOrder, nil)
 ```
 
-To read retained history, leave `Start` unset or use `vulkan.Beginning()`.
+To read retained history, leave `Start` unset or use `sqlstreams.Beginning()`.
 Moving an existing group is a different operation; the
 [rewind proposal](/guides/replay/#proposed-rewind-an-existing-group) is not
 shipped API.
@@ -30,19 +30,19 @@ shipped API.
 
 | Value | New group reads |
 | --- | --- |
-| `vulkan.Beginning()` (default) | retained history, then live traffic |
-| `vulkan.Head()` | messages with ids above the visible head at registration |
+| `sqlstreams.Beginning()` (default) | retained history, then live traffic |
+| `sqlstreams.Head()` | messages with ids above the visible head at registration |
 
-Both construct `vulkan.CursorPosition`. The position only applies when
+Both construct `sqlstreams.CursorPosition`. The position only applies when
 registration creates the cursor; it does not reset an existing group.
 
 ## Worked case
 
-`orders.placed` (topic id `1`) has been live for a year and
+`orders.placed` (stream id `1`) has been live for a year and
 `message_log_1` holds ids `1` through `1204318`. A fraud-scoring
 service is added today and only needs to score new orders.
 
-`Register` with `Start: vulkan.Head()` creates the cursor row at
+`Register` with `Start: sqlstreams.Head()` creates the cursor row at
 the head instead of at 0:
 
 ```sql
@@ -51,7 +51,7 @@ SELECT
     claimed,
     committed,
     settled_head
-FROM vulkan.consumer_group_cursor_1
+FROM sqlstreams.consumer_group_cursor_1
 WHERE consumer_group_id = 7;
 --  consumer_group_id | claimed | committed | settled_head
 --  7                 | 1204318 | 1204318   | 1204318
@@ -67,7 +67,7 @@ The register log line carries the position, so a group that started
 at the head says so once:
 
 ```
-consumer group registered (created) group=fraud-scoring topic_id=1 group_id=7 committed=1204318
+consumer group registered (created) group=fraud-scoring stream_id=1 group_id=7 committed=1204318
 ```
 
 ## What "after" means

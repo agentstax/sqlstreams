@@ -1,20 +1,20 @@
 package alert
 
 import (
-	"github.com/agentstax/vulkan/pkg/common/diagnostic"
+	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
 )
 
-// AlertDefinition is one Vulkan built-in alert's identity and metadata. It
+// AlertDefinition is one SQLStreams built-in alert's identity and metadata. It
 // exists before any alert is published.
 type AlertDefinition struct {
-	Code        string                 `json:"code"` // the VK code its docs page lives under
+	Code        string                 `json:"code"` // the SS code its docs page lives under
 	Name        string                 `json:"name"` // e.g. "partition_count"; Alert.Name of what it publishes
 	Description string                 `json:"description"`
 	Scope       diagnostic.MetricScope `json:"scope"` // which resource kind its alerts are about
 	Severity    AlertSeverity          `json:"severity"`
 }
 
-// Definitions returns Vulkan's built-in alert definitions ordered by VK code.
+// Definitions returns SQLStreams's built-in alert definitions ordered by SS code.
 // With no scopes it returns the whole catalog; otherwise it returns
 // definitions belonging to any requested scope.
 func Definitions(scopes ...diagnostic.MetricScope) []AlertDefinition {

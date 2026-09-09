@@ -7,9 +7,9 @@ import { fillText } from '../../helpers/placeholders';
 
 // declaration order is the order values render on a composed line
 export const exampleValues: Record<string, string> = {
-	schema: 'vulkan',
-	topic: 'orders.created',
-	topic_id: '1',
+	schema: 'sqlstreams',
+	stream: 'orders.created',
+	stream_id: '1',
 	group: 'charge-cards',
 	group_id: '7',
 	message_id: '214',
@@ -18,18 +18,18 @@ export const exampleValues: Record<string, string> = {
 	high: '4200',
 	version: '2',
 	build_version: '3',
-	owner_kind: 'topic',
+	owner_kind: 'stream',
 	schedule: 'alert.partition_count',
 	schedule_id: '3',
-	worker: 'topic_janitor',
+	worker: 'stream_janitor',
 	worker_id: '12',
 	existing_partition_size: '1000000',
 };
 
-// VK0023 is VK0022's mirror -- there the database is ahead of the build, so
+// SS0023 is SS0022's mirror -- there the database is ahead of the build, so
 // the shared ordering would render a fix that migrates downward
 export const codeOverrides: Record<string, Record<string, string>> = {
-	VK0023: { version: '3', build_version: '2' },
+	SS0023: { version: '3', build_version: '2' },
 };
 
 // the Error() one-liner: problem: name value, name value -- fix [code]
@@ -45,7 +45,7 @@ export function errorExampleLine(
 	return `${problem}${pairs === '' ? '' : `: ${pairs}`}${filledFix} [${code}]`;
 }
 
-// the text-handler line: level=WARN msg="..." code=VK0026 name=value
+// the text-handler line: level=WARN msg="..." code=SS0026 name=value
 export function eventExampleLine(
 	message: string,
 	level: string,

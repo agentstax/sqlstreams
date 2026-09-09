@@ -7,9 +7,9 @@ import (
 	"math/rand/v2"
 	"time"
 
-	"github.com/agentstax/vulkan/.bench/reliability/common"
-	"github.com/agentstax/vulkan/.bench/reliability/record"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/.bench/reliability/common"
+	"github.com/agentstax/sqlstreams/.bench/reliability/record"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 // errInjectedFailure is the handler's own failure under the scenario's fail
@@ -21,19 +21,19 @@ var errInjectedFailure = errors.New("handler failure injected by the scenario's 
 // invocation before returning, and fails the scenario's share of them.
 type Handler struct {
 	name     string
-	topic    string
+	stream   string
 	group    string
 	failRate float64
 	writer   *record.Writer
 	failed   chan error
 }
 
-func NewHandler(name string, topic string, group string, failRate float64, writer *record.Writer, failed chan error) (*Handler, error) {
+func NewHandler(name string, stream string, group string, failRate float64, writer *record.Writer, failed chan error) (*Handler, error) {
 	if name == "" {
 		return nil, errors.New("name must not be empty")
 	}
-	if topic == "" {
-		return nil, errors.New("topic must not be empty")
+	if stream == "" {
+		return nil, errors.New("stream must not be empty")
 	}
 	if group == "" {
 		return nil, errors.New("group must not be empty")
@@ -47,7 +47,7 @@ func NewHandler(name string, topic string, group string, failRate float64, write
 	if failed == nil {
 		return nil, errors.New("failed must not be nil")
 	}
-	return &Handler{name: name, topic: topic, group: group, failRate: failRate, writer: writer, failed: failed}, nil
+	return &Handler{name: name, stream: stream, group: group, failRate: failRate, writer: writer, failed: failed}, nil
 }
 
 // Handle writes the invocation's record, then returns the injected outcome.
@@ -55,7 +55,7 @@ func NewHandler(name string, topic string, group string, failRate float64, write
 // sent on failed for the runner to stop on, and returned so the library does
 // not record a success the records lack.
 func (h *Handler) Handle(ctx context.Context, order *common.Order) error {
-	meta, ok := vulkan.MetaFromContext(ctx)
+	meta, ok := sqlstreams.MetaFromContext(ctx)
 	if !ok {
 		return errors.New("message meta is missing from the handler ctx")
 	}
@@ -67,7 +67,7 @@ func (h *Handler) Handle(ctx context.Context, order *common.Order) error {
 	row := record.HandlerRecord{
 		At:        time.Now(),
 		Consumer:  h.name,
-		Topic:     h.topic,
+		Stream:    h.stream,
 		Group:     h.group,
 		MessageId: meta.Id,
 		Key:       order.Key(),

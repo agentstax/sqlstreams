@@ -3,10 +3,10 @@ package controller
 import (
 	"errors"
 
-	"github.com/agentstax/vulkan/pkg/alert/partitioncount/controller/datastore"
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	metricscontroller "github.com/agentstax/vulkan/pkg/metric/controller"
+	"github.com/agentstax/sqlstreams/pkg/alert/partitioncount/controller/datastore"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	metricscontroller "github.com/agentstax/sqlstreams/pkg/metric/controller"
 )
 
 type PartitionCountController struct {

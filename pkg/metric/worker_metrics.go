@@ -1,10 +1,10 @@
 package metric
 
-import "github.com/agentstax/vulkan/pkg/common/diagnostic"
+import "github.com/agentstax/sqlstreams/pkg/common/diagnostic"
 
 var MetricUnclaimedWorkers = diagnostic.NewDiagnosticMetric(
-	"VK0067",
-	"vulkan.worker.state.unclaimed_workers",
+	"SS0067",
+	"sqlstreams.worker.state.unclaimed_workers",
 	string(MetricKindGauge),
 	string(MetricUnitCount("worker")),
 	"workers with no live instance and a nonzero target",
@@ -12,8 +12,8 @@ var MetricUnclaimedWorkers = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricOldestUnclaimedAge = diagnostic.NewDiagnosticMetric(
-	"VK0068",
-	"vulkan.worker.state.oldest_unclaimed_age",
+	"SS0068",
+	"sqlstreams.worker.state.oldest_unclaimed_age",
 	string(MetricKindGauge),
 	string(MetricUnitMilliseconds),
 	"largest time since expiry among workers with no live instance and a nonzero target",
@@ -21,8 +21,8 @@ var MetricOldestUnclaimedAge = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricFailingWorkers = diagnostic.NewDiagnosticMetric(
-	"VK0069",
-	"vulkan.worker.state.failing_workers",
+	"SS0069",
+	"sqlstreams.worker.state.failing_workers",
 	string(MetricKindGauge),
 	string(MetricUnitCount("worker")),
 	"workers with a live instance on a nonzero consecutive failure streak",

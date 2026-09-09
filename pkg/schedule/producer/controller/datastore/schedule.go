@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -24,7 +24,7 @@ func (d *ScheduleProducerDatastore) ListDue(ctx context.Context) ([]int64, error
 
 func (d *ScheduleProducerDatastore) listDue(ctx context.Context) ([]int64, error) {
 	sql := fmt.Sprintf(`
-		-- vulkan: scheduleproducer.listDue
+		-- sqlstreams: scheduleproducer.listDue
 		SELECT schedule_config.id
 		FROM %[1]s.schedule_cursor
 		JOIN %[1]s.schedule_config ON schedule_config.id = schedule_cursor.schedule_id
@@ -61,12 +61,12 @@ func (d *ScheduleProducerDatastore) claimDue(ctx context.Context, q datastore.Qu
 	// FOR UPDATE locks both joined rows -- the cursor row Advance writes and
 	// the config row Suspend writes
 	sql := fmt.Sprintf(`
-		-- vulkan: scheduleproducer.claimDue
+		-- sqlstreams: scheduleproducer.claimDue
 		SELECT
 			schedule_config.id,
 			schedule_config.name,
 			schedule_config.expression,
-			topic_config.name AS topic_name,
+			stream_config.name AS stream_name,
 			schedule_config.concurrency,
 			schedule_config.timeout_ns,
 			schedule_config.payload,
@@ -76,7 +76,7 @@ func (d *ScheduleProducerDatastore) claimDue(ctx context.Context, q datastore.Qu
 			now()
 		FROM %[1]s.schedule_cursor
 		JOIN %[1]s.schedule_config ON schedule_config.id = schedule_cursor.schedule_id
-		JOIN %[1]s.topic_config ON topic_config.id = schedule_config.topic_id
+		JOIN %[1]s.stream_config ON stream_config.id = schedule_config.stream_id
 		WHERE schedule_config.id = $1
 			AND schedule_cursor.next_scheduled_at <= now()
 			AND NOT schedule_config.suspended
@@ -84,7 +84,7 @@ func (d *ScheduleProducerDatastore) claimDue(ctx context.Context, q datastore.Qu
 	`, d.Datastore.Schema)
 	var data DueScheduleRow
 	var timeoutNs int64
-	err := q.QueryRow(ctx, sql, id).Scan(&data.Id, &data.Name, &data.Expression, &data.TopicName, &data.Concurrency,
+	err := q.QueryRow(ctx, sql, id).Scan(&data.Id, &data.Name, &data.Expression, &data.StreamName, &data.Concurrency,
 		&timeoutNs, &data.Payload, &data.SchemaVersion, &data.Metadata, &data.NextScheduledAt, &data.DbNow)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -105,7 +105,7 @@ func (d *ScheduleProducerDatastore) Advance(ctx context.Context, q datastore.Que
 
 func (d *ScheduleProducerDatastore) advance(ctx context.Context, q datastore.Querier, id int64, next time.Time, produced time.Time) error {
 	sql := fmt.Sprintf(`
-		-- vulkan: scheduleproducer.advance
+		-- sqlstreams: scheduleproducer.advance
 		UPDATE %[1]s.schedule_cursor SET next_scheduled_at = $2, last_scheduled_at = $3 WHERE schedule_id = $1;
 	`, d.Datastore.Schema)
 	_, err := q.Exec(ctx, sql, id, next, produced)
@@ -121,7 +121,7 @@ func (d *ScheduleProducerDatastore) Suspend(ctx context.Context, q datastore.Que
 
 func (d *ScheduleProducerDatastore) suspend(ctx context.Context, q datastore.Querier, id int64, produced time.Time) error {
 	configSql := fmt.Sprintf(`
-		-- vulkan: scheduleproducer.suspend
+		-- sqlstreams: scheduleproducer.suspend
 		UPDATE %[1]s.schedule_config SET suspended = true, updated_at = NOW() WHERE id = $1;
 	`, d.Datastore.Schema)
 	if _, err := q.Exec(ctx, configSql, id); err != nil {
@@ -129,7 +129,7 @@ func (d *ScheduleProducerDatastore) suspend(ctx context.Context, q datastore.Que
 	}
 
 	cursorSql := fmt.Sprintf(`
-		-- vulkan: scheduleproducer.suspend
+		-- sqlstreams: scheduleproducer.suspend
 		UPDATE %[1]s.schedule_cursor SET last_scheduled_at = $2 WHERE schedule_id = $1;
 	`, d.Datastore.Schema)
 	_, err := q.Exec(ctx, cursorSql, id, produced)

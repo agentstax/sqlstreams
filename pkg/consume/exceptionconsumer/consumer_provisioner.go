@@ -12,14 +12,14 @@ package exceptionconsumer
 import (
 	"context"
 	"errors"
-	"github.com/agentstax/vulkan/pkg/common/logging"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	consumebase "github.com/agentstax/vulkan/pkg/consume/base"
-	"github.com/agentstax/vulkan/pkg/consume/exceptionconsumer/controller"
-	"github.com/agentstax/vulkan/pkg/datastore"
-	metricsproducer "github.com/agentstax/vulkan/pkg/metric/producer"
-	"github.com/agentstax/vulkan/pkg/worker"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	consumebase "github.com/agentstax/sqlstreams/pkg/consume/base"
+	"github.com/agentstax/sqlstreams/pkg/consume/exceptionconsumer/controller"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
+	metricsproducer "github.com/agentstax/sqlstreams/pkg/metric/producer"
+	"github.com/agentstax/sqlstreams/pkg/worker"
 )
 
 // setting this row's target_instances to 0 suspends just this kind's new

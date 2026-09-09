@@ -1,9 +1,9 @@
 package exceptionconsumer
 
 import (
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/consume"
-	"github.com/agentstax/vulkan/pkg/consume/exceptionconsumer/controller"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/consume"
+	"github.com/agentstax/sqlstreams/pkg/consume/exceptionconsumer/controller"
 )
 
 func toExceptionConsumerMetadata(cfg *ExceptionConsumerConfig) *ExceptionConsumerMetadata {

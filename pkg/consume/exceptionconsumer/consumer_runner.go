@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/consume"
-	consumebase "github.com/agentstax/vulkan/pkg/consume/base"
-	keyleasecontroller "github.com/agentstax/vulkan/pkg/consume/base/controller"
-	"github.com/agentstax/vulkan/pkg/consume/exceptionconsumer/controller"
-	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/consume"
+	consumebase "github.com/agentstax/sqlstreams/pkg/consume/base"
+	keyleasecontroller "github.com/agentstax/sqlstreams/pkg/consume/base/controller"
+	"github.com/agentstax/sqlstreams/pkg/consume/exceptionconsumer/controller"
+	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -86,7 +86,7 @@ func (r *exceptionRunner[Message]) refresh(ctx context.Context) error {
 				return err
 			}
 
-			r.Logger.WarnContext(ctx, consume.EventGroupConfigNotRefreshed.Message(), "code", consume.EventGroupConfigNotRefreshed.GetCode(), "group", r.Owner.Name, "topic_id", r.Topic.Id, "worker", WorkerExceptionConsumer, "error", err)
+			r.Logger.WarnContext(ctx, consume.EventGroupConfigNotRefreshed.Message(), "code", consume.EventGroupConfigNotRefreshed.GetCode(), "group", r.Owner.Name, "stream_id", r.Stream.Id, "worker", WorkerExceptionConsumer, "error", err)
 		}
 	}
 }
@@ -108,7 +108,7 @@ func (r *exceptionRunner[Message]) refreshConfig(ctx context.Context) error {
 		return nil
 	}
 
-	r.Logger.InfoContext(ctx, "group config refreshed", "group", r.Owner.Name, "topic_id", r.Topic.Id, "worker", WorkerExceptionConsumer, "metadata", declared.Metadata)
+	r.Logger.InfoContext(ctx, "group config refreshed", "group", r.Owner.Name, "stream_id", r.Stream.Id, "worker", WorkerExceptionConsumer, "metadata", declared.Metadata)
 	return nil
 }
 
@@ -116,13 +116,13 @@ func (r *exceptionRunner[Message]) exceptionClaim(ctx context.Context, cfg *Exce
 	leaseDuration := cfg.MessageMax.Timeout + cfg.TimeoutGrace + cfg.QueueMargin + cfg.RecordMargin
 
 	// kill first, so an exhausted expired row is dead-lettered
-	killed, err := r.consumers.Kill(ctx, r.Topic.Id, r.Owner.ConsumerGroupId, cfg.MessageMax.Retry.MaxRetries, r.Topic.DeliveryLogMode)
+	killed, err := r.consumers.Kill(ctx, r.Stream.Id, r.Owner.ConsumerGroupId, cfg.MessageMax.Retry.MaxRetries, r.Stream.DeliveryLogMode)
 	if err != nil {
 		return err
 	}
 	r.Metrics.RecordDead(int(killed))
 
-	claimed, err := r.consumers.Claim(ctx, r.Topic.Id, r.Owner.ConsumerGroupId, int64(r.SchemaVersion), cfg.BatchLimit, cfg.MessageMax.Retry.MaxRetries, leaseDuration, r.Topic.DeliveryLogMode)
+	claimed, err := r.consumers.Claim(ctx, r.Stream.Id, r.Owner.ConsumerGroupId, int64(r.SchemaVersion), cfg.BatchLimit, cfg.MessageMax.Retry.MaxRetries, leaseDuration, r.Stream.DeliveryLogMode)
 	if err != nil {
 		return err
 	}
@@ -149,14 +149,14 @@ func (r *exceptionRunner[Message]) processException(ctx context.Context, cfg *Ex
 			return err
 		}
 		if !renewed {
-			r.Logger.DebugContext(ctx, "lease lost before the run started -- re-claimed by another worker", "group", r.Owner.Name, "topic_id", r.Topic.Id, "message_id", exception.MessageId)
+			r.Logger.DebugContext(ctx, "lease lost before the run started -- re-claimed by another worker", "group", r.Owner.Name, "stream_id", r.Stream.Id, "message_id", exception.MessageId)
 			return nil
 		}
 	}
 
 	var keyClaim *keyleasecontroller.KeyLeaseClaim
 	if exception.MessageKey != "" && resolvedOptions.Concurrency.HoldsKey() {
-		claim, err := r.KeyLeases.Claim(ctx, r.Topic.Id, r.Owner.ConsumerGroupId, exception.MessageKey, exception.MessageId, exception.Compacted, resolvedOptions.Concurrency, keyleasecontroller.RangeBounds{}, leaseDuration)
+		claim, err := r.KeyLeases.Claim(ctx, r.Stream.Id, r.Owner.ConsumerGroupId, exception.MessageKey, exception.MessageId, exception.Compacted, resolvedOptions.Concurrency, keyleasecontroller.RangeBounds{}, leaseDuration)
 		switch {
 		case err != nil:
 			// a failed key-lease claim counts as this attempt's own failure
@@ -166,7 +166,7 @@ func (r *exceptionRunner[Message]) processException(ctx context.Context, cfg *Ex
 		case claim.Verdict == keyleasecontroller.KeyLeaseBusy:
 			// usually a same-batch sibling on the key started first -- the row
 			// returns to 'deferred' and the next claim takes it once the key frees
-			r.Logger.DebugContext(ctx, "key busy at gate -- delivery re-deferred", "group", r.Owner.Name, "topic_id", r.Topic.Id, "message_id", exception.MessageId, "message_key", exception.MessageKey)
+			r.Logger.DebugContext(ctx, "key busy at gate -- delivery re-deferred", "group", r.Owner.Name, "stream_id", r.Stream.Id, "message_id", exception.MessageId, "message_key", exception.MessageKey)
 			return r.recordDeferred(ctx, exception, resolvedOptions.Concurrency)
 		}
 		keyClaim = claim
@@ -205,7 +205,7 @@ func (r *exceptionRunner[Message]) recordSuccess(ctx context.Context, exception 
 	recordCtx, cancel := r.recordContext(ctx, keyClaim)
 	defer cancel()
 
-	err := r.consumers.RecordSuccess(recordCtx, exception, r.Topic.DeliveryLogMode, keyClaim)
+	err := r.consumers.RecordSuccess(recordCtx, exception, r.Stream.DeliveryLogMode, keyClaim)
 	return r.absorbLostLease(ctx, exception, err)
 }
 
@@ -218,7 +218,7 @@ func (r *exceptionRunner[Message]) recordFailure(ctx context.Context, exception 
 	recordCtx, cancel := r.recordContext(ctx, keyClaim)
 	defer cancel()
 
-	err := r.consumers.RecordFailure(recordCtx, resolvedOptions.Retry, exception, runErr, r.Topic.DeliveryLogMode, keyClaim)
+	err := r.consumers.RecordFailure(recordCtx, resolvedOptions.Retry, exception, runErr, r.Stream.DeliveryLogMode, keyClaim)
 	if err == nil {
 		r.Metrics.RecordReady(1)
 	}
@@ -235,7 +235,7 @@ func (r *exceptionRunner[Message]) recordDelayed(ctx context.Context, exception 
 	defer cancel()
 
 	delayed, _ := errors.AsType[*consume.DelayedDelivery](runErr)
-	err := r.consumers.RecordDelayed(recordCtx, delayed.Delay, exception, runErr, r.Topic.DeliveryLogMode, keyClaim)
+	err := r.consumers.RecordDelayed(recordCtx, delayed.Delay, exception, runErr, r.Stream.DeliveryLogMode, keyClaim)
 	if err == nil {
 		r.Metrics.RecordReady(1)
 	}
@@ -246,7 +246,7 @@ func (r *exceptionRunner[Message]) recordTerminal(ctx context.Context, exception
 	recordCtx, cancel := r.recordContext(ctx, keyClaim)
 	defer cancel()
 
-	err := r.consumers.RecordTerminal(recordCtx, exception, runErr, r.Topic.DeliveryLogMode, keyClaim)
+	err := r.consumers.RecordTerminal(recordCtx, exception, runErr, r.Stream.DeliveryLogMode, keyClaim)
 	if err == nil {
 		r.Metrics.RecordDead(1)
 	}
@@ -257,7 +257,7 @@ func (r *exceptionRunner[Message]) recordSuperseded(ctx context.Context, excepti
 	// resolved without a run -- a newer message on the key owns the outcome
 	r.Metrics.RecordSuperseded(1)
 
-	err := r.consumers.RecordSuperseded(ctx, exception, r.Topic.DeliveryLogMode)
+	err := r.consumers.RecordSuperseded(ctx, exception, r.Stream.DeliveryLogMode)
 	return r.absorbLostLease(ctx, exception, err)
 }
 
@@ -265,7 +265,7 @@ func (r *exceptionRunner[Message]) recordDeferred(ctx context.Context, exception
 	// no run started -- the row waits out the key's current holder
 	r.Metrics.RecordDeferred(1)
 
-	err := r.consumers.RecordDeferred(ctx, exception, concurrency, r.Topic.DeliveryLogMode)
+	err := r.consumers.RecordDeferred(ctx, exception, concurrency, r.Stream.DeliveryLogMode)
 	return r.absorbLostLease(ctx, exception, err)
 }
 
@@ -277,7 +277,7 @@ func (r *exceptionRunner[Message]) recordContext(ctx context.Context, keyClaim *
 		return ctx, func() {}
 	}
 	return context.WithTimeoutCause(context.WithoutCancel(ctx), r.Config.RecordMargin,
-		fmt.Errorf("outcome recording exceeded RecordMargin (%s) for group %q topic %d", r.Config.RecordMargin, r.Owner.Name, r.Topic.Id))
+		fmt.Errorf("outcome recording exceeded RecordMargin (%s) for group %q stream %d", r.Config.RecordMargin, r.Owner.Name, r.Stream.Id))
 }
 
 // a lost lease means another worker re-claimed the row -- it owns the outcome
@@ -285,7 +285,7 @@ func (r *exceptionRunner[Message]) recordContext(ctx context.Context, keyClaim *
 func (r *exceptionRunner[Message]) absorbLostLease(ctx context.Context, exception *controller.ClaimedException, err error) error {
 	if errors.Is(err, common.ErrLeaseLost) {
 		r.Metrics.RecordLeaseLost(1)
-		r.Logger.DebugContext(ctx, "lease lost recording exception outcome -- re-claimed by another worker", "group", r.Owner.Name, "topic_id", r.Topic.Id, "message_id", exception.MessageId)
+		r.Logger.DebugContext(ctx, "lease lost recording exception outcome -- re-claimed by another worker", "group", r.Owner.Name, "stream_id", r.Stream.Id, "message_id", exception.MessageId)
 		return nil
 	}
 	return err

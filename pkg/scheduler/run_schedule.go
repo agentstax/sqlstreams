@@ -5,13 +5,13 @@ import (
 	"errors"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/produce"
-	"github.com/agentstax/vulkan/pkg/producer"
-	"github.com/agentstax/vulkan/pkg/schedule"
-	schedulecontroller "github.com/agentstax/vulkan/pkg/schedule/controller"
-	"github.com/agentstax/vulkan/pkg/topic"
-	topiccontroller "github.com/agentstax/vulkan/pkg/topic/controller"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/produce"
+	"github.com/agentstax/sqlstreams/pkg/producer"
+	"github.com/agentstax/sqlstreams/pkg/schedule"
+	schedulecontroller "github.com/agentstax/sqlstreams/pkg/schedule/controller"
+	"github.com/agentstax/sqlstreams/pkg/stream"
+	streamcontroller "github.com/agentstax/sqlstreams/pkg/stream/controller"
 )
 
 // RunSchedule produces the named schedule's stored message immediately,
@@ -41,7 +41,7 @@ func (s *Scheduler) RunSchedule(ctx context.Context, name string, options *Sched
 	if err != nil {
 		return nil, err
 	}
-	topicController, err := topiccontroller.NewTopicController(s.ds, s.ds.Logger)
+	streamController, err := streamcontroller.NewStreamController(s.ds, s.ds.Logger)
 	if err != nil {
 		return nil, err
 	}
@@ -58,12 +58,12 @@ func (s *Scheduler) RunSchedule(ctx context.Context, name string, options *Sched
 		return nil, schedule.ErrScheduleNotFound.With("schedule", name)
 	}
 
-	target, err := topicController.GetById(ctx, found.TopicId)
+	target, err := streamController.GetById(ctx, found.StreamId)
 	if err != nil {
 		return nil, err
 	}
 	if target == nil {
-		return nil, topic.ErrTopicNotFound.With("topic_id", found.TopicId)
+		return nil, stream.ErrStreamNotFound.With("stream_id", found.StreamId)
 	}
 	instance, err := scheduleProducer.Register[schedule.ScheduleStoredMessage](ctx, target.Name, nil)
 	if err != nil {

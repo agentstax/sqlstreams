@@ -3,9 +3,9 @@ package messageconsumer
 import (
 	"context"
 
-	consumebase "github.com/agentstax/vulkan/pkg/consume/base"
-	"github.com/agentstax/vulkan/pkg/worker"
-	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
+	consumebase "github.com/agentstax/sqlstreams/pkg/consume/base"
+	"github.com/agentstax/sqlstreams/pkg/worker"
+	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
 )
 
 // a nil Execution is a declined claim, not an error -- try again later.
@@ -23,12 +23,12 @@ func (d *MessageConsumerProvisioner[Message]) Provision(ctx context.Context, dec
 	}
 
 	cfg := d.Config.withMetadata(parsed)
-	resolvedTopic, err := d.GetTopic(ctx, declared.Owner.TopicId)
+	resolvedStream, err := d.GetStream(ctx, declared.Owner.StreamId)
 	if err != nil {
 		return nil, err
 	}
 
-	base, err := consumebase.NewBaseConsumer(d.BaseProvisioner, declared.Owner, resolvedTopic, &consumebase.BaseConsumerConfig{
+	base, err := consumebase.NewBaseConsumer(d.BaseProvisioner, declared.Owner, resolvedStream, &consumebase.BaseConsumerConfig{
 		TimeoutGrace:          cfg.TimeoutGrace,
 		RecordMargin:          cfg.RecordMargin,
 		SlowDispatchThreshold: cfg.SlowDispatchThreshold,

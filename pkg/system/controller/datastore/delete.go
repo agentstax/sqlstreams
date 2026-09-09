@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/agentstax/vulkan/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common"
 )
 
 func (d *SystemDatastore) Delete(ctx context.Context) error {
@@ -28,7 +28,7 @@ func (d *SystemDatastore) delete(ctx context.Context) error {
 	// txn-scoped, same lock Register takes -- a concurrent register
 	// waits here and recreates the schema after the drop commits.
 	if _, err := tx.Exec(ctx, `
-		-- vulkan: system.delete
+		-- sqlstreams: system.delete
 		SELECT pg_advisory_xact_lock($1);
 	`, lockKey.Value()); err != nil {
 		return err
@@ -45,12 +45,12 @@ func (d *SystemDatastore) delete(ctx context.Context) error {
 		"worker_config_log",
 		"worker_config",
 		"consumer_group_config",
-		"topic_config_log",
-		"topic_config",
+		"stream_config_log",
+		"stream_config",
 		"system_config",
 	} {
 		if _, err := tx.Exec(ctx, fmt.Sprintf(`
-			-- vulkan: system.delete
+			-- sqlstreams: system.delete
 			DROP TABLE IF EXISTS %[1]s.%[2]s;
 		`, d.Datastore.Schema, table)); err != nil {
 			return err

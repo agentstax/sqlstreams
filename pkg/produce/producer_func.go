@@ -3,8 +3,8 @@ package produce
 import (
 	"context"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
 )
 
 // ProducerFunc runs inside the append's transaction and returns the payload to

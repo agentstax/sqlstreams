@@ -1,6 +1,6 @@
 package main
 
-// Scenario 06 -- tuning a topic for throughput.
+// Scenario 06 -- tuning a stream for throughput.
 //
 // One finished upload asks for a thumbnail every few seconds of video, so a
 // single upload becomes hundreds of small unkeyed messages. Concurrent
@@ -13,7 +13,7 @@ import (
 	"os"
 	"time"
 
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -33,21 +33,21 @@ func main() {
 }
 
 func run() error {
-	ctx, stop := vulkan.LifecycleContext(nil)
+	ctx, stop := sqlstreams.LifecycleContext(nil)
 	defer stop()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	if err != nil {
 		return err
 	}
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, nil)
+	client, err := sqlstreams.NewClient(ctx, pool, nil)
 	if err != nil {
 		return err
 	}
 
-	thumbnails := client.Topic[ThumbnailRequestedV1]("thumbnails.requested")
+	thumbnails := client.Stream[ThumbnailRequestedV1]("thumbnails.requested")
 	_, err = thumbnails.Register(ctx, nil)
 	if err != nil {
 		return err
@@ -80,7 +80,7 @@ func run() error {
 	// MessageConcurrency -> handlers running at once; unkeyed messages have no order to keep (default 1)
 	// ClaimPollRate      -> how long an instance that found nothing waits before claiming again (default 5s)
 	routines.Go(func() error {
-		return consumer.Consume(routinesCtx, renderThumbnail, &vulkan.ConsumeOptions{
+		return consumer.Consume(routinesCtx, renderThumbnail, &sqlstreams.ConsumeOptions{
 			BatchLimit:         100,
 			QueueSize:          200,
 			MessageConcurrency: 16,

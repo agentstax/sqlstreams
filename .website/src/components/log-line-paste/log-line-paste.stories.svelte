@@ -6,9 +6,9 @@
 		title: 'Board/LogLinePaste',
 		component: LogLinePaste,
 		args: {
-			placeholders: ['topic_id', 'group_id', 'message_id'],
+			placeholders: ['stream_id', 'group_id', 'message_id'],
 			exampleText:
-				'level=WARN msg="message dead-lettered -- unrecoverable, will not be retried" code=VK0029 group_id=2 topic_id=1 message_id=42',
+				'level=WARN msg="message dead-lettered -- unrecoverable, will not be retried" code=SS0029 group_id=2 stream_id=1 message_id=42',
 		},
 	});
 </script>
@@ -19,9 +19,9 @@
 <Story
 	name="One placeholder"
 	args={{
-		placeholders: ['topic'],
+		placeholders: ['stream'],
 		exampleText:
-			'topic not found: topic "orders", version 3 -- register it with Client.Topic(name).Register first [VK0005]',
+			'stream not found: stream "orders", version 3 -- register it with Client.Stream(name).Register first [SS0005]',
 	}}
 />
 
@@ -29,6 +29,6 @@
 	name="No placeholders"
 	args={{
 		placeholders: [],
-		exampleText: 'level=WARN msg="manager row suspended" code=VK0035 worker=janitor',
+		exampleText: 'level=WARN msg="manager row suspended" code=SS0035 worker=janitor',
 	}}
 />

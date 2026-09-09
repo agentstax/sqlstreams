@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/agentstax/vulkan/pkg/migrate"
+	"github.com/agentstax/sqlstreams/pkg/migrate"
 )
 
 // Export is the build-time artifact the doc site's compatibility matrix
@@ -11,19 +11,19 @@ import (
 // library's own rule so the page holds no second copy of it.
 type Export struct {
 	System *ScopeExport `json:"system"`
-	Topic  *ScopeExport `json:"topic"`
+	Stream *ScopeExport `json:"stream"`
 }
 
-func NewExport(systemRegistry []migrate.Migration, topicRegistry []migrate.Migration) (*Export, error) {
+func NewExport(systemRegistry []migrate.Migration, streamRegistry []migrate.Migration) (*Export, error) {
 	system, err := newScopeExport(systemRegistry)
 	if err != nil {
 		return nil, fmt.Errorf("system: %w", err)
 	}
-	topic, err := newScopeExport(topicRegistry)
+	stream, err := newScopeExport(streamRegistry)
 	if err != nil {
-		return nil, fmt.Errorf("topic: %w", err)
+		return nil, fmt.Errorf("stream: %w", err)
 	}
-	return &Export{System: system, Topic: topic}, nil
+	return &Export{System: system, Stream: stream}, nil
 }
 
 // ScopeExport is one scope's whole grid: the version this registry defines,

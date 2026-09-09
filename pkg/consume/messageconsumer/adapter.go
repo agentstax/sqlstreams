@@ -1,9 +1,9 @@
 package messageconsumer
 
 import (
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/consume"
-	"github.com/agentstax/vulkan/pkg/consume/messageconsumer/controller"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/consume"
+	"github.com/agentstax/sqlstreams/pkg/consume/messageconsumer/controller"
 )
 
 func toMessageConsumerMetadata(cfg *MessageConsumerConfig) *MessageConsumerMetadata {

@@ -36,7 +36,7 @@ database stalls or ordered cursor waits.
 - **Set:** `BatchLimit: 1`, `QueueSize: 1`. Choose `Message.Timeout` from
   legitimate runtime; size `QueueMargin` for a preceding dispatch plus
   database slack.
-- **Watch:** duration tails, retries, and [VK0105](/errors/VK0105/).
+- **Watch:** duration tails, retries, and [SS0105](/errors/SS0105/).
 - **Cost:** less batching; more margin means longer crash recovery.
 
 Example: `transcode-video` runs id 101 while 102 waits. For twelve-second
@@ -51,7 +51,7 @@ See [timeouts](/guides/consumer-timeouts/) and
 ## Mixed short and long handlers
 
 - **Set:** start with batch and queue `1` when slow tails exhaust queue
-  allowance. Separate topics or use disjoint [bindings](/concepts/routing/)
+  allowance. Separate streams or use disjoint [bindings](/concepts/routing/)
   when the classes need different timeout and capacity profiles.
 - **Watch:** short-message latency separately from overall throughput.
 - **Cost:** separate groups need separate declarations. Differently
@@ -65,7 +65,7 @@ See [timeouts](/guides/consumer-timeouts/) and
 - **Cost:** one key stays serial. Ordered chains can retain messages outside
   the queue, so `QueueSize` alone does not bound waiting or memory.
 
-Use `ConcurrencyOverride: vulkan.ConcurrencyOrdered` on the group and a
+Use `ConcurrencyOverride: sqlstreams.ConcurrencyOrdered` on the group and a
 message key on every ordered message. See [ordered delivery](/guides/ordered-delivery/).
 
 ## Large payloads or limited memory

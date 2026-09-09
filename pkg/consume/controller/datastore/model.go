@@ -4,7 +4,7 @@ import "time"
 
 type ConsumerGroupConfigRow struct {
 	Id        int64     `db:"id"`
-	TopicId   int64     `db:"topic_id"`
+	StreamId  int64     `db:"stream_id"`
 	Name      string    `db:"name"`
 	CreatedAt time.Time `db:"created_at"`
 }
@@ -23,7 +23,7 @@ type BindingConfigLogRow struct {
 	Id              int64                  `db:"id"`
 	ConsumerGroupId int64                  `db:"consumer_group_id"`
 	GroupName       string                 `db:"group_name"`
-	TopicName       string                 `db:"topic_name"`
+	StreamName      string                 `db:"stream_name"`
 	Status          BindingConfigLogStatus `db:"status"`
 	Patterns        []string               `db:"patterns"`
 	DeclaredBy      string                 `db:"declared_by"`

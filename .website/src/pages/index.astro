@@ -14,7 +14,7 @@ import { boardRows, stickyRows } from './_board/rows';
 import { announcements } from './_board/announcements';
 import { siteStats } from './_board/stats';
 import { siteThreads } from './_board/threads';
-import { sandboxShell, sandboxTopic } from './_board/sandbox';
+import { sandboxShell, sandboxStream } from './_board/sandbox';
 
 const docs = await getCollection('docs');
 const decisions = await getCollection('decisions');
@@ -26,7 +26,7 @@ const shell = await sandboxShell();
 ---
 
 <BoardLayout
-	title="Vulkan Board Index"
+	title="SQLStreams Board Index"
 	description="The message platform forged in Postgres. Queue, event log, and router in one system."
 	navCurrent="Board Index"
 >
@@ -35,7 +35,7 @@ const shell = await sandboxShell();
 		<StickyRows client:idle stickies={stickies} />
 		<SandboxPost
 			client:media="(min-width: 761px)"
-			topic={sandboxTopic}
+			stream={sandboxStream}
 			messages={shell.messages}
 			cursors={shell.cursors}
 		/>

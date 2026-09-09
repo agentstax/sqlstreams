@@ -29,7 +29,7 @@ the group's rows by it:
 | `MessageMin` / `MessageMax` | floors and ceilings on what a message may request |
 | `ConcurrencyOverride` | run every message under this policy, over the message's own |
 | `Start` | where a brand-new group's cursor is placed — read once, at creation ([where a new group starts](/guides/new-group-start/)) |
-| `Bindings` | the group's whole pattern set ([routing](/concepts/routing/)); nil is the whole topic, and a group with any binding stops receiving messages produced without a routing key |
+| `Bindings` | the group's whole pattern set ([routing](/concepts/routing/)); nil is the whole stream, and a group with any binding stops receiving messages produced without a routing key |
 | `ExceptionInitialBackoff` | the first `can_run_after` delay written on a fresh exception row |
 | `MaxRangeReclaims` | how many reclaims before a range is quarantined |
 
@@ -55,19 +55,19 @@ sound alike and sit on opposite sides of the split.
 
 One rule places everything: the declaration at the handle's `Register`
 verb, session options at the verb that runs.
-`client.Topic[T](topic).Consumer(group).Register(ctx, cfg)` carries the
-declaration it writes, the way `client.Topic[T](name).Register` already does.
+`client.Stream[T](stream).Consumer(group).Register(ctx, cfg)` carries the
+declaration it writes, the way `client.Stream[T](name).Register` already does.
 `ConsumeOptions` mirrors `ProduceOptions`: act verbs take options,
 `nil` for the defaults.
 
 ## Declared at Register, stored on the row
 
 ```go
-payments, err := client.Topic[PaymentRequestedV1]("payments.requested").Consumer("charge-cards").Register(ctx,
-	&vulkan.ConsumerConfig{
-		Message: &vulkan.MessageOptions{
+payments, err := client.Stream[PaymentRequestedV1]("payments.requested").Consumer("charge-cards").Register(ctx,
+	&sqlstreams.ConsumerConfig{
+		Message: &sqlstreams.MessageOptions{
 			Timeout: 10 * time.Second,
-			Retry:   &vulkan.RetryPolicy{MaxRetries: 3, BaseDelay: 2 * time.Second},
+			Retry:   &sqlstreams.RetryPolicy{MaxRetries: 3, BaseDelay: 2 * time.Second},
 		},
 	})
 if err != nil {
@@ -77,12 +77,12 @@ if err != nil {
 return payments.Consume(ctx, func(ctx context.Context, payment *PaymentRequestedV1) error {
 	fmt.Printf("charging %s\n", payment.OrderId)
 	return nil
-}, &vulkan.ConsumeOptions{BatchLimit: 20})
+}, &sqlstreams.ConsumeOptions{BatchLimit: 20})
 ```
 
-`Consumer(name).Register` resolves the topic, writes the declaration it was
+`Consumer(name).Register` resolves the stream, writes the declaration it was
 handed, and returns the typed instance. Newest wins, and an overwrite
-warns [VK0059](/errors/VK0059/)
+warns [SS0059](/errors/SS0059/)
 ([what a declaration does](/concepts/api-shape/#what-a-declaration-does)).
 
 `Register` writes the config into the group's `worker_config` rows —
@@ -114,7 +114,7 @@ configs will overwrite each other on every restart, visibly
 in the log but endlessly. There is no strict form. A group's config
 wants exactly one declaring service, and that is a convention: the
 library enforces nothing, every differing overwrite logs
-[VK0059](/errors/VK0059/) naming the change, and the same line on
+[SS0059](/errors/SS0059/) naming the change, and the same line on
 every restart is the tell.
 
 ## Sparse stored, resolved at read
@@ -158,8 +158,8 @@ owning service (or the future CLI verb) and check the row:
 
 ```sql
 SELECT w.name, w.metadata
-FROM vulkan.worker_config w
-JOIN vulkan.consumer_group_config g ON g.id = w.consumer_group_id
+FROM sqlstreams.worker_config w
+JOIN sqlstreams.consumer_group_config g ON g.id = w.consumer_group_id
 WHERE g.name = 'charge-cards';
 --  name             | metadata
 --  message_consumer | {"message": {"timeout": "10s", "retry": {"max_retries": 5}}, ...}
@@ -177,7 +177,7 @@ new budget instead.
 The client holds the ambient config once (`ClientConfig`: `Schema`,
 `Logger`, `Retry`, `AllowDestroy`). Every durable resource is declared by
 a `Register` verb that carries its config and stores it on the resource's
-row: the [topic](/reference/topic/) with `TopicConfig`, the
+row: the [stream](/reference/stream/) with `StreamConfig`, the
 [system](/reference/system/) with `SystemConfig`, the
 [scheduler](/reference/scheduler/) with `SchedulerConfig` beside the
 expression and payload. Session and per-call options ride the verb that

@@ -3,9 +3,9 @@ package checker
 import (
 	"time"
 
-	"github.com/agentstax/vulkan/.bench/reliability/checker/datastore"
-	"github.com/agentstax/vulkan/.bench/reliability/record"
-	"github.com/agentstax/vulkan/.bench/reliability/scenario"
+	"github.com/agentstax/sqlstreams/.bench/reliability/checker/datastore"
+	"github.com/agentstax/sqlstreams/.bench/reliability/record"
+	"github.com/agentstax/sqlstreams/.bench/reliability/scenario"
 )
 
 // VerdictStatus is the run's one-word outcome. Unknown means the checks

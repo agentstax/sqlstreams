@@ -4,7 +4,7 @@
 // 'deferred' delivery row), and resolve superseded when a newer message on
 // the key exists.
 //
-// Registers its own topic, self-seeds keyed messages, fully self-contained.
+// Registers its own stream, self-seeds keyed messages, fully self-contained.
 //
 // Confirms, in order:
 //   - a Exclusive message on a free key runs while HOLDING the key lease and
@@ -34,7 +34,7 @@
 //     through an abandoned (past-Timeout) holder and head churn -- only the
 //     final head ever runs, exactly once, every other version audits out
 //     'superseded'.
-//   - destroying the topic drops the exception queue cleanly.
+//   - destroying the stream drops the exception queue cleanly.
 package main
 
 import (
@@ -45,20 +45,20 @@ import (
 	"sync"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/consume"
-	consumecontroller "github.com/agentstax/vulkan/pkg/consume/controller"
-	"github.com/agentstax/vulkan/pkg/consume/exceptionconsumer"
-	exceptionconsumercontroller "github.com/agentstax/vulkan/pkg/consume/exceptionconsumer/controller"
-	"github.com/agentstax/vulkan/pkg/consume/messageconsumer"
-	"github.com/agentstax/vulkan/pkg/consumer"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	metricsproducer "github.com/agentstax/vulkan/pkg/metric/producer"
-	"github.com/agentstax/vulkan/pkg/topic"
-	topiccontroller "github.com/agentstax/vulkan/pkg/topic/controller"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
-	"github.com/agentstax/vulkan/pkg/worker"
-	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/consume"
+	consumecontroller "github.com/agentstax/sqlstreams/pkg/consume/controller"
+	"github.com/agentstax/sqlstreams/pkg/consume/exceptionconsumer"
+	exceptionconsumercontroller "github.com/agentstax/sqlstreams/pkg/consume/exceptionconsumer/controller"
+	"github.com/agentstax/sqlstreams/pkg/consume/messageconsumer"
+	"github.com/agentstax/sqlstreams/pkg/consumer"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	metricsproducer "github.com/agentstax/sqlstreams/pkg/metric/producer"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	"github.com/agentstax/sqlstreams/pkg/stream"
+	streamcontroller "github.com/agentstax/sqlstreams/pkg/stream/controller"
+	"github.com/agentstax/sqlstreams/pkg/worker"
+	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
 )
 
 type Rec struct {
@@ -69,8 +69,8 @@ type Rec struct {
 func (Rec) SchemaVersion() int { return 1 }
 
 var (
-	ds      *iDatastore.PostgresDatastore
-	topicId int64
+	ds       *iDatastore.PostgresDatastore
+	streamId int64
 
 	runsMu sync.Mutex
 	runs   = map[string]int{} // "key:version" -> completed consumerFunc calls
@@ -109,25 +109,25 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err = iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	topicName := fmt.Sprintf("exclusive.%d", time.Now().UnixNano())
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{})
+	streamName := fmt.Sprintf("exclusive.%d", time.Now().UnixNano())
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{})
 	must(err)
-	topicId = tp.Id
+	streamId = tp.Id
 
 	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
 	must(err)
 	exceptionConsumers, err := exceptionconsumercontroller.NewExceptionConsumerGroupController(ds, ds.Logger)
 	must(err)
-	wpInstance, err := client.Topic[Rec](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[Rec](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 
 	step("exclusive on a free key: runs holding the key lease, releases on success")
@@ -368,14 +368,14 @@ func run() (err error) {
 	// exhausted-looking or not, a 'deferred' row is outside the kill
 	// backstop's 'inflight' predicate. Driven directly so no consumer touches
 	// the row mid-check.
-	execSql(ctx, fmt.Sprintf(`UPDATE %s.%s SET attempts = 99, lease_expires_at = now() - interval '1 minute' WHERE consumer_group_id = $1 AND message_id = $2`, ds.Schema, topic.ExceptionQueueTable(topicId)), g8, v7)
-	if _, err := exceptionConsumers.Kill(ctx, tp.Id, g8, 3, topic.DeliveryLogModeFailures); err != nil {
+	execSql(ctx, fmt.Sprintf(`UPDATE %s.%s SET attempts = 99, lease_expires_at = now() - interval '1 minute' WHERE consumer_group_id = $1 AND message_id = $2`, ds.Schema, stream.ExceptionQueueTable(streamId)), g8, v7)
+	if _, err := exceptionConsumers.Kill(ctx, tp.Id, g8, 3, stream.DeliveryLogModeFailures); err != nil {
 		die(fmt.Sprintf("Kill: %v", err))
 	}
 	if s := deliveryStatus(ctx, g8, v7); s != "deferred" {
 		die(fmt.Sprintf("the kill backstop must never touch a 'deferred' row, got status %q", s))
 	}
-	if _, err := exceptionConsumers.Claim(ctx, tp.Id, g8, 1, 10, 3, 5*time.Second, topic.DeliveryLogModeFailures); err != nil {
+	if _, err := exceptionConsumers.Claim(ctx, tp.Id, g8, 1, 10, 3, 5*time.Second, stream.DeliveryLogModeFailures); err != nil {
 		die(fmt.Sprintf("ClaimExceptions: %v", err))
 	}
 	if n := deliveryAttempts(ctx, g8, v7); n != 99 {
@@ -383,8 +383,8 @@ func run() (err error) {
 	}
 	// the unexpired message_key_lease row alone must exclude the row -- attempts back at
 	// 0, well under the ceiling
-	execSql(ctx, fmt.Sprintf(`UPDATE %s.%s SET attempts = 0 WHERE consumer_group_id = $1 AND message_id = $2`, ds.Schema, topic.ExceptionQueueTable(topicId)), g8, v7)
-	if _, err := exceptionConsumers.Claim(ctx, tp.Id, g8, 1, 10, 3, 5*time.Second, topic.DeliveryLogModeFailures); err != nil {
+	execSql(ctx, fmt.Sprintf(`UPDATE %s.%s SET attempts = 0 WHERE consumer_group_id = $1 AND message_id = $2`, ds.Schema, stream.ExceptionQueueTable(streamId)), g8, v7)
+	if _, err := exceptionConsumers.Claim(ctx, tp.Id, g8, 1, 10, 3, 5*time.Second, stream.DeliveryLogModeFailures); err != nil {
 		die(fmt.Sprintf("ClaimExceptions: %v", err))
 	}
 	if s, n := deliveryStatus(ctx, g8, v7), deliveryAttempts(ctx, g8, v7); s != "deferred" || n != 0 {
@@ -457,7 +457,7 @@ func run() (err error) {
 	step("a crashed holder's expired key lease: redemption takes the key over")
 	g10 := groupId(ctx, cd, "exclusive.g10")
 	// a crashed holder's message_key_lease row: unexpired, never released
-	execSql(ctx, fmt.Sprintf(`INSERT INTO %s.%s (consumer_group_id, message_key, token, expires_at) VALUES ($1, 'u:10', gen_random_uuid(), now() + interval '1500 milliseconds')`, ds.Schema, topic.MessageKeyLeaseTable(topicId)), g10)
+	execSql(ctx, fmt.Sprintf(`INSERT INTO %s.%s (consumer_group_id, message_key, token, expires_at) VALUES ($1, 'u:10', gen_random_uuid(), now() + interval '1500 milliseconds')`, ds.Schema, stream.MessageKeyLeaseTable(streamId)), g10)
 	publish(ctx, wpInstance, "u:10", 1, common.ConcurrencyExclusive)
 	v10 := messageId(ctx, "u:10", 1)
 	stopCursor10 := startConsumer(ctx, tp.Name, "exclusive.g10", nil, 3, func(ctx context.Context, message *Rec) error {
@@ -479,7 +479,7 @@ func run() (err error) {
 	fmt.Println("  ✓ deferred behind the crashed holder, ran after expiry via takeover")
 
 	step("Exclusive without a MessageKey is refused at produce time")
-	if _, err := wpInstance.Produce(ctx, &Rec{Version: 1}, &vulkan.ProduceOptions{Message: &common.MessageOptions{Concurrency: common.ConcurrencyExclusive}}); err == nil {
+	if _, err := wpInstance.Produce(ctx, &Rec{Version: 1}, &sqlstreams.ProduceOptions{Message: &common.MessageOptions{Concurrency: common.ConcurrencyExclusive}}); err == nil {
 		die("produce must refuse Exclusive without a MessageKey")
 	}
 	fmt.Println("  ✓ refused")
@@ -514,7 +514,7 @@ func run() (err error) {
 	waitFor(func() bool { return deliveryStatus(ctx, g12, uc3) == "deferred" }, "v3's 'deferred' row")
 
 	var headRows12 int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE compaction_key = 'uc:1';`, ds.Schema, topic.CompactionHeadTable(tp.Id))).Scan(&headRows12))
+	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE compaction_key = 'uc:1';`, ds.Schema, stream.CompactionHeadTable(tp.Id))).Scan(&headRows12))
 	if headRows12 != 0 {
 		die(fmt.Sprintf("an uncompacted produce must not write a compaction head, got %d rows", headRows12))
 	}
@@ -630,8 +630,8 @@ func run() (err error) {
 	}
 	fmt.Printf("  ✓ v4 ran once, v1-v3 audited out superseded (v1=%d v2=%d v3=%d v4=%d)\n", tv1, tv2, tv3, tv4)
 
-	step("destroying the topic drops the exception queue")
-	must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+	step("destroying the stream drops the exception queue")
+	must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	fmt.Println("  ✓ destroyed")
 
 	fmt.Println("\n✅ EXCLUSIVE E2E TEST PASSED")
@@ -640,7 +640,7 @@ func run() (err error) {
 
 // consumeGroup runs a MessageConsumer for group until done() (10s cap), with pool
 // concurrent processors.
-func consumeGroup(ctx context.Context, topicName, group string, cfg *messageconsumer.MessageConsumerConfig, pool int, consumerFunc consumer.ConsumerFunc[Rec], done func() bool) {
+func consumeGroup(ctx context.Context, streamName, group string, cfg *messageconsumer.MessageConsumerConfig, pool int, consumerFunc consumer.ConsumerFunc[Rec], done func() bool) {
 	if cfg == nil {
 		cfg = &messageconsumer.MessageConsumerConfig{}
 	}
@@ -650,7 +650,7 @@ func consumeGroup(ctx context.Context, topicName, group string, cfg *messagecons
 	cfg.QueueSize = 50
 	cfg.MessageConcurrency = pool
 
-	owner := groupOwner(ctx, topicName, group)
+	owner := groupOwner(ctx, streamName, group)
 	definition, err := messageconsumer.NewMessageConsumerProvisioner(ds, consumerFunc, 1, abandonedEventProducer(ctx), cfg, ds.Logger)
 	must(err)
 
@@ -675,7 +675,7 @@ func consumeGroup(ctx context.Context, topicName, group string, cfg *messagecons
 
 // startConsumer runs a MessageConsumer for group until the returned stop is
 // called. cfg may be nil.
-func startConsumer(ctx context.Context, topicName, group string, cfg *messageconsumer.MessageConsumerConfig, pool int, consumerFunc consumer.ConsumerFunc[Rec]) func() {
+func startConsumer(ctx context.Context, streamName, group string, cfg *messageconsumer.MessageConsumerConfig, pool int, consumerFunc consumer.ConsumerFunc[Rec]) func() {
 	if cfg == nil {
 		cfg = &messageconsumer.MessageConsumerConfig{}
 	}
@@ -684,7 +684,7 @@ func startConsumer(ctx context.Context, topicName, group string, cfg *messagecon
 	cfg.QueueSize = 50
 	cfg.MessageConcurrency = pool
 
-	owner := groupOwner(ctx, topicName, group)
+	owner := groupOwner(ctx, streamName, group)
 	definition, err := messageconsumer.NewMessageConsumerProvisioner(ds, consumerFunc, 1, abandonedEventProducer(ctx), cfg, ds.Logger)
 	must(err)
 
@@ -709,14 +709,14 @@ func startConsumer(ctx context.Context, topicName, group string, cfg *messagecon
 // startExceptionConsumer runs an ExceptionConsumer (exception retries +
 // deferred redemption, one claim) for group until the returned stop is
 // called. cfg may be nil.
-func startExceptionConsumer(ctx context.Context, topicName, group string, cfg *exceptionconsumer.ExceptionConsumerConfig, consumerFunc consumer.ConsumerFunc[Rec]) func() {
+func startExceptionConsumer(ctx context.Context, streamName, group string, cfg *exceptionconsumer.ExceptionConsumerConfig, consumerFunc consumer.ConsumerFunc[Rec]) func() {
 	if cfg == nil {
 		cfg = &exceptionconsumer.ExceptionConsumerConfig{}
 	}
 	cfg.BatchLimit = 50
 	cfg.ClaimPollRate = 50 * time.Millisecond
 
-	owner := groupOwner(ctx, topicName, group)
+	owner := groupOwner(ctx, streamName, group)
 	definition, err := exceptionconsumer.NewExceptionConsumerProvisioner(ds, consumerFunc, 1, abandonedEventProducer(ctx), cfg, ds.Logger)
 	must(err)
 
@@ -738,10 +738,10 @@ func startExceptionConsumer(ctx context.Context, topicName, group string, cfg *e
 	}
 }
 
-func groupOwner(ctx context.Context, topicName string, group string) *common.Owner {
-	topicController, err := topiccontroller.NewTopicController(ds, ds.Logger)
+func groupOwner(ctx context.Context, streamName string, group string) *common.Owner {
+	streamController, err := streamcontroller.NewStreamController(ds, ds.Logger)
 	must(err)
-	tp, err := topicController.Get(ctx, topicName)
+	tp, err := streamController.Get(ctx, streamName)
 	must(err)
 
 	consumerDatastore, err := consumecontroller.NewConsumeController(ds, ds.Logger)
@@ -802,12 +802,12 @@ func ran(key string, version int) bool {
 	return runs[fmt.Sprintf("%s:%d", key, version)] > 0
 }
 
-func publish(ctx context.Context, wpInstance *vulkan.ProducerInstance[Rec], key string, version int, policy common.ConcurrencyPolicy) {
-	opts := &vulkan.ProduceOptions{MessageKey: key, Compaction: &vulkan.CompactionOptions{Enable: true}}
+func publish(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[Rec], key string, version int, policy common.ConcurrencyPolicy) {
+	opts := &sqlstreams.ProduceOptions{MessageKey: key, Compaction: &sqlstreams.CompactionOptions{Enable: true}}
 	if policy != "" {
 		opts.Message = &common.MessageOptions{Concurrency: policy}
 	}
-	_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*Rec, error) {
+	_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*Rec, error) {
 		return &Rec{Key: key, Version: version}, nil
 	}, opts)
 	must(err)
@@ -815,39 +815,39 @@ func publish(ctx context.Context, wpInstance *vulkan.ProducerInstance[Rec], key 
 
 // publishUncompacted produces a Exclusive message with a key and no Compaction --
 // every version is kept, deliveries serialize on the key.
-func publishUncompacted(ctx context.Context, wpInstance *vulkan.ProducerInstance[Rec], key string, version int) {
-	_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*Rec, error) {
+func publishUncompacted(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[Rec], key string, version int) {
+	_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*Rec, error) {
 		return &Rec{Key: key, Version: version}, nil
-	}, &vulkan.ProduceOptions{
+	}, &sqlstreams.ProduceOptions{
 		MessageKey: key,
 		Message:    &common.MessageOptions{Concurrency: common.ConcurrencyExclusive},
 	})
 	must(err)
 }
 
-func publishUnkeyed(ctx context.Context, wpInstance *vulkan.ProducerInstance[Rec], version int) {
-	_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*Rec, error) {
+func publishUnkeyed(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[Rec], version int) {
+	_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*Rec, error) {
 		return &Rec{Version: version}, nil
 	}, nil)
 	must(err)
 }
 
 func groupId(ctx context.Context, cd *consumecontroller.ConsumeController, name string) int64 {
-	g, err := cd.RegisterGroup(ctx, topicId, name, consume.Beginning())
+	g, err := cd.RegisterGroup(ctx, streamId, name, consume.Beginning())
 	must(err)
 	return g.Id
 }
 
 func messageId(ctx context.Context, key string, version int) int64 {
 	var id int64
-	sql := fmt.Sprintf(`SELECT id FROM %s.%s WHERE message_key = $1 AND (payload->>'version')::int = $2`, ds.Schema, topic.MessageLogTable(topicId))
+	sql := fmt.Sprintf(`SELECT id FROM %s.%s WHERE message_key = $1 AND (payload->>'version')::int = $2`, ds.Schema, stream.MessageLogTable(streamId))
 	must(ds.Pool.QueryRow(ctx, sql, key, version).Scan(&id))
 	return id
 }
 
 func leaseCount(ctx context.Context, groupId int64) int {
 	var n int
-	sql := fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = $1`, ds.Schema, topic.MessageKeyLeaseTable(topicId))
+	sql := fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = $1`, ds.Schema, stream.MessageKeyLeaseTable(streamId))
 	must(ds.Pool.QueryRow(ctx, sql, groupId).Scan(&n))
 	return n
 }
@@ -855,7 +855,7 @@ func leaseCount(ctx context.Context, groupId int64) int {
 // deliveryCount counts the group's delivery rows; status "" counts them all.
 func deliveryCount(ctx context.Context, groupId int64, status string) int {
 	var n int
-	sql := fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = $1 AND ($2 = '' OR status = $2)`, ds.Schema, topic.ExceptionQueueTable(topicId))
+	sql := fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = $1 AND ($2 = '' OR status = $2)`, ds.Schema, stream.ExceptionQueueTable(streamId))
 	must(ds.Pool.QueryRow(ctx, sql, groupId, status).Scan(&n))
 	return n
 }
@@ -863,21 +863,21 @@ func deliveryCount(ctx context.Context, groupId int64, status string) int {
 // deliveryStatus returns "" when the message has no delivery row.
 func deliveryStatus(ctx context.Context, groupId int64, messageId int64) string {
 	var s string
-	sql := fmt.Sprintf(`SELECT COALESCE(MAX(status), '') FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2`, ds.Schema, topic.ExceptionQueueTable(topicId))
+	sql := fmt.Sprintf(`SELECT COALESCE(MAX(status), '') FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2`, ds.Schema, stream.ExceptionQueueTable(streamId))
 	must(ds.Pool.QueryRow(ctx, sql, groupId, messageId).Scan(&s))
 	return s
 }
 
 func deliveryAttempts(ctx context.Context, groupId int64, messageId int64) int {
 	var n int
-	sql := fmt.Sprintf(`SELECT attempts FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2`, ds.Schema, topic.ExceptionQueueTable(topicId))
+	sql := fmt.Sprintf(`SELECT attempts FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2`, ds.Schema, stream.ExceptionQueueTable(streamId))
 	must(ds.Pool.QueryRow(ctx, sql, groupId, messageId).Scan(&n))
 	return n
 }
 
 // logStatuses returns the message's delivery_log statuses keyed by attempt.
 func logStatuses(ctx context.Context, groupId int64, messageId int64) map[int]string {
-	sql := fmt.Sprintf(`SELECT attempt, status FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2`, ds.Schema, topic.DeliveryLogTable(topicId))
+	sql := fmt.Sprintf(`SELECT attempt, status FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2`, ds.Schema, stream.DeliveryLogTable(streamId))
 	rows, err := ds.Pool.Query(ctx, sql, groupId, messageId)
 	must(err)
 	defer rows.Close()
@@ -900,7 +900,7 @@ func execSql(ctx context.Context, sql string, args ...any) {
 
 func logCount(ctx context.Context, groupId int64, messageId int64) int {
 	var n int
-	sql := fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2`, ds.Schema, topic.DeliveryLogTable(topicId))
+	sql := fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2`, ds.Schema, stream.DeliveryLogTable(streamId))
 	must(ds.Pool.QueryRow(ctx, sql, groupId, messageId).Scan(&n))
 	return n
 }
@@ -908,7 +908,7 @@ func logCount(ctx context.Context, groupId int64, messageId int64) int {
 // logRow returns the message's single delivery_log row's status and error.
 func logRow(ctx context.Context, groupId int64, messageId int64) (string, string) {
 	var status, logErr string
-	sql := fmt.Sprintf(`SELECT status, error FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2`, ds.Schema, topic.DeliveryLogTable(topicId))
+	sql := fmt.Sprintf(`SELECT status, error FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2`, ds.Schema, stream.DeliveryLogTable(streamId))
 	must(ds.Pool.QueryRow(ctx, sql, groupId, messageId).Scan(&status, &logErr))
 	return status, logErr
 }

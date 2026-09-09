@@ -1,23 +1,23 @@
-// Command schema proves a schema is one Vulkan installation: two clients
-// on two schemas in one database each register a topic under the same name
+// Command schema proves a schema is one SQLStreams installation: two clients
+// on two schemas in one database each register a stream under the same name
 // and see only their own.
 //
 // Sections:
-//  1. isolation -- both schemas hold their own full table set, the same topic
+//  1. isolation -- both schemas hold their own full table set, the same stream
 //     name registers in each with its own id, and each client lists only its
-//     own topics
+//     own streams
 //  2. independence -- a message produced on one schema is invisible to the
-//     other, destroying a topic on one leaves the other's standing, and a
+//     other, destroying a stream on one leaves the other's standing, and a
 //     caller's own CREATE inside InTransaction lands in the caller's schema
-//     rather than vulkan's, because the pool sets no search_path [0632]
+//     rather than sqlstreams's, because the pool sets no search_path [0632]
 //  3. absence -- a client pointed at a schema nobody registered reads an
 //     absence rather than the neighbouring schema's rows: Get is (nil, nil),
-//     every other verb raises ErrTopicNotFound. Holds with a whole
+//     every other verb raises ErrStreamNotFound. Holds with a whole
 //     installation standing in public, the schema every search_path ends
-//     with -- vulkan's SQL names its own schema, so there is nothing to
+//     with -- sqlstreams's SQL names its own schema, so there is nothing to
 //     fall through to
 //  4. locks -- a register held up on one schema does not hold up the same
-//     register on the other, and every key carries vulkan's namespace
+//     register on the other, and every key carries sqlstreams's namespace
 package main
 
 import (
@@ -27,11 +27,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/topic"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 )
 
 // testMessage is the payload both schemas produce.
@@ -77,7 +77,7 @@ func run() (err error) {
 	rightSchema := fmt.Sprintf("schema_right_%d", runId)
 
 	// Each installation selects its schema from the same base settings.
-	shared := &vulkan.ClientConfig{AllowDestroy: true}
+	shared := &sqlstreams.ClientConfig{AllowDestroy: true}
 	left, leftDs := openClient(ctx, leftSchema, shared)
 	defer leftDs.Pool.Close()
 	right, rightDs := openClient(ctx, rightSchema, shared)
@@ -98,23 +98,23 @@ func run() (err error) {
 
 	// the same name in both -- a name is unique per installation, not per database
 	const sharedName = "schema.orders"
-	leftTopic, err := left.Topic[testMessage](sharedName).Register(ctx, nil)
+	leftStream, err := left.Stream[testMessage](sharedName).Register(ctx, nil)
 	must(err)
-	rightTopic, err := right.Topic[testMessage](sharedName).Register(ctx, nil)
+	rightStream, err := right.Stream[testMessage](sharedName).Register(ctx, nil)
 	must(err)
-	fmt.Printf("   ✅ %q registered in both, each numbered by its own schema's sequence: left id %d, right id %d\n", sharedName, leftTopic.Id, rightTopic.Id)
+	fmt.Printf("   ✅ %q registered in both, each numbered by its own schema's sequence: left id %d, right id %d\n", sharedName, leftStream.Id, rightStream.Id)
 
-	leftTopics, err := left.Topics(ctx)
+	leftStreams, err := left.Streams(ctx)
 	must(err)
-	rightTopics, err := right.Topics(ctx)
+	rightStreams, err := right.Streams(ctx)
 	must(err)
-	if countNamed(leftTopics, sharedName) != 1 || countNamed(rightTopics, sharedName) != 1 {
-		die("each client should list its own topic exactly once")
+	if countNamed(leftStreams, sharedName) != 1 || countNamed(rightStreams, sharedName) != 1 {
+		die("each client should list its own stream exactly once")
 	}
-	if len(leftTopics) != len(rightTopics) {
-		die(fmt.Sprintf("neither client should see the other's topics, got left %d right %d", len(leftTopics), len(rightTopics)))
+	if len(leftStreams) != len(rightStreams) {
+		die(fmt.Sprintf("neither client should see the other's streams, got left %d right %d", len(leftStreams), len(rightStreams)))
 	}
-	fmt.Printf("   ✅ each client lists %d topics -- its own, not the other's\n", len(leftTopics))
+	fmt.Printf("   ✅ each client lists %d streams -- its own, not the other's\n", len(leftStreams))
 
 	leftBound, rightBound := boundSchemas(leftDs.Logger), boundSchemas(rightDs.Logger)
 	if len(leftBound) != 1 || leftBound[0] != leftSchema || len(rightBound) != 1 || rightBound[0] != rightSchema {
@@ -124,23 +124,23 @@ func run() (err error) {
 
 	fmt.Println("\n=== 2. independence ===")
 
-	leftProducer, err := left.Topic[testMessage](sharedName).Producer().Register(ctx, nil)
+	leftProducer, err := left.Stream[testMessage](sharedName).Producer().Register(ctx, nil)
 	must(err)
 	_, err = leftProducer.Produce(ctx, &testMessage{Value: "left only"}, nil)
 	must(err)
 
-	leftCount := messageCount(ctx, leftDs, leftSchema, leftTopic.Id)
-	rightCount := messageCount(ctx, rightDs, rightSchema, rightTopic.Id)
+	leftCount := messageCount(ctx, leftDs, leftSchema, leftStream.Id)
+	rightCount := messageCount(ctx, rightDs, rightSchema, rightStream.Id)
 	if leftCount != 1 || rightCount != 0 {
 		die(fmt.Sprintf("a produce on one schema must not reach the other, got left %d right %d", leftCount, rightCount))
 	}
 	fmt.Printf("   ✅ one produce on left: left holds %d, right holds %d\n", leftCount, rightCount)
 
-	// a caller's own statement inside InTransaction runs on vulkan's pool, and
+	// a caller's own statement inside InTransaction runs on sqlstreams's pool, and
 	// the pool sets no search_path [0632] -- so an unqualified CREATE lands
-	// where the caller's connection puts it, not inside vulkan's schema
+	// where the caller's connection puts it, not inside sqlstreams's schema
 	const callerTable = "schema_caller_orders"
-	must(left.InTransaction(ctx, func(ctx context.Context, tx vulkan.Tx) error {
+	must(left.InTransaction(ctx, func(ctx context.Context, tx sqlstreams.Tx) error {
 		_, err := tx.Exec(ctx, `CREATE TABLE IF NOT EXISTS `+callerTable+` (id BIGINT);`)
 		return err
 	}))
@@ -152,15 +152,15 @@ func run() (err error) {
 		must(err)
 	}()
 	if landedIn == leftSchema {
-		die("a caller's own CREATE inside InTransaction must not land in vulkan's schema, got " + landedIn)
+		die("a caller's own CREATE inside InTransaction must not land in sqlstreams's schema, got " + landedIn)
 	}
-	fmt.Printf("   ✅ a caller's CREATE inside InTransaction lands in %q, not vulkan's %q\n", landedIn, leftSchema)
+	fmt.Printf("   ✅ a caller's CREATE inside InTransaction lands in %q, not sqlstreams's %q\n", landedIn, leftSchema)
 
-	must(left.Topic[testMessage](sharedName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
-	if _, err := right.Topic[testMessage](sharedName).Get(ctx); err != nil {
-		die("destroying the left topic must leave the right one readable: " + err.Error())
+	must(left.Stream[testMessage](sharedName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+	if _, err := right.Stream[testMessage](sharedName).Get(ctx); err != nil {
+		die("destroying the left stream must leave the right one readable: " + err.Error())
 	}
-	fmt.Println("   ✅ destroying left's topic leaves right's standing")
+	fmt.Println("   ✅ destroying left's stream leaves right's standing")
 
 	fmt.Println("\n=== 3. absence ===")
 
@@ -168,50 +168,50 @@ func run() (err error) {
 	empty, emptyDs := openClient(ctx, emptySchema, shared)
 	defer emptyDs.Pool.Close()
 
-	// the schema does not exist, and every vulkan statement names it [0631],
+	// the schema does not exist, and every sqlstreams statement names it [0631],
 	// so the catalog read raises undefined_table -- which the catalog reads
 	// map to absence, never to another installation's rows
-	found, err := empty.Topic[testMessage](sharedName).Get(ctx)
+	found, err := empty.Stream[testMessage](sharedName).Get(ctx)
 	must(err)
 	if found != nil {
-		die("an unregistered schema must read no topic, got " + found.Name)
+		die("an unregistered schema must read no stream, got " + found.Name)
 	}
 	fmt.Println("   ✅ Get on an unregistered schema is the (nil, nil) absence")
 
-	if _, err := empty.Topic[testMessage](sharedName).Health(ctx); !errors.Is(err, topic.ErrTopicNotFound) {
+	if _, err := empty.Stream[testMessage](sharedName).Health(ctx); !errors.Is(err, stream.ErrStreamNotFound) {
 		die(fmt.Sprintf("every verb but Get should raise absence, got %v", err))
 	}
-	fmt.Println("   ✅ every other verb raises ErrTopicNotFound rather than reading a neighbour")
+	fmt.Println("   ✅ every other verb raises ErrStreamNotFound rather than reading a neighbour")
 
 	// public is the one schema every search_path ends with, so an installation
 	// there is what an unqualified statement falls through to. What keeps the
-	// reads above absences is that vulkan's SQL names its own schema -- not
+	// reads above absences is that sqlstreams's SQL names its own schema -- not
 	// that public happens to be empty.
 	publicClient, publicDs := openClient(ctx, "public", shared)
 	defer publicDs.Pool.Close()
 	must(publicClient.System().Register(ctx, nil))
-	defer func() { must(publicClient.System().Destroy(ctx, &vulkan.DestroyOptions{Force: true})) }()
-	_, err = publicClient.Topic[testMessage](sharedName).Register(ctx, nil)
+	defer func() { must(publicClient.System().Destroy(ctx, &sqlstreams.DestroyOptions{Force: true})) }()
+	_, err = publicClient.Stream[testMessage](sharedName).Register(ctx, nil)
 	must(err)
 
-	found, err = empty.Topic[testMessage](sharedName).Get(ctx)
+	found, err = empty.Stream[testMessage](sharedName).Get(ctx)
 	must(err)
 	if found != nil {
 		die("a full installation in public must not become the empty schema's answer, got " + found.Name)
 	}
 	fmt.Println("   ✅ with a whole installation standing in public, Get is still the absence")
 
-	if _, err := empty.Topic[testMessage](sharedName).Health(ctx); !errors.Is(err, topic.ErrTopicNotFound) {
+	if _, err := empty.Stream[testMessage](sharedName).Health(ctx); !errors.Is(err, stream.ErrStreamNotFound) {
 		die(fmt.Sprintf("every verb but Get should still raise absence, got %v", err))
 	}
-	fmt.Println("   ✅ ...and every other verb still raises ErrTopicNotFound")
+	fmt.Println("   ✅ ...and every other verb still raises ErrStreamNotFound")
 
 	fmt.Println("\n=== 4. locks ===")
 
-	// hold the key vulkan derives for a register on the left schema -- the
+	// hold the key sqlstreams derives for a register on the left schema -- the
 	// register blocking on it is what proves the datastore takes the same one
 	const lockedName = "schema.locked"
-	lockKey, err := common.NewAdvisoryLockKey("topic", leftSchema, lockedName)
+	lockKey, err := common.NewAdvisoryLockKey("stream", leftSchema, lockedName)
 	must(err)
 
 	holder, err := leftDs.Pool.Acquire(ctx)
@@ -238,18 +238,18 @@ func run() (err error) {
 	if held != 1 {
 		die(fmt.Sprintf("pg_locks should hold the key under classid %d objid %d, found %d rows", lockKey.ClassId(), lockKey.ObjId(), held))
 	}
-	fmt.Printf("   ✅ the held lock reads back under classid %d -- vulkan's namespace -- and objid %d\n", lockKey.ClassId(), lockKey.ObjId())
+	fmt.Printf("   ✅ the held lock reads back under classid %d -- sqlstreams's namespace -- and objid %d\n", lockKey.ClassId(), lockKey.ObjId())
 
 	blocked, cancelBlocked := context.WithTimeout(ctx, 2*time.Second)
 	defer cancelBlocked()
-	if _, err := left.Topic[vulkan.RawPayload](lockedName).Register(blocked, nil); err == nil {
+	if _, err := left.Stream[sqlstreams.RawPayload](lockedName).Register(blocked, nil); err == nil {
 		die("registering under the held key should have waited, it returned")
 	}
 	fmt.Println("   ✅ the same schema's register waits on the held key")
 
 	free, cancelFree := context.WithTimeout(ctx, 2*time.Second)
 	defer cancelFree()
-	if _, err := right.Topic[vulkan.RawPayload](lockedName).Register(free, nil); err != nil {
+	if _, err := right.Stream[sqlstreams.RawPayload](lockedName).Register(free, nil); err != nil {
 		die("the other schema's register must not wait on it: " + err.Error())
 	}
 	fmt.Println("   ✅ the other schema's register takes a different key and completes")
@@ -258,7 +258,7 @@ func run() (err error) {
 	must(err)
 
 	fmt.Println("\n✅ SCHEMA E2E TEST PASSED")
-	fmt.Println("   one schema is one installation: the same topic name registers in each,")
+	fmt.Println("   one schema is one installation: the same stream name registers in each,")
 	fmt.Println("   messages and lifecycles are separate, no read crosses the boundary, and")
 	fmt.Println("   neither installation waits on the other's locks.")
 	return nil
@@ -268,14 +268,14 @@ func run() (err error) {
 // *** HELPERS ***
 // ***************
 
-func openClient(ctx context.Context, schema string, cfg *vulkan.ClientConfig) (*vulkan.Client, *iDatastore.PostgresDatastore) {
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+func openClient(ctx context.Context, schema string, cfg *sqlstreams.ClientConfig) (*sqlstreams.Client, *iDatastore.PostgresDatastore) {
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 
 	clientConfig := *cfg
 	clientConfig.Schema = schema
 
-	client, err := vulkan.NewClient(ctx, pool, &clientConfig)
+	client, err := sqlstreams.NewClient(ctx, pool, &clientConfig)
 	must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, &iDatastore.PostgresDatastoreConfig{
 		Schema: clientConfig.Schema, Logger: clientConfig.Logger, Retry: clientConfig.Retry,
@@ -310,17 +310,17 @@ func tableCount(ctx context.Context, ds *iDatastore.PostgresDatastore, schema st
 	return count
 }
 
-func messageCount(ctx context.Context, ds *iDatastore.PostgresDatastore, schema string, topicId int64) int {
+func messageCount(ctx context.Context, ds *iDatastore.PostgresDatastore, schema string, streamId int64) int {
 	var count int
 	err := ds.Pool.QueryRow(ctx,
-		fmt.Sprintf(`SELECT count(*) FROM %s.%s;`, schema, topic.MessageLogTable(topicId))).Scan(&count)
+		fmt.Sprintf(`SELECT count(*) FROM %s.%s;`, schema, stream.MessageLogTable(streamId))).Scan(&count)
 	must(err)
 	return count
 }
 
-func countNamed(topics []*vulkan.Topic, name string) int {
+func countNamed(streams []*sqlstreams.Stream, name string) int {
 	found := 0
-	for _, data := range topics {
+	for _, data := range streams {
 		if data.Name == name {
 			found++
 		}

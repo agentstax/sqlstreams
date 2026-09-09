@@ -1,13 +1,13 @@
 package controller
 
 import (
-	"github.com/agentstax/vulkan/pkg/consume/deliveryconsumer/controller/datastore"
+	"github.com/agentstax/sqlstreams/pkg/consume/deliveryconsumer/controller/datastore"
 )
 
 func toDelivery(data datastore.ExceptionQueueRow) Delivery {
 	return Delivery{
 		ConsumerGroupId: data.ConsumerGroupId,
-		TopicId:         data.TopicId,
+		StreamId:        data.StreamId,
 		MessageId:       data.MessageId,
 		Payload:         data.Payload,
 		Status:          data.Status,
@@ -19,7 +19,7 @@ func toDelivery(data datastore.ExceptionQueueRow) Delivery {
 func toExceptionQueueRow(delivery *Delivery) *datastore.ExceptionQueueRow {
 	return &datastore.ExceptionQueueRow{
 		ConsumerGroupId: delivery.ConsumerGroupId,
-		TopicId:         delivery.TopicId,
+		StreamId:        delivery.StreamId,
 		MessageId:       delivery.MessageId,
 		Payload:         delivery.Payload,
 		Status:          delivery.Status,

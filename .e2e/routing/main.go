@@ -2,7 +2,7 @@ package main
 
 // routing e2e test: confirms bindings gate what a group receives, not what gets claimed.
 //
-// Registers its own topic, destroyed on exit, so every run starts from a
+// Registers its own stream, destroyed on exit, so every run starts from a
 // genuinely empty log -- no routing-key namespacing needed to dodge leftover
 // rows from earlier runs (a trick the pre-8b shared-message_log version needed
 // and this one doesn't).
@@ -26,15 +26,15 @@ import (
 	"os"
 	"time"
 
-	"github.com/agentstax/vulkan/e2e/common"
-	"github.com/agentstax/vulkan/pkg/consume"
-	consumecontroller "github.com/agentstax/vulkan/pkg/consume/controller"
-	cursoradvancerdatastore "github.com/agentstax/vulkan/pkg/consume/cursoradvancer/controller/datastore"
-	deliveryconsumercontroller "github.com/agentstax/vulkan/pkg/consume/deliveryconsumer/controller"
-	messageconsumercontroller "github.com/agentstax/vulkan/pkg/consume/messageconsumer/controller"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/topic"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/e2e/common"
+	"github.com/agentstax/sqlstreams/pkg/consume"
+	consumecontroller "github.com/agentstax/sqlstreams/pkg/consume/controller"
+	cursoradvancerdatastore "github.com/agentstax/sqlstreams/pkg/consume/cursoradvancer/controller/datastore"
+	deliveryconsumercontroller "github.com/agentstax/sqlstreams/pkg/consume/deliveryconsumer/controller"
+	messageconsumercontroller "github.com/agentstax/sqlstreams/pkg/consume/messageconsumer/controller"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 )
 
 const (
@@ -72,20 +72,20 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	topicName := fmt.Sprintf("phase7.routing.%d", time.Now().UnixNano())
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{})
+	streamName := fmt.Sprintf("phase7.routing.%d", time.Now().UnixNano())
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{})
 	must(err)
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
@@ -96,12 +96,12 @@ func run() (err error) {
 	must(err)
 	cursorAdvancerDatastore, err := cursoradvancerdatastore.NewCursorAdvancerDatastore(ds, ds.Logger)
 	must(err)
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 
 	head, gids := reset(ctx, ds, cd, tp.Id, cursorGroup, controlGroup, lifecycleGroup)
 	cursorGroupID, controlGroupID, lifecycleGroupID := gids[cursorGroup], gids[controlGroup], gids[lifecycleGroup]
-	fmt.Printf("topic=%q id=%d message_log head = %d\n", topicName, tp.Id, head)
+	fmt.Printf("stream=%q id=%d message_log head = %d\n", streamName, tp.Id, head)
 
 	// ===== publish msg1 BEFORE any binding exists =====
 	step("publish msg1, no binding exists for any group yet")
@@ -127,7 +127,7 @@ func run() (err error) {
 
 	// ===== CURSOR path: cursorGroup only sees the 2 matching messages =====
 	step("cursorGroup claims (head, head+5] -- expect only msg1 and msg2 back")
-	claim, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, cursorGroupID, 1, limit, maxRangeReclaims, lease, topic.DeliveryLogModeFailures)
+	claim, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, cursorGroupID, 1, limit, maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
 	must(err)
 	if claim == nil {
 		die("expected a fresh claim, got nil (no work?)")
@@ -138,13 +138,13 @@ func run() (err error) {
 	assertIDs("only msg1 (published before the binding existed) and msg2 (deeper hierarchy) match",
 		ids(claim.Messages), []int64{head + 1, head + 2})
 
-	must(messageConsumers.Commit(ctx, tp.Id, cursorGroupID, claim.Lease.Token, nil, 5*time.Second, topic.DeliveryLogModeFailures))
+	must(messageConsumers.Commit(ctx, tp.Id, cursorGroupID, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 	committed := advance(ctx, cursorAdvancerDatastore, tp.Id, cursorGroupID)
 	assertInt("committed advances over the WHOLE range regardless of match", committed, head+5)
 
 	// ===== CURSOR path: controlGroup has no binding, sees every message =====
 	step("controlGroup claims the identical range -- expect all 5 back, unaffected by cursorGroup's binding")
-	claim, err = messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, controlGroupID, 1, limit, maxRangeReclaims, lease, topic.DeliveryLogModeFailures)
+	claim, err = messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, controlGroupID, 1, limit, maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
 	must(err)
 	if claim == nil {
 		die("expected a fresh claim, got nil (no work?)")
@@ -153,7 +153,7 @@ func run() (err error) {
 	assertIDs("an unbound group receives every message, including the NULL routing_key one",
 		ids(claim.Messages), []int64{head + 1, head + 2, head + 3, head + 4, head + 5})
 
-	must(messageConsumers.Commit(ctx, tp.Id, controlGroupID, claim.Lease.Token, nil, 5*time.Second, topic.DeliveryLogModeFailures))
+	must(messageConsumers.Commit(ctx, tp.Id, controlGroupID, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 	advance(ctx, cursorAdvancerDatastore, tp.Id, controlGroupID)
 
 	// ===== LIFECYCLE path: only a matching message ever gets a delivery row =====
@@ -174,10 +174,10 @@ func run() (err error) {
 
 // ---- helpers ----
 
-func publish(ctx context.Context, wpInstance *vulkan.ProducerInstance[common.Work], routingKey string) string {
-	produced, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
+func publish(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[common.Work], routingKey string) string {
+	produced, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 		return common.NewWork(30, "admin@example.com")
-	}, &vulkan.ProduceOptions{RoutingKey: routingKey})
+	}, &sqlstreams.ProduceOptions{RoutingKey: routingKey})
 	must(err)
 	return fmt.Sprintf("work=%s routing_key=%q", produced.Message.Id, routingKey)
 }
@@ -185,29 +185,29 @@ func publish(ctx context.Context, wpInstance *vulkan.ProducerInstance[common.Wor
 // resets all three groups to a clean slate and fast-forwards their cursors to
 // the current log head, so a fresh CURSOR claim only ever sees messages this
 // e2e test itself publishes.
-func reset(ctx context.Context, ds *iDatastore.PostgresDatastore, cd *consumecontroller.ConsumeController, topicId int64, groups ...string) (int64, map[string]int64) {
-	head := scalar(ctx, ds, fmt.Sprintf(`SELECT COALESCE(max(id),0) FROM %s.%s`, ds.Schema, topic.MessageLogTable(topicId)))
+func reset(ctx context.Context, ds *iDatastore.PostgresDatastore, cd *consumecontroller.ConsumeController, streamId int64, groups ...string) (int64, map[string]int64) {
+	head := scalar(ctx, ds, fmt.Sprintf(`SELECT COALESCE(max(id),0) FROM %s.%s`, ds.Schema, stream.MessageLogTable(streamId)))
 	gids := map[string]int64{}
 	for _, g := range groups {
-		gID := mustGroupID(cd.RegisterGroup(ctx, topicId, g, consume.Beginning()))
+		gID := mustGroupID(cd.RegisterGroup(ctx, streamId, g, consume.Beginning()))
 		gids[g] = gID
-		_, err := ds.Pool.Exec(ctx, fmt.Sprintf(`DELETE FROM %s.%s WHERE consumer_group_id=$1`, ds.Schema, topic.ClaimLeaseTable(topicId)), gID)
+		_, err := ds.Pool.Exec(ctx, fmt.Sprintf(`DELETE FROM %s.%s WHERE consumer_group_id=$1`, ds.Schema, stream.ClaimLeaseTable(streamId)), gID)
 		must(err)
-		_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`DELETE FROM %s.%s WHERE consumer_group_id=$1`, ds.Schema, topic.ExceptionQueueTable(topicId)), gID)
+		_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`DELETE FROM %s.%s WHERE consumer_group_id=$1`, ds.Schema, stream.ExceptionQueueTable(streamId)), gID)
 		must(err)
-		_, err = cd.DeclareBindings(ctx, topicId, gID, nil, time.Now())
+		_, err = cd.DeclareBindings(ctx, streamId, gID, nil, time.Now())
 		must(err)
 		// settled/pending must ride along -- the claim gate assumes
 		// gate >= settled >= claimed; bumping claimed alone breaks that and a
 		// poll where the fresh pair doesn't prove would regress the cursor
-		_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`UPDATE %s.%s SET claimed=$2, committed=$2, settled_head=$2, pending_head=$2, pending_xmax=NULL WHERE consumer_group_id=$1`, ds.Schema, topic.ConsumerGroupCursorTable(topicId)), gID, head)
+		_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`UPDATE %s.%s SET claimed=$2, committed=$2, settled_head=$2, pending_head=$2, pending_xmax=NULL WHERE consumer_group_id=$1`, ds.Schema, stream.ConsumerGroupCursorTable(streamId)), gID, head)
 		must(err)
 	}
 	return head, gids
 }
 
-func advance(ctx context.Context, cursorAdvancerDatastore *cursoradvancerdatastore.CursorAdvancerDatastore, topicId int64, groupId int64) int64 {
-	c, err := cursorAdvancerDatastore.AdvanceCommitted(ctx, topicId, groupId)
+func advance(ctx context.Context, cursorAdvancerDatastore *cursoradvancerdatastore.CursorAdvancerDatastore, streamId int64, groupId int64) int64 {
+	c, err := cursorAdvancerDatastore.AdvanceCommitted(ctx, streamId, groupId)
 	must(err)
 	return c
 }

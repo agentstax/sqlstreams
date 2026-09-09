@@ -3,15 +3,15 @@ package collector
 import (
 	"errors"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	compactioncontroller "github.com/agentstax/vulkan/pkg/compaction/controller"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	metricscontroller "github.com/agentstax/vulkan/pkg/metric/controller"
-	"github.com/agentstax/vulkan/pkg/producer"
-	topiccontroller "github.com/agentstax/vulkan/pkg/topic/controller"
-	"github.com/agentstax/vulkan/pkg/worker"
-	"github.com/agentstax/vulkan/pkg/worker/controller"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	compactioncontroller "github.com/agentstax/sqlstreams/pkg/compaction/controller"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	metricscontroller "github.com/agentstax/sqlstreams/pkg/metric/controller"
+	"github.com/agentstax/sqlstreams/pkg/producer"
+	streamcontroller "github.com/agentstax/sqlstreams/pkg/stream/controller"
+	"github.com/agentstax/sqlstreams/pkg/worker"
+	"github.com/agentstax/sqlstreams/pkg/worker/controller"
 )
 
 const WorkerMetricsCollector = "metrics_collector"
@@ -22,7 +22,7 @@ type MetricCollectorProvisioner struct {
 
 	workers    *controller.WorkerController
 	metrics    *metricscontroller.MetricController
-	topics     *topiccontroller.TopicController
+	streams    *streamcontroller.StreamController
 	alertHeads *compactioncontroller.CompactionController
 	producer   *producer.Producer // each Provision registers its own instance from it
 
@@ -55,7 +55,7 @@ func NewMetricsCollectorProvisioner(ds *iDatastore.PostgresDatastore, cfg *Metri
 		return nil, err
 	}
 
-	topics, err := topiccontroller.NewTopicController(ds, logger)
+	streams, err := streamcontroller.NewStreamController(ds, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func NewMetricsCollectorProvisioner(ds *iDatastore.PostgresDatastore, cfg *Metri
 		Logger:     logger,
 		workers:    workers,
 		metrics:    metricController,
-		topics:     topics,
+		streams:    streams,
 		alertHeads: alertHeads,
 		producer:   measurementProducer,
 		definition: definition,

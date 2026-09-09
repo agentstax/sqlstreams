@@ -7,13 +7,13 @@ import (
 	"math"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/alert"
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/metric"
-	"github.com/agentstax/vulkan/pkg/metric/collector"
-	"github.com/agentstax/vulkan/pkg/worker"
-	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
-	"github.com/agentstax/vulkan/pkg/worker/manager"
+	"github.com/agentstax/sqlstreams/pkg/alert"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/metric"
+	"github.com/agentstax/sqlstreams/pkg/metric/collector"
+	"github.com/agentstax/sqlstreams/pkg/worker"
+	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
+	"github.com/agentstax/sqlstreams/pkg/worker/manager"
 )
 
 // Evaluate compares the latest completion with continuous system-manager lease coverage.

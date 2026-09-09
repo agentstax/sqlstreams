@@ -6,9 +6,9 @@ import {
 	createSystemTablesTemplates,
 } from './create-system-tables/statements';
 import {
-	createTopicTablesStatements,
-	createTopicTablesTemplates,
-} from './create-topic-tables/statements';
+	createStreamTablesStatements,
+	createStreamTablesTemplates,
+} from './create-stream-tables/statements';
 import { protectedInsertCompactedSqlTemplate } from './protected-insert-compacted';
 import { protectedInsertUncompactedSqlTemplate } from './protected-insert-uncompacted';
 import { getGroupSqlTemplate } from './get-group';
@@ -42,7 +42,7 @@ function goSource(repoPath: string): string {
 }
 
 // backticks in Go comments produce bogus segments; every real statement carries
-// the -- vulkan: owner tag, and the owner is what the count is taken against:
+// the -- sqlstreams: owner tag, and the owner is what the count is taken against:
 // the site mirrors named verbs, not whole files, so group.go's deleteGroup and
 // commit.go's partialCommit are absent here without weakening the count.
 function goLiterals(source: string, owner: string): string[] {
@@ -50,7 +50,7 @@ function goLiterals(source: string, owner: string): string[] {
 	const literals: string[] = [];
 	for (let index = 1; index < parts.length; index += 2) {
 		const literal = parts[index];
-		if (literal !== undefined && literal.includes(`-- vulkan: ${owner}`)) literals.push(literal);
+		if (literal !== undefined && literal.includes(`-- sqlstreams: ${owner}`)) literals.push(literal);
 	}
 	return literals;
 }
@@ -63,9 +63,9 @@ describe('embedded SQL matches the Go source byte-exact', () => {
 			createSystemTablesTemplates,
 		],
 		[
-			'topic.createTopicTables',
-			'pkg/topic/controller/datastore/tables.go',
-			createTopicTablesTemplates,
+			'stream.createStreamTables',
+			'pkg/stream/controller/datastore/tables.go',
+			createStreamTablesTemplates,
 		],
 		[
 			'produce.protectedInsert',
@@ -114,7 +114,7 @@ describe('embedded SQL matches the Go source byte-exact', () => {
 
 describe('interpolate fills a template the way fmt.Sprintf does', () => {
 	test('verb [1] is the schema, and the caller never passes it', () => {
-		expect(interpolate('FROM %[1]s.topic_config')).toBe('FROM public.topic_config');
+		expect(interpolate('FROM %[1]s.stream_config')).toBe('FROM public.stream_config');
 	});
 
 	test('values fill [2] onward, in order, and repeat where the verb repeats', () => {
@@ -141,8 +141,8 @@ describe('a statements.ts keeps its two lists in step', () => {
 		expect(createSystemTablesStatements()).toHaveLength(createSystemTablesTemplates.length);
 	});
 
-	test('createTopicTables', () => {
-		expect(createTopicTablesStatements(1, 1000)).toHaveLength(createTopicTablesTemplates.length);
+	test('createStreamTables', () => {
+		expect(createStreamTablesStatements(1, 1000)).toHaveLength(createStreamTablesTemplates.length);
 	});
 });
 

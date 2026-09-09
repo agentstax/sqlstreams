@@ -6,7 +6,7 @@ description: How schema versions work, what a rolling deploy can rely on, and th
 import CompatMatrix from '../../../components/compat-matrix/compat-matrix.svelte';
 import compat from '../../../data/compat.json';
 
-Vulkan's tables live in your Postgres database, so upgrading Vulkan can mean
+SQLStreams's tables live in your Postgres database, so upgrading SQLStreams can mean
 migrating schema. This page is the contract for how that works: what a
 version is, which upgrades are safe to roll, and how a binary refuses —
 early and legibly — when it can't run against what it finds.
@@ -15,21 +15,21 @@ early and legibly — when it can't run against what it finds.
 
 The schema versions in two independent scopes, both starting at v1:
 
-- **System scope** — the shared control-plane tables (the topic catalog, the
+- **System scope** — the shared control-plane tables (the stream catalog, the
   worker fleet). One counter for the whole database.
-- **Topic scope** — the per-topic table families (message log, deliveries,
-  cursors, leases). Each topic carries its own counter, so topics can sit at
+- **Stream scope** — the per-stream table families (message log, deliveries,
+  cursors, leases). Each stream carries its own counter, so streams can sit at
   different versions mid-migration without breaking each other.
 
 Both counters read off the client: `client.System().MigrationVersion(ctx)`
-for the system scope, `client.Topic[T](name).MigrationVersion(ctx)` for one
-topic. `vulkan migrate status` prints every counter beside the version the
+for the system scope, `client.Stream[T](name).MigrationVersion(ctx)` for one
+stream. `sqlstreams migrate status` prints every counter beside the version the
 binary was built with.
 
-These are Vulkan's internal DDL versions. They are unrelated to the
+These are SQLStreams's internal DDL versions. They are unrelated to the
 `SchemaVersion` your Message types declare, which versions *your message
 payloads* row by row ([schema versions](/guides/schema-versions/)); no
-Vulkan migration ever touches your payloads.
+SQLStreams migration ever touches your payloads.
 
 ## The gate
 
@@ -38,10 +38,10 @@ refuses to start rather than run against a shape it doesn't understand:
 
 - **Database older than the binary** — the binary requires schema the
   database doesn't have yet: `schema version is older than this build
-  requires — migrate the database up first` ([`VK0022`](/errors/VK0022)).
+  requires — migrate the database up first` ([`SS0022`](/errors/SS0022)).
 - **Database migrated past what the binary tolerates** — a newer release
   applied a breaking migration: `schema version is newer than this build
-  understands — upgrade the binary` ([`VK0023`](/errors/VK0023)).
+  understands — upgrade the binary` ([`SS0023`](/errors/SS0023)).
 
 ## Rolling deploys: the minimum compatible version
 
@@ -66,7 +66,7 @@ the machinery's.
 Transactional migration steps run under a 2-second `lock_timeout`, so a step
 queued behind your traffic gives up and retries instead of stalling the
 queries queued behind it. When contention outlasts the retries, the run
-stops with [`VK0053`](/errors/VK0053) naming the blocking session as the
+stops with [`SS0053`](/errors/SS0053) naming the blocking session as the
 thing to clear.
 
 ## Which builds a database admits
@@ -76,14 +76,14 @@ read. Each cell is the gate's answer for one pair — a binary built at some
 schema version, a database sitting at another. Both scopes sit at v1 today,
 so there is exactly one pair to ask about:
 
-<CompatMatrix scope={compat.topic} label="Topic scope" />
+<CompatMatrix scope={compat.stream} label="Stream scope" />
 
 The grid gains a row and a column per migration step, and settles into three
 regions:
 
 - **The diagonal** — binary and database agree. Always admitted.
 - **Over the diagonal** — the binary expects schema the database doesn't
-  have yet. Always `VK0022`: migrate the database up.
+  have yet. Always `SS0022`: migrate the database up.
 - **Under it** — the database is ahead of the binary. This is the
   rolling-deploy window, and it reaches exactly as far back as the newest
   breaking step allows. A run of additive steps leaves it wide; one breaking
@@ -105,7 +105,7 @@ and verified mechanically (a compatibility harness drives the prior
 release's binaries against a freshly migrated database before a release
 ships).
 
-| Release | System schema | Topic schema | Minimum compatible release | Notes |
+| Release | System schema | Stream schema | Minimum compatible release | Notes |
 | ------- | ------------- | ------------ | -------------------------- | ----- |
 | pre-1.0 | v1            | v1           | —                          | Pre-release: schema changes edit the baseline in place; recreate the database on upgrade. |
 

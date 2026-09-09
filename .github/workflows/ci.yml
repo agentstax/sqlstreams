@@ -16,20 +16,20 @@ jobs:
       postgres:
         image: postgres:18
         env:
-          POSTGRES_USER: vulkan
-          POSTGRES_PASSWORD: vulkan
-          POSTGRES_DB: vulkan
+          POSTGRES_USER: sqlstreams
+          POSTGRES_PASSWORD: sqlstreams
+          POSTGRES_DB: sqlstreams
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U vulkan"
+          --health-cmd "pg_isready -U sqlstreams"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
     env:
-      VULKAN_TEST_DSN: postgres://vulkan:vulkan@localhost:5432/vulkan
-      VULKAN_CLI_TEST_DATABASE_URL: postgres://vulkan:vulkan@localhost:5432/vulkan
-      VULKAN_WORKER_TEST_DATABASE_URL: postgres://vulkan:vulkan@localhost:5432/vulkan
+      SQLSTREAMS_TEST_DSN: postgres://sqlstreams:sqlstreams@localhost:5432/sqlstreams
+      SQLSTREAMS_CLI_TEST_DATABASE_URL: postgres://sqlstreams:sqlstreams@localhost:5432/sqlstreams
+      SQLSTREAMS_WORKER_TEST_DATABASE_URL: postgres://sqlstreams:sqlstreams@localhost:5432/sqlstreams
     steps:
       - uses: actions/checkout@v7
 
@@ -41,7 +41,7 @@ jobs:
       - uses: extractions/setup-just@v3
 
       # go.work is gitignored; the nested modules resolve the root library through it.
-      - run: go work init . ./.e2e ./.examples ./.bench ./cmd/vulkan ./otel ./.tools
+      - run: go work init . ./.e2e ./.examples ./.bench ./cmd/sqlstreams ./otel ./.tools
 
       # The justfile sets dotenv-required for the compose recipes; verify
       # reads nothing from it.

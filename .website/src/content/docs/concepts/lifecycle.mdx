@@ -8,12 +8,12 @@ import ThreadAside from '../../../components/thread-aside/thread-aside.svelte';
 Consumer groups track progress with range leases and a cursor. A message
 that succeeds on its first delivery normally needs no exception row.
 Retries, requested delays, and messages waiting for a key get their own
-rows in the topic's `exception_queue`.
+rows in the stream's `exception_queue`.
 
 | Trigger | State | Next action |
 | --- | --- | --- |
 | A handler returns a retryable error | `ready` | wait until `can_run_after`, then claim again |
-| A handler returns `vulkan.Delay(d)` | `ready` | wait for the requested time; count a delay |
+| A handler returns `sqlstreams.Delay(d)` | `ready` | wait for the requested time; count a delay |
 | A key is busy or an ordered predecessor is unresolved | `deferred` | wait until the key and ordering checks permit a claim |
 | An eligible exception row is claimed | `inflight` | run the handler under a lease |
 | That handler succeeds | row deleted | no further delivery for this group |
@@ -27,10 +27,10 @@ attempts, and delays determine that budget.
 
 ## One group, four messages
 
-The `apply-balance` group (id `7`) reads `ledger.adjustments` (topic id
+The `apply-balance` group (id `7`) reads `ledger.adjustments` (stream id
 `1`) with ordered delivery for `acct-42`:
 
-1. Message 101 runs and returns an error. Vulkan records a `ready` row
+1. Message 101 runs and returns an error. SQLStreams records a `ready` row
    with a future `can_run_after`.
 2. Messages 102–104 cannot pass 101. They are recorded `deferred`
    without running their handlers.
@@ -50,12 +50,12 @@ Set retry policy on the consumer group. Produced messages may request
 values within the group's configured bounds:
 
 ```go
-orders := client.Topic[OrderPlaced]("orders.placed")
+orders := client.Stream[OrderPlaced]("orders.placed")
 scoring := orders.Consumer("fraud-scoring")
-consumer, err := scoring.Register(ctx, &vulkan.ConsumerConfig{
-	Message: &vulkan.MessageOptions{
+consumer, err := scoring.Register(ctx, &sqlstreams.ConsumerConfig{
+	Message: &sqlstreams.MessageOptions{
 		Timeout: 30 * time.Second,
-		Retry:   &vulkan.RetryPolicy{MaxRetries: 5, BaseDelay: 2 * time.Second},
+		Retry:   &sqlstreams.RetryPolicy{MaxRetries: 5, BaseDelay: 2 * time.Second},
 	},
 })
 if err != nil {
@@ -100,10 +100,10 @@ shows how queue time affects the lease budget.
 
 ## Inspect a failed message
 
-Resolve the topic id before using its table suffix. For `orders.placed`:
+Resolve the stream id before using its table suffix. For `orders.placed`:
 
 ```sql
-SELECT id FROM vulkan.topic_config WHERE name = 'orders.placed';
+SELECT id FROM sqlstreams.stream_config WHERE name = 'orders.placed';
 ```
 
 If the result is `1`, inspect failures for `fraud-scoring`:
@@ -115,9 +115,9 @@ SELECT
     d.attempts,
     d.last_error,
     d.updated_at
-FROM vulkan.exception_queue_1 d
-JOIN vulkan.message_log_1 m ON m.id = d.message_id
-JOIN vulkan.consumer_group_config g ON g.id = d.consumer_group_id
+FROM sqlstreams.exception_queue_1 d
+JOIN sqlstreams.message_log_1 m ON m.id = d.message_id
+JOIN sqlstreams.consumer_group_config g ON g.id = d.consumer_group_id
 WHERE g.name = 'fraud-scoring' AND d.status = 'dead'
 ORDER BY d.updated_at DESC;
 ```

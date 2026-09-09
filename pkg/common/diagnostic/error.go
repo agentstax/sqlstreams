@@ -180,7 +180,7 @@ func (e *DiagnosticError) Docs() string {
 	return docsBaseURL + e.code
 }
 
-// GetCode is the declaration's VK code.
+// GetCode is the declaration's SS code.
 func (e *DiagnosticError) GetCode() string {
 	return e.code
 }

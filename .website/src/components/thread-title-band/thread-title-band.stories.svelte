@@ -10,11 +10,11 @@
 			code: null,
 			solved: false,
 			editHref:
-				'https://github.com/agentstax/vulkan/edit/main/.website/src/content/docs/concepts/ordering.mdx',
+				'https://github.com/agentstax/sqlstreams/edit/main/.website/src/content/docs/concepts/ordering.mdx',
 		},
 	});
 </script>
 
 <Story name="Band" />
 
-<Story name="Solved" args={{ title: 'topic not found', code: 'VK0005', solved: true }} />
+<Story name="Solved" args={{ title: 'stream not found', code: 'SS0005', solved: true }} />

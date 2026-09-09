@@ -4,10 +4,10 @@
 // Sections:
 //  1. validation -- charset/star names, sub-minute and no-upcoming schedules,
 //     timeout vs min rate, re-register wins, Feb-29 single-scheduled-time pass
-//  2. target -- a schedule dies with its target topic; one targeting another
-//     topic survives
+//  2. target -- a schedule dies with its target stream; one targeting another
+//     stream survives
 //     2b. handle -- scheduler.Register declares the same row admin does, refuses
-//     an unregistered topic and a bad expression, and Schedule runs the
+//     an unregistered stream and a bad expression, and Schedule runs the
 //     system manager until its ctx cancels
 //  3. produce-once -- a backdated row produces ONE message stamped with the
 //     NEWEST due scheduled time, older dues dropped
@@ -34,26 +34,26 @@ import (
 	"sync"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/consume"
-	consumecontroller "github.com/agentstax/vulkan/pkg/consume/controller"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/schedule"
-	scheduleproducer "github.com/agentstax/vulkan/pkg/schedule/producer"
-	"github.com/agentstax/vulkan/pkg/scheduler"
-	"github.com/agentstax/vulkan/pkg/topic"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
-	"github.com/agentstax/vulkan/pkg/worker"
-	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/consume"
+	consumecontroller "github.com/agentstax/sqlstreams/pkg/consume/controller"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/schedule"
+	scheduleproducer "github.com/agentstax/sqlstreams/pkg/schedule/producer"
+	"github.com/agentstax/sqlstreams/pkg/scheduler"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	"github.com/agentstax/sqlstreams/pkg/stream"
+	"github.com/agentstax/sqlstreams/pkg/worker"
+	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
 )
 
 const schedulerPollRate = 100 * time.Millisecond
 
 var (
 	ds            *iDatastore.PostgresDatastore
-	client        *vulkan.Client
+	client        *sqlstreams.Client
 	testScheduler *scheduler.Scheduler
-	target        *topic.Topic // the e2e test's own target topic
+	target        *stream.Stream // the e2e test's own target stream
 	prefix        string
 )
 
@@ -95,11 +95,11 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err = vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err = sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err = iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
@@ -108,7 +108,7 @@ func run() (err error) {
 
 	prefix = fmt.Sprintf("schedule.%d", time.Now().UnixNano())
 	// status reads count 'success' rows, so the target keeps every outcome
-	target, err = client.Topic[vulkan.RawPayload](prefix+".target").Register(ctx, &vulkan.TopicConfig{DeliveryLogMode: topic.DeliveryLogModeAll})
+	target, err = client.Stream[sqlstreams.RawPayload](prefix+".target").Register(ctx, &sqlstreams.StreamConfig{DeliveryLogMode: stream.DeliveryLogModeAll})
 	must(err)
 	defer cleanupTarget()
 
@@ -197,38 +197,38 @@ func validationSection(ctx context.Context) {
 }
 
 func targetSection(ctx context.Context) {
-	step("target: a schedule dies with its target topic, one on another topic survives")
+	step("target: a schedule dies with its target stream, one on another stream survives")
 
-	topicName := prefix + ".ownedtopic"
-	_, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, nil)
+	streamName := prefix + ".ownedstream"
+	_, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, nil)
 	must(err)
 
-	_, err = registerSchedule(ctx, prefix+".cascade", "@hourly", topicName, payload, nil)
+	_, err = registerSchedule(ctx, prefix+".cascade", "@hourly", streamName, payload, nil)
 	must(err)
 	_, err = registerSchedule(ctx, prefix+".standalone", "@hourly", target.Name, payload, nil)
 	must(err)
 
-	must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+	must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 
 	cascaded, err := client.Scheduler(prefix + ".cascade").Get(ctx)
 	must(err)
 	if cascaded != nil {
-		die("a schedule must cascade away with its target topic")
+		die("a schedule must cascade away with its target stream")
 	}
 	standalone, err := client.Scheduler(prefix + ".standalone").Get(ctx)
 	must(err)
 	if standalone == nil {
-		die("a schedule on another topic must survive an unrelated topic destroy")
+		die("a schedule on another stream must survive an unrelated stream destroy")
 	}
 	must(client.Scheduler(prefix + ".standalone").Destroy(ctx))
-	fmt.Println("  ✓ cascade removed the schedule with its target topic, the other survived")
+	fmt.Println("  ✓ cascade removed the schedule with its target stream, the other survived")
 }
 
 func handleSection(ctx context.Context) {
 	step("handle: scheduler.Register declares the row, Schedule runs the manager until ctx cancels")
 
-	if _, err := testScheduler.Register[testMessage](ctx, prefix+".handle", prefix+".missing", "@hourly", payload, nil); !errors.Is(err, topic.ErrTopicNotFound) {
-		die(fmt.Sprintf("want ErrTopicNotFound for an unregistered target, got %v", err))
+	if _, err := testScheduler.Register[testMessage](ctx, prefix+".handle", prefix+".missing", "@hourly", payload, nil); !errors.Is(err, stream.ErrStreamNotFound) {
+		die(fmt.Sprintf("want ErrStreamNotFound for an unregistered target, got %v", err))
 	}
 	if _, err := testScheduler.Register[testMessage](ctx, prefix+".handle", target.Name, "every day at noon", payload, nil); err == nil {
 		die("want an error for an unparseable expression")
@@ -239,7 +239,7 @@ func handleSection(ctx context.Context) {
 	defer func() { must(client.Scheduler(prefix + ".handle").Destroy(ctx)) }()
 	found, err := client.Scheduler(prefix + ".handle").Get(ctx)
 	must(err)
-	if found == nil || found.Id != nightly.Registered.Id || found.TopicId != target.Id || found.SchemaVersion != 1 {
+	if found == nil || found.Id != nightly.Registered.Id || found.StreamId != target.Id || found.SchemaVersion != 1 {
 		die(fmt.Sprintf("handle row differs from admin's read: %+v vs %+v", nightly.Registered, found))
 	}
 	if nightly.Payload != payload {
@@ -410,13 +410,13 @@ func deferSection(ctx context.Context) {
 
 	backdate(ctx, job.Id, time.Now().UTC().Add(-9*time.Second))
 	waitAdvanced(ctx, job.Id)
-	deferred := scalarInt64(ctx, fmt.Sprintf(`SELECT MAX(id) FROM %s.%s WHERE message_key = $1;`, ds.Schema, topic.MessageLogTable(target.Id)),
+	deferred := scalarInt64(ctx, fmt.Sprintf(`SELECT MAX(id) FROM %s.%s WHERE message_key = $1;`, ds.Schema, stream.MessageLogTable(target.Id)),
 		job.Name)
 
 	// the 'deferred' row lands while the first request is still running
-	waitForCount(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND message_id = %d AND status = 'deferred';`, ds.Schema, topic.DeliveryLogTable(target.Id), group, deferred), 1)
+	waitForCount(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND message_id = %d AND status = 'deferred';`, ds.Schema, stream.DeliveryLogTable(target.Id), group, deferred), 1)
 	close(release)
-	waitForCount(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND message_id = %d AND status = 'success';`, ds.Schema, topic.DeliveryLogTable(target.Id), group, deferred), 1)
+	waitForCount(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND message_id = %d AND status = 'success';`, ds.Schema, stream.DeliveryLogTable(target.Id), group, deferred), 1)
 	fmt.Println("  ✓ scheduler request deferred behind the running one, then ran to success")
 }
 
@@ -450,29 +450,29 @@ func runNowOverrideSection(ctx context.Context) {
 	backdate(ctx, job.Id, time.Now().UTC().Add(-2*time.Hour))
 	waitAdvanced(ctx, job.Id)
 	<-started
-	blocker := scalarInt64(ctx, fmt.Sprintf(`SELECT MAX(id) FROM %s.%s WHERE message_key = $1;`, ds.Schema, topic.MessageLogTable(target.Id)),
+	blocker := scalarInt64(ctx, fmt.Sprintf(`SELECT MAX(id) FROM %s.%s WHERE message_key = $1;`, ds.Schema, stream.MessageLogTable(target.Id)),
 		job.Name)
 
 	// were the second request stamped with the job's 'exclusive', it would wait
 	// until the first finishes -- the default 'parallel' runs it now
 	override, err := client.Scheduler(prefix+".runnow").Run(ctx, nil)
 	must(err)
-	waitForCount(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND message_id = %d AND status = 'success';`, ds.Schema, topic.DeliveryLogTable(target.Id), group, override.Id), 1)
-	if got := scalarInt64(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND message_id = %d AND status = 'success';`, ds.Schema, topic.DeliveryLogTable(target.Id), group, blocker)); got != 0 {
+	waitForCount(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND message_id = %d AND status = 'success';`, ds.Schema, stream.DeliveryLogTable(target.Id), group, override.Id), 1)
+	if got := scalarInt64(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND message_id = %d AND status = 'success';`, ds.Schema, stream.DeliveryLogTable(target.Id), group, blocker)); got != 0 {
 		die("the first request finished before the override ran -- the mid-run window was missed")
 	}
 	fmt.Println("  ✓ default run-now succeeded while the first was still running")
 
 	// cfg.Concurrency exclusive opts back into the job's no-overlap safety: this
 	// request waits for the running one instead of running beside it
-	deferred, err := client.Scheduler(prefix+".runnow").Run(ctx, &vulkan.ScheduleRunOptions{Concurrency: common.ConcurrencyExclusive})
+	deferred, err := client.Scheduler(prefix+".runnow").Run(ctx, &sqlstreams.ScheduleRunOptions{Concurrency: common.ConcurrencyExclusive})
 	must(err)
-	waitForCount(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND message_id = %d AND status = 'deferred';`, ds.Schema, topic.DeliveryLogTable(target.Id), group, deferred.Id), 1)
-	if got := scalarInt64(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND message_id = %d AND status = 'success';`, ds.Schema, topic.DeliveryLogTable(target.Id), group, deferred.Id)); got != 0 {
+	waitForCount(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND message_id = %d AND status = 'deferred';`, ds.Schema, stream.DeliveryLogTable(target.Id), group, deferred.Id), 1)
+	if got := scalarInt64(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND message_id = %d AND status = 'success';`, ds.Schema, stream.DeliveryLogTable(target.Id), group, deferred.Id)); got != 0 {
 		die("an exclusive run-now must not run while a previous request is still running")
 	}
 	close(release)
-	waitForCount(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND status = 'success';`, ds.Schema, topic.DeliveryLogTable(target.Id), group), 3)
+	waitForCount(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND status = 'success';`, ds.Schema, stream.DeliveryLogTable(target.Id), group), 3)
 	fmt.Println("  ✓ exclusive run-now waited for the running request, then ran")
 }
 
@@ -496,7 +496,7 @@ func supersedeSection(ctx context.Context) {
 	head, err := client.Scheduler(prefix+".supersede").Run(ctx, nil)
 	must(err)
 
-	if got := scalarInt64(ctx, fmt.Sprintf(`SELECT message_id FROM %s.%s WHERE compaction_key = $1;`, ds.Schema, topic.CompactionHeadTable(target.Id)),
+	if got := scalarInt64(ctx, fmt.Sprintf(`SELECT message_id FROM %s.%s WHERE compaction_key = $1;`, ds.Schema, stream.CompactionHeadTable(target.Id)),
 		job.Name); got != head.Id {
 		die(fmt.Sprintf("the second run-now must take the compaction head, got %d want %d", got, head.Id))
 	}
@@ -511,8 +511,8 @@ func supersedeSection(ctx context.Context) {
 	})
 	defer stop()
 
-	waitForCount(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND message_id = %d AND status = 'success';`, ds.Schema, topic.DeliveryLogTable(target.Id), group, head.Id), 1)
-	if got := scalarInt64(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND message_id = %d;`, ds.Schema, topic.DeliveryLogTable(target.Id), group, pending.Id)); got != 0 {
+	waitForCount(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND message_id = %d AND status = 'success';`, ds.Schema, stream.DeliveryLogTable(target.Id), group, head.Id), 1)
+	if got := scalarInt64(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND message_id = %d;`, ds.Schema, stream.DeliveryLogTable(target.Id), group, pending.Id)); got != 0 {
 		die(fmt.Sprintf("the superseded request must leave no delivery rows, got %d", got))
 	}
 	mu.Lock()
@@ -593,14 +593,14 @@ func statusSection(ctx context.Context) {
 	// run-now can't supersede the first while it sits unclaimed
 	first, err := client.Scheduler(jobName).Run(ctx, nil)
 	must(err)
-	waitForCount(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND message_id = %d AND status = 'success';`, ds.Schema, topic.DeliveryLogTable(target.Id), bound, first.Id), 1)
-	if got := scalarInt64(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND message_id = %d AND status = 'failure';`, ds.Schema, topic.DeliveryLogTable(target.Id), bound, first.Id)); got < 1 {
+	waitForCount(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND message_id = %d AND status = 'success';`, ds.Schema, stream.DeliveryLogTable(target.Id), bound, first.Id), 1)
+	if got := scalarInt64(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND message_id = %d AND status = 'failure';`, ds.Schema, stream.DeliveryLogTable(target.Id), bound, first.Id)); got < 1 {
 		die("the first request must record its failed attempt before succeeding")
 	}
 
 	second, err := client.Scheduler(jobName).Run(ctx, nil)
 	must(err)
-	waitForCount(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND message_id = %d AND status = 'failure';`, ds.Schema, topic.DeliveryLogTable(target.Id), bound, second.Id), 1)
+	waitForCount(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND message_id = %d AND status = 'failure';`, ds.Schema, stream.DeliveryLogTable(target.Id), bound, second.Id), 1)
 
 	statuses, err := client.Scheduler(jobName).Status(ctx)
 	must(err)
@@ -701,7 +701,7 @@ func startScheduler(ctx context.Context) func() {
 	}
 }
 
-// registerGroup creates the consumer group on the e2e test's target topic, bound
+// registerGroup creates the consumer group on the e2e test's target stream, bound
 // to the given schedule names (none = bindingless), and returns its id.
 func registerGroup(ctx context.Context, name string, bindings ...string) int64 {
 	controller, err := consumecontroller.NewConsumeController(ds, ds.Logger)
@@ -717,7 +717,7 @@ func registerGroup(ctx context.Context, name string, bindings ...string) int64 {
 // stop is called.
 func startConsumer(ctx context.Context, group string, bindings []string, concurrency int, handler func(context.Context, *testMessage) error) func() {
 	lifecycleCtx, cancel := context.WithCancel(ctx)
-	instance, err := client.Topic[testMessage](target.Name).Consumer(group).Register(lifecycleCtx, &vulkan.ConsumerConfig{
+	instance, err := client.Stream[testMessage](target.Name).Consumer(group).Register(lifecycleCtx, &sqlstreams.ConsumerConfig{
 		Bindings:                bindings,
 		ExceptionInitialBackoff: 200 * time.Millisecond,
 	})
@@ -726,7 +726,7 @@ func startConsumer(ctx context.Context, group string, bindings []string, concurr
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		_ = instance.Consume(lifecycleCtx, handler, &vulkan.ConsumeOptions{
+		_ = instance.Consume(lifecycleCtx, handler, &sqlstreams.ConsumeOptions{
 			ClaimPollRate:      schedulerPollRate,
 			MessageConcurrency: concurrency,
 		})
@@ -747,7 +747,7 @@ func statusFor(statuses []*schedule.ScheduleConsumerGroupSummary, group string) 
 }
 
 func cleanupTarget() {
-	must(client.Topic[testMessage](target.Name).Destroy(context.Background(), &vulkan.DestroyOptions{Force: true}))
+	must(client.Stream[testMessage](target.Name).Destroy(context.Background(), &sqlstreams.DestroyOptions{Force: true}))
 }
 
 // --- assertion helpers ---
@@ -772,11 +772,11 @@ func waitAdvanced(ctx context.Context, jobId int64) {
 }
 
 func messageCount(ctx context.Context, messageKey string) int64 {
-	return scalarInt64(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE message_key = $1;`, ds.Schema, topic.MessageLogTable(target.Id)), messageKey)
+	return scalarInt64(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE message_key = $1;`, ds.Schema, stream.MessageLogTable(target.Id)), messageKey)
 }
 
 func producedScheduledTimes(ctx context.Context, messageKey string) []time.Time {
-	rows, err := ds.Pool.Query(ctx, fmt.Sprintf(`SELECT options->>'scheduled_at' FROM %s.%s WHERE message_key = $1 ORDER BY id;`, ds.Schema, topic.MessageLogTable(target.Id)), messageKey)
+	rows, err := ds.Pool.Query(ctx, fmt.Sprintf(`SELECT options->>'scheduled_at' FROM %s.%s WHERE message_key = $1 ORDER BY id;`, ds.Schema, stream.MessageLogTable(target.Id)), messageKey)
 	must(err)
 	defer rows.Close()
 
@@ -816,8 +816,8 @@ func exec(ctx context.Context, sql string, args ...any) {
 
 // registerSchedule is the handle's Register for the e2e test's message type,
 // returning the row like admin's reads do.
-func registerSchedule(ctx context.Context, name string, expression string, topicName string, payload *testMessage, cfg *scheduler.SchedulerConfig) (*schedule.Schedule, error) {
-	instance, err := testScheduler.Register[testMessage](ctx, name, topicName, expression, payload, cfg)
+func registerSchedule(ctx context.Context, name string, expression string, streamName string, payload *testMessage, cfg *scheduler.SchedulerConfig) (*schedule.Schedule, error) {
+	instance, err := testScheduler.Register[testMessage](ctx, name, streamName, expression, payload, cfg)
 	if err != nil {
 		return nil, err
 	}

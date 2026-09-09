@@ -3,9 +3,9 @@ package runner
 import (
 	"context"
 
-	"github.com/agentstax/vulkan/.bench/reliability/observer"
-	"github.com/agentstax/vulkan/.bench/reliability/observer/datastore"
-	"github.com/agentstax/vulkan/.bench/reliability/record"
+	"github.com/agentstax/sqlstreams/.bench/reliability/observer"
+	"github.com/agentstax/sqlstreams/.bench/reliability/observer/datastore"
+	"github.com/agentstax/sqlstreams/.bench/reliability/record"
 )
 
 // RunObserver samples the server and the scenario's consumer group once a
@@ -27,9 +27,9 @@ func (r *Runner) RunObserver(ctx context.Context) error {
 	}
 	defer backlogRecords.Close()
 	groups := []observer.GroupName{}
-	for _, declared := range r.declared.Topics {
+	for _, declared := range r.declared.Streams {
 		for _, group := range declared.Groups {
-			groups = append(groups, observer.GroupName{Topic: declared.Name, Group: group.Name})
+			groups = append(groups, observer.GroupName{Stream: declared.Name, Group: group.Name})
 		}
 	}
 	sampler, err := observer.NewObserver(ds, sampleRecords, backlogRecords, groups)

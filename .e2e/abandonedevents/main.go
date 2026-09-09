@@ -9,18 +9,18 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/agentstax/vulkan/e2e/common"
-	iCommon "github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/consume"
-	consumecontroller "github.com/agentstax/vulkan/pkg/consume/controller"
-	"github.com/agentstax/vulkan/pkg/consume/messageconsumer"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	iMetrics "github.com/agentstax/vulkan/pkg/metric"
-	metricsproducer "github.com/agentstax/vulkan/pkg/metric/producer"
-	"github.com/agentstax/vulkan/pkg/topic"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
-	"github.com/agentstax/vulkan/pkg/worker"
-	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
+	"github.com/agentstax/sqlstreams/e2e/common"
+	iCommon "github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/consume"
+	consumecontroller "github.com/agentstax/sqlstreams/pkg/consume/controller"
+	"github.com/agentstax/sqlstreams/pkg/consume/messageconsumer"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	iMetrics "github.com/agentstax/sqlstreams/pkg/metric"
+	metricsproducer "github.com/agentstax/sqlstreams/pkg/metric/producer"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	"github.com/agentstax/sqlstreams/pkg/stream"
+	"github.com/agentstax/sqlstreams/pkg/worker"
+	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
 )
 
 const group = "abandonedevents"
@@ -55,33 +55,33 @@ func run() (err error) {
 	ctx := context.Background()
 	run := time.Now().UnixNano()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 	must(client.System().Register(ctx, nil))
 
-	metricTopic, err := client.Topic[vulkan.RawPayload](iMetrics.MetricTopicName).Get(ctx)
+	metricStream, err := client.Stream[sqlstreams.RawPayload](iMetrics.MetricStreamName).Get(ctx)
 	must(err)
-	if metricTopic == nil {
+	if metricStream == nil {
 		die("expected __system.metrics to exist after RegisterSystem")
 	}
 
-	topicName := fmt.Sprintf("%s.%d", group, run)
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{})
+	streamName := fmt.Sprintf("%s.%d", group, run)
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{})
 	must(err)
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
-	before := metricRowCount(ctx, ds, metricTopic.Id)
+	before := metricRowCount(ctx, ds, metricStream.Id)
 
 	step("driving a hard timeout so one message gets abandoned then self-clears")
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 	seed(ctx, wpInstance, 3)
 
@@ -127,7 +127,7 @@ func run() (err error) {
 	var rows []metricRow
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
-		rows = metricRowsSince(ctx, ds, metricTopic.Id, before)
+		rows = metricRowsSince(ctx, ds, metricStream.Id, before)
 		if len(rows) >= 2 {
 			break
 		}
@@ -142,7 +142,7 @@ func run() (err error) {
 	assertEqual("first event type", string(abandoned.Event.EventType), string(iMetrics.EventAbandoned))
 	assertEqual("second event type", string(cleared.Event.EventType), string(iMetrics.EventCleared))
 	assertEqual("abandoned event group", abandoned.Event.Group, group)
-	assertEqual("abandoned event topic id", fmt.Sprint(abandoned.Event.TopicId), fmt.Sprint(tp.Id))
+	assertEqual("abandoned event stream id", fmt.Sprint(abandoned.Event.StreamId), fmt.Sprint(tp.Id))
 	assertEqual("abandoned/cleared share the same message id", fmt.Sprint(abandoned.Event.MessageId), fmt.Sprint(cleared.Event.MessageId))
 	wantRoutingKey := fmt.Sprintf("abandoned_routine.%d.%s", tp.Id, group)
 	assertEqual("abandoned event routing key", abandoned.RoutingKey, wantRoutingKey)
@@ -159,21 +159,21 @@ type metricRow struct {
 	Event      iMetrics.GoRoutineEvent
 }
 
-func metricRowCount(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64) int {
-	// the session counters flush to the same topic -- only the
+func metricRowCount(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) int {
+	// the session counters flush to the same stream -- only the
 	// abandoned-routine events are this e2e test's subject
 	var count int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE routing_key LIKE 'abandoned_routine.%%'`, ds.Schema, topic.MessageLogTable(topicId))).Scan(&count))
+	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE routing_key LIKE 'abandoned_routine.%%'`, ds.Schema, stream.MessageLogTable(streamId))).Scan(&count))
 	return count
 }
 
-func metricRowsSince(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, sinceCount int) []metricRow {
+func metricRowsSince(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, sinceCount int) []metricRow {
 	rows, err := ds.Pool.Query(ctx, fmt.Sprintf(`
 		SELECT id, routing_key, payload FROM %s.%s
 		WHERE routing_key LIKE 'abandoned_routine.%%'
 		ORDER BY id
 		OFFSET %d
-	`, ds.Schema, topic.MessageLogTable(topicId), sinceCount))
+	`, ds.Schema, stream.MessageLogTable(streamId), sinceCount))
 	must(err)
 	defer rows.Close()
 
@@ -197,9 +197,9 @@ func metricRowsSince(ctx context.Context, ds *iDatastore.PostgresDatastore, topi
 	return out
 }
 
-func seed(ctx context.Context, wpInstance *vulkan.ProducerInstance[common.Work], n int) {
+func seed(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[common.Work], n int) {
 	for range n {
-		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
+		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 			return common.NewWork(30, "admin@example.com")
 		}, nil)
 		must(err)

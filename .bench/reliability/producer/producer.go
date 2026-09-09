@@ -9,34 +9,34 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/agentstax/vulkan/.bench/reliability/common"
-	"github.com/agentstax/vulkan/.bench/reliability/record"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/.bench/reliability/common"
+	"github.com/agentstax/sqlstreams/.bench/reliability/record"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 // Producer is the producer that writes a record per call: every Produce writes its attempt to
 // the records, calls the library once, and writes what came back. It knows
 // nothing of phases or rates; the runner decides when it is called.
 type Producer struct {
-	instance *vulkan.ProducerInstance[common.Order]
+	instance *sqlstreams.ProducerInstance[common.Order]
 	writer   *record.Writer
-	topic    string
+	stream   string
 	name     string
 	sequence atomic.Int64
 	Config   *ProducerConfig
 }
 
-// NewProducer is one topic's recording producer; keys restart at 1 per
-// topic, so a key names a message only together with its topic.
-func NewProducer(instance *vulkan.ProducerInstance[common.Order], writer *record.Writer, topic string, name string, cfg *ProducerConfig) (*Producer, error) {
+// NewProducer is one stream's recording producer; keys restart at 1 per
+// stream, so a key names a message only together with its stream.
+func NewProducer(instance *sqlstreams.ProducerInstance[common.Order], writer *record.Writer, stream string, name string, cfg *ProducerConfig) (*Producer, error) {
 	if instance == nil {
 		return nil, errors.New("instance must not be nil")
 	}
 	if writer == nil {
 		return nil, errors.New("writer must not be nil")
 	}
-	if topic == "" {
-		return nil, errors.New("topic must not be empty")
+	if stream == "" {
+		return nil, errors.New("stream must not be empty")
 	}
 	if name == "" {
 		return nil, errors.New("name must not be empty")
@@ -48,7 +48,7 @@ func NewProducer(instance *vulkan.ProducerInstance[common.Order], writer *record
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
-	return &Producer{instance: instance, writer: writer, topic: topic, name: name, Config: cfg}, nil
+	return &Producer{instance: instance, writer: writer, stream: stream, name: name, Config: cfg}, nil
 }
 
 // Produce is one scheduled call: the attempt goes to the records first, then
@@ -70,7 +70,7 @@ func (p *Producer) Produce(ctx context.Context, scheduled time.Time) error {
 	row := record.ProduceRecord{
 		At:          time.Now(),
 		Kind:        record.ProduceKindAttempted,
-		Topic:       p.topic,
+		Stream:      p.stream,
 		Producer:    order.Producer,
 		Sequence:    order.Sequence,
 		Key:         order.Key(),
@@ -80,7 +80,7 @@ func (p *Producer) Produce(ctx context.Context, scheduled time.Time) error {
 		return err
 	}
 
-	options := &vulkan.ProduceOptions{}
+	options := &sqlstreams.ProduceOptions{}
 	if !p.Config.AutomaticBatching {
 		options.IdempotencyKey = order.Key()
 	}

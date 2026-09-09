@@ -18,8 +18,8 @@
 
 	const explanations: Record<SchemaSupport, string> = {
 		supported: 'this build runs against this schema',
-		older_than_build: 'VK0022 — migrate the database up first',
-		newer_than_build: 'VK0023 — upgrade the binary',
+		older_than_build: 'SS0022 — migrate the database up first',
+		newer_than_build: 'SS0023 — upgrade the binary',
 	};
 
 	const builds = $derived(scope.rows[0]?.cells ?? []);
@@ -68,11 +68,11 @@
 			<span class="legend-swatch"></span>runs
 		</li>
 		<li class="legend-item" data-support="older_than_build">
-			<span class="legend-swatch"></span>migrate the database up (<a href="/errors/VK0022">VK0022</a
+			<span class="legend-swatch"></span>migrate the database up (<a href="/errors/SS0022">SS0022</a
 			>)
 		</li>
 		<li class="legend-item" data-support="newer_than_build">
-			<span class="legend-swatch"></span>upgrade the binary (<a href="/errors/VK0023">VK0023</a>)
+			<span class="legend-swatch"></span>upgrade the binary (<a href="/errors/SS0023">SS0023</a>)
 		</li>
 	</ul>
 

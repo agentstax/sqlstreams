@@ -1,7 +1,7 @@
 package main
 
 // One measurement cell of the consume-side fillfactor benchmark: pre-fills a
-// fresh topic, then drains it through real ConsumerInstance.Consume calls and
+// fresh stream, then drains it through real ConsumerInstance.Consume calls and
 // emits one JSON line on stdout. The happy path churns cursor_<id> (claim /
 // advance UPDATEs) and lease_<id> (insert -> delete); a failure fraction adds
 // exception-window churn on delivery_<id> (insert + claim / outcome UPDATEs).
@@ -32,9 +32,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 type benchMessage struct {
@@ -92,7 +92,7 @@ type cellResult struct {
 
 func main() {
 	prefill := flag.Int("prefill", 2_000_000, "messages produced before consumption starts; must outlast the cell")
-	groups := flag.Int("groups", 8, "consumer groups draining the topic, each its own cursor row")
+	groups := flag.Int("groups", 8, "consumer groups draining the stream, each its own cursor row")
 	batchLimit := flag.Int("batch-limit", 100, "claim batch size; 1 = one cursor update per message claimed")
 	messageConcurrency := flag.Int("message-concurrency", 64, "messages processed concurrently per group")
 	failureRate := flag.Float64("failure-rate", 0, "fraction of prefilled messages that fail every attempt")
@@ -108,25 +108,25 @@ func main() {
 	if maxConns > 180 {
 		maxConns = 180
 	}
-	pool, err := vulkan.NewPostgresPool(ctx, envOr("PGUSER", "bench"), envOr("PGPASSWORD", "bench"), envOr("PGHOST", "localhost"), envOr("PGDATABASE", "bench"), &vulkan.PostgresConnectionConfig{
+	pool, err := sqlstreams.NewPostgresPool(ctx, envOr("PGUSER", "bench"), envOr("PGPASSWORD", "bench"), envOr("PGHOST", "localhost"), envOr("PGDATABASE", "bench"), &sqlstreams.PostgresConnectionConfig{
 		Port:     envInt("PGPORT", 5433),
 		MaxConns: maxConns,
 	})
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 	must(client.System().Register(ctx, nil))
 
-	// fresh topic per cell -- clean tables, no cross-cell contamination
-	topicName := fmt.Sprintf("fillfactorbench.%d", time.Now().UnixNano())
-	registered, err := client.Topic[benchMessage](topicName).Register(ctx, nil)
+	// fresh stream per cell -- clean tables, no cross-cell contamination
+	streamName := fmt.Sprintf("fillfactorbench.%d", time.Now().UnixNano())
+	registered, err := client.Stream[benchMessage](streamName).Register(ctx, nil)
 	must(err)
 	defer func() {
-		must(client.Topic[benchMessage](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[benchMessage](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	// the tables are empty here, so ALTER alone is enough -- every page they
@@ -148,7 +148,7 @@ func main() {
 		}
 	}
 
-	prefillTopic(ctx, client, topicName, *prefill, *failureRate, record)
+	prefillStream(ctx, client, streamName, *prefill, *failureRate, record)
 	must(firstErr)
 
 	// designated failures dead-letter after their retries; only the rest can
@@ -178,7 +178,7 @@ func main() {
 
 	// a short retry curve so a designated failure's whole exception cycle
 	// (claim, outcome, eventual dead) lands inside the cell
-	consumerConfig := &vulkan.ConsumerConfig{
+	consumerConfig := &sqlstreams.ConsumerConfig{
 		ExceptionInitialBackoff: 500 * time.Millisecond,
 		Message: &common.MessageOptions{
 			Timeout: 5 * time.Second,
@@ -191,7 +191,7 @@ func main() {
 		},
 	}
 
-	consumeOptions := &vulkan.ConsumeOptions{
+	consumeOptions := &sqlstreams.ConsumeOptions{
 		BatchLimit:         *batchLimit,
 		QueueSize:          *batchLimit * 2,
 		MessageConcurrency: *messageConcurrency,
@@ -203,7 +203,7 @@ func main() {
 
 	var consumeWg sync.WaitGroup
 	for group := range *groups {
-		instance, err := client.Topic[benchMessage](topicName).Consumer(fmt.Sprintf("bench-group-%02d", group)).Register(ctx, consumerConfig)
+		instance, err := client.Stream[benchMessage](streamName).Consumer(fmt.Sprintf("bench-group-%02d", group)).Register(ctx, consumerConfig)
 		must(err)
 
 		consumeWg.Add(1)
@@ -269,13 +269,13 @@ func main() {
 	fmt.Println(string(encoded))
 }
 
-// prefillTopic produces the backlog the cell drains: unkeyed messages, a
+// prefillStream produces the backlog the cell drains: unkeyed messages, a
 // deterministic every-Nth slice of them marked to fail. Returns once every
 // message is committed, so consumption starts against a quiet log.
-func prefillTopic(ctx context.Context, client *vulkan.Client, topicName string, prefill int, failureRate float64, record func(error)) {
-	instances := make([]*vulkan.ProducerInstance[benchMessage], prefillProducers)
+func prefillStream(ctx context.Context, client *sqlstreams.Client, streamName string, prefill int, failureRate float64, record func(error)) {
+	instances := make([]*sqlstreams.ProducerInstance[benchMessage], prefillProducers)
 	for i := range instances {
-		instance, err := client.Topic[benchMessage](topicName).Producer().Register(ctx, nil)
+		instance, err := client.Stream[benchMessage](streamName).Producer().Register(ctx, nil)
 		must(err)
 		instances[i] = instance
 	}
@@ -287,7 +287,7 @@ func prefillTopic(ctx context.Context, client *vulkan.Client, topicName string, 
 	var wg sync.WaitGroup
 	for i := range prefillGoroutines {
 		wg.Add(1)
-		go func(instance *vulkan.ProducerInstance[benchMessage]) {
+		go func(instance *sqlstreams.ProducerInstance[benchMessage]) {
 			defer wg.Done()
 			for {
 				sequence := produced.Add(1)

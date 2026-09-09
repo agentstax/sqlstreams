@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
 )
 
 // DueSchedule is the locked row snapshot one producing transaction works from.
@@ -16,7 +16,7 @@ type DueSchedule struct {
 	Id              int64
 	Name            string
 	Expression      string
-	TopicName       string
+	StreamName      string
 	Concurrency     common.ConcurrencyPolicy
 	Timeout         time.Duration
 	Payload         json.RawMessage

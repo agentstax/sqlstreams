@@ -1,0 +1,59 @@
+package sqlstreams
+
+import (
+	"context"
+	"errors"
+
+	"github.com/agentstax/sqlstreams/pkg/migrate"
+)
+
+// SystemHandle is a handle on the singleton system, holding no row. Get is the
+// comma-ok read; every other verb returns the not-registered error itself.
+type SystemHandle struct {
+	client *Client
+}
+
+// System names the system on the client. No I/O and no failure -- each
+// verb on the handle resolves the system when called.
+func (c *Client) System() *SystemHandle {
+	return &SystemHandle{client: c}
+}
+
+// Register declares the system's own knobs and built-in alert schedules.
+// Safe to run on every startup; cfg may be nil or sparse.
+func (s *SystemHandle) Register(ctx context.Context, cfg *SystemConfig) error {
+	return s.client.admin.RegisterSystem(ctx, cfg)
+}
+
+// Get reads the system's row. Returns (nil, nil) when no system is
+// registered.
+func (s *SystemHandle) Get(ctx context.Context) (*System, error) {
+	sys, err := s.client.admin.GetSystem(ctx)
+	if errors.Is(err, migrate.ErrNotRegistered) {
+		return nil, nil
+	}
+	return sys, err
+}
+
+// Migrate moves the system's tables to targetVersion.
+func (s *SystemHandle) Migrate(ctx context.Context, targetVersion int64) error {
+	return s.client.admin.MigrateSystem(ctx, targetVersion)
+}
+
+// MigrationVersion reads the version the system's tables are at. Returns
+// ErrNotRegistered when no system is registered.
+func (s *SystemHandle) MigrationVersion(ctx context.Context) (int64, error) {
+	return s.client.admin.SystemMigrationVersion(ctx)
+}
+
+// MigrateStreams moves every registered stream to targetVersion.
+func (s *SystemHandle) MigrateStreams(ctx context.Context, targetVersion int64) error {
+	return s.client.admin.MigrateStreams(ctx, targetVersion)
+}
+
+// Destroy permanently deletes every stream, schedule, consumer group,
+// worker, and the shared control-plane tables. Refused unless
+// ClientConfig.AllowDestroy is set.
+func (s *SystemHandle) Destroy(ctx context.Context, options *DestroyOptions) error {
+	return s.client.admin.DestroySystem(ctx, options)
+}

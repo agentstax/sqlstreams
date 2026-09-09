@@ -3,7 +3,7 @@ title: Ordering & Concurrency
 description: Parallel, exclusive, and ordered delivery differ in whether a key waits for an active handler or an unresolved predecessor.
 ---
 
-Vulkan claims messages in id order, but concurrent handlers and retries
+SQLStreams claims messages in id order, but concurrent handlers and retries
 can finish in a different order. Per-key policies determine when a
 message must wait within one consumer group. They do not order different
 keys or different groups.
@@ -47,7 +47,7 @@ compaction because its guarantee requires preserving that history.
 
 ## Ordered delivery through a failure
 
-The `apply-balance` group (id `7`) reads `ledger.adjustments` (topic id
+The `apply-balance` group (id `7`) reads `ledger.adjustments` (stream id
 `1`) with ordered delivery for `acct-42`:
 
 | Message id | Outcome |
@@ -69,7 +69,7 @@ SELECT
     status,
     attempts,
     can_run_after
-FROM vulkan.exception_queue_1
+FROM sqlstreams.exception_queue_1
 WHERE consumer_group_id = 7 AND message_key = 'acct-42'
 ORDER BY message_id;
 ```

@@ -5,30 +5,30 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 )
 
-// TopicHealth is every payload version present in the named topic's log,
-// each with its own retire verdict. Returns ErrTopicNotFound if name isn't
-// registered; an empty topic has no versions.
-func (a *MessageAdmin) TopicHealth(ctx context.Context, name string) ([]*topic.TopicVersionHealth, error) {
-	found, err := a.topicController.Get(ctx, name)
+// StreamHealth is every payload version present in the named stream's log,
+// each with its own retire verdict. Returns ErrStreamNotFound if name isn't
+// registered; an empty stream has no versions.
+func (a *MessageAdmin) StreamHealth(ctx context.Context, name string) ([]*stream.StreamVersionHealth, error) {
+	found, err := a.streamController.Get(ctx, name)
 	if err != nil {
 		return nil, err
 	}
 	if found == nil {
-		return nil, topic.ErrTopicNotFound.With("topic", name)
+		return nil, stream.ErrStreamNotFound.With("stream", name)
 	}
 
-	snapshots, err := a.metricController.TopicSchemaVersionSnapshots(ctx, found.Id)
+	snapshots, err := a.metricController.StreamSchemaVersionSnapshots(ctx, found.Id)
 	if err != nil {
 		return nil, err
 	}
 
-	results := make([]*topic.TopicVersionHealth, 0, len(snapshots))
+	results := make([]*stream.StreamVersionHealth, 0, len(snapshots))
 	for _, snapshot := range snapshots {
-		health := &topic.TopicVersionHealth{
-			Topic:           found,
+		health := &stream.StreamVersionHealth{
+			Stream:          found,
 			Version:         snapshot.Version,
 			Messages:        snapshot.Messages,
 			CompactionHeads: snapshot.CompactionHeads,

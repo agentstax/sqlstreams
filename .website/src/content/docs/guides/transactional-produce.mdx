@@ -7,7 +7,7 @@ import ThreadAside from '../../../components/thread-aside/thread-aside.svelte';
 
 Use `ProduceFunc` to commit a business write and its message together.
 Use `InTransaction` with `ProduceInTx` when one transaction must produce
-to several topics. [Why Vulkan](/why-vulkan/#one-commit-for-the-business-write-and-message)
+to several streams. [Why SQLStreams](/why-sqlstreams/#one-commit-for-the-business-write-and-message)
 explains the failure window this removes.
 
 The examples assume registered producers and application-owned `orders`
@@ -17,10 +17,10 @@ and invoice tables. Replace their fields with your application's schema.
 
 | Transaction | Payload already exists | Payload comes from database work |
 | --- | --- | --- |
-| Vulkan opens it | `Produce` | `ProduceFunc` |
+| SQLStreams opens it | `Produce` | `ProduceFunc` |
 | Your `InTransaction` closure owns it | `ProduceInTx` | `ProduceFuncInTx` |
 
-`ProduceBatch` writes several messages on one topic in one transaction,
+`ProduceBatch` writes several messages on one stream in one transaction,
 returning results in argument order. [Producer](/reference/producer/)
 lists each method's parameters and errors.
 
@@ -31,9 +31,9 @@ transaction. Run your business writes on the `tx` it hands you and
 return the payload; both commit together, or neither does.
 
 ```go
-func CreateOrder(ctx context.Context, instance *vulkan.ProducerInstance[OrderCreated], order Order) error {
+func CreateOrder(ctx context.Context, instance *sqlstreams.ProducerInstance[OrderCreated], order Order) error {
 	_, err := instance.ProduceFunc(ctx,
-		func(ctx context.Context, tx vulkan.Tx) (*OrderCreated, error) {
+		func(ctx context.Context, tx sqlstreams.Tx) (*OrderCreated, error) {
 			if _, err := tx.Exec(ctx,
 				`INSERT INTO orders (id, total) VALUES ($1, $2)`, order.Id, order.Total); err != nil {
 				return nil, err
@@ -52,7 +52,7 @@ explains safe retries after an ambiguous result.
 
 Three details about the closure:
 
-- `tx vulkan.Tx` runs `Exec`, `Query`, `QueryRow`, `SendBatch`, and
+- `tx sqlstreams.Tx` runs `Exec`, `Query`, `QueryRow`, `SendBatch`, and
   `CopyFrom` — the statement surface of a pgx transaction. For anything
   beyond that, `tx.Raw()` returns the underlying `pgx.Tx` (an escape
   hatch, not the default path).
@@ -73,7 +73,7 @@ Consumers cannot observe the message before its transaction commits.
 
    ```go
    _, err := instance.ProduceFunc(ctx,
-   	func(ctx context.Context, tx vulkan.Tx) (*OrderCreated, error) {
+   	func(ctx context.Context, tx sqlstreams.Tx) (*OrderCreated, error) {
    		if _, err := tx.Exec(ctx, `INSERT INTO orders (id) VALUES ($1)`, "order-9"); err != nil {
    			return nil, err
    		}
@@ -81,15 +81,15 @@ Consumers cannot observe the message before its transaction commits.
    	}, nil)
    ```
 
-2. Check for that order and its message; neither should exist. Resolve the topic's id
-   from the catalog once (each topic owns its physical tables, named by
+2. Check for that order and its message; neither should exist. Resolve the stream's id
+   from the catalog once (each stream owns its physical tables, named by
    that id; say it returned `1`):
 
    ```sql
-   SELECT id FROM vulkan.topic_config WHERE name = 'orders.created';
+   SELECT id FROM sqlstreams.stream_config WHERE name = 'orders.created';
 
    SELECT count(*) FROM orders WHERE id = 'order-9'; -- 0
-   SELECT count(*) FROM vulkan.message_log_1
+   SELECT count(*) FROM sqlstreams.message_log_1
    WHERE payload ->> 'order_id' = 'order-9'; -- 0
    ```
 
@@ -98,14 +98,14 @@ Consumers cannot observe the message before its transaction commits.
    be `1`, provided `OrderCreated.OrderId` uses the JSON tag `order_id`.
    While the transaction is open, consumers cannot see its message.
 
-## Several topics, one commit
+## Several streams, one commit
 
-To produce to more than one topic atomically, `client.InTransaction`
+To produce to more than one stream atomically, `client.InTransaction`
 opens one transaction and hands your closure a `Tx` that every
-instance's `ProduceInTx` accepts. One statement per topic:
+instance's `ProduceInTx` accepts. One statement per stream:
 
 ```go
-err := client.InTransaction(ctx, func(ctx context.Context, tx vulkan.Tx) error {
+err := client.InTransaction(ctx, func(ctx context.Context, tx sqlstreams.Tx) error {
 	if _, err := tx.Exec(ctx, `UPDATE orders SET status = 'paid' WHERE id = $1`, orderId); err != nil {
 		return err
 	}
@@ -120,17 +120,17 @@ err := client.InTransaction(ctx, func(ctx context.Context, tx vulkan.Tx) error {
 ```
 
 <ThreadAside label="CAUTION" title="Do your own statements first; produce last">
-Producing holds every consumer group on the topic at your message until
+Producing holds every consumer group on the stream at your message until
 you commit. A claim only advances to the oldest uncommitted message id,
 so an open transaction with a produce in it is a wall for the whole
-topic, and every statement you run *after* the produce is time the wall
+stream, and every statement you run *after* the produce is time the wall
 stands. Nothing in the types enforces the order, and nothing logs the
 stall today -- consumers just lag.
 
-For one topic, `ProduceFunc` makes the order structural: the closure
+For one stream, `ProduceFunc` makes the order structural: the closure
 runs first and the produce is the last thing in the transaction by
 construction. Reach for `InTransaction` plus `ProduceInTx` when you
-need several topics in one commit, and put the produces at the end.
+need several streams in one commit, and put the produces at the end.
 
 </ThreadAside>
 
@@ -150,7 +150,7 @@ was ambiguous. Both have their own page:
 
 <ThreadAside label="NOTE" title="Need to reach external systems too?">
 If some messages must also flow to systems outside Postgres (another
-org's Kafka, a partner webhook), your Vulkan topic already *is* a
+org's Kafka, a partner webhook), your SQLStreams stream already *is* a
 transactional outbox — add a relay consumer group that forwards
 downstream, with retries and
 [dead-lettered messages](/guides/dead-letters/) for the flaky
@@ -166,9 +166,9 @@ suffices. Use `ProduceFuncInTx` when an existing producer function owns
 the write and constructs the payload from its result:
 
 ```go
-err := client.InTransaction(ctx, func(ctx context.Context, tx vulkan.Tx) error {
+err := client.InTransaction(ctx, func(ctx context.Context, tx sqlstreams.Tx) error {
 	_, err := invoices.ProduceFuncInTx(ctx, tx,
-		func(ctx context.Context, tx vulkan.Tx) (*InvoicePaid, error) {
+		func(ctx context.Context, tx sqlstreams.Tx) (*InvoicePaid, error) {
 			var invoiceId int64
 			if err := tx.QueryRow(ctx,
 				`INSERT INTO invoices (order_id) VALUES ($1) RETURNING id`, orderId).Scan(&invoiceId); err != nil {

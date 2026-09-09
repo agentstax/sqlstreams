@@ -28,16 +28,16 @@
 <Story
 	name="Declared query with placeholders"
 	args={{
-		sql: 'SELECT status, attempts\nFROM exception_queue_{topic_id}\nWHERE consumer_group_id = {group_id};',
+		sql: 'SELECT status, attempts\nFROM exception_queue_{stream_id}\nWHERE consumer_group_id = {group_id};',
 	}}
 />
 
 <Story
 	name="Placeholders filled from a log line"
 	args={{
-		sql: 'SELECT status, attempts\nFROM exception_queue_{topic_id}\nWHERE consumer_group_id = {group_id};',
+		sql: 'SELECT status, attempts\nFROM exception_queue_{stream_id}\nWHERE consumer_group_id = {group_id};',
 		values: new Map([
-			['topic_id', '1'],
+			['stream_id', '1'],
 			['group_id', '2'],
 		]),
 	}}
@@ -47,7 +47,7 @@
 <Story
 	name="Text literal filled"
 	args={{
-		sql: "SELECT id, name FROM topic_config\nWHERE name = '{topic}';",
-		values: new Map([['topic', 'orders']]),
+		sql: "SELECT id, name FROM stream_config\nWHERE name = '{stream}';",
+		values: new Map([['stream', 'orders']]),
 	}}
 />

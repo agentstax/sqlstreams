@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/agentstax/vulkan/.bench/reliability/scenarios"
+	"github.com/agentstax/sqlstreams/.bench/reliability/scenarios"
 )
 
 type labFlags struct {

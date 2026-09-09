@@ -3,11 +3,11 @@ package controller
 import (
 	"errors"
 
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	compactioncontroller "github.com/agentstax/vulkan/pkg/compaction/controller"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/metric/controller/datastore"
-	topiccontroller "github.com/agentstax/vulkan/pkg/topic/controller"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	compactioncontroller "github.com/agentstax/sqlstreams/pkg/compaction/controller"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/metric/controller/datastore"
+	streamcontroller "github.com/agentstax/sqlstreams/pkg/stream/controller"
 )
 
 // MetricController owns live snapshots and retained measurement reads.
@@ -16,7 +16,7 @@ type MetricController struct {
 
 	datastore *datastore.MetricDatastore
 	heads     *compactioncontroller.CompactionController
-	topics    *topiccontroller.TopicController
+	streams   *streamcontroller.StreamController
 }
 
 func NewMetricsController(ds *iDatastore.PostgresDatastore, logger logging.Logger) (*MetricController, error) {
@@ -35,7 +35,7 @@ func NewMetricsController(ds *iDatastore.PostgresDatastore, logger logging.Logge
 	if err != nil {
 		return nil, err
 	}
-	topics, err := topiccontroller.NewTopicController(ds, logger)
+	streams, err := streamcontroller.NewStreamController(ds, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -44,6 +44,6 @@ func NewMetricsController(ds *iDatastore.PostgresDatastore, logger logging.Logge
 		Logger:    logger,
 		datastore: metricDatastore,
 		heads:     heads,
-		topics:    topics,
+		streams:   streams,
 	}, nil
 }

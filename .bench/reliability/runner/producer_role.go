@@ -7,13 +7,13 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/agentstax/vulkan/.bench/reliability/producer"
-	"github.com/agentstax/vulkan/.bench/reliability/record"
-	"github.com/agentstax/vulkan/.bench/reliability/scenario"
+	"github.com/agentstax/sqlstreams/.bench/reliability/producer"
+	"github.com/agentstax/sqlstreams/.bench/reliability/record"
+	"github.com/agentstax/sqlstreams/.bench/reliability/scenario"
 )
 
 // inFlightSeconds bounds the produces a stalled database can leave running
-// at once per topic, as seconds of the phase's rate: past it the pacer
+// at once per stream, as seconds of the phase's rate: past it the pacer
 // blocks and the late scheduled_at shows the stall. Below inFlightFloor the
 // bound is the floor, so a slow rate still rides out a short stall.
 const (
@@ -21,12 +21,12 @@ const (
 	inFlightFloor   = 256
 )
 
-// RunProducer registers every topic, then walks the producer phases on all
-// of them at once, each topic paced at the phase's rate by its own recording
+// RunProducer registers every stream, then walks the producer phases on all
+// of them at once, each stream paced at the phase's rate by its own recording
 // producer. Returns when the last phase ends, or nil early when ctx is
 // cancelled -- produces still in flight then land in the records as unknown.
 func (r *Runner) RunProducer(ctx context.Context) error {
-	topics, err := r.registerTopics(ctx)
+	streams, err := r.registerStreams(ctx)
 	if err != nil {
 		return err
 	}
@@ -42,8 +42,8 @@ func (r *Runner) RunProducer(ctx context.Context) error {
 	}
 	defer phaseRecords.Close()
 
-	producers := make([]*producer.Producer, 0, len(topics))
-	for _, registered := range topics {
+	producers := make([]*producer.Producer, 0, len(streams))
+	for _, registered := range streams {
 		instance, err := registered.handle.Producer().Register(ctx, producerConfig(r.declared))
 		if err != nil {
 			return err
@@ -56,12 +56,12 @@ func (r *Runner) RunProducer(ctx context.Context) error {
 	}
 
 	var routines errgroup.Group
-	for i, registered := range topics {
+	for i, registered := range streams {
 		recordingProducer := producers[i]
-		topicName := registered.declared.Name
+		streamName := registered.declared.Name
 		routines.Go(func() error {
 			for _, phase := range r.declared.Producer {
-				if err := r.runProducerPhase(ctx, phase, topicName, recordingProducer, phaseRecords); err != nil {
+				if err := r.runProducerPhase(ctx, phase, streamName, recordingProducer, phaseRecords); err != nil {
 					return err
 				}
 			}
@@ -71,16 +71,16 @@ func (r *Runner) RunProducer(ctx context.Context) error {
 	return ignoreCancellation(routines.Wait())
 }
 
-// runProducerPhase paces one topic through one phase; its phase rows carry
-// the topic in Detail, and the checker takes the earliest start and latest
-// end across topics as the phase's window.
-func (r *Runner) runProducerPhase(ctx context.Context, phase scenario.ProducerPhase, topicName string, recordingProducer *producer.Producer, phaseRecords *record.Writer) error {
+// runProducerPhase paces one stream through one phase; its phase rows carry
+// the stream in Detail, and the checker takes the earliest start and latest
+// end across streams as the phase's window.
+func (r *Runner) runProducerPhase(ctx context.Context, phase scenario.ProducerPhase, streamName string, recordingProducer *producer.Producer, phaseRecords *record.Writer) error {
 	pacer, err := NewPacer(phase.Rate, phase.Duration, max(inFlightFloor, phase.Rate*inFlightSeconds))
 	if err != nil {
 		return err
 	}
 
-	detail := topicName + ": " + phase.String()
+	detail := streamName + ": " + phase.String()
 	if err := r.writePhase(phaseRecords, record.PhaseKindProducer, phase.Name, record.PhaseStatusStarted, detail); err != nil {
 		return err
 	}

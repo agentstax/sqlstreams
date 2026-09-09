@@ -1,14 +1,14 @@
 package controller
 
 import (
-	"github.com/agentstax/vulkan/pkg/consume"
-	"github.com/agentstax/vulkan/pkg/consume/controller/datastore"
+	"github.com/agentstax/sqlstreams/pkg/consume"
+	"github.com/agentstax/sqlstreams/pkg/consume/controller/datastore"
 )
 
 func toConsumer(data *datastore.ConsumerGroupConfigRow) *consume.Consumer {
 	return &consume.Consumer{
 		Id:        data.Id,
-		TopicId:   data.TopicId,
+		StreamId:  data.StreamId,
 		Name:      data.Name,
 		CreatedAt: data.CreatedAt,
 	}
@@ -17,7 +17,7 @@ func toConsumer(data *datastore.ConsumerGroupConfigRow) *consume.Consumer {
 func toBinding(data *datastore.BindingConfigLogRow) *consume.Binding {
 	return &consume.Binding{
 		ConsumerGroupName: data.GroupName,
-		TopicName:         data.TopicName,
+		StreamName:        data.StreamName,
 		Status:            consume.BindingOutcome(data.Status),
 		Patterns:          data.Patterns,
 		DeclaredBy:        data.DeclaredBy,

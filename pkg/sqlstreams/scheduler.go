@@ -1,0 +1,73 @@
+package sqlstreams
+
+import (
+	"context"
+)
+
+// SchedulerHandle is a schedule's name plus the client, holding no row.
+// Get is the comma-ok read; every other verb returns the not-found error
+// itself.
+type SchedulerHandle struct {
+	name   string
+	client *Client
+}
+
+// Schedulers returns every registered schedule, ordered by name.
+func (c *Client) Schedulers(ctx context.Context) ([]*Schedule, error) {
+	return c.admin.ListSchedules(ctx)
+}
+
+// Scheduler names a schedule on the client. No I/O and no failure -- each
+// verb on the handle resolves the name when called.
+func (c *Client) Scheduler(name string) *SchedulerHandle {
+	return &SchedulerHandle{name: name, client: c}
+}
+
+// Register declares this schedule on streamName and returns a runnable
+// instance. The newest declaration wins. cfg may be nil or sparse.
+func (s *SchedulerHandle) Register[Message Versioned](ctx context.Context, streamName string, cron string, payload *Message, cfg *SchedulerConfig) (*SchedulerInstance[Message], error) {
+	instance, err := s.client.scheduler.Register[Message](ctx, s.name, streamName, cron, payload, cfg)
+	if err != nil {
+		return nil, err
+	}
+	return newSchedulerInstance(s.client, instance)
+}
+
+// Get reads the schedule's row. Returns (nil, nil) when the schedule is
+// not registered.
+func (s *SchedulerHandle) Get(ctx context.Context) (*Schedule, error) {
+	return s.client.admin.GetSchedule(ctx, s.name)
+}
+
+// Suspend stops the schedule producing until unsuspended.
+func (s *SchedulerHandle) Suspend(ctx context.Context) error {
+	return s.client.admin.SuspendSchedule(ctx, s.name)
+}
+
+// Unsuspend resumes at the schedule's next scheduled time -- one that came
+// due while suspended is dropped, not produced late.
+func (s *SchedulerHandle) Unsuspend(ctx context.Context) error {
+	return s.client.admin.UnsuspendSchedule(ctx, s.name)
+}
+
+// Run produces the schedule's stored message immediately, outside its
+// expression. options may be nil for the defaults.
+func (s *SchedulerHandle) Run(ctx context.Context, options *ScheduleRunOptions) (*ProduceResult[ScheduleStoredMessage], error) {
+	return s.client.scheduler.RunSchedule(ctx, s.name, options)
+}
+
+// Status reports the schedule's messages rolled up per consumer group.
+func (s *SchedulerHandle) Status(ctx context.Context) ([]*ScheduleConsumerGroupSummary, error) {
+	return s.client.admin.ScheduleStatus(ctx, s.name)
+}
+
+// Messages returns the schedule's produced messages, newest first.
+func (s *SchedulerHandle) Messages(ctx context.Context, limit int) ([]*ScheduleMessageStatus, error) {
+	return s.client.admin.ScheduleMessages(ctx, s.name, limit)
+}
+
+// Destroy permanently deletes the schedule. Returns ErrDestroyDisabled
+// unless ClientConfig.AllowDestroy is set.
+func (s *SchedulerHandle) Destroy(ctx context.Context) error {
+	return s.client.admin.DestroySchedule(ctx, s.name)
+}

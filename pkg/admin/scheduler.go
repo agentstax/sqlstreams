@@ -3,10 +3,10 @@ package admin
 import (
 	"context"
 
-	"github.com/agentstax/vulkan/pkg/producer"
-	"github.com/agentstax/vulkan/pkg/schedule"
-	"github.com/agentstax/vulkan/pkg/scheduler"
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/producer"
+	"github.com/agentstax/sqlstreams/pkg/schedule"
+	"github.com/agentstax/sqlstreams/pkg/scheduler"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 )
 
 // GetSchedule returns (nil, nil), not an error, if name isn't registered.
@@ -37,7 +37,7 @@ func (a *MessageAdmin) RunSchedule(ctx context.Context, name string, options *sc
 }
 
 // ScheduleStatus is one ScheduleConsumerGroupSummary per consumer group that receives the
-// schedule's messages. Counts cover the target topic's retention window.
+// schedule's messages. Counts cover the target stream's retention window.
 // Returns ErrScheduleNotFound if name isn't registered.
 func (a *MessageAdmin) ScheduleStatus(ctx context.Context, name string) ([]*schedule.ScheduleConsumerGroupSummary, error) {
 	found, err := a.scheduleController.Get(ctx, name)
@@ -48,12 +48,12 @@ func (a *MessageAdmin) ScheduleStatus(ctx context.Context, name string) ([]*sche
 		return nil, schedule.ErrScheduleNotFound.With("schedule", name)
 	}
 
-	return a.scheduleController.Status(ctx, found.TopicId, found.Name)
+	return a.scheduleController.Status(ctx, found.StreamId, found.Name)
 }
 
 // ScheduleMessages is the schedule's newest messages, one ScheduleMessageStatus
 // per (message, consumer group that receives it), newest message first.
-// Messages older than the target topic's retention window are gone.
+// Messages older than the target stream's retention window are gone.
 // Returns ErrScheduleNotFound if name isn't registered.
 func (a *MessageAdmin) ScheduleMessages(ctx context.Context, name string, limit int) ([]*schedule.ScheduleMessageStatus, error) {
 	found, err := a.scheduleController.Get(ctx, name)
@@ -64,14 +64,14 @@ func (a *MessageAdmin) ScheduleMessages(ctx context.Context, name string, limit 
 		return nil, schedule.ErrScheduleNotFound.With("schedule", name)
 	}
 
-	return a.scheduleController.ListMessages(ctx, found.TopicId, found.Name, limit)
+	return a.scheduleController.ListMessages(ctx, found.StreamId, found.Name, limit)
 }
 
-// DestroySchedule permanently deletes the schedule. Returns topic.ErrDestroyDisabled
+// DestroySchedule permanently deletes the schedule. Returns stream.ErrDestroyDisabled
 // unless MessageAdminConfig.AllowDestroy is set.
 func (a *MessageAdmin) DestroySchedule(ctx context.Context, name string) error {
 	if !a.allowDestroy {
-		return topic.ErrDestroyDisabled
+		return stream.ErrDestroyDisabled
 	}
 
 	return a.scheduleController.Delete(ctx, name)

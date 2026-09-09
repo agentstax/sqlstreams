@@ -60,7 +60,7 @@ func TestSqlOwnerCommentNamesItsDatastore(t *testing.T) {
 	for _, literal := range sqlLiterals(t) {
 		segment, ok := ownerSegment(literal.Text)
 		if !ok {
-			t.Errorf("%s opens without a -- vulkan: <package>.<method> line", literal.Position)
+			t.Errorf("%s opens without a -- sqlstreams: <package>.<method> line", literal.Position)
 			continue
 		}
 		directory := filepath.ToSlash(filepath.Dir(strings.SplitN(literal.Position, ":", 2)[0]))
@@ -94,7 +94,7 @@ type sqlLiteral struct {
 }
 
 // sqlLiterals is every SQL literal in the library and the CLI. The ## SQL rule
-// gives each one a `-- vulkan: <package>.<method>` first line, which is what
+// gives each one a `-- sqlstreams: <package>.<method>` first line, which is what
 // separates a statement from any other backtick string.
 func sqlLiterals(t *testing.T) []sqlLiteral {
 	t.Helper()
@@ -125,7 +125,7 @@ func sqlLiterals(t *testing.T) []sqlLiteral {
 					return true
 				}
 				text, err := strconv.Unquote(basic.Value)
-				if err != nil || !strings.Contains(text, "-- vulkan:") {
+				if err != nil || !strings.Contains(text, "-- sqlstreams:") {
 					return true
 				}
 				position := relative + ":" + strconv.Itoa(fileSet.Position(basic.Pos()).Line)
@@ -169,7 +169,7 @@ var clauseKeywords = map[string]bool{
 
 // relationsNamed lists the relations one statement names, spelled as the
 // statement spells them so the caller can check the qualifier. Catalog tables
-// and a WITH clause's own names are not vulkan's to qualify.
+// and a WITH clause's own names are not sqlstreams's to qualify.
 func relationsNamed(sql string) []string {
 	body := sqlComment.ReplaceAllString(sql, "")
 
@@ -193,10 +193,10 @@ func relationsNamed(sql string) []string {
 }
 
 // ownerSegment reads the package segment of a literal's first line,
-// `-- vulkan: <package>.<method>`.
+// `-- sqlstreams: <package>.<method>`.
 func ownerSegment(sql string) (string, bool) {
 	first, _, _ := strings.Cut(strings.TrimSpace(sql), "\n")
-	owner, ok := strings.CutPrefix(first, "-- vulkan: ")
+	owner, ok := strings.CutPrefix(first, "-- sqlstreams: ")
 	if !ok {
 		return "", false
 	}

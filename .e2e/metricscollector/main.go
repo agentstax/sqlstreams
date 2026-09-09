@@ -1,19 +1,19 @@
 package main
 
 // Metrics collector e2e test: a full-size collection pass under -race -- the
-// collectTopics errgroup fans out topic snapshots under TopicConcurrency,
-// every fanned-out topic driving singles and per-group ProduceBatch calls
+// collectStreams errgroup fans out stream snapshots under StreamConcurrency,
+// every fanned-out stream driving singles and per-group ProduceBatch calls
 // against ONE ProducerInstance concurrently. Then the
 // pipeline's read half: latest values and history through the public handles
-// `vulkan metric list` / `vulkan metric get` use, and a real
-// `vulkan manager run --metrics-address` process scraped over HTTP.
-// Self-seeding (6 topics x 2 groups x 5 messages), self-cleaning; expects
-// .bin/vulkan built by the justfile recipe.
+// `sqlstreams metric list` / `sqlstreams metric get` use, and a real
+// `sqlstreams manager run --metrics-address` process scraped over HTTP.
+// Self-seeding (6 streams x 2 groups x 5 messages), self-cleaning; expects
+// .bin/sqlstreams built by the justfile recipe.
 
 import (
 	"context"
 	"fmt"
-	"github.com/agentstax/vulkan/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
 	"io"
 	"net/http"
 	"os"
@@ -22,24 +22,24 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/agentstax/vulkan/e2e/common"
-	iCommon "github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/consume"
-	consumecontroller "github.com/agentstax/vulkan/pkg/consume/controller"
-	"github.com/agentstax/vulkan/pkg/metric"
-	"github.com/agentstax/vulkan/pkg/metric/collector"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
-	"github.com/agentstax/vulkan/pkg/worker"
-	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
+	"github.com/agentstax/sqlstreams/e2e/common"
+	iCommon "github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/consume"
+	consumecontroller "github.com/agentstax/sqlstreams/pkg/consume/controller"
+	"github.com/agentstax/sqlstreams/pkg/metric"
+	"github.com/agentstax/sqlstreams/pkg/metric/collector"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	"github.com/agentstax/sqlstreams/pkg/worker"
+	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
 )
 
 const (
-	databaseURL      = "postgres://example_user:example_password@localhost:5432/example_db"
-	topicCount       = 6
-	groupsPerTopic   = 2
-	messagesPerTopic = 5
-	collectorRate    = 200 * time.Millisecond
-	metricsAddress   = "127.0.0.1:19565"
+	databaseURL       = "postgres://example_user:example_password@localhost:5432/example_db"
+	streamCount       = 6
+	groupsPerStream   = 2
+	messagesPerStream = 5
+	collectorRate     = 200 * time.Millisecond
+	metricsAddress    = "127.0.0.1:19565"
 )
 
 var groupMetricNames = []string{
@@ -89,11 +89,11 @@ func run() (err error) {
 	ctx := context.Background()
 	run := time.Now().UnixNano()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 
 	ds, err := datastore.NewPostgresDatastore(ctx, pool, nil)
@@ -112,8 +112,8 @@ func run() (err error) {
 	must(err)
 	collectorId := row.Id
 	for _, rate := range []time.Duration{0, 10 * time.Second, collectorRate} {
-		must(client.System().Register(ctx, &vulkan.SystemConfig{
-			MetricCollector: &vulkan.MetricCollectorWorkerConfig{PollRate: rate},
+		must(client.System().Register(ctx, &sqlstreams.SystemConfig{
+			MetricCollector: &sqlstreams.MetricCollectorWorkerConfig{PollRate: rate},
 		}))
 		row, err = workers.GetWorker(ctx, collector.WorkerMetricsCollector, systemOwner)
 		must(err)
@@ -127,8 +127,8 @@ func run() (err error) {
 			die("collector declaration changed its identity or stored the wrong rate")
 		}
 	}
-	err = client.System().Register(ctx, &vulkan.SystemConfig{
-		MetricCollector: &vulkan.MetricCollectorWorkerConfig{PollRate: -time.Second},
+	err = client.System().Register(ctx, &sqlstreams.SystemConfig{
+		MetricCollector: &sqlstreams.MetricCollectorWorkerConfig{PollRate: -time.Second},
 	})
 	if err == nil || !strings.Contains(err.Error(), "MetricCollector: PollRate") {
 		die("negative collector rate did not report its config field")
@@ -141,22 +141,22 @@ func run() (err error) {
 		die("rejected collector rate changed stored metadata")
 	}
 
-	step("seed 6 topics x 2 groups x 5 messages -- more topics than TopicConcurrency")
+	step("seed 6 streams x 2 groups x 5 messages -- more streams than StreamConcurrency")
 	consumers, err := consumecontroller.NewConsumeController(ds, ds.Logger)
 	must(err)
 
-	topicNames := make([]string, 0, topicCount)
-	groupNames := make([]string, 0, groupsPerTopic)
-	for g := range groupsPerTopic {
+	streamNames := make([]string, 0, streamCount)
+	groupNames := make([]string, 0, groupsPerStream)
+	for g := range groupsPerStream {
 		groupNames = append(groupNames, fmt.Sprintf("metricscollector.%c", 'a'+g))
 	}
-	for t := range topicCount {
+	for t := range streamCount {
 		name := fmt.Sprintf("metricscollector.%d.%d", run, t)
-		registered, err := client.Topic[common.Work](name).Register(ctx, &vulkan.TopicConfig{})
+		registered, err := client.Stream[common.Work](name).Register(ctx, &sqlstreams.StreamConfig{})
 		must(err)
-		topicNames = append(topicNames, name)
+		streamNames = append(streamNames, name)
 		defer func() {
-			must(client.Topic[common.Work](name).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+			must(client.Stream[common.Work](name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 		}()
 
 		for _, group := range groupNames {
@@ -164,9 +164,9 @@ func run() (err error) {
 			must(err)
 		}
 
-		instance, err := client.Topic[common.Work](name).Producer().Register(ctx, nil)
+		instance, err := client.Stream[common.Work](name).Producer().Register(ctx, nil)
 		must(err)
-		for range messagesPerTopic {
+		for range messagesPerStream {
 			work, err := common.NewWork(30, "admin@example.com")
 			must(err)
 			_, err = instance.Produce(ctx, work, nil)
@@ -200,7 +200,7 @@ func run() (err error) {
 	must(err)
 
 	provisioner, err := collector.NewMetricsCollectorProvisioner(ds, &collector.MetricCollectorConfig{
-		TopicConcurrency: 4,
+		StreamConcurrency: 4,
 	}, ds.Logger)
 	must(err)
 
@@ -224,7 +224,7 @@ func run() (err error) {
 	collectorDone := make(chan error, 1)
 	go func() { collectorDone <- execution.Run(runCtx) }()
 
-	step("wait for full head coverage: fleet + schedules + every e2e test topic and group")
+	step("wait for full head coverage: fleet + schedules + every e2e test stream and group")
 	expected := map[string]bool{
 		metric.MeasurementKey(metric.MetricUnclaimedWorkers.Name, nil):            false,
 		metric.MeasurementKey(metric.MetricOldestUnclaimedAge.Name, nil):          false,
@@ -236,14 +236,14 @@ func run() (err error) {
 		metric.MeasurementKey(metric.MetricResolvedAlerts.Name, nil):              false,
 		metric.MeasurementKey(metric.MetricCollectorCompletedTimestamp.Name, nil): false,
 	}
-	for _, topicName := range topicNames {
-		for _, name := range []string{metric.MetricTopicCompacted.Name, metric.MetricTopicPartitions.Name, metric.MetricTopicUnclaimedWorkers.Name} {
-			expected[metric.MeasurementKey(name, map[string]string{"topic": topicName})] = false
+	for _, streamName := range streamNames {
+		for _, name := range []string{metric.MetricStreamCompacted.Name, metric.MetricStreamPartitions.Name, metric.MetricStreamUnclaimedWorkers.Name} {
+			expected[metric.MeasurementKey(name, map[string]string{"stream": streamName})] = false
 		}
 		for _, group := range groupNames {
 			for _, name := range groupMetricNames {
 				expected[metric.MeasurementKey(name, map[string]string{
-					"group": group, "topic": topicName,
+					"group": group, "stream": streamName,
 				})] = false
 			}
 		}
@@ -275,29 +275,29 @@ func run() (err error) {
 	for _, measurement := range measurements {
 		messageKey := metric.MeasurementKey(measurement.Name, measurement.Attributes)
 		byKey[messageKey] = measurement
-		if measurement.Attributes["topic"] == metric.MetricTopicName &&
-			measurement.Name != metric.MetricTopicPartitions.Name && measurement.Name != metric.MetricTopicUnclaimedWorkers.Name {
-			die(fmt.Sprintf("measurement %s adds metrics-topic self-observation beyond alert evidence", messageKey))
+		if measurement.Attributes["stream"] == metric.MetricStreamName &&
+			measurement.Name != metric.MetricStreamPartitions.Name && measurement.Name != metric.MetricStreamUnclaimedWorkers.Name {
+			die(fmt.Sprintf("measurement %s adds metrics-stream self-observation beyond alert evidence", messageKey))
 		}
 	}
-	for _, topicName := range topicNames {
-		assertValue(byKey, metric.MetricTopicPartitions.Name, map[string]string{"topic": topicName}, 1)
-		assertValue(byKey, metric.MetricTopicCompacted.Name, map[string]string{
-			"topic": topicName,
+	for _, streamName := range streamNames {
+		assertValue(byKey, metric.MetricStreamPartitions.Name, map[string]string{"stream": streamName}, 1)
+		assertValue(byKey, metric.MetricStreamCompacted.Name, map[string]string{
+			"stream": streamName,
 		}, 0)
 		for _, group := range groupNames {
-			attributes := map[string]string{"group": group, "topic": topicName}
-			assertValue(byKey, metric.MetricCursorHead.Name, attributes, messagesPerTopic)
-			assertValue(byKey, metric.MetricCursorBacklog.Name, attributes, messagesPerTopic)
+			attributes := map[string]string{"group": group, "stream": streamName}
+			assertValue(byKey, metric.MetricCursorHead.Name, attributes, messagesPerStream)
+			assertValue(byKey, metric.MetricCursorBacklog.Name, attributes, messagesPerStream)
 			assertValue(byKey, metric.MetricCursorClaimed.Name, attributes, 0)
 			assertValue(byKey, metric.MetricDeadExceptions.Name, attributes, 0)
 		}
 	}
 	fmt.Printf("  ✓ compacted=0, head=%d, backlog=%d, claimed=0, dead=0 across %d groups\n",
-		messagesPerTopic, messagesPerTopic, topicCount*groupsPerTopic)
+		messagesPerStream, messagesPerStream, streamCount*groupsPerStream)
 
 	step("history accumulates under the head -- one row per collection pass")
-	historySeries := client.Topic[common.Work](topicNames[0]).Consumer(groupNames[0]).Metrics().CursorBacklog()
+	historySeries := client.Stream[common.Work](streamNames[0]).Consumer(groupNames[0]).Metrics().CursorBacklog()
 	must(waitFor(10*time.Second, func() (bool, error) {
 		history, err := historySeries.History(ctx, 10)
 		if err != nil {
@@ -315,8 +315,8 @@ func run() (err error) {
 	cancel()
 	must(<-collectorDone)
 
-	step("vulkan manager run --metrics-address serves the heads as Prometheus text")
-	manager := exec.Command("./.bin/vulkan", "manager", "run",
+	step("sqlstreams manager run --metrics-address serves the heads as Prometheus text")
+	manager := exec.Command("./.bin/sqlstreams", "manager", "run",
 		"--metrics-address", metricsAddress,
 		"--database-url", databaseURL,
 	)
@@ -339,10 +339,10 @@ func run() (err error) {
 	}))
 
 	for _, series := range []string{
-		"vulkan_worker_state_unclaimed_workers ",
-		"vulkan_schedule_state_overdue ",
-		fmt.Sprintf("vulkan_consumer_cursor_backlog{group=%q,topic=%q} %d", groupNames[0], topicNames[0], messagesPerTopic),
-		fmt.Sprintf("vulkan_topic_state_compacted{topic=%q} 0", topicNames[topicCount-1]),
+		"sqlstreams_worker_state_unclaimed_workers ",
+		"sqlstreams_schedule_state_overdue ",
+		fmt.Sprintf("sqlstreams_consumer_cursor_backlog{group=%q,stream=%q} %d", groupNames[0], streamNames[0], messagesPerStream),
+		fmt.Sprintf("sqlstreams_stream_state_compacted{stream=%q} 0", streamNames[streamCount-1]),
 	} {
 		if !strings.Contains(scrape, series) {
 			die(fmt.Sprintf("scrape missing %q", series))

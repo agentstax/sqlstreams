@@ -13,22 +13,22 @@ package main
 //     Register still succeeds.
 //  3. a breaking step past the binary (system scope) refuses Register
 //     (upgrade the binary).
-//  4. a breaking step past ONE topic refuses that topic only -- a sibling
-//     topic still registers (per-topic skew).
+//  4. a breaking step past ONE stream refuses that stream only -- a sibling
+//     stream still registers (per-stream skew).
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/agentstax/vulkan/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/migrate"
-	migratecontroller "github.com/agentstax/vulkan/pkg/migrate/controller"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/migrate"
+	migratecontroller "github.com/agentstax/sqlstreams/pkg/migrate/controller"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -64,20 +64,20 @@ func run() (err error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err := datastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
 	name := fmt.Sprintf("schemagate.e2e.%d", time.Now().UnixNano())
 	siblingName := name + ".sibling"
-	topicRow, err := client.Topic[event](name).Register(ctx, nil)
+	streamRow, err := client.Stream[event](name).Register(ctx, nil)
 	must(err)
-	_, err = client.Topic[event](siblingName).Register(ctx, nil)
+	_, err = client.Stream[event](siblingName).Register(ctx, nil)
 	must(err)
 
 	controller, err := migratecontroller.NewController(ds, ds.Logger)
@@ -85,42 +85,42 @@ func run() (err error) {
 	sysOwner, err := controller.SystemOwner(ctx)
 	must(err)
 	defer func() {
-		must(client.Topic[event](name).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
-		must(client.Topic[event](siblingName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[event](name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		must(client.Stream[event](siblingName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	// 1. supported schema -> Register succeeds -----------------------------------
 	section("producer Register succeeds at the supported schema (v1)")
-	_, err = client.Topic[event](name).Producer().Register(ctx, nil)
+	_, err = client.Stream[event](name).Producer().Register(ctx, nil)
 	check(err == nil, "Register accepted at v1")
 
 	// 2. additive skew: schema ahead, nothing breaking -> Register succeeds ------
 	section("system schema ahead by an additive step -> Register still succeeds")
 	bump(ctx, pool, ds.Schema, sysOwner, 2, 0)
-	_, err = client.Topic[event](name).Producer().Register(ctx, nil)
+	_, err = client.Stream[event](name).Producer().Register(ctx, nil)
 	check(err == nil, "Register accepted at v2 with no breaking step -- the rolling-deploy window")
 	unbump(ctx, pool, ds.Schema, sysOwner, 2)
 
 	// 3. breaking step past the binary (system) -> Register refused --------------
 	section("system schema ahead by a breaking step -> Register refused")
 	bump(ctx, pool, ds.Schema, sysOwner, 2, 2)
-	_, err = client.Topic[event](name).Producer().Register(ctx, nil)
+	_, err = client.Stream[event](name).Producer().Register(ctx, nil)
 	show(err)
 	check(errors.Is(err, migrate.ErrSchemaNewerThanBuild) && strings.Contains(err.Error(), "kind system, version 2") && strings.Contains(err.Error(), "min_compatible_version 2") && strings.Contains(err.Error(), "upgrade the binary"),
 		"refused, naming the system version, the requirement, and the fix")
 	unbump(ctx, pool, ds.Schema, sysOwner, 2)
 
-	// 4. breaking step past ONE topic -> that topic refused, sibling accepted ----
-	section("breaking step past one topic -> that topic refused, sibling accepted")
-	topicOwner := mustOwner(common.NewTopicOwner(topicRow.SystemId, topicRow.Id, topicRow.Name))
-	bump(ctx, pool, ds.Schema, topicOwner, 2, 2)
-	_, err = client.Topic[event](name).Producer().Register(ctx, nil)
+	// 4. breaking step past ONE stream -> that stream refused, sibling accepted ----
+	section("breaking step past one stream -> that stream refused, sibling accepted")
+	streamOwner := mustOwner(common.NewStreamOwner(streamRow.SystemId, streamRow.Id, streamRow.Name))
+	bump(ctx, pool, ds.Schema, streamOwner, 2, 2)
+	_, err = client.Stream[event](name).Producer().Register(ctx, nil)
 	show(err)
-	check(errors.Is(err, migrate.ErrSchemaNewerThanBuild) && strings.Contains(err.Error(), "kind topic, version 2") && strings.Contains(err.Error(), "min_compatible_version 2"),
-		"refused, naming the topic version and the requirement")
-	_, err = client.Topic[event](siblingName).Producer().Register(ctx, nil)
-	check(err == nil, "sibling topic still registers -- each family gates on its own rows")
-	unbump(ctx, pool, ds.Schema, topicOwner, 2)
+	check(errors.Is(err, migrate.ErrSchemaNewerThanBuild) && strings.Contains(err.Error(), "kind stream, version 2") && strings.Contains(err.Error(), "min_compatible_version 2"),
+		"refused, naming the stream version and the requirement")
+	_, err = client.Stream[event](siblingName).Producer().Register(ctx, nil)
+	check(err == nil, "sibling stream still registers -- each family gates on its own rows")
+	unbump(ctx, pool, ds.Schema, streamOwner, 2)
 
 	fmt.Println("\n✅ SCHEMA GATE E2E TEST PASSED")
 	fmt.Println("   Register rides out additive skew and fails fast, legibly, on a breaking step past the build.")
@@ -133,14 +133,14 @@ func run() (err error) {
 func bump(ctx context.Context, pool *pgxpool.Pool, schema string, owner *common.Owner, ver int64, minCompatibleVersion int64) {
 	columns := datastore.NewOwnerColumns(*owner)
 
-	_, err := pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.migration_log (system_id, topic_id, consumer_group_id, version, min_compatible_version, status) VALUES ($1, $2, $3, $4, $5, 'success');`, schema), columns.SystemId, columns.TopicId, columns.ConsumerGroupId, ver, minCompatibleVersion)
+	_, err := pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.migration_log (system_id, stream_id, consumer_group_id, version, min_compatible_version, status) VALUES ($1, $2, $3, $4, $5, 'success');`, schema), columns.SystemId, columns.StreamId, columns.ConsumerGroupId, ver, minCompatibleVersion)
 	must(err)
 }
 
 func unbump(ctx context.Context, pool *pgxpool.Pool, schema string, owner *common.Owner, ver int64) {
 	columns := datastore.NewOwnerColumns(*owner)
 
-	_, err := pool.Exec(ctx, fmt.Sprintf(`DELETE FROM %s.migration_log WHERE system_id IS NOT DISTINCT FROM $1 AND topic_id IS NOT DISTINCT FROM $2 AND consumer_group_id IS NOT DISTINCT FROM $3 AND version = $4;`, schema), columns.SystemId, columns.TopicId, columns.ConsumerGroupId, ver)
+	_, err := pool.Exec(ctx, fmt.Sprintf(`DELETE FROM %s.migration_log WHERE system_id IS NOT DISTINCT FROM $1 AND stream_id IS NOT DISTINCT FROM $2 AND consumer_group_id IS NOT DISTINCT FROM $3 AND version = $4;`, schema), columns.SystemId, columns.StreamId, columns.ConsumerGroupId, ver)
 	must(err)
 }
 

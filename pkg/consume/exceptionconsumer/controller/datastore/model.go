@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -12,7 +12,7 @@ import (
 // the token match means a lease that expired and was taken over is never
 // released by the old holder.
 type KeyLease struct {
-	TopicId         int64
+	StreamId        int64
 	ConsumerGroupId int64
 	MessageKey      string
 	Token           pgtype.UUID
@@ -22,7 +22,7 @@ type KeyLease struct {
 // token guards its resolution: every write against the row matches on it.
 type ExceptionQueueRow struct {
 	ConsumerGroupId int64                  `db:"consumer_group_id"`
-	TopicId         int64                  `db:"topic_id"`
+	StreamId        int64                  `db:"stream_id"`
 	MessageId       int64                  `db:"message_id"`
 	Attempts        int                    `db:"attempts"`
 	Delays          int                    `db:"delays"`

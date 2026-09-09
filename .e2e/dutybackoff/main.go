@@ -1,7 +1,7 @@
 // Command dutybackoff proves a consistently-failing worker backs off
 // instead of ticking at full poll rate forever.
 //
-// Renames a topic's message_log_<id> table out from under a running janitor
+// Renames a stream's message_log_<id> table out from under a running janitor
 // worker, so every sweep fails 42P01. Watches the claimed worker_instance's
 // `attempts` streak climb and the gap between failures grow -- small at
 // first, capped at SweepRetry's MaxDelay -- then renames the table back and
@@ -11,16 +11,16 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 	"os"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	metricscontroller "github.com/agentstax/vulkan/pkg/metric/controller"
-	"github.com/agentstax/vulkan/pkg/topic/janitor"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
-	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	metricscontroller "github.com/agentstax/sqlstreams/pkg/metric/controller"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	"github.com/agentstax/sqlstreams/pkg/stream/janitor"
+	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
 )
 
 const (
@@ -58,22 +58,22 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	topicName := fmt.Sprintf("dutybackoff.%d", time.Now().UnixNano())
+	streamName := fmt.Sprintf("dutybackoff.%d", time.Now().UnixNano())
 	// retention on: the sweep's drop pass reads message_log's head every tick,
 	// which is the read the rename below breaks
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{RetentionTTL: time.Hour})
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{RetentionTTL: time.Hour})
 	must(err)
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	janitorProvisioner, err := janitor.NewJanitorProvisioner(ds, &janitor.JanitorConfig{
@@ -83,11 +83,11 @@ func run() (err error) {
 	workers, err := workercontroller.NewWorkerController(ds, ds.Logger)
 	must(err)
 
-	// RegisterTopic already declared the janitor row -- claim it directly with
+	// RegisterStream already declared the janitor row -- claim it directly with
 	// the e2e test's own fast tick
-	owner, err := common.NewTopicOwner(tp.SystemId, tp.Id, tp.Name)
+	owner, err := common.NewStreamOwner(tp.SystemId, tp.Id, tp.Name)
 	must(err)
-	row, err := workers.GetWorker(ctx, janitor.WorkerTopicJanitor, owner)
+	row, err := workers.GetWorker(ctx, janitor.WorkerStreamJanitor, owner)
 	must(err)
 	row.Metadata = map[string]any{
 		"poll_rate":        int64(pollRate),
@@ -103,9 +103,9 @@ func run() (err error) {
 	done := make(chan error, 1)
 	go func() { done <- execution.Run(runCtx) }()
 
-	table := fmt.Sprintf("%s.%s", ds.Schema, topic.MessageLogTable(tp.Id))
+	table := fmt.Sprintf("%s.%s", ds.Schema, stream.MessageLogTable(tp.Id))
 	// RENAME TO names the new table inside the old one's schema, so it is bare
-	hidden := topic.MessageLogTable(tp.Id) + "_hidden"
+	hidden := stream.MessageLogTable(tp.Id) + "_hidden"
 
 	step("breaking the janitor: renaming its message_log table away")
 	exec(ctx, ds, fmt.Sprintf(`ALTER TABLE %s RENAME TO %s`, table, hidden))
@@ -153,7 +153,7 @@ func run() (err error) {
 	must(err)
 	found := false
 	for _, s := range snapshots {
-		if s.Owner.Name == topicName && s.Name == janitor.WorkerTopicJanitor {
+		if s.Owner.Name == streamName && s.Name == janitor.WorkerStreamJanitor {
 			found = true
 			if s.Attempts == 0 {
 				die("expected WorkerSnapshot.Attempts > 0 for the failing janitor")
@@ -166,7 +166,7 @@ func run() (err error) {
 	}
 
 	step("healing: renaming the table back and waiting for attempts to reset")
-	exec(ctx, ds, fmt.Sprintf(`ALTER TABLE %s.%s RENAME TO %s`, ds.Schema, hidden, topic.MessageLogTable(tp.Id)))
+	exec(ctx, ds, fmt.Sprintf(`ALTER TABLE %s.%s RENAME TO %s`, ds.Schema, hidden, stream.MessageLogTable(tp.Id)))
 
 	deadline = time.Now().Add(10 * time.Second)
 	var final int

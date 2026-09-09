@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -15,34 +15,34 @@ import (
 // by attemptTimeout) and a missing partition (healed, then rerun until a
 // partition covers the batch). failedIndex is the FIRST failure in pipeline
 // order, -1 when the failure carries no index.
-func (d *ProduceDatastore) AppendMessageBatch[Message common.Versioned](ctx context.Context, topicId int64, partitionSize int64, attemptTimeout time.Duration, appends []*Append[Message]) ([]Appended[Message], int, error) {
-	appended, failedIndex, err := d.appendMessageBatch(ctx, topicId, partitionSize, attemptTimeout, appends)
+func (d *ProduceDatastore) AppendMessageBatch[Message common.Versioned](ctx context.Context, streamId int64, partitionSize int64, attemptTimeout time.Duration, appends []*Append[Message]) ([]Appended[Message], int, error) {
+	appended, failedIndex, err := d.appendMessageBatch(ctx, streamId, partitionSize, attemptTimeout, appends)
 	if err != nil {
 		return appended, failedIndex, err
 	}
 
 	firstId, lastId := appendedIdRange(appended)
-	if d.createAheadGate.shouldTriggerWithRange(topicId, partitionSize, firstId, lastId) {
-		d.createPartitionAhead(topicId, partitionSize, lastId)
+	if d.createAheadGate.shouldTriggerWithRange(streamId, partitionSize, firstId, lastId) {
+		d.createPartitionAhead(streamId, partitionSize, lastId)
 	}
 	return appended, failedIndex, nil
 }
 
 // appendMessageBatch reruns one-attempt transactions under the transient-retry
 // policy; the last attempt wins failedIndex.
-func (d *ProduceDatastore) appendMessageBatch[Message common.Versioned](ctx context.Context, topicId int64, partitionSize int64, attemptTimeout time.Duration, appends []*Append[Message]) (appended []Appended[Message], failedIndex int, err error) {
+func (d *ProduceDatastore) appendMessageBatch[Message common.Versioned](ctx context.Context, streamId int64, partitionSize int64, attemptTimeout time.Duration, appends []*Append[Message]) (appended []Appended[Message], failedIndex int, err error) {
 	failedIndex = -1
 	err = d.DatastoreRetry.Wrap(ctx, func() error {
 		// bound each attempt -- a hung database must not hold the batch forever
 		attemptCtx, cancel := context.WithTimeoutCause(ctx, attemptTimeout,
-			fmt.Errorf("batch attempt exceeded Batch.AttemptTimeout (%s) for topic %d", attemptTimeout, topicId))
+			fmt.Errorf("batch attempt exceeded Batch.AttemptTimeout (%s) for stream %d", attemptTimeout, streamId))
 		defer cancel()
 
 		var results []Appended[Message]
 		var index int
-		err := d.insertUntilCovered(ctx, topicId, partitionSize, func() error {
+		err := d.insertUntilCovered(ctx, streamId, partitionSize, func() error {
 			var err error
-			results, index, err = d.appendMessageBatchTransaction(attemptCtx, topicId, appends)
+			results, index, err = d.appendMessageBatchTransaction(attemptCtx, streamId, appends)
 			return err
 		})
 		if err != nil && attemptCtx.Err() != nil {
@@ -57,7 +57,7 @@ func (d *ProduceDatastore) appendMessageBatch[Message common.Versioned](ctx cont
 
 // appendMessageBatchTransaction is one attempt: ONE plain transaction, every
 // query batched into a single round trip, no savepoints.
-func (d *ProduceDatastore) appendMessageBatchTransaction[Message common.Versioned](ctx context.Context, topicId int64, appends []*Append[Message]) ([]Appended[Message], int, error) {
+func (d *ProduceDatastore) appendMessageBatchTransaction[Message common.Versioned](ctx context.Context, streamId int64, appends []*Append[Message]) ([]Appended[Message], int, error) {
 	tx, err := d.Datastore.Pool.Begin(ctx)
 	if err != nil {
 		return nil, -1, err
@@ -68,7 +68,7 @@ func (d *ProduceDatastore) appendMessageBatchTransaction[Message common.Versione
 
 	statements := &pgx.Batch{}
 	for i, data := range appends {
-		sql, args, err := protectedInsertSQL(topicId, data.Payload, data, d.Datastore.Schema)
+		sql, args, err := protectedInsertSQL(streamId, data.Payload, data, d.Datastore.Schema)
 		if err != nil {
 			return nil, i, err
 		}
@@ -83,7 +83,7 @@ func (d *ProduceDatastore) appendMessageBatchTransaction[Message common.Versione
 		if errors.Is(err, pgx.ErrNoRows) {
 			// claim already existed -- this message is already durable from an
 			// earlier ambiguous commit of the same batch. Zero-row no-op.
-			d.Logger.DebugContext(ctx, "duplicate publish detected, idempotency claim already existed", "topic_id", topicId, "idempotency_key", data.IdempotencyKey)
+			d.Logger.DebugContext(ctx, "duplicate publish detected, idempotency claim already existed", "stream_id", streamId, "idempotency_key", data.IdempotencyKey)
 			appended[i] = Appended[Message]{Message: data.Payload, Duplicate: true}
 			continue
 		}

@@ -3,8 +3,8 @@ package controller
 import (
 	"context"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/system"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/system"
 )
 
 // Register creates the shared control-plane tables and resolves the
@@ -38,7 +38,7 @@ func (c *SystemController) Get(ctx context.Context) (*system.System, error) {
 }
 
 // Delete drops the shared control-plane tables -- every table
-// Register creates. Callers drop the per-topic tables first; a topic
+// Register creates. Callers drop the per-stream tables first; a stream
 // still registered when this runs leaves its physical tables orphaned.
 func (c *SystemController) Delete(ctx context.Context) error {
 	return c.datastore.Delete(ctx)

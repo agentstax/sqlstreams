@@ -16,12 +16,12 @@ export const announcements: Announcement[] = [
 		date: '2026-08-22',
 	},
 	{
-		title: 'Per-topic table families — every topic gets its own message_log',
+		title: 'Per-stream table families — every stream gets its own message_log',
 		href: '/concepts/architecture/',
 		date: '2026-08-22',
 	},
 	{
-		title: 'Every error and log event gets a VK code and its own page',
+		title: 'Every error and log event gets a SS code and its own page',
 		href: '/errors/',
 		date: '2026-08-20',
 	},

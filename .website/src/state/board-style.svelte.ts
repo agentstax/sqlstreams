@@ -3,7 +3,7 @@
 // inline script in BoardLayout -- so this module reads the style already
 // showing rather than deciding it a second time. Choosing one stores it, and
 // a stored choice outranks the reader's operating system from then on.
-const styleKey = 'vulkan-board:style';
+const styleKey = 'sqlstreams-board:style';
 
 export type BoardStyleId = 'classic' | 'night';
 
@@ -14,8 +14,8 @@ export type BoardStyleOption = {
 
 // the menu, in the order the footer lists it
 export const boardStyles: BoardStyleOption[] = [
-	{ id: 'classic', label: 'Vulkan Classic' },
-	{ id: 'night', label: 'Vulkan Night' },
+	{ id: 'classic', label: 'SQLStreams Classic' },
+	{ id: 'night', label: 'SQLStreams Night' },
 ];
 
 const defaultStyleId: BoardStyleId = 'classic';

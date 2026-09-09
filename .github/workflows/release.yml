@@ -20,11 +20,11 @@ jobs:
 
       - uses: actions/setup-go@v7
         with:
-          go-version-file: cmd/vulkan/go.mod
+          go-version-file: cmd/sqlstreams/go.mod
           cache-dependency-path: "**/go.sum"
 
       # go.work is gitignored; the CLI module resolves the root library through it.
-      - run: go work init . ./cmd/vulkan ./otel ./.tools
+      - run: go work init . ./cmd/sqlstreams ./otel ./.tools
 
       - uses: goreleaser/goreleaser-action@v7
         with:
@@ -36,7 +36,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Pins the release to the pushed tag, so a nested-module tag on the
-          # same commit (cmd/vulkan/vX.Y.Z) never gets picked instead.
+          # same commit (cmd/sqlstreams/vX.Y.Z) never gets picked instead.
           GORELEASER_CURRENT_TAG: ${{ github.ref_name }}
           # Empty until the secrets exist.
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}

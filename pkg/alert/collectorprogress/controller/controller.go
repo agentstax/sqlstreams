@@ -3,10 +3,10 @@ package controller
 import (
 	"errors"
 
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	"github.com/agentstax/vulkan/pkg/datastore"
-	metricscontroller "github.com/agentstax/vulkan/pkg/metric/controller"
-	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
+	metricscontroller "github.com/agentstax/sqlstreams/pkg/metric/controller"
+	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
 )
 
 type CollectorProgressController struct {

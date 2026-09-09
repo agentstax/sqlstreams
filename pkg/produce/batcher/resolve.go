@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/produce/controller"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/produce/controller"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
@@ -64,7 +64,7 @@ func (b *Batcher[Message]) attemptBatch(ctx context.Context, batch *batch[Messag
 		}
 		appends = append(appends, itemAppend)
 	}
-	return b.controller.AppendMessageBatch(ctx, b.topicId, b.partitionSize, b.Config.AttemptTimeout, appends)
+	return b.controller.AppendMessageBatch(ctx, b.streamId, b.partitionSize, b.Config.AttemptTimeout, appends)
 }
 
 // ***************

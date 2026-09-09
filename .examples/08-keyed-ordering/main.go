@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"os"
 
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 type VideoStateChangedV1 struct {
@@ -31,21 +31,21 @@ func main() {
 }
 
 func run() error {
-	ctx, stop := vulkan.LifecycleContext(nil)
+	ctx, stop := sqlstreams.LifecycleContext(nil)
 	defer stop()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	if err != nil {
 		return err
 	}
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, nil)
+	client, err := sqlstreams.NewClient(ctx, pool, nil)
 	if err != nil {
 		return err
 	}
 
-	states := client.Topic[VideoStateChangedV1]("videos.state-changed")
+	states := client.Stream[VideoStateChangedV1]("videos.state-changed")
 	_, err = states.Register(ctx, nil)
 	if err != nil {
 		return err
@@ -56,13 +56,13 @@ func run() error {
 		return err
 	}
 
-	// vulkan.ConcurrencyOrdered            -> one video's states run one at a time, in produce order
+	// sqlstreams.ConcurrencyOrdered            -> one video's states run one at a time, in produce order
 	//                                         a failed state holds the later ones until its retry succeeds
 	//                                         or it exhausts its retries and is marked dead
-	// vulkan.ConcurrencyParallel (default) -> same-key states overlap, so video-42 can go "ready"
+	// sqlstreams.ConcurrencyParallel (default) -> same-key states overlap, so video-42 can go "ready"
 	//                                         before its "scanned" retry lands
 	catalog := states.Consumer("video-catalog")
-	consumer, err := catalog.Register(ctx, &vulkan.ConsumerConfig{ConcurrencyOverride: vulkan.ConcurrencyOrdered})
+	consumer, err := catalog.Register(ctx, &sqlstreams.ConsumerConfig{ConcurrencyOverride: sqlstreams.ConcurrencyOrdered})
 	if err != nil {
 		return err
 	}
@@ -71,7 +71,7 @@ func run() error {
 	// a message without a key has nothing to order against and runs freely
 	for _, videoId := range []string{"video-42", "video-43"} {
 		for _, state := range []string{"uploaded", "scanned", "transcoded", "ready"} {
-			if _, err := producer.Produce(ctx, &VideoStateChangedV1{VideoId: videoId, State: state}, &vulkan.ProduceOptions{MessageKey: videoId}); err != nil {
+			if _, err := producer.Produce(ctx, &VideoStateChangedV1{VideoId: videoId, State: state}, &sqlstreams.ProduceOptions{MessageKey: videoId}); err != nil {
 				return err
 			}
 		}
@@ -79,12 +79,12 @@ func run() error {
 
 	// concurrency 8 still applies across videos: video-43 runs alongside
 	// video-42, ordering only serializes within one key
-	return consumer.Consume(ctx, applyStateChange, &vulkan.ConsumeOptions{MessageConcurrency: 8})
+	return consumer.Consume(ctx, applyStateChange, &sqlstreams.ConsumeOptions{MessageConcurrency: 8})
 }
 
 // applyStateChange fails video-42's scan once; its later states wait for the retry.
 func applyStateChange(ctx context.Context, change *VideoStateChangedV1) error {
-	meta, _ := vulkan.MetaFromContext(ctx)
+	meta, _ := sqlstreams.MetaFromContext(ctx)
 	if change.VideoId == "video-42" && change.State == "scanned" && meta.Attempts == 0 {
 		return errors.New("scanner result is not committed")
 	}

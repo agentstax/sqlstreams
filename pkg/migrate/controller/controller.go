@@ -5,11 +5,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/migrate"
-	"github.com/agentstax/vulkan/pkg/migrate/controller/datastore"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/migrate"
+	"github.com/agentstax/sqlstreams/pkg/migrate/controller/datastore"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -60,7 +60,7 @@ func (c *Controller) RunOnce(ctx context.Context, targetVersion int64, owner *co
 }
 
 // RunAll migrates every owner of kind to targetVersion using registry.
-// CONTINUES past any owner that fails, joining every error. Topic only --
+// CONTINUES past any owner that fails, joining every error. Stream only --
 // system is a singleton, migrated through RunOnce.
 func (c *Controller) RunAll(ctx context.Context, targetVersion int64, kind common.OwnerKind, registry []migrate.Migration) error {
 	if err := migrate.Validate(registry); err != nil {
@@ -97,10 +97,10 @@ func (c *Controller) owners(ctx context.Context, conn *pgxpool.Conn, kind common
 	switch kind {
 	case common.OwnerSystem:
 		return nil, errors.New("system is a singleton -- use RunOnce, not RunAll")
-	case common.OwnerTopic:
-		return c.datastore.ListTopics(ctx, conn)
+	case common.OwnerStream:
+		return c.datastore.ListStreams(ctx, conn)
 	default:
-		return nil, fmt.Errorf("owner kind must be %q, got %q", common.OwnerTopic, kind)
+		return nil, fmt.Errorf("owner kind must be %q, got %q", common.OwnerStream, kind)
 	}
 }
 
@@ -122,7 +122,7 @@ func (c *Controller) migrateOwner(ctx context.Context, conn *pgxpool.Conn, owner
 				c.datastore.TryRecordFailure(ctx, conn, owner, v, err)
 				return fmt.Errorf("up to version %d: %w", v, err)
 			}
-			c.Logger.InfoContext(ctx, "schema migrated up", "owner_kind", owner.Kind(), "topic_id", owner.TopicId, "version", v)
+			c.Logger.InfoContext(ctx, "schema migrated up", "owner_kind", owner.Kind(), "stream_id", owner.StreamId, "version", v)
 		}
 	case targetVersion < current:
 		for v := current - 1; v >= targetVersion; v-- {
@@ -131,7 +131,7 @@ func (c *Controller) migrateOwner(ctx context.Context, conn *pgxpool.Conn, owner
 				c.datastore.TryRecordFailure(ctx, conn, owner, v, err)
 				return fmt.Errorf("down to version %d: %w", v, err)
 			}
-			c.Logger.InfoContext(ctx, "schema migrated down", "owner_kind", owner.Kind(), "topic_id", owner.TopicId, "version", v)
+			c.Logger.InfoContext(ctx, "schema migrated down", "owner_kind", owner.Kind(), "stream_id", owner.StreamId, "version", v)
 		}
 	}
 	return nil

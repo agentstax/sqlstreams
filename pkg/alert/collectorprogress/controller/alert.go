@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/alert"
-	"github.com/agentstax/vulkan/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/alert"
+	"github.com/agentstax/sqlstreams/pkg/common"
 )
 
 func newCollectorProgressAlert(owner *common.Owner, completedAt time.Time, maximumAge time.Duration, at time.Time) (*alert.Alert, error) {

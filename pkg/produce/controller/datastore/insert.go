@@ -6,10 +6,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/produce"
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/produce"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -20,7 +20,7 @@ const produceInTxSavepoint = "sp_produce_in_tx"
 
 // runInsert runs produceFunc + the claim-protected message insert against an
 // already-open tx.
-func (d *ProduceDatastore) runInsert[Message common.Versioned](ctx context.Context, tx iDatastore.Tx, topicId int64, produceFunc produce.ProducerFunc[Message], data *Append[Message]) (*Appended[Message], error) {
+func (d *ProduceDatastore) runInsert[Message common.Versioned](ctx context.Context, tx iDatastore.Tx, streamId int64, produceFunc produce.ProducerFunc[Message], data *Append[Message]) (*Appended[Message], error) {
 	payload, err := produceFunc(ctx, tx)
 	if err != nil {
 		return nil, err
@@ -29,7 +29,7 @@ func (d *ProduceDatastore) runInsert[Message common.Versioned](ctx context.Conte
 		return nil, err
 	}
 
-	id, duplicate, err := d.insertProtected(ctx, tx, topicId, payload, data)
+	id, duplicate, err := d.insertProtected(ctx, tx, streamId, payload, data)
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +39,7 @@ func (d *ProduceDatastore) runInsert[Message common.Versioned](ctx context.Conte
 // runInsertSavepoint wraps produceFunc + the message insert in a SAVEPOINT
 // scoped to just this call, so a missing-partition retry can't touch
 // anything else already done in tx.
-func (d *ProduceDatastore) runInsertSavepoint[Message common.Versioned](ctx context.Context, tx iDatastore.Tx, topicId int64, produceFunc produce.ProducerFunc[Message], data *Append[Message]) (*Appended[Message], error) {
+func (d *ProduceDatastore) runInsertSavepoint[Message common.Versioned](ctx context.Context, tx iDatastore.Tx, streamId int64, produceFunc produce.ProducerFunc[Message], data *Append[Message]) (*Appended[Message], error) {
 	if err := commitToSavepoint(ctx, tx, produceInTxSavepoint); err != nil {
 		return nil, err
 	}
@@ -54,7 +54,7 @@ func (d *ProduceDatastore) runInsertSavepoint[Message common.Versioned](ctx cont
 		return nil, err
 	}
 
-	id, duplicate, err := d.insertProtectedSavepoint(ctx, tx, topicId, payload, data)
+	id, duplicate, err := d.insertProtectedSavepoint(ctx, tx, streamId, payload, data)
 	if err != nil {
 		attemptRollbackToSavepoint(ctx, tx, produceInTxSavepoint)
 		return nil, err
@@ -66,8 +66,8 @@ func (d *ProduceDatastore) runInsertSavepoint[Message common.Versioned](ctx cont
 // SAVEPOINT as one round trip -- always a single statement regardless of
 // compaction, so it always fully batches. duplicate=true means the claim
 // already existed.
-func (d *ProduceDatastore) insertProtectedSavepoint[Message common.Versioned](ctx context.Context, q iDatastore.Querier, topicId int64, payload *Message, data *Append[Message]) (id int64, duplicate bool, err error) {
-	sql, args, err := protectedInsertSQL(topicId, payload, data, d.Datastore.Schema)
+func (d *ProduceDatastore) insertProtectedSavepoint[Message common.Versioned](ctx context.Context, q iDatastore.Querier, streamId int64, payload *Message, data *Append[Message]) (id int64, duplicate bool, err error) {
+	sql, args, err := protectedInsertSQL(streamId, payload, data, d.Datastore.Schema)
 	if err != nil {
 		return 0, false, err
 	}
@@ -81,7 +81,7 @@ func (d *ProduceDatastore) insertProtectedSavepoint[Message common.Versioned](ct
 	if errors.Is(err, pgx.ErrNoRows) {
 		// claim already existed -- inserted CTE never ran. Not a failure:
 		// RELEASE SAVEPOINT is still queued next and still needs reading.
-		d.Logger.DebugContext(ctx, "duplicate publish detected, idempotency claim already existed", "topic_id", topicId, "idempotency_key", data.IdempotencyKey)
+		d.Logger.DebugContext(ctx, "duplicate publish detected, idempotency claim already existed", "stream_id", streamId, "idempotency_key", data.IdempotencyKey)
 		duplicate = true
 	} else if err != nil {
 		br.Close()
@@ -98,15 +98,15 @@ func (d *ProduceDatastore) insertProtectedSavepoint[Message common.Versioned](ct
 // insertProtected runs the idempotency claim + message insert (+ compaction_head
 // upsert when compacted) in one round trip. duplicate=true means the claim already
 // existed -- WHERE EXISTS matched nothing, Scan comes back pgx.ErrNoRows.
-func (d *ProduceDatastore) insertProtected[Message common.Versioned](ctx context.Context, q iDatastore.Querier, topicId int64, payload *Message, data *Append[Message]) (id int64, duplicate bool, err error) {
-	sql, args, err := protectedInsertSQL(topicId, payload, data, d.Datastore.Schema)
+func (d *ProduceDatastore) insertProtected[Message common.Versioned](ctx context.Context, q iDatastore.Querier, streamId int64, payload *Message, data *Append[Message]) (id int64, duplicate bool, err error) {
+	sql, args, err := protectedInsertSQL(streamId, payload, data, d.Datastore.Schema)
 	if err != nil {
 		return 0, false, err
 	}
 
 	err = q.QueryRow(ctx, sql, args...).Scan(&id)
 	if errors.Is(err, pgx.ErrNoRows) {
-		d.Logger.DebugContext(ctx, "duplicate publish detected, idempotency claim already existed", "topic_id", topicId, "idempotency_key", data.IdempotencyKey)
+		d.Logger.DebugContext(ctx, "duplicate publish detected, idempotency claim already existed", "stream_id", streamId, "idempotency_key", data.IdempotencyKey)
 		return 0, true, nil // claim already existed -- already committed
 	}
 	if err != nil {
@@ -137,12 +137,12 @@ func attemptRollbackToSavepoint(ctx context.Context, q iDatastore.Querier, savep
 
 // protectedInsertSQL builds the claim+insert(+compaction_head upsert when
 // compacted) CTE -- shared with the savepoint-batched path so both run the
-// exact same statement. Claims against idempotency_key_<topicId>.
+// exact same statement. Claims against idempotency_key_<streamId>.
 //
 // The claim CTE must stay the first write: it assigns the transaction's xid
 // before nextval issues the message id, which the consumer's snapshot fence
 // relies on. A statement that wrote message_log first could lose a message.
-func protectedInsertSQL[Message common.Versioned](topicId int64, payload *Message, data *Append[Message], schema string) (string, []any, error) {
+func protectedInsertSQL[Message common.Versioned](streamId int64, payload *Message, data *Append[Message], schema string) (string, []any, error) {
 	// encoded in Go, not by pgx: pgx's encode failure prints the value it
 	// could not encode, which could log sensitive information.
 	encoded, err := json.Marshal(payload)
@@ -159,7 +159,7 @@ func protectedInsertSQL[Message common.Versioned](topicId int64, payload *Messag
 		// claim + insert + compaction_head upsert in one round trip -- inserted
 		// stays empty when the claim already existed, so latest never fires either.
 		sql = fmt.Sprintf(`
-			-- vulkan: produce.protectedInsert
+			-- sqlstreams: produce.protectedInsert
 			WITH claim AS (
 				INSERT INTO %[1]s.%[2]s (idempotency_key)
 				VALUES ($1)
@@ -184,7 +184,7 @@ func protectedInsertSQL[Message common.Versioned](topicId int64, payload *Messag
 					OR (h.schema_version, h.compaction_rank, h.message_id) < (EXCLUDED.schema_version, EXCLUDED.compaction_rank, EXCLUDED.message_id)
 			)
 			SELECT id FROM inserted;
-		`, schema, topic.IdempotencyKeyTable(topicId), topic.MessageLogTable(topicId), topic.CompactionHeadTable(topicId))
+		`, schema, stream.IdempotencyKeyTable(streamId), stream.MessageLogTable(streamId), stream.CompactionHeadTable(streamId))
 
 		args = append(args, data.MessageKey, data.CompactionRank, data.Options) // $5, $6, $7
 	} else {
@@ -192,7 +192,7 @@ func protectedInsertSQL[Message common.Versioned](topicId int64, payload *Messag
 		// claim CTE landed a row, so a conflict makes both match zero rows.
 		// compaction_rank stays NULL: this message never opted into compaction.
 		sql = fmt.Sprintf(`
-			-- vulkan: produce.protectedInsert
+			-- sqlstreams: produce.protectedInsert
 			WITH claim AS (
 				INSERT INTO %[1]s.%[2]s (idempotency_key)
 				VALUES ($1)
@@ -208,7 +208,7 @@ func protectedInsertSQL[Message common.Versioned](topicId int64, payload *Messag
 				$6
 			WHERE EXISTS (SELECT 1 FROM claim) -- if claim CTE didn't return anything skip this
 			RETURNING id;
-		`, schema, topic.IdempotencyKeyTable(topicId), topic.MessageLogTable(topicId))
+		`, schema, stream.IdempotencyKeyTable(streamId), stream.MessageLogTable(streamId))
 
 		args = append(args, data.MessageKey, data.Options) // $5, $6
 	}

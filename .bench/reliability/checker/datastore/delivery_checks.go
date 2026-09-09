@@ -20,12 +20,12 @@ func (d *CheckerDatastore) CountUndelivered(ctx context.Context, target Target) 
 		FROM %[1]s m
 		WHERE NOT EXISTS (
 				SELECT 1 FROM %[2]s h
-				WHERE h.topic = $2 AND h."group" = $3 AND h.message_id = m.id AND h.outcome = 'success')
+				WHERE h.stream = $2 AND h."group" = $3 AND h.message_id = m.id AND h.outcome = 'success')
 			AND NOT EXISTS (
 				SELECT 1 FROM %[3]s e
 				WHERE e.consumer_group_id = $1 AND e.message_id = m.id AND e.status = 'dead');
 	`, target.messageLog(), handlerRecord, target.exceptionQueue(), exampleLimit)
-	return d.measure(ctx, exampleMessageId, undeliveredSql, target.GroupId, target.Topic, target.Group)
+	return d.measure(ctx, exampleMessageId, undeliveredSql, target.GroupId, target.Stream, target.Group)
 }
 
 // Duplicates: messages the group's handler succeeded on more than once, by
@@ -36,7 +36,7 @@ func (d *CheckerDatastore) CountDuplicates(ctx context.Context, target Target) (
 		WITH repeated AS (
 			SELECT message_id
 			FROM %[1]s
-			WHERE topic = $1 AND "group" = $2 AND outcome = 'success'
+			WHERE stream = $1 AND "group" = $2 AND outcome = 'success'
 			GROUP BY message_id
 			HAVING count(*) > 1
 		)
@@ -45,7 +45,7 @@ func (d *CheckerDatastore) CountDuplicates(ctx context.Context, target Target) (
 			COALESCE((array_agg(message_id::text ORDER BY message_id))[1:%[2]d], ARRAY[]::text[])
 		FROM repeated;
 	`, handlerRecord, exampleLimit)
-	return d.measure(ctx, exampleMessageId, duplicatesSql, target.Topic, target.Group)
+	return d.measure(ctx, exampleMessageId, duplicatesSql, target.Stream, target.Group)
 }
 
 // Unbucketed: messages not completed by the durable cursor or dead-lettered.

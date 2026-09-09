@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common/diagnostic"
+	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
 )
 
 func TestMeasurementMetadataRoundTrip(t *testing.T) {
-	measurement, err := NewMeasurement("custom", MetricKindGauge, 1, "", map[string]string{"topic": "orders"}, time.Now())
+	measurement, err := NewMeasurement("custom", MetricKindGauge, 1, "", map[string]string{"stream": "orders"}, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,14 +30,14 @@ func TestMeasurementMetadataRoundTrip(t *testing.T) {
 
 func TestMeasurementKeyDeterministic(t *testing.T) {
 	attributes := map[string]string{
-		"topic":   "orders",
+		"stream":  "orders",
 		"group":   "billing",
 		"version": "1",
 	}
 
-	want := "vulkan.consumer.group.lag|group=billing,topic=orders,version=1"
+	want := "sqlstreams.consumer.group.lag|group=billing,stream=orders,version=1"
 	for range 100 {
-		got := MeasurementKey("vulkan.consumer.group.lag", attributes)
+		got := MeasurementKey("sqlstreams.consumer.group.lag", attributes)
 		if got != want {
 			t.Fatalf("MeasurementKey = %q, want %q", got, want)
 		}
@@ -45,20 +45,20 @@ func TestMeasurementKeyDeterministic(t *testing.T) {
 }
 
 func TestMeasurementKeyNoAttributes(t *testing.T) {
-	got := MeasurementKey("vulkan.worker.state.unclaimed_workers", nil)
-	if got != "vulkan.worker.state.unclaimed_workers" {
+	got := MeasurementKey("sqlstreams.worker.state.unclaimed_workers", nil)
+	if got != "sqlstreams.worker.state.unclaimed_workers" {
 		t.Fatalf("MeasurementKey = %q, want bare name", got)
 	}
 
-	got = MeasurementKey("vulkan.worker.state.unclaimed_workers", map[string]string{})
-	if got != "vulkan.worker.state.unclaimed_workers" {
+	got = MeasurementKey("sqlstreams.worker.state.unclaimed_workers", map[string]string{})
+	if got != "sqlstreams.worker.state.unclaimed_workers" {
 		t.Fatalf("MeasurementKey with empty map = %q, want bare name", got)
 	}
 }
 
 func TestMeasurementKeyDistinctAttributeSets(t *testing.T) {
-	first := MeasurementKey("lag", map[string]string{"topic": "orders"})
-	second := MeasurementKey("lag", map[string]string{"topic": "payments"})
+	first := MeasurementKey("lag", map[string]string{"stream": "orders"})
+	second := MeasurementKey("lag", map[string]string{"stream": "payments"})
 	if first == second {
 		t.Fatalf("distinct attribute values collided: %q", first)
 	}
@@ -82,7 +82,7 @@ func TestNewMeasurementValidation(t *testing.T) {
 		t.Fatal("zero at accepted")
 	}
 
-	measurement, err := NewMeasurement("lag", MetricKindGauge, 42, "{message}", map[string]string{"topic": "orders"}, at)
+	measurement, err := NewMeasurement("lag", MetricKindGauge, 42, "{message}", map[string]string{"stream": "orders"}, at)
 	if err != nil {
 		t.Fatalf("valid measurement rejected: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestNewMeasurementRejectsMalformedUnit(t *testing.T) {
 
 func TestNewBuiltInMeasurementUsesDeclaration(t *testing.T) {
 	at := time.Now()
-	attributes := map[string]string{"group": "billing", "topic": "orders"}
+	attributes := map[string]string{"group": "billing", "stream": "orders"}
 
 	measurement, err := NewBuiltInMeasurement(MetricCursorBacklog, 42, attributes, at)
 	if err != nil {
@@ -132,7 +132,7 @@ func TestCollectorCompletionMeasurement(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if measurement.Name != "vulkan.metrics.collector.completed_timestamp" || measurement.Kind != MetricKindGauge || measurement.Unit != "s" {
+	if measurement.Name != "sqlstreams.metrics.collector.completed_timestamp" || measurement.Kind != MetricKindGauge || measurement.Unit != "s" {
 		t.Fatalf("completion metric = %+v", measurement)
 	}
 	if measurement.Value != float64(at.Unix()) || measurement.At != at || len(measurement.Attributes) != 0 {
@@ -149,9 +149,9 @@ func TestNewBuiltInMeasurementRejectsWrongAttributeKeys(t *testing.T) {
 		name       string
 		attributes map[string]string
 	}{
-		{name: "missing", attributes: map[string]string{"topic": "orders"}},
-		{name: "extra", attributes: map[string]string{"topic": "orders", "group": "billing", "session": "one"}},
-		{name: "replacement", attributes: map[string]string{"topic": "orders", "session": "one"}},
+		{name: "missing", attributes: map[string]string{"stream": "orders"}},
+		{name: "extra", attributes: map[string]string{"stream": "orders", "group": "billing", "session": "one"}},
+		{name: "replacement", attributes: map[string]string{"stream": "orders", "session": "one"}},
 	}
 
 	for _, test := range tests {
@@ -178,7 +178,7 @@ func TestNewMeasurementKeepsUserAttributesOpenEnded(t *testing.T) {
 
 func TestNewBuiltInMeasurementRejectsDeclarationWithInvalidKind(t *testing.T) {
 	declared := &diagnostic.DiagnosticMetric{
-		Name:        "vulkan.test.invalid_kind",
+		Name:        "sqlstreams.test.invalid_kind",
 		Kind:        "histogram",
 		Description: "test invalid kind",
 		Scope:       diagnostic.MetricScopeSystem,

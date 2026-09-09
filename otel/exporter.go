@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/agentstax/vulkan/pkg/common/logging"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"

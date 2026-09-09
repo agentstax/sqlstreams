@@ -2,7 +2,7 @@ package main
 
 // Phase 6.5c e2e test: watch committed pin on a failing message, then jump past it.
 //
-// Registers its own topic (destroyed on exit) and seeds it with 20 messages,
+// Registers its own stream (destroyed on exit) and seeds it with 20 messages,
 // so the e2e test is fully self-contained -- no dependency on a pre-seeded shared
 // message_log the way the pre-8b version needed (`just produce 20` first).
 //
@@ -21,15 +21,15 @@ import (
 	"os"
 	"time"
 
-	"github.com/agentstax/vulkan/e2e/common"
-	"github.com/agentstax/vulkan/pkg/consume"
-	consumecontroller "github.com/agentstax/vulkan/pkg/consume/controller"
-	cursoradvancerdatastore "github.com/agentstax/vulkan/pkg/consume/cursoradvancer/controller/datastore"
-	exceptionconsumercontroller "github.com/agentstax/vulkan/pkg/consume/exceptionconsumer/controller"
-	messageconsumercontroller "github.com/agentstax/vulkan/pkg/consume/messageconsumer/controller"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/topic"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/e2e/common"
+	"github.com/agentstax/sqlstreams/pkg/consume"
+	consumecontroller "github.com/agentstax/sqlstreams/pkg/consume/controller"
+	cursoradvancerdatastore "github.com/agentstax/sqlstreams/pkg/consume/cursoradvancer/controller/datastore"
+	exceptionconsumercontroller "github.com/agentstax/sqlstreams/pkg/consume/exceptionconsumer/controller"
+	messageconsumercontroller "github.com/agentstax/sqlstreams/pkg/consume/messageconsumer/controller"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 )
 
 const (
@@ -69,20 +69,20 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	topicName := fmt.Sprintf("phase65c.exception.%d", time.Now().UnixNano())
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{})
+	streamName := fmt.Sprintf("phase65c.exception.%d", time.Now().UnixNano())
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{})
 	must(err)
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
@@ -93,18 +93,18 @@ func run() (err error) {
 	must(err)
 	cursorAdvancerDatastore, err := cursoradvancerdatastore.NewCursorAdvancerDatastore(ds, ds.Logger)
 	must(err)
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 
 	groupId = mustGroupID(cd.RegisterGroup(ctx, tp.Id, group, consume.Beginning()))
 	for range seedRows {
-		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
+		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 			return common.NewWork(30, "admin@example.com")
 		}, nil)
 		must(err)
 	}
-	head := scalar(ctx, ds, fmt.Sprintf(`SELECT COALESCE(max(id),0) FROM %s.%s`, ds.Schema, topic.MessageLogTable(tp.Id)))
-	fmt.Printf("topic=%q id=%d message_log head = %d, group = %q\n", topicName, tp.Id, head, group)
+	head := scalar(ctx, ds, fmt.Sprintf(`SELECT COALESCE(max(id),0) FROM %s.%s`, ds.Schema, stream.MessageLogTable(tp.Id)))
+	fmt.Printf("stream=%q id=%d message_log head = %d, group = %q\n", streamName, tp.Id, head, group)
 
 	const lease = 5 * time.Second
 	const batch = 5
@@ -112,7 +112,7 @@ func run() (err error) {
 
 	// ===== range 1: message 3 fails, the rest succeed =====
 	step("claim range 1 (ids 1-5), message 3 fails processing")
-	claim1, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, batch, maxRangeReclaims, lease, topic.DeliveryLogModeFailures)
+	claim1, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, batch, maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
 	must(err)
 	if claim1 == nil {
 		die("expected a fresh claim, got nil (no work?)")
@@ -121,7 +121,7 @@ func run() (err error) {
 
 	const failingId = int64(3)
 	exceptions := []messageconsumercontroller.MessageOutcome{{MessageId: failingId, Kind: messageconsumercontroller.OutcomeException, Err: "simulated processing failure"}}
-	must(messageConsumers.Commit(ctx, tp.Id, groupId, claim1.Lease.Token, exceptions, 5*time.Second, topic.DeliveryLogModeFailures))
+	must(messageConsumers.Commit(ctx, tp.Id, groupId, claim1.Lease.Token, exceptions, 5*time.Second, stream.DeliveryLogModeFailures))
 	assert("one unresolved exception", deliveries(ctx, ds, tp.Id), 1)
 
 	committed := advance(ctx, cursorAdvancerDatastore, tp.Id)
@@ -130,12 +130,12 @@ func run() (err error) {
 
 	// ===== range 2: fully succeeds, but committed stays pinned on message 3 =====
 	step("claim + commit range 2 (ids 6-10), all succeed")
-	claim2, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, batch, maxRangeReclaims, lease, topic.DeliveryLogModeFailures)
+	claim2, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, batch, maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
 	must(err)
 	if claim2 == nil {
 		die("expected a fresh claim, got nil")
 	}
-	must(messageConsumers.Commit(ctx, tp.Id, groupId, claim2.Lease.Token, nil, 5*time.Second, topic.DeliveryLogModeFailures))
+	must(messageConsumers.Commit(ctx, tp.Id, groupId, claim2.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 	committed = advance(ctx, cursorAdvancerDatastore, tp.Id)
 	fmt.Printf("  claimed (%d,%d], committed after roller tick = %d\n", claim2.Lease.Low, claim2.Lease.High, committed)
 	assert("claimed moved past the pin", claimedCol(ctx, ds, tp.Id), claim2.Lease.High)
@@ -167,12 +167,12 @@ func run() (err error) {
 	// ===== drain the rest so committed reaches head =====
 	step("drain remaining ranges -> committed reaches head")
 	for range 10 {
-		c, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, batch, maxRangeReclaims, lease, topic.DeliveryLogModeFailures)
+		c, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, batch, maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
 		must(err)
 		if c == nil {
 			break // caught up
 		}
-		must(messageConsumers.Commit(ctx, tp.Id, groupId, c.Lease.Token, nil, 5*time.Second, topic.DeliveryLogModeFailures))
+		must(messageConsumers.Commit(ctx, tp.Id, groupId, c.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 		fmt.Printf("  drained (%d,%d] -> committed = %d\n", c.Lease.Low, c.Lease.High, advance(ctx, cursorAdvancerDatastore, tp.Id))
 	}
 	assert("committed reached head", committedCol(ctx, ds, tp.Id), head)
@@ -186,20 +186,20 @@ func run() (err error) {
 
 // ---- helpers ----
 
-func advance(ctx context.Context, cursorAdvancerDatastore *cursoradvancerdatastore.CursorAdvancerDatastore, topicId int64) int64 {
-	c, err := cursorAdvancerDatastore.AdvanceCommitted(ctx, topicId, groupId)
+func advance(ctx context.Context, cursorAdvancerDatastore *cursoradvancerdatastore.CursorAdvancerDatastore, streamId int64) int64 {
+	c, err := cursorAdvancerDatastore.AdvanceCommitted(ctx, streamId, groupId)
 	must(err)
 	return c
 }
 
-func committedCol(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64) int64 {
-	return scalar(ctx, ds, fmt.Sprintf(`SELECT committed FROM %s.%s WHERE consumer_group_id=$1`, ds.Schema, topic.ConsumerGroupCursorTable(topicId)), groupId)
+func committedCol(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) int64 {
+	return scalar(ctx, ds, fmt.Sprintf(`SELECT committed FROM %s.%s WHERE consumer_group_id=$1`, ds.Schema, stream.ConsumerGroupCursorTable(streamId)), groupId)
 }
-func claimedCol(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64) int64 {
-	return scalar(ctx, ds, fmt.Sprintf(`SELECT claimed FROM %s.%s WHERE consumer_group_id=$1`, ds.Schema, topic.ConsumerGroupCursorTable(topicId)), groupId)
+func claimedCol(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) int64 {
+	return scalar(ctx, ds, fmt.Sprintf(`SELECT claimed FROM %s.%s WHERE consumer_group_id=$1`, ds.Schema, stream.ConsumerGroupCursorTable(streamId)), groupId)
 }
-func deliveries(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64) int64 {
-	return scalar(ctx, ds, fmt.Sprintf(`SELECT count(*) FROM %s.%s WHERE consumer_group_id=$1`, ds.Schema, topic.ExceptionQueueTable(topicId)), groupId)
+func deliveries(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) int64 {
+	return scalar(ctx, ds, fmt.Sprintf(`SELECT count(*) FROM %s.%s WHERE consumer_group_id=$1`, ds.Schema, stream.ExceptionQueueTable(streamId)), groupId)
 }
 
 func scalar(ctx context.Context, ds *iDatastore.PostgresDatastore, q string, args ...any) int64 {

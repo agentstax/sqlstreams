@@ -4,12 +4,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/alert"
-	"github.com/agentstax/vulkan/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/alert"
+	"github.com/agentstax/sqlstreams/pkg/common"
 )
 
 func TestRecordLeavesInconclusiveEvidenceUnchanged(t *testing.T) {
-	owner, err := common.NewTopicOwner(1, 41, "orders")
+	owner, err := common.NewStreamOwner(1, 41, "orders")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +38,7 @@ func TestRecordLeavesInconclusiveEvidenceUnchanged(t *testing.T) {
 }
 
 func TestRecordRejectsMalformedResultsBeforeReading(t *testing.T) {
-	owner, err := common.NewTopicOwner(1, 41, "orders")
+	owner, err := common.NewStreamOwner(1, 41, "orders")
 	if err != nil {
 		t.Fatal(err)
 	}

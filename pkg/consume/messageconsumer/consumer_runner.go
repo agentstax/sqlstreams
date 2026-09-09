@@ -9,14 +9,14 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/concurrency"
-	"github.com/agentstax/vulkan/pkg/consume"
-	consumebase "github.com/agentstax/vulkan/pkg/consume/base"
-	keyleasecontroller "github.com/agentstax/vulkan/pkg/consume/base/controller"
-	"github.com/agentstax/vulkan/pkg/consume/messageconsumer/controller"
-	"github.com/agentstax/vulkan/pkg/topic"
-	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common/concurrency"
+	"github.com/agentstax/sqlstreams/pkg/consume"
+	consumebase "github.com/agentstax/sqlstreams/pkg/consume/base"
+	keyleasecontroller "github.com/agentstax/sqlstreams/pkg/consume/base/controller"
+	"github.com/agentstax/sqlstreams/pkg/consume/messageconsumer/controller"
+	"github.com/agentstax/sqlstreams/pkg/stream"
+	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -50,7 +50,7 @@ func newMessageRunner[Message common.Versioned](base *consumebase.BaseConsumer[M
 	}
 
 	// only DeliveryLogModeAll wants success outcomes collected at commit
-	buffer, err := newClaimBuffer(queue, base.Topic.DeliveryLogMode == topic.DeliveryLogModeAll)
+	buffer, err := newClaimBuffer(queue, base.Stream.DeliveryLogMode == stream.DeliveryLogModeAll)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func (r *messageRunner[Message]) drain(ctx context.Context, wg *sync.WaitGroup) 
 	select {
 	case <-done:
 	case <-timer.C:
-		r.Logger.WarnContext(ctx, "in-flight work did not finish before the shutdown timeout -- stragglers settle via lease expiry", "group", r.Owner.Name, "topic_id", r.Topic.Id, "version", r.SchemaVersion, "shutdown_timeout", budget)
+		r.Logger.WarnContext(ctx, "in-flight work did not finish before the shutdown timeout -- stragglers settle via lease expiry", "group", r.Owner.Name, "stream_id", r.Stream.Id, "version", r.SchemaVersion, "shutdown_timeout", budget)
 	}
 }
 
@@ -129,18 +129,18 @@ func (r *messageRunner[Message]) closeRange(ctx context.Context, state *rangeSta
 		// range nobody started. ctx is already Done by now, so this needs an
 		// uncancelled one of its own to reach the database at all
 		reclaimCtx, cancel := context.WithTimeoutCause(context.WithoutCancel(ctx), r.Config.RecordMargin,
-			fmt.Errorf("force reclaim exceeded RecordMargin (%s) for group %q topic %d", r.Config.RecordMargin, r.Owner.Name, r.Topic.Id))
+			fmt.Errorf("force reclaim exceeded RecordMargin (%s) for group %q stream %d", r.Config.RecordMargin, r.Owner.Name, r.Stream.Id))
 		defer cancel()
 
-		if err := r.consumers.ForceReclaimRange(reclaimCtx, r.Topic.Id, r.Owner.ConsumerGroupId, state.lease.Token); err != nil && !errors.Is(err, common.ErrLeaseLost) {
-			r.Logger.WarnContext(ctx, "could not force reclaim at shutdown -- range rides out lease expiry", "group", r.Owner.Name, "topic_id", r.Topic.Id, "low", state.lease.Low, "high", state.lease.High, "error", err)
+		if err := r.consumers.ForceReclaimRange(reclaimCtx, r.Stream.Id, r.Owner.ConsumerGroupId, state.lease.Token); err != nil && !errors.Is(err, common.ErrLeaseLost) {
+			r.Logger.WarnContext(ctx, "could not force reclaim at shutdown -- range rides out lease expiry", "group", r.Owner.Name, "stream_id", r.Stream.Id, "low", state.lease.Low, "high", state.lease.High, "error", err)
 		}
 		return
 	}
 
 	lastProcessed, outcomes := state.contiguousResolved()
 	if err := r.cursorPartialCommit(ctx, lastProcessed, state.lease, outcomes); err != nil {
-		r.Logger.WarnContext(ctx, "partial commit did not complete at shutdown -- range rides out lease expiry", "group", r.Owner.Name, "topic_id", r.Topic.Id, "low", state.lease.Low, "high", state.lease.High, "error", err)
+		r.Logger.WarnContext(ctx, "partial commit did not complete at shutdown -- range rides out lease expiry", "group", r.Owner.Name, "stream_id", r.Stream.Id, "low", state.lease.Low, "high", state.lease.High, "error", err)
 	}
 }
 
@@ -165,7 +165,7 @@ func (r *messageRunner[Message]) prefetch(ctx context.Context) error {
 		leaseDuration := cfg.MessageMax.Timeout + cfg.TimeoutGrace + cfg.QueueMargin + cfg.RecordMargin
 		limit := min(room, cfg.BatchLimit)
 
-		claimed, err := r.consumers.ClaimMessagesWithCursor(ctx, r.Topic.Id, r.Owner.ConsumerGroupId, int64(r.SchemaVersion), limit, cfg.MaxRangeReclaims, leaseDuration, r.Topic.DeliveryLogMode)
+		claimed, err := r.consumers.ClaimMessagesWithCursor(ctx, r.Stream.Id, r.Owner.ConsumerGroupId, int64(r.SchemaVersion), limit, cfg.MaxRangeReclaims, leaseDuration, r.Stream.DeliveryLogMode)
 		if err != nil {
 			// ctx cancellation is a real shutdown -> propagate and stop
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
@@ -227,7 +227,7 @@ func (r *messageRunner[Message]) refresh(ctx context.Context) error {
 				return err
 			}
 
-			r.Logger.WarnContext(ctx, consume.EventGroupConfigNotRefreshed.Message(), "code", consume.EventGroupConfigNotRefreshed.GetCode(), "group", r.Owner.Name, "topic_id", r.Topic.Id, "worker", WorkerMessageConsumer, "error", err)
+			r.Logger.WarnContext(ctx, consume.EventGroupConfigNotRefreshed.Message(), "code", consume.EventGroupConfigNotRefreshed.GetCode(), "group", r.Owner.Name, "stream_id", r.Stream.Id, "worker", WorkerMessageConsumer, "error", err)
 		}
 	}
 }
@@ -249,7 +249,7 @@ func (r *messageRunner[Message]) refreshConfig(ctx context.Context) error {
 		return nil
 	}
 
-	r.Logger.InfoContext(ctx, "group config refreshed", "group", r.Owner.Name, "topic_id", r.Topic.Id, "worker", WorkerMessageConsumer, "metadata", declared.Metadata)
+	r.Logger.InfoContext(ctx, "group config refreshed", "group", r.Owner.Name, "stream_id", r.Stream.Id, "worker", WorkerMessageConsumer, "metadata", declared.Metadata)
 	return nil
 }
 
@@ -297,7 +297,7 @@ func (r *messageRunner[Message]) processClaim(ctx context.Context, item *buffere
 	remaining := time.Until(item.lease.ExpiresAt)
 	if remaining < item.options.Timeout+r.Config.TimeoutGrace+r.Config.RecordMargin {
 		if r.buffer.markStale(item.lease.Token) {
-			r.Logger.WarnContext(ctx, consume.EventQueuedRangeStale.Message(), "code", consume.EventQueuedRangeStale.GetCode(), "group", r.Owner.Name, "topic_id", r.Topic.Id, "low", item.lease.Low, "high", item.lease.High, "message_id", item.row.Id, "lease_remaining", remaining, "message_timeout", item.options.Timeout, "timeout_grace", r.Config.TimeoutGrace, "record_margin", r.Config.RecordMargin)
+			r.Logger.WarnContext(ctx, consume.EventQueuedRangeStale.Message(), "code", consume.EventQueuedRangeStale.GetCode(), "group", r.Owner.Name, "stream_id", r.Stream.Id, "low", item.lease.Low, "high", item.lease.High, "message_id", item.row.Id, "lease_remaining", remaining, "message_timeout", item.options.Timeout, "timeout_grace", r.Config.TimeoutGrace, "record_margin", r.Config.RecordMargin)
 		}
 		return
 	}
@@ -325,7 +325,7 @@ func (r *messageRunner[Message]) runItem(ctx context.Context, item *buffered) {
 		// the key stays held for everything the delivery's own lease covers: the
 		// run, ctx-cancel unwinding, and recording the outcome
 		leaseDuration := item.options.Timeout + r.Config.TimeoutGrace + r.Config.RecordMargin
-		claim, err := r.KeyLeases.Claim(ctx, r.Topic.Id, r.Owner.ConsumerGroupId, item.row.MessageKey, item.row.Id, item.row.Compacted, item.options.Concurrency, keyleasecontroller.RangeBounds{Low: item.lease.Low, High: item.lease.High}, leaseDuration)
+		claim, err := r.KeyLeases.Claim(ctx, r.Stream.Id, r.Owner.ConsumerGroupId, item.row.MessageKey, item.row.Id, item.row.Compacted, item.options.Concurrency, keyleasecontroller.RangeBounds{Low: item.lease.Low, High: item.lease.High}, leaseDuration)
 		switch {
 		case err != nil:
 			// record as an exception so it still runs later
@@ -376,36 +376,36 @@ func (r *messageRunner[Message]) runItem(ctx context.Context, item *buffered) {
 func (r *messageRunner[Message]) releaseKey(ctx context.Context, claim *keyleasecontroller.KeyLeaseClaim) {
 	// runs after consumerFunc, when a shutdown may already have cancelled ctx
 	releaseCtx, cancel := context.WithTimeoutCause(context.WithoutCancel(ctx), r.Config.RecordMargin,
-		fmt.Errorf("key lease release exceeded RecordMargin (%s) for group %q topic %d", r.Config.RecordMargin, r.Owner.Name, r.Topic.Id))
+		fmt.Errorf("key lease release exceeded RecordMargin (%s) for group %q stream %d", r.Config.RecordMargin, r.Owner.Name, r.Stream.Id))
 	defer cancel()
 
 	released, err := r.KeyLeases.Release(releaseCtx, claim)
 	if err != nil {
-		r.Logger.WarnContext(ctx, "could not release key lease -- key frees on expiry", "group", r.Owner.Name, "topic_id", r.Topic.Id, "message_key", claim.MessageKey, "error", err)
+		r.Logger.WarnContext(ctx, "could not release key lease -- key frees on expiry", "group", r.Owner.Name, "stream_id", r.Stream.Id, "message_key", claim.MessageKey, "error", err)
 		return
 	}
 	if !released {
 		// the run outlived its lease -- another delivery on the key may have
 		// overlapped it
-		r.Logger.WarnContext(ctx, "key lease expired mid-run and was taken over", "group", r.Owner.Name, "topic_id", r.Topic.Id, "message_key", claim.MessageKey)
+		r.Logger.WarnContext(ctx, "key lease expired mid-run and was taken over", "group", r.Owner.Name, "stream_id", r.Stream.Id, "message_key", claim.MessageKey)
 	}
 }
 
 func (r *messageRunner[Message]) commitRange(ctx context.Context, commit *rangeSnapshot) {
 	// range always frees -- the cursor advancer advances committed
 	// past it; failures become unresolved exceptions, not a blocked range.
-	err := r.consumers.Commit(ctx, r.Topic.Id, r.Owner.ConsumerGroupId, commit.Lease.Token, commit.Outcomes, r.groupConfig.current().ExceptionInitialBackoff, r.Topic.DeliveryLogMode)
+	err := r.consumers.Commit(ctx, r.Stream.Id, r.Owner.ConsumerGroupId, commit.Lease.Token, commit.Outcomes, r.groupConfig.current().ExceptionInitialBackoff, r.Stream.DeliveryLogMode)
 	switch {
 	case err == nil:
 		r.countDeliveryRows(commit.Outcomes)
 		r.buffer.remove(commit.Lease.Token)
 	case errors.Is(err, common.ErrLeaseLost):
 		r.Metrics.RecordLeaseLost(1)
-		r.Logger.DebugContext(ctx, "lease lost at commit -- range re-claimed by another worker", "group", r.Owner.Name, "topic_id", r.Topic.Id, "low", commit.Lease.Low, "high", commit.Lease.High)
+		r.Logger.DebugContext(ctx, "lease lost at commit -- range re-claimed by another worker", "group", r.Owner.Name, "stream_id", r.Stream.Id, "low", commit.Lease.Low, "high", commit.Lease.High)
 		r.buffer.remove(commit.Lease.Token) // reclaimed mid-range -- the new owner processes it, not a failure here
 	default:
 		// stays tracked -- closeOpenRanges retries it on the way out
-		r.Logger.WarnContext(ctx, "could not commit -- range stays open for a retry at shutdown", "group", r.Owner.Name, "topic_id", r.Topic.Id, "low", commit.Lease.Low, "high", commit.Lease.High, "error", err)
+		r.Logger.WarnContext(ctx, "could not commit -- range stays open for a retry at shutdown", "group", r.Owner.Name, "stream_id", r.Stream.Id, "low", commit.Lease.Low, "high", commit.Lease.High, "error", err)
 	}
 }
 
@@ -417,15 +417,15 @@ func (r *messageRunner[Message]) cursorPartialCommit(ctx context.Context, lastPr
 	// the ctx that got us here is already Done -- the commit needs its own
 	// bounded, uncancelled window to actually reach the DB, same as Shutdown
 	commitCtx, cancel := context.WithTimeoutCause(context.WithoutCancel(ctx), r.Config.RecordMargin,
-		fmt.Errorf("partial commit exceeded RecordMargin (%s) for group %q topic %d", r.Config.RecordMargin, r.Owner.Name, r.Topic.Id))
+		fmt.Errorf("partial commit exceeded RecordMargin (%s) for group %q stream %d", r.Config.RecordMargin, r.Owner.Name, r.Stream.Id))
 	defer cancel()
 
 	// narrow the lease to the untouched suffix instead of leaving the WHOLE
 	// range (including the already-resolved prefix) to sit out a full reclaim.
-	if err := r.consumers.PartialCommit(commitCtx, r.Topic.Id, r.Owner.ConsumerGroupId, lease.Token, lastProcessed, outcomes, r.groupConfig.current().ExceptionInitialBackoff, r.Topic.DeliveryLogMode); err != nil {
+	if err := r.consumers.PartialCommit(commitCtx, r.Stream.Id, r.Owner.ConsumerGroupId, lease.Token, lastProcessed, outcomes, r.groupConfig.current().ExceptionInitialBackoff, r.Stream.DeliveryLogMode); err != nil {
 		if errors.Is(err, common.ErrLeaseLost) {
 			r.Metrics.RecordLeaseLost(1)
-			r.Logger.DebugContext(ctx, "lease lost at partial commit -- range re-claimed by another worker", "group", r.Owner.Name, "topic_id", r.Topic.Id, "low", lease.Low, "high", lease.High)
+			r.Logger.DebugContext(ctx, "lease lost at partial commit -- range re-claimed by another worker", "group", r.Owner.Name, "stream_id", r.Stream.Id, "low", lease.Low, "high", lease.High)
 			return nil // reclaimed mid-range -- the new owner processes it, not a failure here
 		}
 

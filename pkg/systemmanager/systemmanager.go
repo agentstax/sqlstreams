@@ -6,21 +6,21 @@ import (
 	"math/rand/v2"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/alert/collectorprogress"
-	"github.com/agentstax/vulkan/pkg/alert/compactionreadcost"
-	"github.com/agentstax/vulkan/pkg/alert/partitioncount"
-	"github.com/agentstax/vulkan/pkg/alert/workerliveness"
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	"github.com/agentstax/vulkan/pkg/consume/cursoradvancer"
-	consumejanitor "github.com/agentstax/vulkan/pkg/consume/janitor"
-	"github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/metric/collector"
-	migratecontroller "github.com/agentstax/vulkan/pkg/migrate/controller"
-	scheduleproducer "github.com/agentstax/vulkan/pkg/schedule/producer"
-	"github.com/agentstax/vulkan/pkg/system"
-	topicjanitor "github.com/agentstax/vulkan/pkg/topic/janitor"
-	"github.com/agentstax/vulkan/pkg/worker"
-	"github.com/agentstax/vulkan/pkg/worker/manager"
+	"github.com/agentstax/sqlstreams/pkg/alert/collectorprogress"
+	"github.com/agentstax/sqlstreams/pkg/alert/compactionreadcost"
+	"github.com/agentstax/sqlstreams/pkg/alert/partitioncount"
+	"github.com/agentstax/sqlstreams/pkg/alert/workerliveness"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	"github.com/agentstax/sqlstreams/pkg/consume/cursoradvancer"
+	consumejanitor "github.com/agentstax/sqlstreams/pkg/consume/janitor"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/metric/collector"
+	migratecontroller "github.com/agentstax/sqlstreams/pkg/migrate/controller"
+	scheduleproducer "github.com/agentstax/sqlstreams/pkg/schedule/producer"
+	streamjanitor "github.com/agentstax/sqlstreams/pkg/stream/janitor"
+	"github.com/agentstax/sqlstreams/pkg/system"
+	"github.com/agentstax/sqlstreams/pkg/worker"
+	"github.com/agentstax/sqlstreams/pkg/worker/manager"
 )
 
 // SystemManager keeps the deployment's upkeep running with no user process
@@ -52,7 +52,7 @@ func NewSystemManager(ds *datastore.PostgresDatastore, cfg *SystemManagerConfig)
 
 	logger := logging.NewPipelineLogger(ds.Logger, &logging.PipelineLoggerConfig{Buffer: true, Suppress: true})
 
-	topicJanitorProvisioner, err := topicjanitor.NewJanitorProvisioner(ds, nil, logger)
+	streamJanitorProvisioner, err := streamjanitor.NewJanitorProvisioner(ds, nil, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +98,7 @@ func NewSystemManager(ds *datastore.PostgresDatastore, cfg *SystemManagerConfig)
 	}
 
 	provisioners := []worker.Provisioner{
-		topicJanitorProvisioner,
+		streamJanitorProvisioner,
 		consumerGroupJanitorProvisioner,
 		scheduleProducerProvisioner,
 		metricCollectorProvisioner,

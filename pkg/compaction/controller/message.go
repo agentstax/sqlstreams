@@ -6,14 +6,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common"
 )
 
 // ListKeyMessages returns messageKey's retained messages, newest
 // first. limit is required: an unbounded read spans the whole retention window.
-func (c *CompactionController) ListKeyMessages[Message common.Versioned](ctx context.Context, topicId int64, messageKey string, limit int) ([]*common.StoredMessage[Message], error) {
-	if topicId <= 0 {
-		return nil, fmt.Errorf("topicId must be > 0, got %d", topicId)
+func (c *CompactionController) ListKeyMessages[Message common.Versioned](ctx context.Context, streamId int64, messageKey string, limit int) ([]*common.StoredMessage[Message], error) {
+	if streamId <= 0 {
+		return nil, fmt.Errorf("streamId must be > 0, got %d", streamId)
 	}
 	if messageKey == "" {
 		return nil, errors.New("messageKey must not be empty")
@@ -22,7 +22,7 @@ func (c *CompactionController) ListKeyMessages[Message common.Versioned](ctx con
 		return nil, fmt.Errorf("limit must be > 0, got %d", limit)
 	}
 
-	data, err := c.datastore.ListKeyMessages(ctx, topicId, messageKey, limit)
+	data, err := c.datastore.ListKeyMessages(ctx, streamId, messageKey, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -32,9 +32,9 @@ func (c *CompactionController) ListKeyMessages[Message common.Versioned](ctx con
 
 // ListKeyMessagesByCreatedAt returns retained messages within inclusive time bounds,
 // including superseded rows, ordered by created_at then id descending.
-func (c *CompactionController) ListKeyMessagesByCreatedAt[Message common.Versioned](ctx context.Context, topicId int64, messageKey string, start time.Time, end time.Time) ([]*common.StoredMessage[Message], error) {
-	if topicId <= 0 {
-		return nil, fmt.Errorf("topicId must be > 0, got %d", topicId)
+func (c *CompactionController) ListKeyMessagesByCreatedAt[Message common.Versioned](ctx context.Context, streamId int64, messageKey string, start time.Time, end time.Time) ([]*common.StoredMessage[Message], error) {
+	if streamId <= 0 {
+		return nil, fmt.Errorf("streamId must be > 0, got %d", streamId)
 	}
 	if messageKey == "" {
 		return nil, errors.New("messageKey must not be empty")
@@ -49,7 +49,7 @@ func (c *CompactionController) ListKeyMessagesByCreatedAt[Message common.Version
 		return nil, fmt.Errorf("end must be >= start %v, got %v", start, end)
 	}
 
-	data, err := c.datastore.ListKeyMessagesByCreatedAt(ctx, topicId, messageKey, start, end)
+	data, err := c.datastore.ListKeyMessagesByCreatedAt(ctx, streamId, messageKey, start, end)
 	if err != nil {
 		return nil, err
 	}

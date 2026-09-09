@@ -15,14 +15,14 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/agentstax/vulkan/e2e/common"
-	"github.com/agentstax/vulkan/pkg/consume"
-	consumecontroller "github.com/agentstax/vulkan/pkg/consume/controller"
-	messageconsumerdatastore "github.com/agentstax/vulkan/pkg/consume/messageconsumer/controller/datastore"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/producer"
-	"github.com/agentstax/vulkan/pkg/topic"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/e2e/common"
+	"github.com/agentstax/sqlstreams/pkg/consume"
+	consumecontroller "github.com/agentstax/sqlstreams/pkg/consume/controller"
+	messageconsumerdatastore "github.com/agentstax/sqlstreams/pkg/consume/messageconsumer/controller/datastore"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/producer"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -45,12 +45,12 @@ func main() {
 
 func run() error {
 	ctx := context.Background()
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	if err != nil {
 		return err
 	}
 	defer pool.Close()
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	if err != nil {
 		return err
 	}
@@ -59,18 +59,18 @@ func run() error {
 		return err
 	}
 
-	topicName := fmt.Sprintf("claimbench.%d", time.Now().UnixNano())
-	tp, err := client.Topic[common.Work](topicName).Register(ctx, &vulkan.TopicConfig{PartitionSize: partitionSize})
+	streamName := fmt.Sprintf("claimbench.%d", time.Now().UnixNano())
+	tp, err := client.Stream[common.Work](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: partitionSize})
 	if err != nil {
 		return err
 	}
 	defer func() {
-		if err := client.Topic[common.Work](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}); err != nil {
+		if err := client.Stream[common.Work](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}); err != nil {
 			fmt.Println("destroy:", err)
 		}
 	}()
 
-	producerInstance, err := client.Topic[common.Work](topicName).Producer().Register(ctx, nil)
+	producerInstance, err := client.Stream[common.Work](streamName).Producer().Register(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -106,11 +106,11 @@ func run() error {
 	}
 
 	schema := ds.Schema
-	messageLog := topic.MessageLogTable(tp.Id)
-	cursorTable := topic.ConsumerGroupCursorTable(tp.Id)
-	leaseTable := topic.ClaimLeaseTable(tp.Id)
-	bindingTable := topic.BindingConfigTable(tp.Id)
-	compactionHead := topic.CompactionHeadTable(tp.Id)
+	messageLog := stream.MessageLogTable(tp.Id)
+	cursorTable := stream.ConsumerGroupCursorTable(tp.Id)
+	leaseTable := stream.ClaimLeaseTable(tp.Id)
+	bindingTable := stream.BindingConfigTable(tp.Id)
+	compactionHead := stream.CompactionHeadTable(tp.Id)
 
 	var partitions int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM pg_inherits WHERE inhparent = ($1)::regclass`, schema+"."+messageLog).Scan(&partitions); err != nil {
@@ -379,7 +379,7 @@ func run() error {
 	var total int
 	for {
 		claimStart := time.Now()
-		claimed, err := consumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, batchLimit, 3, 30*time.Second, topic.DeliveryLogModeFailures)
+		claimed, err := consumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, batchLimit, 3, 30*time.Second, stream.DeliveryLogModeFailures)
 		claims = append(claims, time.Since(claimStart))
 		if err != nil {
 			return err
@@ -390,7 +390,7 @@ func run() error {
 		}
 		total += len(claimed.Messages)
 		commitStart := time.Now()
-		if err := consumers.Commit(ctx, tp.Id, groupId, claimed.Lease.Token, nil, 5*time.Second, topic.DeliveryLogModeFailures); err != nil {
+		if err := consumers.Commit(ctx, tp.Id, groupId, claimed.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures); err != nil {
 			return err
 		}
 		commits = append(commits, time.Since(commitStart))
@@ -398,7 +398,7 @@ func run() error {
 	report(fmt.Sprintf("real ClaimMessagesWithCursor, backlog, limit %d (%d claims, %d messages)", batchLimit, len(claims), total), claims)
 	report("real Commit, no outcomes", commits)
 	bench("real ClaimMessagesWithCursor, caught up (idle poll)", iterations, func() error {
-		claimed, err := consumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, batchLimit, 3, 30*time.Second, topic.DeliveryLogModeFailures)
+		claimed, err := consumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, batchLimit, 3, 30*time.Second, stream.DeliveryLogModeFailures)
 		if claimed != nil {
 			return fmt.Errorf("expected caught up")
 		}
@@ -578,7 +578,7 @@ func run() error {
 		for range instances {
 			wg.Go(func() {
 				for {
-					claimed, err := consumers.ClaimMessagesWithCursor(ctx, tp.Id, realGroup, 1, batchLimit, 3, 30*time.Second, topic.DeliveryLogModeFailures)
+					claimed, err := consumers.ClaimMessagesWithCursor(ctx, tp.Id, realGroup, 1, batchLimit, 3, 30*time.Second, stream.DeliveryLogModeFailures)
 					if err != nil {
 						fmt.Println("real claim:", err)
 						return

@@ -5,14 +5,14 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/agentstax/vulkan/pkg/metric"
+	"github.com/agentstax/sqlstreams/pkg/metric"
 )
 
-// AbandonedRoutineSnapshot pairs the abandoned/cleared events for (topicId,
+// AbandonedRoutineSnapshot pairs the abandoned/cleared events for (streamId,
 // group) read directly off __system.metrics's own message log.
-func (c *MetricController) AbandonedRoutineSnapshot(ctx context.Context, topicId int64, group string) (*metric.AbandonedRoutineSnapshot, error) {
-	if topicId <= 0 {
-		return nil, fmt.Errorf("topicId must be > 0, got %d", topicId)
+func (c *MetricController) AbandonedRoutineSnapshot(ctx context.Context, streamId int64, group string) (*metric.AbandonedRoutineSnapshot, error) {
+	if streamId <= 0 {
+		return nil, fmt.Errorf("streamId must be > 0, got %d", streamId)
 	}
 	if group == "" {
 		return nil, errors.New("group is required")
@@ -20,7 +20,7 @@ func (c *MetricController) AbandonedRoutineSnapshot(ctx context.Context, topicId
 
 	// one read per event type keeps each query's intent obvious instead of
 	// one query encoding both via CASE/HAVING
-	routingKey := metric.AbandonedRoutineKey(topicId, group)
+	routingKey := metric.AbandonedRoutineKey(streamId, group)
 	abandoned, err := c.datastore.EventTimestamps(ctx, routingKey, metric.EventAbandoned)
 	if err != nil {
 		return nil, err

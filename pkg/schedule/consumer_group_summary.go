@@ -1,7 +1,7 @@
 package schedule
 
 // ScheduleConsumerGroupSummary is one consumer group's outcomes for one schedule's messages,
-// derived from the target topic's delivery log.
+// derived from the target stream's delivery log.
 type ScheduleConsumerGroupSummary struct {
 	ConsumerGroup string `json:"consumer_group"`
 

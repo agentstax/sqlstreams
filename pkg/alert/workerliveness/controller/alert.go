@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/alert"
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/metric"
+	"github.com/agentstax/sqlstreams/pkg/alert"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/metric"
 )
 
 // The crossing decision is the caller's -- an alert built from no unclaimed
@@ -28,9 +28,9 @@ func newWorkerLivenessAlert(owner *common.Owner, unclaimed []*metric.UnclaimedWo
 		})
 	}
 
-	message := fmt.Sprintf("topic %q has no live instance on %d of its worker rows", owner.Name, len(unclaimed))
+	message := fmt.Sprintf("stream %q has no live instance on %d of its worker rows", owner.Name, len(unclaimed))
 	detail := fmt.Sprintf("Nothing is running: %s. A worker row with no live instance does no work: expired partitions are not dropped, exceptions are not retried, and the group's cursor stops advancing.", unclaimedByOwner(unclaimed))
-	hint := "Run \"vulkan manager run\" in a process that stays up, or start a consumer on the topic -- either one claims these rows."
+	hint := "Run \"sqlstreams manager run\" in a process that stays up, or start a consumer on the stream -- either one claims these rows."
 	data := map[string]any{
 		"unclaimed_count": len(unclaimed),
 		"workers":         rows,

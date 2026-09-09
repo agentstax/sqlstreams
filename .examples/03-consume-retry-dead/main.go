@@ -16,7 +16,7 @@ import (
 	"os"
 	"time"
 
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 var (
@@ -44,26 +44,26 @@ func main() {
 }
 
 func run() error {
-	ctx, stop := vulkan.LifecycleContext(nil)
+	ctx, stop := sqlstreams.LifecycleContext(nil)
 	defer stop()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	if err != nil {
 		return err
 	}
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, nil)
+	client, err := sqlstreams.NewClient(ctx, pool, nil)
 	if err != nil {
 		return err
 	}
 
-	uploads := client.Topic[VideoUploadedV1]("videos.uploaded")
+	uploads := client.Stream[VideoUploadedV1]("videos.uploaded")
 	transcoder := uploads.Consumer("transcoder")
-	consumer, err := transcoder.Register(ctx, &vulkan.ConsumerConfig{
-		Message: &vulkan.MessageOptions{
+	consumer, err := transcoder.Register(ctx, &sqlstreams.ConsumerConfig{
+		Message: &sqlstreams.MessageOptions{
 			Timeout: 10 * time.Second,
-			Retry:   &vulkan.RetryPolicy{MaxRetries: 3, BaseDelay: 2 * time.Second},
+			Retry:   &sqlstreams.RetryPolicy{MaxRetries: 3, BaseDelay: 2 * time.Second},
 		},
 	})
 	if err != nil {
@@ -75,14 +75,14 @@ func run() error {
 }
 
 func transcodeVideo(ctx context.Context, video *VideoUploadedV1) error {
-	meta, _ := vulkan.MetaFromContext(ctx)
+	meta, _ := sqlstreams.MetaFromContext(ctx)
 	fmt.Printf("transcoding %s (message %d, attempt %d, delays %d)\n",
 		video.VideoId, meta.Id, meta.Attempts+1, meta.Delays)
 
 	switch video.SourceStatus {
 	case "corrupt":
 		// dead on this attempt; the cause lands in last_error
-		return vulkan.Terminal(errSourceCorrupt)
+		return sqlstreams.Terminal(errSourceCorrupt)
 	case "unavailable":
 		// the first attempt retries with backoff; the next simulates recovery
 		if meta.Attempts == 0 {
@@ -92,7 +92,7 @@ func transcodeVideo(ctx context.Context, video *VideoUploadedV1) error {
 	releaseAt := time.Unix(video.ReleaseAtUnix, 0)
 	if releaseAt.After(time.Now()) {
 		// runs again after the release window
-		return vulkan.Delay(time.Until(releaseAt))
+		return sqlstreams.Delay(time.Until(releaseAt))
 	}
 	return nil
 }

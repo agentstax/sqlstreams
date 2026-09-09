@@ -6,11 +6,11 @@ package main
 //
 // Proving a row IS the latest for its key (NOT EXISTS a newer one) has no
 // early termination -- it costs one partition scan per partition from that
-// row's own partition through the topic's CURRENT last one. Proving it
+// row's own partition through the stream's CURRENT last one. Proving it
 // ISN'T (a newer row exists somewhere) can stop as soon as a match is
 // found, wherever that happens to be.
 //
-// Registers two topics seeded with the IDENTICAL 40-message workload,
+// Registers two streams seeded with the IDENTICAL 40-message workload,
 // differing only in PartitionSize (narrow vs wide, an order of magnitude
 // apart), so the same two EXPLAIN checks can be compared side by side:
 //   - the first message ("stale") is never superseded -- the "prove a
@@ -21,15 +21,15 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 	"os"
 	"regexp"
 	"sort"
 	"strings"
 	"time"
 
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 const (
@@ -74,33 +74,33 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
 	narrowName := fmt.Sprintf("phase8c.compactionwidth.narrow.%d", time.Now().UnixNano())
-	narrow, err := client.Topic[vulkan.RawPayload](narrowName).Register(ctx, &vulkan.TopicConfig{PartitionSize: narrowPartitionSize})
+	narrow, err := client.Stream[sqlstreams.RawPayload](narrowName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: narrowPartitionSize})
 	must(err)
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](narrowName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](narrowName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	wideName := fmt.Sprintf("phase8c.compactionwidth.wide.%d", time.Now().UnixNano())
-	wide, err := client.Topic[vulkan.RawPayload](wideName).Register(ctx, &vulkan.TopicConfig{PartitionSize: widePartitionSize})
+	wide, err := client.Stream[sqlstreams.RawPayload](wideName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: widePartitionSize})
 	must(err)
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](wideName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](wideName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
-	step("seed both topics with the identical 40-message workload")
-	narrowProducerInstance, err := client.Topic[Record](narrow.Name).Producer().Register(ctx, nil)
+	step("seed both streams with the identical 40-message workload")
+	narrowProducerInstance, err := client.Stream[Record](narrow.Name).Producer().Register(ctx, nil)
 	must(err)
-	wideProducerInstance, err := client.Topic[Record](wide.Name).Producer().Register(ctx, nil)
+	wideProducerInstance, err := client.Stream[Record](wide.Name).Producer().Register(ctx, nil)
 	must(err)
 	seed(ctx, narrowProducerInstance)
 	seed(ctx, wideProducerInstance)
@@ -111,14 +111,14 @@ func run() (err error) {
 	fmt.Printf("  wide:   PartitionSize=%d -> %d partition(s)\n", widePartitionSize, widePartitions)
 
 	// each boundary heal burns an id on a rolled-back insert, so the narrow
-	// topic's ids drift -- read the seeded rows' real ids back instead of
+	// stream's ids drift -- read the seeded rows' real ids back instead of
 	// hard-coding them
 	narrowStale := keyId(ctx, ds, narrow.Id, "stale", "MIN")
 	narrowFreshV1 := keyId(ctx, ds, narrow.Id, "fresh", "MIN")
 	wideStale := keyId(ctx, ds, wide.Id, "stale", "MIN")
 	wideFreshV1 := keyId(ctx, ds, wide.Id, "fresh", "MIN")
 
-	step("narrow topic: EXPLAIN the compaction check for the negative and match cases")
+	step("narrow stream: EXPLAIN the compaction check for the negative and match cases")
 	negNarrow, negNarrowPlan := explainCompactionTouches(ctx, ds, narrow.Id, narrowStale, "prove a negative (\"stale\")")
 	posNarrow, posNarrowPlan := explainCompactionTouches(ctx, ds, narrow.Id, narrowFreshV1, "find a match (\"fresh\" v1)")
 	fmt.Println("\n  --- narrow / negative case plan ---")
@@ -126,7 +126,7 @@ func run() (err error) {
 	fmt.Println("  --- narrow / match case plan ---")
 	fmt.Print(posNarrowPlan)
 
-	step("wide topic: same two checks")
+	step("wide stream: same two checks")
 	negWide, _ := explainCompactionTouches(ctx, ds, wide.Id, wideStale, "prove a negative (\"stale\")")
 	posWide, _ := explainCompactionTouches(ctx, ds, wide.Id, wideFreshV1, "find a match (\"fresh\" v1)")
 
@@ -147,12 +147,12 @@ func run() (err error) {
 
 // ---- helpers ----
 
-// seed publishes the SAME 40-message shape regardless of topic: first a key
+// seed publishes the SAME 40-message shape regardless of stream: first a key
 // that's never superseded, then 37 unique fillers (each its own key, so none
 // of them ever match another row's compaction subplan), then two versions of
 // one key published back to back. Partition boundaries self-heal on the
 // produce path.
-func seed(ctx context.Context, wp *vulkan.ProducerInstance[Record]) {
+func seed(ctx context.Context, wp *sqlstreams.ProducerInstance[Record]) {
 	publish(ctx, wp, "stale") // never superseded
 	for i := range 37 {
 		publish(ctx, wp, fmt.Sprintf("filler:%d", i)) // each a distinct key
@@ -161,27 +161,27 @@ func seed(ctx context.Context, wp *vulkan.ProducerInstance[Record]) {
 	publish(ctx, wp, "fresh") // v2 -- immediately supersedes v1
 }
 
-func publish(ctx context.Context, wp *vulkan.ProducerInstance[Record], key string) {
-	_, err := wp.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*Record, error) {
+func publish(ctx context.Context, wp *sqlstreams.ProducerInstance[Record], key string) {
+	_, err := wp.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*Record, error) {
 		return &Record{Key: key}, nil
-	}, &vulkan.ProduceOptions{MessageKey: key, Compaction: &vulkan.CompactionOptions{Enable: true}})
+	}, &sqlstreams.ProduceOptions{MessageKey: key, Compaction: &sqlstreams.CompactionOptions{Enable: true}})
 	must(err)
 }
 
 // keyId reads back one seeded row's real id -- aggregate is MIN or MAX,
 // picking between the two versions of a twice-published key.
-func keyId(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, messageKey string, aggregate string) int64 {
+func keyId(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, messageKey string, aggregate string) int64 {
 	return scalar(ctx, ds, fmt.Sprintf(`
 		SELECT %s(id) FROM %s.%s WHERE message_key = $1;
-	`, aggregate, ds.Schema, topic.MessageLogTable(topicId)), messageKey)
+	`, aggregate, ds.Schema, stream.MessageLogTable(streamId)), messageKey)
 }
 
-func countPartitions(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64) int64 {
+func countPartitions(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) int64 {
 	return scalar(ctx, ds, fmt.Sprintf(`
 		SELECT count(*) FROM pg_inherits i
 		JOIN pg_class c ON c.oid = i.inhrelid
 		WHERE i.inhparent = '%s.%s'::regclass;
-	`, ds.Schema, topic.MessageLogTable(topicId)))
+	`, ds.Schema, stream.MessageLogTable(streamId)))
 }
 
 // explainCompactionTouches EXPLAIN ANALYZEs just the compaction predicate
@@ -194,8 +194,8 @@ func countPartitions(ctx context.Context, ds *iDatastore.PostgresDatastore, topi
 // "(never executed)" when the anti-join's early termination (or runtime
 // partition pruning) meant it was never actually opened. Only lines WITHOUT
 // that tag count as a real touch.
-func explainCompactionTouches(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId, id int64, label string) (int, string) {
-	logName := topic.MessageLogTable(topicId)
+func explainCompactionTouches(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId, id int64, label string) (int, string) {
+	logName := stream.MessageLogTable(streamId)
 	logTable := fmt.Sprintf("%s.%s", ds.Schema, logName)
 	sql := fmt.Sprintf(`
 		EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF) SELECT 1 FROM %s m

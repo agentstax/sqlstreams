@@ -1,11 +1,11 @@
 ---
-title: How Vulkan tests reliability
+title: How SQLStreams tests reliability
 description: An hour of real producers and consumers against a real Postgres, ending in one verdict. A SQL join proves no committed message went missing.
 ---
 
 import ThreadAside from '../../../components/thread-aside/thread-aside.svelte';
 
-Vulkan promises at-least-once delivery with no loss. The reliability lab
+SQLStreams promises at-least-once delivery with no loss. The reliability lab
 is how that promise is checked: an hour of real producers and consumers
 against a real Postgres, and one verdict at the end. Pass means every
 committed message was delivered or dead-lettered and nothing else
@@ -14,8 +14,8 @@ happened. This page is the lab as it ships, written so you can judge what
 
 <ThreadAside label="NOTE" title="What ships today">
 `quiet` runs an hour at 200 messages a second with three consumer instances
-and no chaos; `dev` runs one minute. The `multitopic-1`, `-4`, and `-16`
-scenarios step the offered rate across different topic counts. `throughput`
+and no chaos; `dev` runs one minute. The `multistream-1`, `-4`, and `-16`
+scenarios step the offered rate across different stream counts. `throughput`
 is a 30-second probe with 1 KB messages and automatic batching. `just reliability-lab dev` builds the stack, runs it, and
 exits with the verdict. Sections headed "Proposed" describe work not yet built. The [demo page](/demo/) is the same idea
 packaged for you to run in five minutes.
@@ -24,7 +24,7 @@ packaged for you to run in five minutes.
 
 ## The tests around it
 
-Vulkan is tested at unit scale and at mechanism scale. `go test -race`
+SQLStreams is tested at unit scale and at mechanism scale. `go test -race`
 covers the packages. About twenty failure-injection e2e tests each run one
 mechanism for a few minutes under a real Postgres: reclaim of an expired
 lease, dead-lettering after the retry budget, shutdown that truncates a
@@ -44,7 +44,7 @@ final report is a SQL join between the two.
 ```
    producers                                              consumer instances
    ┌──────────┐   produce                       claim      ┌──────────┐
-   │ p-1  p-2 │ ─────────────▶  vulkan.*  ◀───────────── │ c-1  c-2 │
+   │ p-1  p-2 │ ─────────────▶  sqlstreams.*  ◀───────────── │ c-1  c-2 │
    └──────────┘                 message_log                │ c-3      │
         │                       delivery_log               └──────────┘
         │ every attempt:        exception_queue                  │
@@ -60,7 +60,7 @@ final report is a SQL join between the two.
 
 Every produce writes two facts to the ledger: that it was attempted, and
 what came back. What comes back is one of three things. Committed, with
-the idempotency key. Rejected, with the VK code. Or unknown, because the
+the idempotency key. Rejected, with the SS code. Or unknown, because the
 connection died after the commit was sent and before the reply arrived.
 Most test suites never model that third outcome; Kafka's own verifier has
 no bucket for it. The lab resolves it after the run by looking the key up
@@ -72,7 +72,7 @@ attempt, and whether the handler succeeded, failed, or the process died
 before it could say.
 
 After the producers stop, the consumers drain until the group's cursor
-has passed the last message the topic holds, and then the checker runs. It sorts every produced message into a named bucket, and the
+has passed the last message the stream holds, and then the checker runs. It sorts every produced message into a named bucket, and the
 buckets must add up:
 
 ```
@@ -112,7 +112,7 @@ the two, so a stale file fails the build. This is `quiet`:
 # the hour-long quiet run: constant load, fixed consumers, no chaos, nothing may move
 
 [input]
-topic        orders           DeliveryLogMode all
+stream        orders           DeliveryLogMode all
 consumers    fraud-scoring    handler fail rate 0, 3 retries then dead
 duration     60m
 
@@ -183,7 +183,7 @@ this section is built; the scenario file is its spec.
 # steady load, a pause, a saturating spike, slow ramp back, one kill
 
 [input]
-topic       orders           DeliveryLogMode all
+stream       orders           DeliveryLogMode all
 consumers   fraud-scoring    handler fail rate 0.02, 3 retries then dead
 duration    60m
 
@@ -229,7 +229,7 @@ like:
 
 Two phases are there on purpose. Consumers at zero for two minutes means
 the backlog must grow and then drain with nothing lost. Eight consumers
-on a topic that needs three means oversubscription, and the checker still
+on a stream that needs three means oversubscription, and the checker still
 expects zero reclaims outside the kill.
 
 The report would read:
@@ -264,13 +264,13 @@ never happened.
 
 ## Where it goes from here
 
-The shipped version is deliberately small: one plain topic, one consumer
+The shipped version is deliberately small: one plain stream, one consumer
 group, one load level, and the scenario file. Each stage adds one axis and
 one named bucket:
 
 1. Kills of consumers and producers mid-work, and pausing Postgres past
    the lease so every instance loses its lease at once.
-2. A compacted topic with message keys, where "compacted away" becomes a
+2. A compacted stream with message keys, where "compacted away" becomes a
    real bucket and per-key order is checked.
 3. Two schema versions live at once, so "other schema version" fills.
 4. Routing bindings and fan-out, then schedules.
@@ -307,8 +307,8 @@ On the development Mac, all benchmark storage is limited to 20 GiB with
 and temporary files count. Retention is chosen from measured growth before
 long runs. Durable commits, fsync, full-page writes, and autovacuum stay on.
 
-Scenario-file topic declarations also accept `PartitionSize`, using the
-library's existing topic setting. Zero keeps the default; an explicit value
+Scenario-file stream declarations also accept `PartitionSize`, using the
+library's existing stream setting. Zero keeps the default; an explicit value
 appears in the run's declaration. Larger partitions reduce how often new
 partitions are created. A short run that never crosses a partition boundary
 cannot establish throughput during rollover.

@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -19,32 +19,32 @@ import (
 // is never superseded, so only the lease itself is contested.
 // Expiry does not stop a holder: the next claim on the key takes the lease
 // over, and the two runs can overlap until the old one returns.
-func (d *KeyLeaseDatastore) Claim(ctx context.Context, topicId int64, groupId int64, key string, messageId int64, compacted bool, policy common.ConcurrencyPolicy, ownLow int64, ownHigh int64, duration time.Duration, token pgtype.UUID) (*KeyLease, error) {
+func (d *KeyLeaseDatastore) Claim(ctx context.Context, streamId int64, groupId int64, key string, messageId int64, compacted bool, policy common.ConcurrencyPolicy, ownLow int64, ownHigh int64, duration time.Duration, token pgtype.UUID) (*KeyLease, error) {
 	var claim *KeyLease
 	err := d.DatastoreRetry.Wrap(ctx, func() error {
 		var err error
-		claim, err = d.claim(ctx, topicId, groupId, key, messageId, compacted, policy, ownLow, ownHigh, duration, token)
+		claim, err = d.claim(ctx, streamId, groupId, key, messageId, compacted, policy, ownLow, ownHigh, duration, token)
 		return err
 	})
 	return claim, err
 }
 
-func (d *KeyLeaseDatastore) claim(ctx context.Context, topicId int64, groupId int64, key string, messageId int64, compacted bool, policy common.ConcurrencyPolicy, ownLow int64, ownHigh int64, duration time.Duration, token pgtype.UUID) (*KeyLease, error) {
+func (d *KeyLeaseDatastore) claim(ctx context.Context, streamId int64, groupId int64, key string, messageId int64, compacted bool, policy common.ConcurrencyPolicy, ownLow int64, ownHigh int64, duration time.Duration, token pgtype.UUID) (*KeyLease, error) {
 	switch {
 	case compacted:
-		return d.claimCompacted(ctx, topicId, groupId, key, messageId, duration, token)
+		return d.claimCompacted(ctx, streamId, groupId, key, messageId, duration, token)
 	case policy == common.ConcurrencyOrdered:
-		return d.claimOrdered(ctx, topicId, groupId, key, messageId, ownLow, ownHigh, duration, token)
+		return d.claimOrdered(ctx, streamId, groupId, key, messageId, ownLow, ownHigh, duration, token)
 	default:
-		return d.claimUncompacted(ctx, topicId, groupId, key, duration, token)
+		return d.claimUncompacted(ctx, streamId, groupId, key, duration, token)
 	}
 }
 
 // claimCompacted gates the lease on the key's compaction head: a superseded
 // message never creates or locks a lease row.
-func (d *KeyLeaseDatastore) claimCompacted(ctx context.Context, topicId int64, groupId int64, key string, messageId int64, duration time.Duration, token pgtype.UUID) (*KeyLease, error) {
+func (d *KeyLeaseDatastore) claimCompacted(ctx context.Context, streamId int64, groupId int64, key string, messageId int64, duration time.Duration, token pgtype.UUID) (*KeyLease, error) {
 	claimSql := fmt.Sprintf(`
-		-- vulkan: consumebase.claimCompacted
+		-- sqlstreams: consumebase.claimCompacted
 		WITH head AS (
 			SELECT message_id
 			FROM %[1]s.%[2]s
@@ -66,14 +66,14 @@ func (d *KeyLeaseDatastore) claimCompacted(ctx context.Context, topicId int64, g
 		SELECT
 			EXISTS (SELECT 1 FROM head WHERE message_id = $3),
 			(SELECT token FROM attempt);
-	`, d.Datastore.Schema, topic.CompactionHeadTable(topicId), topic.MessageKeyLeaseTable(topicId))
+	`, d.Datastore.Schema, stream.CompactionHeadTable(streamId), stream.MessageKeyLeaseTable(streamId))
 
 	// the claimSql head CTE snapshot could be stale on the INSERT that
 	// follows -- this rechecks with a fresh snapshot and deletes the
 	// acquisition if the head moved. So a failed batch rolls the insert
 	// back instead of orphaning the lease.
 	recheckSql := fmt.Sprintf(`
-		-- vulkan: consumebase.claimCompacted
+		-- sqlstreams: consumebase.claimCompacted
 		DELETE FROM %[1]s.%[2]s
 		WHERE consumer_group_id = $2
 			AND message_key = $1
@@ -84,14 +84,14 @@ func (d *KeyLeaseDatastore) claimCompacted(ctx context.Context, topicId int64, g
 				WHERE compaction_key = $1
 					AND message_id = $3
 			);
-	`, d.Datastore.Schema, topic.MessageKeyLeaseTable(topicId), topic.CompactionHeadTable(topicId))
+	`, d.Datastore.Schema, stream.MessageKeyLeaseTable(streamId), stream.CompactionHeadTable(streamId))
 
 	// one round trip
 	batch := &pgx.Batch{}
 	batch.Queue(claimSql, key, groupId, messageId, duration.Seconds(), token)
 	batch.Queue(recheckSql, key, groupId, messageId, token)
 
-	claim := KeyLease{TopicId: topicId, ConsumerGroupId: groupId, MessageKey: key}
+	claim := KeyLease{StreamId: streamId, ConsumerGroupId: groupId, MessageKey: key}
 	var isHead bool
 
 	// claimSql
@@ -128,9 +128,9 @@ func (d *KeyLeaseDatastore) claimCompacted(ctx context.Context, topicId int64, g
 
 // claimUncompacted takes the lease with no compaction head to check: every
 // version of the key runs, so the only verdicts are acquired and busy.
-func (d *KeyLeaseDatastore) claimUncompacted(ctx context.Context, topicId int64, groupId int64, key string, duration time.Duration, token pgtype.UUID) (*KeyLease, error) {
+func (d *KeyLeaseDatastore) claimUncompacted(ctx context.Context, streamId int64, groupId int64, key string, duration time.Duration, token pgtype.UUID) (*KeyLease, error) {
 	sql := fmt.Sprintf(`
-		-- vulkan: consumebase.claimUncompacted
+		-- sqlstreams: consumebase.claimUncompacted
 		INSERT INTO %[1]s.%[2]s AS kl (consumer_group_id, message_key, token, expires_at)
 		VALUES ($1, $2, $3, now() + make_interval(secs => $4))
 		ON CONFLICT (consumer_group_id, message_key) DO UPDATE
@@ -141,9 +141,9 @@ func (d *KeyLeaseDatastore) claimUncompacted(ctx context.Context, topicId int64,
 		-- own lease instead of reading it as busy
 		WHERE kl.expires_at < now() OR kl.token = $3
 		RETURNING token;
-	`, d.Datastore.Schema, topic.MessageKeyLeaseTable(topicId))
+	`, d.Datastore.Schema, stream.MessageKeyLeaseTable(streamId))
 
-	claim := KeyLease{TopicId: topicId, ConsumerGroupId: groupId, MessageKey: key}
+	claim := KeyLease{StreamId: streamId, ConsumerGroupId: groupId, MessageKey: key}
 	err := d.Datastore.Pool.QueryRow(ctx, sql, groupId, key, token, duration.Seconds()).Scan(&claim.Token)
 	if errors.Is(err, pgx.ErrNoRows) {
 		claim.Verdict = KeyLeaseBusy
@@ -162,9 +162,9 @@ func (d *KeyLeaseDatastore) claimUncompacted(ctx context.Context, topicId int64,
 //   - no exception row still ready/inflight/deferred
 //   - no same-key message_log id between the group's committed cursor and this message,
 //     outside the caller's own range (ownLow, ownHigh] -- the caller runs those in order
-func (d *KeyLeaseDatastore) claimOrdered(ctx context.Context, topicId int64, groupId int64, key string, messageId int64, ownLow int64, ownHigh int64, duration time.Duration, token pgtype.UUID) (*KeyLease, error) {
+func (d *KeyLeaseDatastore) claimOrdered(ctx context.Context, streamId int64, groupId int64, key string, messageId int64, ownLow int64, ownHigh int64, duration time.Duration, token pgtype.UUID) (*KeyLease, error) {
 	sql := fmt.Sprintf(`
-		-- vulkan: consumebase.claimOrdered
+		-- sqlstreams: consumebase.claimOrdered
 		INSERT INTO %[1]s.%[2]s AS kl (consumer_group_id, message_key, token, expires_at)
 		SELECT $1, $2, $3, now() + make_interval(secs => $4)
 		-- no exception row still ready/inflight/deferred
@@ -194,9 +194,9 @@ func (d *KeyLeaseDatastore) claimOrdered(ctx context.Context, topicId int64, gro
 		-- own lease instead of reading it as busy
 		WHERE kl.expires_at < now() OR kl.token = $3
 		RETURNING token;
-	`, d.Datastore.Schema, topic.MessageKeyLeaseTable(topicId), topic.ExceptionQueueTable(topicId), topic.MessageLogTable(topicId), topic.ConsumerGroupCursorTable(topicId))
+	`, d.Datastore.Schema, stream.MessageKeyLeaseTable(streamId), stream.ExceptionQueueTable(streamId), stream.MessageLogTable(streamId), stream.ConsumerGroupCursorTable(streamId))
 
-	claim := KeyLease{TopicId: topicId, ConsumerGroupId: groupId, MessageKey: key}
+	claim := KeyLease{StreamId: streamId, ConsumerGroupId: groupId, MessageKey: key}
 	err := d.Datastore.Pool.QueryRow(ctx, sql, groupId, key, token, duration.Seconds(), messageId, ownLow, ownHigh).Scan(&claim.Token)
 	if errors.Is(err, pgx.ErrNoRows) {
 		claim.Verdict = KeyLeaseBusy
@@ -225,12 +225,12 @@ func (d *KeyLeaseDatastore) Release(ctx context.Context, claim *KeyLease) (bool,
 
 func (d *KeyLeaseDatastore) release(ctx context.Context, q datastore.Querier, claim *KeyLease) (bool, error) {
 	sql := fmt.Sprintf(`
-		-- vulkan: consumebase.release
+		-- sqlstreams: consumebase.release
 		DELETE FROM %[1]s.%[2]s
 		WHERE consumer_group_id = $1
 			AND message_key = $2
 			AND token = $3;
-	`, d.Datastore.Schema, topic.MessageKeyLeaseTable(claim.TopicId))
+	`, d.Datastore.Schema, stream.MessageKeyLeaseTable(claim.StreamId))
 	tag, err := q.Exec(ctx, sql, claim.ConsumerGroupId, claim.MessageKey, claim.Token)
 	if err != nil {
 		return false, err

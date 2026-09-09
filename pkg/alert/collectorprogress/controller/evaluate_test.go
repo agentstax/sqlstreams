@@ -4,10 +4,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/alert"
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/metric"
-	"github.com/agentstax/vulkan/pkg/worker"
+	"github.com/agentstax/sqlstreams/pkg/alert"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/metric"
+	"github.com/agentstax/sqlstreams/pkg/worker"
 )
 
 func TestCollectorProgressHistory(t *testing.T) {

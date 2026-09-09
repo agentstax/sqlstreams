@@ -1,3 +1,3 @@
 package common
 
-const SystemTopicPrefix = "__system."
+const SystemStreamPrefix = "__system."

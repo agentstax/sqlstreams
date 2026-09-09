@@ -1,16 +1,16 @@
 package compaction
 
 import (
-	"github.com/agentstax/vulkan/pkg/common/diagnostic"
+	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
 )
 
 // ErrCompactionHeadNotFound means no message produced under the key is its
 // current compaction head. A lockable row may exist without a head.
 //
-// Diagnose queries: vulkan explain VK0066
-var ErrCompactionHeadNotFound = diagnostic.NewDiagnosticError("VK0066", diagnostic.RecoveryPermanent,
+// Diagnose queries: sqlstreams explain SS0066
+var ErrCompactionHeadNotFound = diagnostic.NewDiagnosticError("SS0066", diagnostic.RecoveryPermanent,
 	"compaction head not found",
-	"produce under message key \"{message_key}\" on topic \"{topic}\" with CompactionOptions.Enable set",
+	"produce under message key \"{message_key}\" on stream \"{stream}\" with CompactionOptions.Enable set",
 
 	diagnostic.NewDiagnosticQuery("the key's compaction_head row, if one exists", `
 SELECT
@@ -18,7 +18,7 @@ SELECT
 	message_id,
 	schema_version,
 	compaction_rank
-FROM {schema}.compaction_head_{topic_id}
+FROM {schema}.compaction_head_{stream_id}
 WHERE compaction_key = '{message_key}';`),
 	diagnostic.NewDiagnosticQuery("the messages produced under the key -- a NULL compaction_rank never opted into compaction", `
 SELECT
@@ -26,7 +26,7 @@ SELECT
 	schema_version,
 	compaction_rank,
 	created_at
-FROM {schema}.message_log_{topic_id}
+FROM {schema}.message_log_{stream_id}
 WHERE message_key = '{message_key}'
 ORDER BY id DESC
 LIMIT 20;`),

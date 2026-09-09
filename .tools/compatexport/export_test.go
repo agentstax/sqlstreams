@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/agentstax/vulkan/pkg/migrate"
+	"github.com/agentstax/sqlstreams/pkg/migrate"
 )
 
 // Both shipped registries are empty, so the real export is a single cell.
@@ -24,7 +24,7 @@ func TestNewExportEmptyRegistry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewExport(nil, nil) error = %v", err)
 	}
-	for name, scope := range map[string]*ScopeExport{"system": export.System, "topic": export.Topic} {
+	for name, scope := range map[string]*ScopeExport{"system": export.System, "stream": export.Stream} {
 		if scope.Version != 1 {
 			t.Errorf("%s version = %d, want 1", name, scope.Version)
 		}
@@ -54,7 +54,7 @@ func TestNewExportExampleGrid(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewExport(exampleRegistry) error = %v", err)
 	}
-	got := grid(export.Topic)
+	got := grid(export.Stream)
 	if len(got) != len(want) {
 		t.Fatalf("grid has %d rows, want %d", len(got), len(want))
 	}
@@ -73,7 +73,7 @@ func TestNewExportFloors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewExport(exampleRegistry) error = %v", err)
 	}
-	for i, row := range export.Topic.Rows {
+	for i, row := range export.Stream.Rows {
 		if row.MinCompatibleVersion != want[i] {
 			t.Errorf("database v%d floor = %d, want %d", row.Version, row.MinCompatibleVersion, want[i])
 		}
@@ -85,10 +85,10 @@ func TestNewExportSteps(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewExport(exampleRegistry) error = %v", err)
 	}
-	if len(export.Topic.Steps) != len(exampleRegistry) {
-		t.Fatalf("steps = %d, want %d", len(export.Topic.Steps), len(exampleRegistry))
+	if len(export.Stream.Steps) != len(exampleRegistry) {
+		t.Fatalf("steps = %d, want %d", len(export.Stream.Steps), len(exampleRegistry))
 	}
-	for i, step := range export.Topic.Steps {
+	for i, step := range export.Stream.Steps {
 		if step.Version != exampleRegistry[i].Version || step.MinCompatibleVersion != exampleRegistry[i].MinCompatibleVersion {
 			t.Errorf("step %d = %+v, want %+v", i, step, exampleRegistry[i])
 		}
@@ -102,8 +102,8 @@ func TestNewExportInvalidRegistry(t *testing.T) {
 	if _, err := NewExport(broken, nil); err == nil || !strings.HasPrefix(err.Error(), "system: ") {
 		t.Fatalf("NewExport(broken system) error = %v, want one prefixed \"system: \"", err)
 	}
-	if _, err := NewExport(nil, broken); err == nil || !strings.HasPrefix(err.Error(), "topic: ") {
-		t.Fatalf("NewExport(broken topic) error = %v, want one prefixed \"topic: \"", err)
+	if _, err := NewExport(nil, broken); err == nil || !strings.HasPrefix(err.Error(), "stream: ") {
+		t.Fatalf("NewExport(broken stream) error = %v, want one prefixed \"stream: \"", err)
 	}
 }
 
@@ -114,7 +114,7 @@ func TestNewExportCellAxes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewExport(exampleRegistry) error = %v", err)
 	}
-	for i, row := range export.Topic.Rows {
+	for i, row := range export.Stream.Rows {
 		if row.Version != int64(i+1) {
 			t.Errorf("row %d is version %d, want %d", i, row.Version, i+1)
 		}

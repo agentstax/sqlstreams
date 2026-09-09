@@ -26,8 +26,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 type benchMessage struct {
@@ -77,25 +77,25 @@ func main() {
 	flag.Parse()
 
 	ctx := context.Background()
-	pool, err := vulkan.NewPostgresPool(ctx, envOr("PGUSER", "bench"), envOr("PGPASSWORD", "bench"), envOr("PGHOST", "localhost"), envOr("PGDATABASE", "bench"), &vulkan.PostgresConnectionConfig{
+	pool, err := sqlstreams.NewPostgresPool(ctx, envOr("PGUSER", "bench"), envOr("PGPASSWORD", "bench"), envOr("PGHOST", "localhost"), envOr("PGDATABASE", "bench"), &sqlstreams.PostgresConnectionConfig{
 		Port:     envInt("PGPORT", 5433),
 		MaxConns: *producers*4 + 8,
 	})
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 	must(client.System().Register(ctx, nil))
 
-	// fresh topic per cell -- clean tables, no cross-cell contamination
-	topicName := fmt.Sprintf("compactionbench.%d", time.Now().UnixNano())
-	registered, err := client.Topic[benchMessage](topicName).Register(ctx, nil)
+	// fresh stream per cell -- clean tables, no cross-cell contamination
+	streamName := fmt.Sprintf("compactionbench.%d", time.Now().UnixNano())
+	registered, err := client.Stream[benchMessage](streamName).Register(ctx, nil)
 	must(err)
 	defer func() {
-		must(client.Topic[benchMessage](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[benchMessage](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	// the table is empty here, so ALTER alone is enough -- every page it ever
@@ -106,9 +106,9 @@ func main() {
 		must(err)
 	}
 
-	instances := make([]*vulkan.ProducerInstance[benchMessage], *producers)
+	instances := make([]*sqlstreams.ProducerInstance[benchMessage], *producers)
 	for i := range instances {
-		instance, err := client.Topic[benchMessage](topicName).Producer().Register(ctx, nil)
+		instance, err := client.Stream[benchMessage](streamName).Producer().Register(ctx, nil)
 		must(err)
 		instances[i] = instance
 	}
@@ -131,16 +131,16 @@ func main() {
 	var wg sync.WaitGroup
 	for i := range *goroutines {
 		wg.Add(1)
-		go func(instance *vulkan.ProducerInstance[benchMessage], offset int) {
+		go func(instance *sqlstreams.ProducerInstance[benchMessage], offset int) {
 			defer wg.Done()
 			mine := make([]time.Duration, 0, 4096)
 			for produced := 0; phase.Load() != phaseDone; produced++ {
-				options := &vulkan.ProduceOptions{}
+				options := &sqlstreams.ProduceOptions{}
 				if len(keys) > 0 {
 					// rotate the pool from a per-goroutine offset -- maximal
 					// reverse-order pressure at enqueue, the sort's job to absorb
 					options.MessageKey = keys[(offset+produced)%len(keys)]
-					options.Compaction = &vulkan.CompactionOptions{Enable: true}
+					options.Compaction = &sqlstreams.CompactionOptions{Enable: true}
 				}
 
 				started := time.Now()
@@ -219,7 +219,7 @@ func deadlockCount(ctx context.Context, ds *iDatastore.PostgresDatastore) int64 
 	return count
 }
 
-func readHeadStatistics(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, result *cellResult) {
+func readHeadStatistics(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, result *cellResult) {
 	must(ds.Pool.QueryRow(ctx, `
 		SELECT
 			COALESCE(MAX(n_tup_upd), 0),
@@ -227,7 +227,7 @@ func readHeadStatistics(ctx context.Context, ds *iDatastore.PostgresDatastore, t
 			COALESCE(MAX(n_dead_tup), 0)
 		FROM pg_stat_user_tables
 		WHERE relname = $1;`,
-		fmt.Sprintf("compaction_head_%d", topicId)).Scan(
+		fmt.Sprintf("compaction_head_%d", streamId)).Scan(
 		&result.HeadUpdated,
 		&result.HeadHotUpdated,
 		&result.HeadDeadTuples,

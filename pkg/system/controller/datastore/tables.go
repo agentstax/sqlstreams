@@ -7,7 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// createSystemTables creates the shared control-plane tables every topic rides
+// createSystemTables creates the shared control-plane tables every stream rides
 // on. This is the BASELINE -- later schema changes go through migration steps,
 // not edits here.
 //
@@ -17,7 +17,7 @@ import (
 // lands before registerSystem seeds anything into it.
 func (d *SystemDatastore) createSystemTables(ctx context.Context, tx pgx.Tx) error {
 	createSystemConfigSql := fmt.Sprintf(`
-		-- vulkan: system.createSystemTables
+		-- sqlstreams: system.createSystemTables
 		CREATE TABLE IF NOT EXISTS %[1]s.system_config (
 			id BIGSERIAL PRIMARY KEY,
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -28,9 +28,9 @@ func (d *SystemDatastore) createSystemTables(ctx context.Context, tx pgx.Tx) err
 		return err
 	}
 
-	createTopicConfigSql := fmt.Sprintf(`
-		-- vulkan: system.createSystemTables
-		CREATE TABLE IF NOT EXISTS %[1]s.topic_config (
+	createStreamConfigSql := fmt.Sprintf(`
+		-- sqlstreams: system.createSystemTables
+		CREATE TABLE IF NOT EXISTS %[1]s.stream_config (
 			id BIGSERIAL PRIMARY KEY,                                           -- corresponding id for table interpolation ie message_log_<id>
 			system_id BIGINT NOT NULL REFERENCES %[1]s.system_config (id) ON DELETE CASCADE, -- owning system
 			name TEXT NOT NULL UNIQUE,                                          -- user defined and displayed name
@@ -44,19 +44,19 @@ func (d *SystemDatastore) createSystemTables(ctx context.Context, tx pgx.Tx) err
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		);
 	`, d.Datastore.Schema)
-	if _, err := tx.Exec(ctx, createTopicConfigSql); err != nil {
+	if _, err := tx.Exec(ctx, createStreamConfigSql); err != nil {
 		return err
 	}
 
-	// topic_config_log: one full-snapshot row appended in the same transaction as
-	// every topic create, config replace, and rename -- never updated or
-	// deleted. The topic_config row is the truth; this trail is for operators.
-	createTopicConfigLogSql := fmt.Sprintf(`
-		-- vulkan: system.createSystemTables
-		CREATE TABLE IF NOT EXISTS %[1]s.topic_config_log (
+	// stream_config_log: one full-snapshot row appended in the same transaction as
+	// every stream create, config replace, and rename -- never updated or
+	// deleted. The stream_config row is the truth; this trail is for operators.
+	createStreamConfigLogSql := fmt.Sprintf(`
+		-- sqlstreams: system.createSystemTables
+		CREATE TABLE IF NOT EXISTS %[1]s.stream_config_log (
 			id BIGSERIAL PRIMARY KEY,
-			topic_id BIGINT NOT NULL REFERENCES %[1]s.topic_config (id) ON DELETE CASCADE,
-			name TEXT NOT NULL,                          -- the topic's name as of this declaration
+			stream_id BIGINT NOT NULL REFERENCES %[1]s.stream_config (id) ON DELETE CASCADE,
+			name TEXT NOT NULL,                          -- the stream's name as of this declaration
 			partition_size BIGINT NOT NULL,
 			retention_ttl_ns BIGINT NOT NULL,
 			allow_drop_past_committed BOOLEAN NOT NULL,
@@ -67,30 +67,30 @@ func (d *SystemDatastore) createSystemTables(ctx context.Context, tx pgx.Tx) err
 			declared_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		);
 	`, d.Datastore.Schema)
-	if _, err := tx.Exec(ctx, createTopicConfigLogSql); err != nil {
+	if _, err := tx.Exec(ctx, createStreamConfigLogSql); err != nil {
 		return err
 	}
 
-	// the one lookup shape: a topic's rows in change order
-	createTopicConfigLogIndexSql := fmt.Sprintf(`
-		-- vulkan: system.createSystemTables
-		CREATE INDEX IF NOT EXISTS topic_config_log_topic_id ON %[1]s.topic_config_log (topic_id, id);
+	// the one lookup shape: a stream's rows in change order
+	createStreamConfigLogIndexSql := fmt.Sprintf(`
+		-- sqlstreams: system.createSystemTables
+		CREATE INDEX IF NOT EXISTS stream_config_log_stream_id ON %[1]s.stream_config_log (stream_id, id);
 	`, d.Datastore.Schema)
-	if _, err := tx.Exec(ctx, createTopicConfigLogIndexSql); err != nil {
+	if _, err := tx.Exec(ctx, createStreamConfigLogIndexSql); err != nil {
 		return err
 	}
 
 	// consumer_group_config table provides:
 	// - lifcycle management for child ownershipt model (cursor, binding, maintainence)
 	createConsumerGroupConfigSql := fmt.Sprintf(`
-		-- vulkan: system.createSystemTables
+		-- sqlstreams: system.createSystemTables
 		CREATE TABLE IF NOT EXISTS %[1]s.consumer_group_config (
 			id BIGSERIAL PRIMARY KEY,                                         -- what children reference
-			topic_id BIGINT NOT NULL REFERENCES %[1]s.topic_config (id) ON DELETE CASCADE, -- owning topic
+			stream_id BIGINT NOT NULL REFERENCES %[1]s.stream_config (id) ON DELETE CASCADE, -- owning stream
 			name TEXT NOT NULL,
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-			UNIQUE (topic_id, name)
+			UNIQUE (stream_id, name)
 		);
 	`, d.Datastore.Schema)
 	if _, err := tx.Exec(ctx, createConsumerGroupConfigSql); err != nil {
@@ -99,18 +99,18 @@ func (d *SystemDatastore) createSystemTables(ctx context.Context, tx pgx.Tx) err
 
 	// workers: one row per background job that should be running
 	createWorkerConfigSql := fmt.Sprintf(`
-		-- vulkan: system.createSystemTables
+		-- sqlstreams: system.createSystemTables
 		CREATE TABLE IF NOT EXISTS %[1]s.worker_config (
 			id BIGSERIAL PRIMARY KEY,
 			system_id BIGINT REFERENCES %[1]s.system_config (id) ON DELETE CASCADE,
-			topic_id BIGINT REFERENCES %[1]s.topic_config (id) ON DELETE CASCADE,
+			stream_id BIGINT REFERENCES %[1]s.stream_config (id) ON DELETE CASCADE,
 			consumer_group_id BIGINT REFERENCES %[1]s.consumer_group_config (id) ON DELETE CASCADE,
-			name TEXT NOT NULL,                      -- 'manager' | 'topic_janitor' | 'consumer_group_janitor' | 'cursor_advancer' | 'message_consumer' | 'delivery_consumer' | 'exception_consumer' | 'schedule_producer' | 'metrics_collector' | user-defined
+			name TEXT NOT NULL,                      -- 'manager' | 'stream_janitor' | 'consumer_group_janitor' | 'cursor_advancer' | 'message_consumer' | 'delivery_consumer' | 'exception_consumer' | 'schedule_producer' | 'metrics_collector' | user-defined
 			metadata JSONB NOT NULL DEFAULT '{}',    -- per-worker config, written by the declaration that creates the row
 			target_instances INT NOT NULL DEFAULT 1, -- 0 = suspended, -1 = unbounded
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-			CHECK (num_nonnulls(system_id, topic_id, consumer_group_id) = 1),
+			CHECK (num_nonnulls(system_id, stream_id, consumer_group_id) = 1),
 			CHECK (target_instances >= -1)
 		);
 	`, d.Datastore.Schema)
@@ -118,18 +118,18 @@ func (d *SystemDatastore) createSystemTables(ctx context.Context, tx pgx.Tx) err
 		return err
 	}
 
-	// one worker of each name per owner: system, topic, group
+	// one worker of each name per owner: system, stream, group
 	for _, indexSql := range []string{
 		fmt.Sprintf(`
-			-- vulkan: system.createSystemTables
-			CREATE UNIQUE INDEX IF NOT EXISTS worker_config_name_topic_id ON %[1]s.worker_config (name, topic_id) WHERE topic_id IS NOT NULL;
+			-- sqlstreams: system.createSystemTables
+			CREATE UNIQUE INDEX IF NOT EXISTS worker_config_name_stream_id ON %[1]s.worker_config (name, stream_id) WHERE stream_id IS NOT NULL;
 		`, d.Datastore.Schema),
 		fmt.Sprintf(`
-			-- vulkan: system.createSystemTables
+			-- sqlstreams: system.createSystemTables
 			CREATE UNIQUE INDEX IF NOT EXISTS worker_config_name_consumer_group_id ON %[1]s.worker_config (name, consumer_group_id) WHERE consumer_group_id IS NOT NULL;
 		`, d.Datastore.Schema),
 		fmt.Sprintf(`
-			-- vulkan: system.createSystemTables
+			-- sqlstreams: system.createSystemTables
 			CREATE UNIQUE INDEX IF NOT EXISTS worker_config_name_system_id ON %[1]s.worker_config (name, system_id) WHERE system_id IS NOT NULL;
 		`, d.Datastore.Schema),
 	} {
@@ -142,7 +142,7 @@ func (d *SystemDatastore) createSystemTables(ctx context.Context, tx pgx.Tx) err
 	// every worker create and metadata replace.
 	// The worker_config row is the truth; this trail is for operators.
 	createWorkerConfigLogSql := fmt.Sprintf(`
-		-- vulkan: system.createSystemTables
+		-- sqlstreams: system.createSystemTables
 		CREATE TABLE IF NOT EXISTS %[1]s.worker_config_log (
 			id BIGSERIAL PRIMARY KEY,
 			worker_id BIGINT NOT NULL REFERENCES %[1]s.worker_config (id) ON DELETE CASCADE,
@@ -159,7 +159,7 @@ func (d *SystemDatastore) createSystemTables(ctx context.Context, tx pgx.Tx) err
 
 	// the one lookup shape: a worker's rows in change order
 	createWorkerConfigLogIndexSql := fmt.Sprintf(`
-		-- vulkan: system.createSystemTables
+		-- sqlstreams: system.createSystemTables
 		CREATE INDEX IF NOT EXISTS worker_config_log_worker_id ON %[1]s.worker_config_log (worker_id, id);
 	`, d.Datastore.Schema)
 	if _, err := tx.Exec(ctx, createWorkerConfigLogIndexSql); err != nil {
@@ -168,7 +168,7 @@ func (d *SystemDatastore) createSystemTables(ctx context.Context, tx pgx.Tx) err
 
 	// worker instances: one row per live copy of a worker
 	createWorkerInstanceSql := fmt.Sprintf(`
-		-- vulkan: system.createSystemTables
+		-- sqlstreams: system.createSystemTables
 		CREATE TABLE IF NOT EXISTS %[1]s.worker_instance (
 			id BIGSERIAL PRIMARY KEY,
 			worker_id BIGINT NOT NULL REFERENCES %[1]s.worker_config (id) ON DELETE CASCADE,
@@ -184,7 +184,7 @@ func (d *SystemDatastore) createSystemTables(ctx context.Context, tx pgx.Tx) err
 
 	// Instance history outlives the live row; worker deletion still removes its history.
 	createWorkerInstanceLogSql := fmt.Sprintf(`
-		-- vulkan: system.createSystemTables
+		-- sqlstreams: system.createSystemTables
 		CREATE TABLE IF NOT EXISTS %[1]s.worker_instance_log (
 			id BIGSERIAL PRIMARY KEY,
 			worker_instance_id BIGINT NOT NULL,
@@ -202,19 +202,19 @@ func (d *SystemDatastore) createSystemTables(ctx context.Context, tx pgx.Tx) err
 
 	for _, indexSql := range []string{
 		fmt.Sprintf(`
-			-- vulkan: system.createSystemTables
+			-- sqlstreams: system.createSystemTables
 			CREATE INDEX IF NOT EXISTS worker_instance_worker_id ON %[1]s.worker_instance (worker_id);
 		`, d.Datastore.Schema),
 		fmt.Sprintf(`
-			-- vulkan: system.createSystemTables
+			-- sqlstreams: system.createSystemTables
 			CREATE INDEX IF NOT EXISTS worker_instance_expires_at ON %[1]s.worker_instance (expires_at);
 		`, d.Datastore.Schema),
 		fmt.Sprintf(`
-			-- vulkan: system.createSystemTables
+			-- sqlstreams: system.createSystemTables
 			CREATE INDEX IF NOT EXISTS worker_instance_log_worker_id ON %[1]s.worker_instance_log (worker_id, id);
 		`, d.Datastore.Schema),
 		fmt.Sprintf(`
-			-- vulkan: system.createSystemTables
+			-- sqlstreams: system.createSystemTables
 			CREATE INDEX IF NOT EXISTS worker_instance_log_expires_at ON %[1]s.worker_instance_log (expires_at);
 		`, d.Datastore.Schema),
 	} {
@@ -226,11 +226,11 @@ func (d *SystemDatastore) createSystemTables(ctx context.Context, tx pgx.Tx) err
 	// schedule_config: named schedules. Owner FKs are GC metadata only -- all
 	// NULL = standalone.
 	createScheduleConfigSql := fmt.Sprintf(`
-		-- vulkan: system.createSystemTables
+		-- sqlstreams: system.createSystemTables
 		CREATE TABLE IF NOT EXISTS %[1]s.schedule_config (
 			id BIGSERIAL PRIMARY KEY,
 			system_id BIGINT NOT NULL REFERENCES %[1]s.system_config (id) ON DELETE CASCADE,
-			topic_id BIGINT NOT NULL REFERENCES %[1]s.topic_config (id) ON DELETE CASCADE,  -- the target topic every produce lands on
+			stream_id BIGINT NOT NULL REFERENCES %[1]s.stream_config (id) ON DELETE CASCADE,  -- the target stream every produce lands on
 			name TEXT NOT NULL UNIQUE,                       -- also the message key and routing key of every produce
 			expression TEXT NOT NULL,                        -- cron expression; UTC unless it carries TZ=
 			suspended BOOLEAN NOT NULL DEFAULT false,        -- a suspended schedule keeps its expression but never produces
@@ -252,7 +252,7 @@ func (d *SystemDatastore) createSystemTables(ctx context.Context, tx pgx.Tx) err
 	// the runtime sibling of the near-static config row. UNIQUE keeps
 	// schedule <-> cursor 1:1, the consumer_group_cursor shape.
 	createScheduleCursorSql := fmt.Sprintf(`
-		-- vulkan: system.createSystemTables
+		-- sqlstreams: system.createSystemTables
 		CREATE TABLE IF NOT EXISTS %[1]s.schedule_cursor (
 			id BIGSERIAL PRIMARY KEY,
 			schedule_id BIGINT NOT NULL UNIQUE REFERENCES %[1]s.schedule_config (id) ON DELETE CASCADE,
@@ -267,7 +267,7 @@ func (d *SystemDatastore) createSystemTables(ctx context.Context, tx pgx.Tx) err
 	// the due scan; suspended lives on the config row, so the filter is the
 	// scan's join, not this index
 	createScheduleCursorDueIndexSql := fmt.Sprintf(`
-		-- vulkan: system.createSystemTables
+		-- sqlstreams: system.createSystemTables
 		CREATE INDEX IF NOT EXISTS schedule_cursor_next_scheduled_at ON %[1]s.schedule_cursor (next_scheduled_at);
 	`, d.Datastore.Schema)
 	if _, err := tx.Exec(ctx, createScheduleCursorDueIndexSql); err != nil {
@@ -277,18 +277,18 @@ func (d *SystemDatastore) createSystemTables(ctx context.Context, tx pgx.Tx) err
 	// migration_log is the append-only history of migration attempts
 	// -- one row per attempt.
 	createMigrationLogSql := fmt.Sprintf(`
-		-- vulkan: system.createSystemTables
+		-- sqlstreams: system.createSystemTables
 		CREATE TABLE IF NOT EXISTS %[1]s.migration_log (
 			id BIGSERIAL PRIMARY KEY,
 			system_id BIGINT REFERENCES %[1]s.system_config (id) ON DELETE CASCADE,
-			topic_id BIGINT REFERENCES %[1]s.topic_config (id) ON DELETE CASCADE,
+			stream_id BIGINT REFERENCES %[1]s.stream_config (id) ON DELETE CASCADE,
 			consumer_group_id BIGINT REFERENCES %[1]s.consumer_group_config (id) ON DELETE CASCADE,
 			version INTEGER NOT NULL,
 			min_compatible_version INTEGER NOT NULL DEFAULT 0, -- the step's MinCompatibleVersion; 0 on baseline and down rows
 			status TEXT NOT NULL,                              -- 'success' | 'failure' (extensible)
 			error TEXT,                                        -- populated when status = 'failure'
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-			CHECK (num_nonnulls(system_id, topic_id, consumer_group_id) = 1)
+			CHECK (num_nonnulls(system_id, stream_id, consumer_group_id) = 1)
 		);
 	`, d.Datastore.Schema)
 	_, err := tx.Exec(ctx, createMigrationLogSql)

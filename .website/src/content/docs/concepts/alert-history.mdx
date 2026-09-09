@@ -3,7 +3,7 @@ title: 'Alerts from measurement history'
 description: Shared pending policy, retained evidence, restart gaps, and read-only evaluation diagnostics.
 ---
 
-The three topic alerts calculate pending duration from collector-owned
+The three stream alerts calculate pending duration from collector-owned
 measurements. Each condition interprets its samples; one shared calculation
 applies duration, freshness, and gap rules. Every worker keeps
 `Evaluate -> Record`. Alerts do not produce their own evidence.
@@ -45,10 +45,10 @@ does not participate in the message key or become OTel labels.
 
 | Measurement | Value | Metadata |
 | --- | --- | --- |
-| `vulkan.topic.state.partitions` | Message-log partition count | `compaction_status`: `compacted` or `uncompacted` |
-| `vulkan.topic.workers.unclaimed` | Unclaimed workers owned by the topic and its consumer groups | `workers`: name, owner, and target instances |
+| `sqlstreams.stream.state.partitions` | Message-log partition count | `compaction_status`: `compacted` or `uncompacted` |
+| `sqlstreams.stream.workers.unclaimed` | Unclaimed workers owned by the stream and its consumer groups | `workers`: name, owner, and target instances |
 
-Partition count and compaction status come from one TopicSnapshot. Compaction
+Partition count and compaction status come from one StreamSnapshot. Compaction
 read cost reads that one measurement, not two independently retained series.
 The existing compacted gauge remains available to metric consumers.
 
@@ -59,12 +59,12 @@ documents.
 
 Partition count defaults to half the live lock ceiling, resolved once per
 evaluation. Compaction read cost defaults to 10,000 partitions and applies
-only to compacted topics. Worker liveness is unhealthy when any owned worker
+only to compacted streams. Worker liveness is unhealthy when any owned worker
 is unclaimed. A change in which worker is unclaimed does not reset the
-topic-level condition; the newest sample supplies the alert's names.
+stream-level condition; the newest sample supplies the alert's names.
 
-Series retain the existing topic-name identity: rename changes the series
-key; a recreated topic with the same name shares it. Missing required metadata
+Series retain the existing stream-name identity: rename changes the series
+key; a recreated stream with the same name shares it. Missing required metadata
 is insufficient evidence. Older partition samples remain usable for partition
 count but cannot establish compaction health. Decode and read errors abort
 evaluation.
@@ -96,7 +96,7 @@ An exact threshold crossing is unhealthy. An exact maximum gap is allowed.
 One sample cannot become active by waiting. Overnight gaps earn no duration;
 restarting only the evaluator preserves a qualifying span in retained history.
 
-For `orders`, topic 41, threshold 100 and two-minute pending:
+For `orders`, stream 41, threshold 100 and two-minute pending:
 
 ```text
 10:00  message 7101: count 105 -> pending, span 0m
@@ -106,18 +106,18 @@ For `orders`, topic 41, threshold 100 and two-minute pending:
 ```
 
 If message 7102 instead records 95, the first unhealthy span ends without an
-alert. If Vulkan stops overnight, the next unhealthy observation starts a new
+alert. If SQLStreams stops overnight, the next unhealthy observation starts a new
 span. A retained active alert stays active until fresh healthy evidence resolves it.
 
 ## Recording and evidence gaps
 
 `AlertEvaluationSnapshot` carries `State` and `Finding`. Finding is present
 for pending and active conditions. Evaluation states are not additional
-statuses produced to the alerts topic.
+statuses produced to the alerts stream.
 
 ```text
-result = condition.Evaluate(topic, consumed policy)
-AlertController.Record(alert name, topic, result)
+result = condition.Evaluate(stream, consumed policy)
+AlertController.Record(alert name, stream, result)
 
 inside Record:
     pending or insufficient -> leave recorded alert unchanged
@@ -130,14 +130,14 @@ inside Record:
         log committed transitions
 ```
 
-Insufficient evidence increments the existing failed-topic check count.
+Insufficient evidence increments the existing failed-stream check count.
 Registration warnings log insufficient evidence. Pending is not a failed
 check. Reminders require sufficient active evidence; an evidence gap cannot
 repeat or resolve an alert.
 
 The head lock serializes alert transitions, not evidence reads made before
 Record. Metrics collection is independent of alert-write success. Consumers
-of the alerts topic still follow normal delivery and retry behavior.
+of the alerts stream still follow normal delivery and retry behavior.
 
 ## Bound the evidence read
 
@@ -171,12 +171,12 @@ from a recorded alert's active/resolved status:
 | `UnhealthySince` | Start of the established unhealthy span, bounded by the evidence window |
 | `ObservedDuration` | Unhealthy duration established by this evaluation |
 | `PendingDuration`, `DisablePending` | Resolved pending settings used |
-| `MaximumGap` | Resolved sample-gap limit for topic alerts; zero for collector progress |
-| `MaximumAge` | Resolved completion-age limit for collector progress; zero for topic alerts |
+| `MaximumGap` | Resolved sample-gap limit for stream alerts; zero for collector progress |
+| `MaximumAge` | Resolved completion-age limit for collector progress; zero for stream alerts |
 | `Reason` | Human-readable explanation for insufficient evidence; empty otherwise |
 
 Healthy and insufficient results report zero unhealthy start/duration.
-With pending disabled, topic alerts skip the history scan and report zero
+With pending disabled, stream alerts skip the history scan and report zero
 span; collector progress still calculates its coverage-backed overdue span.
 An active span is bounded evidence, not the condition's lifetime. Reason text
 is for display; callers branch on State.
@@ -197,7 +197,7 @@ Snapshot exposes those facts without repeating the calculation.
 Scheduled workers call Evaluate with the consumed payload,
 then Record. Snapshot never consumes a scheduled message.
 
-For example, `orders`, topic 41, has unhealthy messages 7101 and 7102 one
+For example, `orders`, stream 41, has unhealthy messages 7101 and 7102 one
 minute apart. A current two-minute pending policy gives Snapshot `pending`
 with `ObservedDuration: 1m`. A queued check carrying the earlier one-minute
 policy can still activate. Snapshot explains the current declaration, not
@@ -220,7 +220,7 @@ A cadence cost checkpoint measured the existing reads and recording path on
 Postgres 18. One-minute
 checks increase both history reads and alert-head updates, including for
 unchanged conditions. Larger installations can supply a longer
-`ScheduleExpression` without changing collection. The metrics topic retains
+`ScheduleExpression` without changing collection. The metrics stream retains
 its 24-hour setting.
 
 Existing declarations change when `System().Register` is called with the new

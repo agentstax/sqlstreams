@@ -10,15 +10,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	"github.com/agentstax/vulkan/pkg/consume/base/controller"
-	"github.com/agentstax/vulkan/pkg/datastore"
-	metricsproducer "github.com/agentstax/vulkan/pkg/metric/producer"
-	"github.com/agentstax/vulkan/pkg/topic"
-	topiccontroller "github.com/agentstax/vulkan/pkg/topic/controller"
-	"github.com/agentstax/vulkan/pkg/worker"
-	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	"github.com/agentstax/sqlstreams/pkg/consume/base/controller"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
+	metricsproducer "github.com/agentstax/sqlstreams/pkg/metric/producer"
+	"github.com/agentstax/sqlstreams/pkg/stream"
+	streamcontroller "github.com/agentstax/sqlstreams/pkg/stream/controller"
+	"github.com/agentstax/sqlstreams/pkg/worker"
+	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
 )
 
 // BaseProvisioner is the half of a consumer worker kind every row shares:
@@ -28,7 +28,7 @@ type BaseProvisioner[Message common.Versioned] struct {
 	Logger     logging.Logger
 
 	workers      *workercontroller.WorkerController
-	topics       *topiccontroller.TopicController
+	streams      *streamcontroller.StreamController
 	keyLeases    *controller.KeyLeaseController
 	metrics      *metricsproducer.MetricProducer
 	consumerFunc func(ctx context.Context, message *Message) error
@@ -65,7 +65,7 @@ func NewBaseProvisioner[Message common.Versioned](ds *datastore.PostgresDatastor
 		return nil, err
 	}
 
-	topics, err := topiccontroller.NewTopicController(ds, logger)
+	streams, err := streamcontroller.NewStreamController(ds, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func NewBaseProvisioner[Message common.Versioned](ds *datastore.PostgresDatastor
 		definition:    definition,
 		Logger:        logger,
 		workers:       workers,
-		topics:        topics,
+		streams:       streams,
 		keyLeases:     keyLeases,
 		metrics:       metrics,
 		consumerFunc:  consumerFunc,
@@ -97,15 +97,15 @@ func (d *BaseProvisioner[Message]) Declare(ctx context.Context, owner *common.Ow
 	return d.workers.DeclareWorker(ctx, d.definition, owner)
 }
 
-// GetTopic resolves the topic a consumer's owner points at; a missing topic
+// GetStream resolves the stream a consumer's owner points at; a missing stream
 // is an error, not an expected absence -- nothing can consume from it.
-func (d *BaseProvisioner[Message]) GetTopic(ctx context.Context, topicId int64) (*topic.Topic, error) {
-	current, err := d.topics.GetById(ctx, topicId)
+func (d *BaseProvisioner[Message]) GetStream(ctx context.Context, streamId int64) (*stream.Stream, error) {
+	current, err := d.streams.GetById(ctx, streamId)
 	if err != nil {
 		return nil, err
 	}
 	if current == nil {
-		return nil, topic.ErrTopicNotFound.With("topic_id", topicId)
+		return nil, stream.ErrStreamNotFound.With("stream_id", streamId)
 	}
 	return current, nil
 }

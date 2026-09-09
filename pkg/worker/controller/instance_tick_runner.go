@@ -7,8 +7,8 @@ import (
 	"math/rand/v2"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	"github.com/agentstax/vulkan/pkg/worker"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	"github.com/agentstax/sqlstreams/pkg/worker"
 )
 
 // paces a worker's pass at the row's poll_rate while an InstanceRunner holds

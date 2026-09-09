@@ -3,9 +3,9 @@ package controller
 import (
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/metric"
-	"github.com/agentstax/vulkan/pkg/metric/controller/datastore"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/metric"
+	"github.com/agentstax/sqlstreams/pkg/metric/controller/datastore"
 )
 
 // overdueThreshold: how long a schedule may sit due and unproduced before it
@@ -16,19 +16,19 @@ func toMeasurementHistory(current time.Time, messages []*common.StoredMessage[me
 	return &metric.MeasurementHistory{EvaluatedAt: current, Messages: messages}
 }
 
-func toOwner(systemId int64, topicId int64, consumerGroupId int64, topicName string, groupName string) (*common.Owner, error) {
+func toOwner(systemId int64, streamId int64, consumerGroupId int64, streamName string, groupName string) (*common.Owner, error) {
 	switch {
 	case consumerGroupId > 0:
-		return common.NewConsumerGroupOwner(systemId, topicId, consumerGroupId, groupName)
-	case topicId > 0:
-		return common.NewTopicOwner(systemId, topicId, topicName)
+		return common.NewConsumerGroupOwner(systemId, streamId, consumerGroupId, groupName)
+	case streamId > 0:
+		return common.NewStreamOwner(systemId, streamId, streamName)
 	default:
 		return common.NewSystemOwner(systemId)
 	}
 }
 
 func toWorkerSnapshot(data datastore.WorkerSnapshotRow) (metric.WorkerSnapshot, error) {
-	owner, err := toOwner(data.SystemId, data.TopicId, data.ConsumerGroupId, data.TopicName, data.GroupName)
+	owner, err := toOwner(data.SystemId, data.StreamId, data.ConsumerGroupId, data.StreamName, data.GroupName)
 	if err != nil {
 		return metric.WorkerSnapshot{}, err
 	}
@@ -67,7 +67,7 @@ func toScheduleSnapshot(data datastore.ScheduleSnapshotRow) (metric.ScheduleSnap
 	snapshot := metric.ScheduleSnapshot{
 		Owner:           owner,
 		Name:            data.Name,
-		Topic:           data.TopicName,
+		Stream:          data.StreamName,
 		Expression:      data.Expression,
 		Suspended:       data.Suspended,
 		NextScheduledAt: data.NextScheduledAt,
@@ -108,9 +108,9 @@ func toConsumerGroupSnapshot(consumerGroup string, data *datastore.ConsumerGroup
 	return snapshot
 }
 
-func toTopicSnapshot(topicId int64, data *datastore.TopicSnapshotRow, groups []metric.ConsumerGroupSnapshot) *metric.TopicSnapshot {
-	return &metric.TopicSnapshot{
-		TopicId:                           topicId,
+func toStreamSnapshot(streamId int64, data *datastore.StreamSnapshotRow, groups []metric.ConsumerGroupSnapshot) *metric.StreamSnapshot {
+	return &metric.StreamSnapshot{
+		StreamId:                          streamId,
 		Partitions:                        data.Partitions,
 		Compacted:                         data.Compacted,
 		CompactionRowsWithoutHead:         data.CompactionRowsWithoutHead,
@@ -121,7 +121,7 @@ func toTopicSnapshot(topicId int64, data *datastore.TopicSnapshotRow, groups []m
 
 func toAbandonedRoutineSnapshot(abandoned []datastore.EventTimestampRow, cleared []datastore.EventTimestampRow) *metric.AbandonedRoutineSnapshot {
 	// eventKey is the (message, attempt) identity an abandoned event and its
-	// matching cleared event share -- topicId/group are already fixed by the
+	// matching cleared event share -- streamId/group are already fixed by the
 	// routing key both reads filter on, so they're not part of the key.
 	type eventKey struct {
 		MessageId int64
@@ -152,7 +152,7 @@ func toAbandonedRoutineSnapshot(abandoned []datastore.EventTimestampRow, cleared
 	return &snapshot
 }
 
-func toTopicSchemaVersionSnapshot(count *datastore.SchemaVersionCountRow, lags []datastore.ConsumerGroupSchemaVersionLagRow) metric.TopicSchemaVersionSnapshot {
+func toStreamSchemaVersionSnapshot(count *datastore.SchemaVersionCountRow, lags []datastore.ConsumerGroupSchemaVersionLagRow) metric.StreamSchemaVersionSnapshot {
 	groups := make([]metric.ConsumerGroupSchemaVersionLag, 0, len(lags))
 	for _, lag := range lags {
 		groups = append(groups, metric.ConsumerGroupSchemaVersionLag{
@@ -161,7 +161,7 @@ func toTopicSchemaVersionSnapshot(count *datastore.SchemaVersionCountRow, lags [
 			UnresolvedExceptions: lag.UnresolvedExceptions,
 		})
 	}
-	return metric.TopicSchemaVersionSnapshot{
+	return metric.StreamSchemaVersionSnapshot{
 		Version:         int(count.SchemaVersion),
 		Messages:        count.Messages,
 		CompactionHeads: count.CompactionHeads,

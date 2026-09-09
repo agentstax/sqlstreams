@@ -1,6 +1,6 @@
 ---
 title: Queues, Logs & the Fusion
-description: The one mental model behind Vulkan — and behind every messaging system you've ever used.
+description: The one mental model behind SQLStreams — and behind every messaging system you've ever used.
 ---
 
 import ThreadAside from '../../../components/thread-aside/thread-aside.svelte';
@@ -26,21 +26,21 @@ Each shape is great at what the other can't do:
 
 This is why you end up running both — Kafka *and* SQS, or Kafka *and*
 RabbitMQ — and bolting on workarounds where each falls short (Kafka's
-"retry topics" are a queue impersonation; SQS's 14-day retention is a
+"retry streams" are a queue impersonation; SQS's 14-day retention is a
 log impersonation).
 
 ## The fusion
 
-Vulkan's design move is to stop choosing. Each topic keeps the two
+SQLStreams's design move is to stop choosing. Each stream keeps the two
 concerns in separate tables:
 
-- **The message log** (`message_log_<topic id>`) — immutable,
+- **The message log** (`message_log_<stream id>`) — immutable,
   append-only facts, ordered by id. Retention, fan-out, and routing
   live here.
-- **Per-group delivery state** (`exception_queue_<topic id>`, one row
+- **Per-group delivery state** (`exception_queue_<stream id>`, one row
   per *failed* message per group) — claims, attempts, backoff,
   dead-lettering live here.
-- **Per-group cursors** (`consumer_group_cursor_<topic id>`) — how far
+- **Per-group cursors** (`consumer_group_cursor_<stream id>`) — how far
   each group has read and resolved.
 
 And the load-bearing detail: every consumer group gets **both**, with
@@ -50,7 +50,7 @@ million clean messages cost one advancing integer, not a million state
 rows. A message that *fails* materializes its own delivery row and
 enters the full [state machine](/concepts/lifecycle/) — retries,
 backoff, dead-lettering, per group. You don't pick "queue semantics or
-log semantics" per topic; the design gives you log economics for
+log semantics" per stream; the design gives you log economics for
 success and queue lifecycle for failure, simultaneously.
 
 <ThreadAside label="TIP" title="The aha">
@@ -89,7 +89,7 @@ Once you have the queue/log lens, the whole landscape snaps into focus:
 - **Pulsar** — the closest existing fusion (per-subscription cursors
   *plus* individual message state), at the cost of running BookKeeper +
   ZooKeeper + brokers.
-- **Vulkan** — the same fusion as tables, in the database you already
+- **SQLStreams** — the same fusion as tables, in the database you already
   run.
 
 Next: [how the tables actually fit together →](/concepts/architecture/)

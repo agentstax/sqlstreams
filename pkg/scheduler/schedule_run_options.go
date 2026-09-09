@@ -3,7 +3,7 @@ package scheduler
 import (
 	"fmt"
 
-	"github.com/agentstax/vulkan/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common"
 )
 
 // ScheduleRunOptions controls one immediate run of a registered schedule.

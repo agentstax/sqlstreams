@@ -1,10 +1,10 @@
 package admin
 
 type MessageAdminConfig struct {
-	// AllowDestroy - whether this admin may destroy topics at all.
+	// AllowDestroy - whether this admin may destroy streams at all.
 	// Default: false.
 	//
-	// A service that only ever registers topics should never opt in --
+	// A service that only ever registers streams should never opt in --
 	// create is recoverable, destroy is not.
 	AllowDestroy bool
 }

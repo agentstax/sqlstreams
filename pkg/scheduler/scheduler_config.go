@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common"
 )
 
 // SchedulerConfig is a schedule's declared delivery semantics, stored on
@@ -20,7 +20,7 @@ type SchedulerConfig struct {
 	Concurrency common.ConcurrencyPolicy
 
 	// Metadata - marshaled to opaque JSON stored on the row and shown by
-	// `vulkan schedule get`; it is not part of the produced message.
+	// `sqlstreams schedule get`; it is not part of the produced message.
 	// Default: nil, stored as {}.
 	Metadata any
 }

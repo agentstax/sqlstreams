@@ -3,7 +3,7 @@ package main
 // Scenario 10 -- a schedule that produces on a cron expression.
 //
 // A nightly usage report: register the schedule once with the message it
-// produces and the topic it produces to, then consume that topic like any
+// produces and the stream it produces to, then consume that stream like any
 // other.
 
 import (
@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"os"
 
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -30,20 +30,20 @@ func main() {
 }
 
 func run() error {
-	ctx, stop := vulkan.LifecycleContext(nil)
+	ctx, stop := sqlstreams.LifecycleContext(nil)
 	defer stop()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	if err != nil {
 		return err
 	}
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, nil)
+	client, err := sqlstreams.NewClient(ctx, pool, nil)
 	if err != nil {
 		return err
 	}
-	reports, err := client.Topic[UsageReportRequestedV1]("usage.reports.requested").Register(ctx, nil)
+	reports, err := client.Stream[UsageReportRequestedV1]("usage.reports.requested").Register(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -53,7 +53,7 @@ func run() error {
 		return err
 	}
 
-	builder, err := client.Topic[UsageReportRequestedV1](reports.Name).Consumer("usage-report-builder").Register(ctx, nil)
+	builder, err := client.Stream[UsageReportRequestedV1](reports.Name).Consumer("usage-report-builder").Register(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -68,7 +68,7 @@ func run() error {
 
 func buildUsageReport(ctx context.Context, request *UsageReportRequestedV1) error {
 	// the payload is the same every run; the scheduled time is on the delivery's meta
-	meta, _ := vulkan.MetaFromContext(ctx)
+	meta, _ := sqlstreams.MetaFromContext(ctx)
 	fmt.Printf("building %s usage report for %s\n", request.Scope, meta.ScheduledAt.Format("2006-01-02"))
 	return nil
 }

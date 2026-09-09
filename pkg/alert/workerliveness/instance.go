@@ -5,18 +5,18 @@ import (
 	"errors"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/alert"
-	alertcontroller "github.com/agentstax/vulkan/pkg/alert/controller"
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/diagnostic"
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	"github.com/agentstax/vulkan/pkg/consumer"
-	"github.com/agentstax/vulkan/pkg/metric"
-	"github.com/agentstax/vulkan/pkg/produce"
-	"github.com/agentstax/vulkan/pkg/producer"
-	"github.com/agentstax/vulkan/pkg/schedule"
-	"github.com/agentstax/vulkan/pkg/worker"
-	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
+	"github.com/agentstax/sqlstreams/pkg/alert"
+	alertcontroller "github.com/agentstax/sqlstreams/pkg/alert/controller"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	"github.com/agentstax/sqlstreams/pkg/consumer"
+	"github.com/agentstax/sqlstreams/pkg/metric"
+	"github.com/agentstax/sqlstreams/pkg/produce"
+	"github.com/agentstax/sqlstreams/pkg/producer"
+	"github.com/agentstax/sqlstreams/pkg/schedule"
+	"github.com/agentstax/sqlstreams/pkg/worker"
+	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
 )
 
 // WorkerLivenessInstance consumes the alert's schedule messages while a heartbeat
@@ -61,14 +61,14 @@ func (i *WorkerLivenessInstance) Run(ctx context.Context) error {
 }
 
 // consume is one claimed life: the alert controller is built here so every
-// claim applies the claimed row's repeat_interval against the alerts topic's
+// claim applies the claimed row's repeat_interval against the alerts stream's
 // live retention.
 func (i *WorkerLivenessInstance) consume(ctx context.Context) error {
-	registered, err := i.provisioner.producer.Register[alert.Alert](ctx, alert.AlertTopicName, nil)
+	registered, err := i.provisioner.producer.Register[alert.Alert](ctx, alert.AlertStreamName, nil)
 	if err != nil {
 		return err
 	}
-	measurements, err := i.provisioner.producer.Register[metric.Measurement](ctx, metric.MetricTopicName, nil)
+	measurements, err := i.provisioner.producer.Register[metric.Measurement](ctx, metric.MetricStreamName, nil)
 	if err != nil {
 		return err
 	}
@@ -80,27 +80,27 @@ func (i *WorkerLivenessInstance) consume(ctx context.Context) error {
 	}
 	i.alerts = alerts
 
-	instance, err := i.provisioner.scheduleConsumer.Register[alert.JobPayload](ctx, JobName, schedule.ScheduleTopicName, &consumer.ConsumerConfig{
+	instance, err := i.provisioner.scheduleConsumer.Register[alert.JobPayload](ctx, JobName, schedule.ScheduleStreamName, &consumer.ConsumerConfig{
 		Bindings: []string{JobName},
 	})
 	if err != nil {
 		return err
 	}
-	return instance.Consume(ctx, i.evaluateTopics, nil)
+	return instance.Consume(ctx, i.evaluateStreams, nil)
 }
 
-func (i *WorkerLivenessInstance) evaluateTopics(ctx context.Context, jobPayload *alert.JobPayload) error {
-	topics, err := i.provisioner.topics.List(ctx)
+func (i *WorkerLivenessInstance) evaluateStreams(ctx context.Context, jobPayload *alert.JobPayload) error {
+	streams, err := i.provisioner.streams.List(ctx)
 	if err != nil {
 		return err
 	}
 
-	// one topic's failure never skips the others
+	// one stream's failure never skips the others
 	var evaluated, failed, published, resolved int64
 	var errs error
-	for _, listed := range topics {
+	for _, listed := range streams {
 		evaluated++
-		owner, err := common.NewTopicOwner(listed.SystemId, listed.Id, listed.Name)
+		owner, err := common.NewStreamOwner(listed.SystemId, listed.Id, listed.Name)
 		if err != nil {
 			failed++
 			errs = errors.Join(errs, err)
@@ -145,8 +145,8 @@ func (i *WorkerLivenessInstance) produceCheckSummary(ctx context.Context, evalua
 		metric *diagnostic.DiagnosticMetric
 		value  int64
 	}{
-		{metric.MetricCheckTopicsEvaluated, evaluated},
-		{metric.MetricCheckTopicsFailed, failed},
+		{metric.MetricCheckStreamsEvaluated, evaluated},
+		{metric.MetricCheckStreamsFailed, failed},
 		{metric.MetricCheckPublishedAlerts, published},
 		{metric.MetricCheckResolvedAlerts, resolved},
 	}

@@ -7,7 +7,7 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/agentstax/vulkan/pkg/worker"
+	"github.com/agentstax/sqlstreams/pkg/worker"
 )
 
 // ClaimInstance claims one live copy of the worker. nil = declined (already

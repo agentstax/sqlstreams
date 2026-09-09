@@ -3,13 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/agentstax/vulkan/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
 	"os"
 	"time"
 
-	metricscontroller "github.com/agentstax/vulkan/pkg/metric/controller"
-	metricsproducer "github.com/agentstax/vulkan/pkg/metric/producer"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	metricscontroller "github.com/agentstax/sqlstreams/pkg/metric/controller"
+	metricsproducer "github.com/agentstax/sqlstreams/pkg/metric/producer"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 func main() {
@@ -41,14 +41,14 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 	run := time.Now().UnixNano()
-	topicId := run // no real topic needs to exist -- the events just carry this id as data
+	streamId := run // no real stream needs to exist -- the events just carry this id as data
 	group := fmt.Sprintf("abandonedroutinesnapshot.%d", run)
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err := datastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
@@ -57,8 +57,8 @@ func run() (err error) {
 	metricController, err := metricscontroller.NewMetricsController(ds, ds.Logger)
 	must(err)
 
-	step("never-produced (topic, group) -> zeroes, not an error")
-	snapshot, err := metricController.AbandonedRoutineSnapshot(ctx, topicId, group)
+	step("never-produced (stream, group) -> zeroes, not an error")
+	snapshot, err := metricController.AbandonedRoutineSnapshot(ctx, streamId, group)
 	must(err)
 	assertInt64("Total", snapshot.Total, 0)
 	assertInt64("Outstanding", snapshot.Outstanding, 0)
@@ -76,24 +76,24 @@ func run() (err error) {
 		must(producerB.Run(ctx, group, "abandonedroutinesnapshot", 1, "session-b"))
 	}()
 
-	producerA.RecordAbandoned(topicId, group, 1, 1) // matched pair, cleared by A
-	producerB.RecordAbandoned(topicId, group, 2, 1) // matched pair, cleared by B
-	time.Sleep(20 * time.Millisecond)               // let the self-clear latency be non-zero and measurable
-	producerA.RecordCleared(topicId, group, 1, 1)
-	producerB.RecordCleared(topicId, group, 2, 1)
-	producerA.RecordAbandoned(topicId, group, 3, 1) // never cleared -- outstanding
+	producerA.RecordAbandoned(streamId, group, 1, 1) // matched pair, cleared by A
+	producerB.RecordAbandoned(streamId, group, 2, 1) // matched pair, cleared by B
+	time.Sleep(20 * time.Millisecond)                // let the self-clear latency be non-zero and measurable
+	producerA.RecordCleared(streamId, group, 1, 1)
+	producerB.RecordCleared(streamId, group, 2, 1)
+	producerA.RecordAbandoned(streamId, group, 3, 1) // never cleared -- outstanding
 
 	// events are produced off the hot path, landing on the next flush tick --
 	// give them a moment to actually land
 	must(waitFor(10*time.Second, func() (bool, error) {
-		s, err := metricController.AbandonedRoutineSnapshot(ctx, topicId, group)
+		s, err := metricController.AbandonedRoutineSnapshot(ctx, streamId, group)
 		if err != nil {
 			return false, err
 		}
 		return s.Total == 3, nil
 	}))
 
-	snapshot, err = metricController.AbandonedRoutineSnapshot(ctx, topicId, group)
+	snapshot, err = metricController.AbandonedRoutineSnapshot(ctx, streamId, group)
 	must(err)
 	assertInt64("Total", snapshot.Total, 3)
 	assertInt64("Outstanding", snapshot.Outstanding, 1)
@@ -102,9 +102,9 @@ func run() (err error) {
 	}
 	fmt.Printf("  ✓ SelfClearLatencyAvg (%v)\n", snapshot.SelfClearLatencyAvg)
 
-	step("a different group on the same topic id sees none of the above")
+	step("a different group on the same stream id sees none of the above")
 	otherGroup := fmt.Sprintf("abandonedroutinesnapshot.other.%d", run)
-	isolated, err := metricController.AbandonedRoutineSnapshot(ctx, topicId, otherGroup)
+	isolated, err := metricController.AbandonedRoutineSnapshot(ctx, streamId, otherGroup)
 	must(err)
 	assertInt64("Total", isolated.Total, 0)
 	assertInt64("Outstanding", isolated.Outstanding, 0)

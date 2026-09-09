@@ -6,7 +6,7 @@ import (
 	"hash/crc32"
 )
 
-// AdvisoryLockNamespace is the high 32 bits of every advisory lock key vulkan
+// AdvisoryLockNamespace is the high 32 bits of every advisory lock key sqlstreams
 // takes -- ASCII "VULK", 1448430667. 4 bytes specifically.
 const AdvisoryLockNamespace int64 = 0x56554C4B
 
@@ -20,15 +20,15 @@ type AdvisoryLockKey struct {
 // Different schemas checksum differently, so two installations in one database
 // never wait on each other's locks.
 //
-// How the bytes move, for ("topic", "vulkan", "orders") -- the checksum of
-// "topic:vulkan:orders" is 0xF380DAE6 (4085308134):
+// How the bytes move, for ("stream", "sqlstreams", "orders") -- the checksum of
+// "stream:sqlstreams:orders" is 0xAB15D0C1 (2870333633):
 //
 //	namespace        00 00 00 00 56 55 4C 4B
 //	namespace << 32  56 55 4C 4B 00 00 00 00     ← slid left, low half zeroed
-//	int64(checksum)  00 00 00 00 F3 80 DA E6     ← uint32 fills exactly 4 bytes
-//	OR of the two    56 55 4C 4B F3 80 DA E6     = 6220962349373774566, the key
+//	int64(checksum)  00 00 00 00 AB 15 D0 C1     ← uint32 fills exactly 4 bytes
+//	OR of the two    56 55 4C 4B AB 15 D0 C1     = 6220962348158800065, the key
 //	                 └─classid─┘ └──objid──┘
-//	                  1448430667  4085308134     how pg_locks files the halves
+//	                  1448430667  2870333633     how pg_locks files the halves
 func NewAdvisoryLockKey(kind string, schema string, parts ...any) (*AdvisoryLockKey, error) {
 	if kind == "" {
 		return nil, errors.New("kind must not be empty")

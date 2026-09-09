@@ -3,9 +3,9 @@ package controller
 import (
 	"uuid"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/produce"
-	"github.com/agentstax/vulkan/pkg/produce/controller/datastore"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/produce"
+	"github.com/agentstax/sqlstreams/pkg/produce/controller/datastore"
 )
 
 func toAppend[Message common.Versioned](idempotencyKey uuid.UUID, payload *Message, options produce.ProduceOptions) *datastore.Append[Message] {

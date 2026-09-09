@@ -37,19 +37,19 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/agentstax/vulkan/e2e/common"
-	iCommon "github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/consume"
-	consumecontroller "github.com/agentstax/vulkan/pkg/consume/controller"
-	cursoradvancerdatastore "github.com/agentstax/vulkan/pkg/consume/cursoradvancer/controller/datastore"
-	exceptionconsumercontroller "github.com/agentstax/vulkan/pkg/consume/exceptionconsumer/controller"
-	"github.com/agentstax/vulkan/pkg/consume/messageconsumer"
-	messageconsumercontroller "github.com/agentstax/vulkan/pkg/consume/messageconsumer/controller"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	metricsproducer "github.com/agentstax/vulkan/pkg/metric/producer"
-	"github.com/agentstax/vulkan/pkg/topic"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
-	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
+	"github.com/agentstax/sqlstreams/e2e/common"
+	iCommon "github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/consume"
+	consumecontroller "github.com/agentstax/sqlstreams/pkg/consume/controller"
+	cursoradvancerdatastore "github.com/agentstax/sqlstreams/pkg/consume/cursoradvancer/controller/datastore"
+	exceptionconsumercontroller "github.com/agentstax/sqlstreams/pkg/consume/exceptionconsumer/controller"
+	"github.com/agentstax/sqlstreams/pkg/consume/messageconsumer"
+	messageconsumercontroller "github.com/agentstax/sqlstreams/pkg/consume/messageconsumer/controller"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	metricsproducer "github.com/agentstax/sqlstreams/pkg/metric/producer"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	"github.com/agentstax/sqlstreams/pkg/stream"
+	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
 )
 
 const group = "phase9.shutdowntruncation"
@@ -91,20 +91,20 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	topicName := fmt.Sprintf("phase9.shutdowntruncation.%d", time.Now().UnixNano())
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{})
+	streamName := fmt.Sprintf("phase9.shutdowntruncation.%d", time.Now().UnixNano())
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{})
 	must(err)
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
@@ -115,7 +115,7 @@ func run() (err error) {
 	must(err)
 	cursorAdvancerDatastore, err := cursoradvancerdatastore.NewCursorAdvancerDatastore(ds, ds.Logger)
 	must(err)
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 
 	groupId = mustGroupID(cd.RegisterGroup(ctx, tp.Id, group, consume.Beginning()))
@@ -202,7 +202,7 @@ func run() (err error) {
 	// the narrowed lease's 2s duration already elapsed during the 5.5s backoff
 	// sleep above -- no separate wait needed before reclaiming it.
 	step("reclaim: only the untouched suffix comes back, not the resolved prefix")
-	claim2, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, 3, 3, lease, topic.DeliveryLogModeFailures)
+	claim2, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, 3, 3, lease, stream.DeliveryLogModeFailures)
 	must(err)
 	if claim2 == nil {
 		die("expected a reclaim, got nil")
@@ -212,7 +212,7 @@ func run() (err error) {
 	assert("reclaimed exactly the untouched suffix (1 message)", int64(len(claim2.Messages)), 1)
 	assert("reclaimed message is the one never attempted", claim2.Messages[0].Id, 3)
 
-	must(messageConsumers.Commit(ctx, tp.Id, groupId, claim2.Lease.Token, nil, 5*time.Second, topic.DeliveryLogModeFailures))
+	must(messageConsumers.Commit(ctx, tp.Id, groupId, claim2.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 	committed = advance(ctx, cursorAdvancerDatastore, tp.Id)
 	assert("committed reaches head", committed, 3)
 	assert("no leases left open", leases(ctx, ds, tp.Id), 0)
@@ -227,34 +227,34 @@ func run() (err error) {
 
 // ---- helpers ----
 
-func seed(ctx context.Context, wpInstance *vulkan.ProducerInstance[common.Work], n int) {
+func seed(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[common.Work], n int) {
 	for range n {
-		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
+		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 			return common.NewWork(30, "admin@example.com")
 		}, nil)
 		must(err)
 	}
 }
 
-func advance(ctx context.Context, cursorAdvancerDatastore *cursoradvancerdatastore.CursorAdvancerDatastore, topicId int64) int64 {
-	c, err := cursorAdvancerDatastore.AdvanceCommitted(ctx, topicId, groupId)
+func advance(ctx context.Context, cursorAdvancerDatastore *cursoradvancerdatastore.CursorAdvancerDatastore, streamId int64) int64 {
+	c, err := cursorAdvancerDatastore.AdvanceCommitted(ctx, streamId, groupId)
 	must(err)
 	return c
 }
 
 type leaseBounds struct{ low, high int64 }
 
-func onlyLease(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64) leaseBounds {
+func onlyLease(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) leaseBounds {
 	var lb leaseBounds
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT low, high FROM %s.%s WHERE consumer_group_id=$1`, ds.Schema, topic.ClaimLeaseTable(topicId)), groupId).Scan(&lb.low, &lb.high))
+	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT low, high FROM %s.%s WHERE consumer_group_id=$1`, ds.Schema, stream.ClaimLeaseTable(streamId)), groupId).Scan(&lb.low, &lb.high))
 	return lb
 }
 
-func leases(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64) int64 {
-	return scalar(ctx, ds, fmt.Sprintf(`SELECT count(*) FROM %s.%s WHERE consumer_group_id=$1`, ds.Schema, topic.ClaimLeaseTable(topicId)), groupId)
+func leases(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) int64 {
+	return scalar(ctx, ds, fmt.Sprintf(`SELECT count(*) FROM %s.%s WHERE consumer_group_id=$1`, ds.Schema, stream.ClaimLeaseTable(streamId)), groupId)
 }
-func deliveries(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64) int64 {
-	return scalar(ctx, ds, fmt.Sprintf(`SELECT count(*) FROM %s.%s WHERE consumer_group_id=$1`, ds.Schema, topic.ExceptionQueueTable(topicId)), groupId)
+func deliveries(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) int64 {
+	return scalar(ctx, ds, fmt.Sprintf(`SELECT count(*) FROM %s.%s WHERE consumer_group_id=$1`, ds.Schema, stream.ExceptionQueueTable(streamId)), groupId)
 }
 
 func scalar(ctx context.Context, ds *iDatastore.PostgresDatastore, q string, args ...any) int64 {
@@ -263,9 +263,9 @@ func scalar(ctx context.Context, ds *iDatastore.PostgresDatastore, q string, arg
 	return v
 }
 
-func assertStatus(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId, messageId int64, want string) {
+func assertStatus(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId, messageId int64, want string) {
 	var got string
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT status FROM %s.%s WHERE consumer_group_id=$1 AND message_id=$2`, ds.Schema, topic.ExceptionQueueTable(topicId)), groupId, messageId).Scan(&got))
+	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT status FROM %s.%s WHERE consumer_group_id=$1 AND message_id=$2`, ds.Schema, stream.ExceptionQueueTable(streamId)), groupId, messageId).Scan(&got))
 	if got != want {
 		die(fmt.Sprintf("message %d status: got %q, want %q", messageId, got, want))
 	}

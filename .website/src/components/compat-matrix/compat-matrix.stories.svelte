@@ -89,7 +89,7 @@
 	const { Story } = defineMeta({
 		title: 'Board/CompatMatrix',
 		component: CompatMatrix,
-		args: { label: 'Topic scope' },
+		args: { label: 'Stream scope' },
 	});
 </script>
 

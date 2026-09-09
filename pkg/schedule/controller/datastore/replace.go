@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/schedule"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/schedule"
 )
 
 // replaceConfig overwrites an already-registered schedule's mutable config:
 // the newest registration wins.
-func (d *ScheduleDatastore) replaceConfig(ctx context.Context, found *ScheduleConfigRow, topicId int64, expression *schedule.ScheduleExpression, concurrency common.ConcurrencyPolicy, timeout time.Duration, payload json.RawMessage, schemaVersion int, metadata any) (*ScheduleConfigRow, error) {
+func (d *ScheduleDatastore) replaceConfig(ctx context.Context, found *ScheduleConfigRow, streamId int64, expression *schedule.ScheduleExpression, concurrency common.ConcurrencyPolicy, timeout time.Duration, payload json.RawMessage, schemaVersion int, metadata any) (*ScheduleConfigRow, error) {
 	// a scheduled time already due under the old schedule is dropped, not
 	// produced late -- the new schedule decides when the schedule next runs
 	var next *time.Time
@@ -31,10 +31,10 @@ func (d *ScheduleDatastore) replaceConfig(ctx context.Context, found *ScheduleCo
 	defer tx.Rollback(ctx)
 
 	updateConfigSql := fmt.Sprintf(`
-		-- vulkan: schedule.replaceConfig
+		-- sqlstreams: schedule.replaceConfig
 		UPDATE %[1]s.schedule_config
 		SET
-			topic_id = $2,
+			stream_id = $2,
 			expression = $3,
 			schema_version = $4,
 			payload = $5,
@@ -45,7 +45,7 @@ func (d *ScheduleDatastore) replaceConfig(ctx context.Context, found *ScheduleCo
 		WHERE id = $1;
 	`, d.Datastore.Schema)
 	tag, err := tx.Exec(ctx, updateConfigSql, found.Id,
-		topicId, expression.String(), schemaVersion, payload, string(concurrency), int64(timeout), metadata)
+		streamId, expression.String(), schemaVersion, payload, string(concurrency), int64(timeout), metadata)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ func (d *ScheduleDatastore) replaceConfig(ctx context.Context, found *ScheduleCo
 
 	if next != nil {
 		cursorSql := fmt.Sprintf(`
-			-- vulkan: schedule.replaceConfig
+			-- sqlstreams: schedule.replaceConfig
 			UPDATE %[1]s.schedule_cursor SET next_scheduled_at = $2 WHERE schedule_id = $1;
 		`, d.Datastore.Schema)
 		if _, err := tx.Exec(ctx, cursorSql, found.Id, *next); err != nil {

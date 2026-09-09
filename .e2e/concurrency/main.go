@@ -2,8 +2,8 @@ package main
 
 // Buffered claim + N-processor dispatch concurrency proof.
 //
-// Two self-contained, self-verifying scenarios (registers its own topic,
-// seeds its own backlog, destroys the topic on exit):
+// Two self-contained, self-verifying scenarios (registers its own stream,
+// seeds its own backlog, destroys the stream on exit):
 //
 //  1. ORDERING -- one slow message and three fast ones claimed in the same
 //     batch. Under a pool of 1, dispatch is strictly serial: the fast
@@ -20,7 +20,7 @@ package main
 //     beats the serial one by a wide margin.
 //
 // Both scenarios replay the SAME seeded backlog against independent
-// consumer groups (independent cursors on the same topic), so nothing needs
+// consumer groups (independent cursors on the same stream), so nothing needs
 // re-seeding between pool sizes.
 
 import (
@@ -31,8 +31,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/agentstax/vulkan/e2e/common"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/e2e/common"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 const slowMs = 1000
@@ -66,21 +66,21 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", &vulkan.PostgresConnectionConfig{MaxConns: 20})
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", &sqlstreams.PostgresConnectionConfig{MaxConns: 20})
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 
-	topicName := fmt.Sprintf("phase14a.concurrency.%d", time.Now().UnixNano())
-	tp, err := client.Topic[common.Work](topicName).Register(ctx, &vulkan.TopicConfig{})
+	streamName := fmt.Sprintf("phase14a.concurrency.%d", time.Now().UnixNano())
+	tp, err := client.Stream[common.Work](streamName).Register(ctx, &sqlstreams.StreamConfig{})
 	must(err)
 	defer func() {
-		must(client.Topic[common.Work](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[common.Work](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 
 	runOrdering(ctx, client, wpInstance, tp.Name)
@@ -95,12 +95,12 @@ func run() (err error) {
 
 // ---- scenario 1: ordering ----
 
-func runOrdering(ctx context.Context, client *vulkan.Client, wpInstance *vulkan.ProducerInstance[common.Work], topicName string) {
+func runOrdering(ctx context.Context, client *sqlstreams.Client, wpInstance *sqlstreams.ProducerInstance[common.Work], streamName string) {
 	step("ORDERING -- one slow message, three fast ones, same batch")
 	seedSleep(ctx, wpInstance, []int{slowMs, 0, 0, 0})
 
 	step("pool=1 -- dispatch is serial, fast messages can't start until the slow one releases its only permit")
-	slowAt, fastAt := drain(ctx, client, topicName, "phase14a.concurrency.n1", 1, 4)
+	slowAt, fastAt := drain(ctx, client, streamName, "phase14a.concurrency.n1", 1, 4)
 	for i, at := range fastAt {
 		if at < slowAt {
 			die(fmt.Sprintf("pool=1: fast message %d completed at %s, before the slow message finished at %s -- dispatch should have been serial", i, at, slowAt))
@@ -109,7 +109,7 @@ func runOrdering(ctx context.Context, client *vulkan.Client, wpInstance *vulkan.
 	fmt.Printf("  ✓ all 3 fast completions landed after the slow one (%s)\n", slowAt)
 
 	step("pool=4 -- fast messages dispatch to their own permits immediately, finish while the slow one is still running")
-	slowAt, fastAt = drain(ctx, client, topicName, "phase14a.concurrency.n4", 4, 4)
+	slowAt, fastAt = drain(ctx, client, streamName, "phase14a.concurrency.n4", 4, 4)
 	for i, at := range fastAt {
 		if at > slowAt {
 			die(fmt.Sprintf("pool=4: fast message %d completed at %s, after the slow message finished at %s -- it should have run concurrently with it", i, at, slowAt))
@@ -118,17 +118,17 @@ func runOrdering(ctx context.Context, client *vulkan.Client, wpInstance *vulkan.
 	fmt.Printf("  ✓ all 3 fast completions landed before the slow one (%s) -- it didn't block them\n", slowAt)
 }
 
-// drain runs group over topicName's full backlog (assumed to fit in one
+// drain runs group over streamName's full backlog (assumed to fit in one
 // claim -- batchLimit must cover it) at the given pool size, returning the
 // slow message's completion offset from start and each fast message's.
-func drain(ctx context.Context, client *vulkan.Client, topicName, group string, poolSize, batchLimit int) (time.Duration, []time.Duration) {
-	wcInstance, err := client.Topic[common.Work](topicName).Consumer(group).Register(ctx, &vulkan.ConsumerConfig{
-		Message: &vulkan.MessageOptions{Timeout: 10 * time.Second},
+func drain(ctx context.Context, client *sqlstreams.Client, streamName, group string, poolSize, batchLimit int) (time.Duration, []time.Duration) {
+	wcInstance, err := client.Stream[common.Work](streamName).Consumer(group).Register(ctx, &sqlstreams.ConsumerConfig{
+		Message: &sqlstreams.MessageOptions{Timeout: 10 * time.Second},
 	})
 
 	must(err)
 
-	options := &vulkan.ConsumeOptions{
+	options := &sqlstreams.ConsumeOptions{
 		DisableGracefulShutdown: true,
 		BatchLimit:              batchLimit,
 		QueueSize:               batchLimit + poolSize,
@@ -176,7 +176,7 @@ const (
 	minSpeedup      = 3.0 // conservative vs pool=8's 8x theoretical ceiling -- avoids flaking on a loaded machine
 )
 
-func runThroughput(ctx context.Context, client *vulkan.Client, wpInstance *vulkan.ProducerInstance[common.Work], topicName string) {
+func runThroughput(ctx context.Context, client *sqlstreams.Client, wpInstance *sqlstreams.ProducerInstance[common.Work], streamName string) {
 	step("THROUGHPUT -- 40 fixed-cost messages, pool=1 (serial) vs pool=8 (parallel)")
 
 	sleeps := make([]int, throughputCount)
@@ -185,11 +185,11 @@ func runThroughput(ctx context.Context, client *vulkan.Client, wpInstance *vulka
 	}
 	seedSleep(ctx, wpInstance, sleeps)
 
-	elapsed1 := drainTimed(ctx, client, topicName, "phase14a.concurrency.tput1", 1, throughputCount)
+	elapsed1 := drainTimed(ctx, client, streamName, "phase14a.concurrency.tput1", 1, throughputCount)
 	tput1 := float64(throughputCount) / elapsed1.Seconds()
 	fmt.Printf("RESULT pool=1 processed=%d elapsed=%s throughput=%.1f/s\n", throughputCount, elapsed1, tput1)
 
-	elapsed8 := drainTimed(ctx, client, topicName, "phase14a.concurrency.tput8", 8, throughputCount)
+	elapsed8 := drainTimed(ctx, client, streamName, "phase14a.concurrency.tput8", 8, throughputCount)
 	tput8 := float64(throughputCount) / elapsed8.Seconds()
 	fmt.Printf("RESULT pool=8 processed=%d elapsed=%s throughput=%.1f/s\n", throughputCount, elapsed8, tput8)
 
@@ -200,14 +200,14 @@ func runThroughput(ctx context.Context, client *vulkan.Client, wpInstance *vulka
 	}
 }
 
-func drainTimed(ctx context.Context, client *vulkan.Client, topicName, group string, poolSize, target int) time.Duration {
-	wcInstance, err := client.Topic[common.Work](topicName).Consumer(group).Register(ctx, &vulkan.ConsumerConfig{
-		Message: &vulkan.MessageOptions{Timeout: 10 * time.Second},
+func drainTimed(ctx context.Context, client *sqlstreams.Client, streamName, group string, poolSize, target int) time.Duration {
+	wcInstance, err := client.Stream[common.Work](streamName).Consumer(group).Register(ctx, &sqlstreams.ConsumerConfig{
+		Message: &sqlstreams.MessageOptions{Timeout: 10 * time.Second},
 	})
 
 	must(err)
 
-	options := &vulkan.ConsumeOptions{
+	options := &sqlstreams.ConsumeOptions{
 		DisableGracefulShutdown: true,
 		BatchLimit:              target,
 		QueueSize:               target + poolSize,
@@ -240,9 +240,9 @@ func drainTimed(ctx context.Context, client *vulkan.Client, topicName, group str
 
 // ---- helpers ----
 
-func seedSleep(ctx context.Context, wpInstance *vulkan.ProducerInstance[common.Work], sleepMsList []int) {
+func seedSleep(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[common.Work], sleepMsList []int) {
 	for _, ms := range sleepMsList {
-		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
+		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 			work, err := common.NewWork(30, "admin@example.com")
 			if err != nil {
 				return nil, err

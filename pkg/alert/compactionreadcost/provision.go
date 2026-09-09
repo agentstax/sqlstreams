@@ -4,15 +4,15 @@ import (
 	"context"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/consume"
-	"github.com/agentstax/vulkan/pkg/migrate"
-	"github.com/agentstax/vulkan/pkg/schedule"
-	"github.com/agentstax/vulkan/pkg/worker"
-	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/consume"
+	"github.com/agentstax/sqlstreams/pkg/migrate"
+	"github.com/agentstax/sqlstreams/pkg/schedule"
+	"github.com/agentstax/sqlstreams/pkg/worker"
+	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
 )
 
-// Declare creates the alert's consumer group on the schedules topic and its
+// Declare creates the alert's consumer group on the schedules stream and its
 // job-name binding declaration, then writes the alert's config onto the group's
 // worker row -- the newest declaration wins. RegisterSystem runs it every time.
 func (d *CompactionReadCostProvisioner) Declare(ctx context.Context, owner *common.Owner) error {
@@ -20,25 +20,25 @@ func (d *CompactionReadCostProvisioner) Declare(ctx context.Context, owner *comm
 		return err
 	}
 
-	jobRequestsTopic, err := d.topics.Get(ctx, schedule.ScheduleTopicName)
+	jobRequestsStream, err := d.streams.Get(ctx, schedule.ScheduleStreamName)
 	if err != nil {
 		return err
 	}
-	if jobRequestsTopic == nil {
-		return migrate.ErrNotRegistered.With("topic", schedule.ScheduleTopicName)
+	if jobRequestsStream == nil {
+		return migrate.ErrNotRegistered.With("stream", schedule.ScheduleStreamName)
 	}
 
-	group, err := d.consumers.RegisterGroup(ctx, jobRequestsTopic.Id, JobName, consume.Beginning())
+	group, err := d.consumers.RegisterGroup(ctx, jobRequestsStream.Id, JobName, consume.Beginning())
 	if err != nil {
 		return err
 	}
 
 	// a waiting outcome is fine -- the consumer retries the declaration in Consume
-	if _, err := d.consumers.DeclareBindings(ctx, jobRequestsTopic.Id, group.Id, []string{JobName}, time.Now()); err != nil {
+	if _, err := d.consumers.DeclareBindings(ctx, jobRequestsStream.Id, group.Id, []string{JobName}, time.Now()); err != nil {
 		return err
 	}
 
-	groupOwner, err := common.NewConsumerGroupOwner(jobRequestsTopic.SystemId, jobRequestsTopic.Id, group.Id, group.Name)
+	groupOwner, err := common.NewConsumerGroupOwner(jobRequestsStream.SystemId, jobRequestsStream.Id, group.Id, group.Name)
 	if err != nil {
 		return err
 	}

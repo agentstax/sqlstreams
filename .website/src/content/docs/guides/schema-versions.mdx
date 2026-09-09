@@ -1,10 +1,10 @@
 ---
 title: Schema Versions
-description: The payload version lives on the message row and is declared by the Message type, so a topic is one name and Register never asks for a version.
+description: The payload version lives on the message row and is declared by the Message type, so a stream is one name and Register never asks for a version.
 ---
 
 A message's schema version is a column on its row, written from the Go
-type that produced it. A topic is one name with one log; rows of
+type that produced it. A stream is one name with one log; rows of
 different versions sit in it side by side, and a consumer group reads
 only the rows at its own type's version.
 
@@ -18,15 +18,15 @@ type OrderPlacedV2 struct {
 
 func (OrderPlacedV2) SchemaVersion() int { return 2 }
 
-instance, err := client.Topic[OrderPlacedV2]("orders.placed").Producer().Register(ctx, nil)
+instance, err := client.Stream[OrderPlacedV2]("orders.placed").Producer().Register(ctx, nil)
 if err != nil {
 	return err
 }
 ```
 
-The producer and consumer require `vulkan.Versioned`, whose method is
-`SchemaVersion()`. The topic handle carries the type:
-`client.Topic[OrderPlacedV2]("orders.placed")`. Its producer and consumer
+The producer and consumer require `sqlstreams.Versioned`, whose method is
+`SchemaVersion()`. The stream handle carries the type:
+`client.Stream[OrderPlacedV2]("orders.placed")`. Its producer and consumer
 inherit that type, so a handler cannot accidentally accept a different
 Go payload type. The method supplies the version stored on each message;
 there is no config override.
@@ -37,13 +37,13 @@ Every produce writes the method's value into the row:
 message_log_<id>.schema_version INTEGER NOT NULL   -- what this row's payload is
 ```
 
-`topic_config` identifies topics by unique name. Versions share one log
+`stream_config` identifies streams by unique name. Versions share one log
 and one id space.
 
 ## A group reads its own version and steps over the rest
 
 ```go
-instance, err := client.Topic[OrderPlacedV2]("orders.placed").Consumer("fraud-scoring").Register(ctx, nil)
+instance, err := client.Stream[OrderPlacedV2]("orders.placed").Consumer("fraud-scoring").Register(ctx, nil)
 if err != nil {
 	return err
 }
@@ -57,7 +57,7 @@ the selected version; raw cursor distance still spans skipped ids. The
 exception claim filters the same way, so a v1 row that was dead-lettered
 or delayed never replays weeks later into a v2 struct.
 
-A rolling deploy is then two groups on one topic. Say `orders.placed`
+A rolling deploy is then two groups on one stream. Say `orders.placed`
 has been live a month at v1 with `Total int64` cents and the change is
 `Total Money`. Deploy producers built on `OrderPlacedV2` -> new rows
 carry `schema_version = 2` -> the existing `fraud-scoring` group on
@@ -68,14 +68,14 @@ and unresolved v1 deliveries, and investigate dead rows separately before
 stopping the old group. Retained v1 history can remain after processing
 has finished.
 
-## Compacted topics
+## Compacted streams
 
-Compaction is per key per topic, and the winner compare reads the
+Compaction is per key per stream, and the winner compare reads the
 version first: `(schema_version, compaction_rank, id)`. A v2 write for
 `acct-1` becomes the key's head whatever its rank, and the v1 row stops
 being claimable. Inside one version, rank then id decide as before.
 
-That ordering is what makes the bridge pattern work on one topic. A
+That ordering is what makes the bridge pattern work on one stream. A
 group bound to the old type consumes each key's current head and
 re-produces it as the new type at `CompactionRank -1`. Being v2, the
 copy beats the v1 head it was made from; being rank -1, it loses to any
@@ -83,7 +83,7 @@ live rank-0 v2 write for the same key, in either arrival order.
 `.e2e/schemaevolution` runs that end to end, including
 a crash mid-drain.
 
-Retirement is a query, not a guess. `client.Topic[vulkan.RawPayload]("orders.placed").Health` lists
+Retirement is a query, not a guess. `client.Stream[sqlstreams.RawPayload]("orders.placed").Health` lists
 every version present in the log with the compaction heads still at it
 and each group's unread rows and unresolved exceptions at it. No heads,
 unread rows, or unresolved exceptions is the retirement verdict. A
@@ -97,7 +97,7 @@ drained the groups are.
 - Partitions and retention are shared across versions. A version cannot
   be sized or retained on its own.
 - Four bytes per message for the version column.
-- A topic handle's `Get`, `Destroy`, `Rename` and the CLI take a name only;
+- A stream handle's `Get`, `Destroy`, `Rename` and the CLI take a name only;
   there is no `--schema-version` flag anywhere.
 
 ## Not shipped

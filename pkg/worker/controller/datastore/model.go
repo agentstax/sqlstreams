@@ -20,19 +20,19 @@ type WorkerInstanceSnapshotRow struct {
 type WorkerConfigRow struct {
 	Id              int64  `db:"id"`
 	SystemId        *int64 `db:"system_id"`
-	TopicId         *int64 `db:"topic_id"`
+	StreamId        *int64 `db:"stream_id"`
 	ConsumerGroupId *int64 `db:"consumer_group_id"`
 	Name            string `db:"name"`
 	Metadata        any    `db:"metadata"` // pgx encodes to and decodes from JSONB
 	TargetInstances int    `db:"target_instances"`
 }
 
-// ListWorkersRow includes the owner identity joined from topic and consumer_group.
+// ListWorkersRow includes the owner identity joined from stream and consumer_group.
 type ListWorkersRow struct {
 	WorkerConfigRow
-	OwnerSystemId int64  `db:"owner_system_id"` // system_id resolved through the topic when the row's own is NULL
-	OwnerTopicId  int64  `db:"owner_topic_id"`  // through the group for group-owned rows
-	TopicName     string `db:"topic_name"`
+	OwnerSystemId int64  `db:"owner_system_id"` // system_id resolved through the stream when the row's own is NULL
+	OwnerStreamId int64  `db:"owner_stream_id"` // through the group for group-owned rows
+	StreamName    string `db:"stream_name"`
 	ConsumerGroup string `db:"consumer_group"`
 }
 

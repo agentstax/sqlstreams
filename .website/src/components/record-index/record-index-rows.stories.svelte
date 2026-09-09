@@ -26,7 +26,7 @@
 					href: '/decisions/0519/',
 					date: '2026-08-15',
 					status: 'superseded',
-					title: 'Topic config lives in append-only declaration rows; topic keeps identity only',
+					title: 'Stream config lives in append-only declaration rows; stream keeps identity only',
 				},
 			],
 		},

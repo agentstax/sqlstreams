@@ -2,7 +2,7 @@ package conventions
 
 // The one-declaration law (CONVENTIONS.md ## Package layout): every exported
 // type is declared once, and the only `type X = pkg.X` lines in the repo
-// are pkg/vulkan/alias.go. A second alias file is a second place a rename
+// are pkg/sqlstreams/alias.go. A second alias file is a second place a rename
 // has to land; an alias into machinery is a click-through that lands in a
 // controller.
 
@@ -17,12 +17,12 @@ import (
 	"testing"
 )
 
-const modulePath = "github.com/agentstax/vulkan"
+const modulePath = "github.com/agentstax/sqlstreams"
 
 // aliasFile is the one file allowed to declare type aliases.
-const aliasFile = "pkg/vulkan/alias.go"
+const aliasFile = "pkg/sqlstreams/alias.go"
 
-func TestAliasesLiveOnlyInVulkan(t *testing.T) {
+func TestAliasesLiveOnlyInSQLStreams(t *testing.T) {
 	root := repoRoot(t)
 	walked := 0
 
@@ -69,19 +69,19 @@ func TestAliasesLiveOnlyInVulkan(t *testing.T) {
 	}
 }
 
-// pkg/vulkan imports the declaring packages only -- common, datastore, a
+// pkg/sqlstreams imports the declaring packages only -- common, datastore, a
 // root, or an assembler. An import of a controller or a datastore is the
-// tell that vulkan is composing what an assembler should, or aliasing a
+// tell that sqlstreams is composing what an assembler should, or aliasing a
 // type the machinery floor forbids it to declare. pkg/datastore is
 // infrastructure and is not the path this test names.
-func TestVulkanImportsNoMachinery(t *testing.T) {
+func TestSQLStreamsImportsNoMachinery(t *testing.T) {
 	root := repoRoot(t)
-	files, err := filepath.Glob(filepath.Join(root, "pkg", "vulkan", "*.go"))
+	files, err := filepath.Glob(filepath.Join(root, "pkg", "sqlstreams", "*.go"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(files) == 0 {
-		t.Fatal("no Go file under pkg/vulkan")
+		t.Fatal("no Go file under pkg/sqlstreams")
 	}
 
 	for _, file := range files {
@@ -102,7 +102,7 @@ func TestVulkanImportsNoMachinery(t *testing.T) {
 				continue
 			}
 			if strings.HasSuffix(path, "/controller") || strings.Contains(path, "/controller/") {
-				t.Errorf("%s imports %s -- vulkan reaches machinery only through an assembler", filepath.Base(file), path)
+				t.Errorf("%s imports %s -- sqlstreams reaches machinery only through an assembler", filepath.Base(file), path)
 			}
 		}
 	}

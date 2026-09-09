@@ -3,7 +3,7 @@ package producer
 import (
 	"errors"
 
-	"github.com/agentstax/vulkan/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common"
 )
 
 // ProduceResult is one produce call's outcome.

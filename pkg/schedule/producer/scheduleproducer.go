@@ -3,13 +3,13 @@ package producer
 import (
 	"errors"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/producer"
-	scheduleproducercontroller "github.com/agentstax/vulkan/pkg/schedule/producer/controller"
-	"github.com/agentstax/vulkan/pkg/worker"
-	"github.com/agentstax/vulkan/pkg/worker/controller"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/producer"
+	scheduleproducercontroller "github.com/agentstax/sqlstreams/pkg/schedule/producer/controller"
+	"github.com/agentstax/sqlstreams/pkg/worker"
+	"github.com/agentstax/sqlstreams/pkg/worker/controller"
 )
 
 const WorkerScheduleProducer = "schedule_producer"
@@ -21,7 +21,7 @@ type ScheduleProducerProvisioner struct {
 	ds         *iDatastore.PostgresDatastore
 	workers    *controller.WorkerController
 	controller *scheduleproducercontroller.ScheduleProducerController
-	producer   *producer.Producer // each produce registers an instance on the due row's target topic
+	producer   *producer.Producer // each produce registers an instance on the due row's target stream
 
 	definition *worker.Definition
 }

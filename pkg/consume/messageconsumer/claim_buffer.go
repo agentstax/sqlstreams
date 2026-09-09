@@ -7,10 +7,10 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/concurrency"
-	"github.com/agentstax/vulkan/pkg/consume"
-	"github.com/agentstax/vulkan/pkg/consume/messageconsumer/controller"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common/concurrency"
+	"github.com/agentstax/sqlstreams/pkg/consume"
+	"github.com/agentstax/sqlstreams/pkg/consume/messageconsumer/controller"
 )
 
 var errRangeNotTracked = errors.New("range not tracked -- settled elsewhere")

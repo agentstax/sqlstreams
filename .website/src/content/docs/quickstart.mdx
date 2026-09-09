@@ -19,17 +19,17 @@ connection details in both programs if they differ.
 Create a directory and install the library:
 
 ```sh
-mkdir vulkan-quickstart
-cd vulkan-quickstart
-go mod init example.com/vulkan-quickstart
-go get github.com/agentstax/vulkan
+mkdir sqlstreams-quickstart
+cd sqlstreams-quickstart
+go mod init example.com/sqlstreams-quickstart
+go get github.com/agentstax/sqlstreams
 mkdir -p cmd/produce cmd/consume
 export PGPASSWORD='your-local-database-password'
 ```
 
 Run the commands below from this directory, in the same terminal so both
-programs receive `PGPASSWORD`. The first topic registration creates
-Vulkan's shared tables and the topic's tables in the `vulkan` schema.
+programs receive `PGPASSWORD`. The first stream registration creates
+SQLStreams's shared tables and the stream's tables in the `sqlstreams` schema.
 There is no separate migration command for this example.
 
 ## 2. Produce a message
@@ -43,7 +43,7 @@ import (
 	"fmt"
 	"os"
 
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 type WelcomeEmail struct {
@@ -60,21 +60,21 @@ func main() {
 }
 
 func run() error {
-	ctx, stop := vulkan.LifecycleContext(nil)
+	ctx, stop := sqlstreams.LifecycleContext(nil)
 	defer stop()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "app_user", os.Getenv("PGPASSWORD"), "localhost", "app_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "app_user", os.Getenv("PGPASSWORD"), "localhost", "app_db", nil)
 	if err != nil {
 		return err
 	}
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, nil)
+	client, err := sqlstreams.NewClient(ctx, pool, nil)
 	if err != nil {
 		return err
 	}
 
-	emails := client.Topic[WelcomeEmail]("signup.welcome-email")
+	emails := client.Stream[WelcomeEmail]("signup.welcome-email")
 	if _, err := emails.Register(ctx, nil); err != nil {
 		return err
 	}
@@ -99,13 +99,13 @@ Run it:
 go run ./cmd/produce
 ```
 
-The output includes `produced message id=1` on a fresh topic; the id may
-be higher if the topic already contains messages. Each run produces
+The output includes `produced message id=1` on a fresh stream; the id may
+be higher if the stream already contains messages. Each run produces
 another message.
 
 `WelcomeEmail` is stored as JSONB. Its `SchemaVersion` method identifies
 the payload version, which the consumer type must also declare.
-[Schema Versions](/guides/schema-versions/) explains how versions share a topic.
+[Schema Versions](/guides/schema-versions/) explains how versions share a stream.
 
 ## 3. Consume the message
 
@@ -120,7 +120,7 @@ import (
 	"fmt"
 	"os"
 
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 type WelcomeEmail struct {
@@ -137,27 +137,27 @@ func main() {
 }
 
 func run() error {
-	ctx, stop := vulkan.LifecycleContext(nil)
+	ctx, stop := sqlstreams.LifecycleContext(nil)
 	defer stop()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "app_user", os.Getenv("PGPASSWORD"), "localhost", "app_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "app_user", os.Getenv("PGPASSWORD"), "localhost", "app_db", nil)
 	if err != nil {
 		return err
 	}
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, nil)
+	client, err := sqlstreams.NewClient(ctx, pool, nil)
 	if err != nil {
 		return err
 	}
 
-	emails := client.Topic[WelcomeEmail]("signup.welcome-email")
+	emails := client.Stream[WelcomeEmail]("signup.welcome-email")
 	registered, err := emails.Get(ctx)
 	if err != nil {
 		return err
 	}
 	if registered == nil {
-		return errors.New("topic not registered -- run the producer first")
+		return errors.New("stream not registered -- run the producer first")
 	}
 
 	sender := emails.Consumer("email-sender")

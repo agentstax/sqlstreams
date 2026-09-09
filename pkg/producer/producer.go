@@ -4,16 +4,16 @@ import (
 	"context"
 	"errors"
 
-	"github.com/agentstax/vulkan/pkg/alert"
-	compactionreadcostcontroller "github.com/agentstax/vulkan/pkg/alert/compactionreadcost/controller"
-	partitioncountcontroller "github.com/agentstax/vulkan/pkg/alert/partitioncount/controller"
-	workerlivenesscontroller "github.com/agentstax/vulkan/pkg/alert/workerliveness/controller"
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	"github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/produce/controller"
-	"github.com/agentstax/vulkan/pkg/topic"
-	topiccontroller "github.com/agentstax/vulkan/pkg/topic/controller"
+	"github.com/agentstax/sqlstreams/pkg/alert"
+	compactionreadcostcontroller "github.com/agentstax/sqlstreams/pkg/alert/compactionreadcost/controller"
+	partitioncountcontroller "github.com/agentstax/sqlstreams/pkg/alert/partitioncount/controller"
+	workerlivenesscontroller "github.com/agentstax/sqlstreams/pkg/alert/workerliveness/controller"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/produce/controller"
+	"github.com/agentstax/sqlstreams/pkg/stream"
+	streamcontroller "github.com/agentstax/sqlstreams/pkg/stream/controller"
 )
 
 type Producer struct {
@@ -29,13 +29,13 @@ func NewProducer(ds *datastore.PostgresDatastore) (*Producer, error) {
 	return &Producer{ds: ds}, nil
 }
 
-// Register resolves the named topic against the live topic row and returns an
+// Register resolves the named stream against the live stream row and returns an
 // instance that produces Message to it. Callable many times, with a
 // different Message per call -- each call returns an independent instance.
 // ctx bounds only this call's I/O.
-func (p *Producer) Register[Message common.Versioned](ctx context.Context, topicName string, cfg *ProducerConfig) (*ProducerInstance[Message], error) {
-	if topicName == "" {
-		return nil, errors.New("topic name is required")
+func (p *Producer) Register[Message common.Versioned](ctx context.Context, streamName string, cfg *ProducerConfig) (*ProducerInstance[Message], error) {
+	if streamName == "" {
+		return nil, errors.New("stream name is required")
 	}
 	if cfg == nil {
 		cfg = &ProducerConfig{}
@@ -50,7 +50,7 @@ func (p *Producer) Register[Message common.Versioned](ctx context.Context, topic
 	if err != nil {
 		return nil, err
 	}
-	topicController, err := topiccontroller.NewTopicController(p.ds, logger)
+	streamController, err := streamcontroller.NewStreamController(p.ds, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -68,16 +68,16 @@ func (p *Producer) Register[Message common.Versioned](ctx context.Context, topic
 	}
 	evaluators := []alert.Evaluator{partitionCountController, compactionReadCostController, workerLivenessController}
 
-	current, err := topicController.Get(ctx, topicName)
+	current, err := streamController.Get(ctx, streamName)
 	if err != nil {
 		return nil, err
 	}
 	if current == nil {
-		return nil, topic.ErrTopicNotFound.With("topic", topicName)
+		return nil, stream.ErrStreamNotFound.With("stream", streamName)
 	}
 
 	// fail fast if the db's schema is outside the range this build understands
-	if err := topicController.AssertSchemaSupported(ctx, current.SystemId, current.Id); err != nil {
+	if err := streamController.AssertSchemaSupported(ctx, current.SystemId, current.Id); err != nil {
 		return nil, err
 	}
 

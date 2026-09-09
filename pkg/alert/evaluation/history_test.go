@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/alert"
-	"github.com/agentstax/vulkan/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/alert"
+	"github.com/agentstax/sqlstreams/pkg/common"
 )
 
 func TestEvaluateHistory(t *testing.T) {

@@ -9,12 +9,12 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/agentstax/vulkan/pkg/common/diagnostic"
+	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
 )
 
-// MetricNameReservedPrefix marks Vulkan's own metrics -- user producers
+// MetricNameReservedPrefix marks SQLStreams's own metrics -- user producers
 // must not use it.
-const MetricNameReservedPrefix = "vulkan."
+const MetricNameReservedPrefix = "sqlstreams."
 
 // MetricKind is how a series' values read over time: a gauge replaces, a
 // counter accumulates.
@@ -78,7 +78,7 @@ func (u MetricUnit) Validate() error {
 }
 
 // Measurement is one value of one metric at one time, on the __system.metrics
-// topic. Names starting with "vulkan." are reserved for Vulkan's own metrics.
+// stream. Names starting with "sqlstreams." are reserved for SQLStreams's own metrics.
 type Measurement struct {
 	Name       string            `json:"name"`
 	Kind       MetricKind        `json:"kind"`
@@ -92,9 +92,9 @@ type Measurement struct {
 
 func (Measurement) SchemaVersion() int { return 1 }
 
-// NewMeasurement builds a custom measurement for the system metrics topic.
+// NewMeasurement builds a custom measurement for the system metrics stream.
 // name, a valid kind and unit, and a non-zero at are required; attributes
-// may be nil. Names under the "vulkan." prefix are refused at produce time.
+// may be nil. Names under the "sqlstreams." prefix are refused at produce time.
 func NewMeasurement(name string, kind MetricKind, value float64, unit MetricUnit, attributes map[string]string, at time.Time) (*Measurement, error) {
 	if name == "" {
 		return nil, errors.New("name is required")
@@ -119,7 +119,7 @@ func NewMeasurement(name string, kind MetricKind, value float64, unit MetricUnit
 	}, nil
 }
 
-// NewBuiltInMeasurement constructs a measurement from its Vulkan declaration.
+// NewBuiltInMeasurement constructs a measurement from its SQLStreams declaration.
 // The observed value, attributes, and time are the only facts a producer
 // supplies; name, kind, and unit stay owned by the declaration.
 func NewBuiltInMeasurement(declared *diagnostic.DiagnosticMetric, value float64, attributes map[string]string, at time.Time) (*Measurement, error) {
@@ -148,7 +148,7 @@ func NewBuiltInMeasurement(declared *diagnostic.DiagnosticMetric, value float64,
 // are sorted, so equal attribute sets always yield one key -- map iteration
 // order must never reach it.
 //
-// Ex: ("lag", {"group": "billing", "topic": "orders"}) -> "lag|group=billing,topic=orders"
+// Ex: ("lag", {"group": "billing", "stream": "orders"}) -> "lag|group=billing,stream=orders"
 // Ex: ("lag", nil) -> "lag"
 func MeasurementKey(name string, attributes map[string]string) string {
 	if len(attributes) == 0 {

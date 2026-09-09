@@ -4,51 +4,51 @@ import (
 	"context"
 	"fmt"
 
-	vulkandatastore "github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/topic"
+	sqlstreamsdatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 )
 
-// vulkanSchema is where the roles' client put vulkan's tables: they run with
+// sqlstreamsSchema is where the roles' client put sqlstreams's tables: they run with
 // a nil ClientConfig, so the default.
-const vulkanSchema = vulkandatastore.DefaultSchema
+const sqlstreamsSchema = sqlstreamsdatastore.DefaultSchema
 
-// Target is one topic and consumer group the checks read: the names the
+// Target is one stream and consumer group the checks read: the names the
 // scenario declares, which the records carry, and the ids the catalog
 // resolved them to, which name the library's tables.
 type Target struct {
-	Topic   string
-	Group   string
-	TopicId int64
-	GroupId int64
+	Stream   string
+	Group    string
+	StreamId int64
+	GroupId  int64
 }
 
-func (d *CheckerDatastore) ResolveTarget(ctx context.Context, topicName string, groupName string) (Target, error) {
+func (d *CheckerDatastore) ResolveTarget(ctx context.Context, streamName string, groupName string) (Target, error) {
 	resolveSql := fmt.Sprintf(`
 		-- lab: datastore.ResolveTarget
 		SELECT t.id, g.id
-		FROM %[1]s.topic_config t
-		JOIN %[1]s.consumer_group_config g ON g.topic_id = t.id AND g.name = $2
+		FROM %[1]s.stream_config t
+		JOIN %[1]s.consumer_group_config g ON g.stream_id = t.id AND g.name = $2
 		WHERE t.name = $1;
-	`, vulkanSchema)
-	resolved := Target{Topic: topicName, Group: groupName}
-	if err := d.pool.QueryRow(ctx, resolveSql, topicName, groupName).Scan(&resolved.TopicId, &resolved.GroupId); err != nil {
-		return Target{}, fmt.Errorf("consumer group %q on topic %q: %w", groupName, topicName, err)
+	`, sqlstreamsSchema)
+	resolved := Target{Stream: streamName, Group: groupName}
+	if err := d.pool.QueryRow(ctx, resolveSql, streamName, groupName).Scan(&resolved.StreamId, &resolved.GroupId); err != nil {
+		return Target{}, fmt.Errorf("consumer group %q on stream %q: %w", groupName, streamName, err)
 	}
 	return resolved, nil
 }
 
 func (t Target) messageLog() string {
-	return vulkanSchema + "." + topic.MessageLogTable(t.TopicId)
+	return sqlstreamsSchema + "." + stream.MessageLogTable(t.StreamId)
 }
 
 func (t Target) deliveryLog() string {
-	return vulkanSchema + "." + topic.DeliveryLogTable(t.TopicId)
+	return sqlstreamsSchema + "." + stream.DeliveryLogTable(t.StreamId)
 }
 
 func (t Target) exceptionQueue() string {
-	return vulkanSchema + "." + topic.ExceptionQueueTable(t.TopicId)
+	return sqlstreamsSchema + "." + stream.ExceptionQueueTable(t.StreamId)
 }
 
 func (t Target) consumerGroupCursor() string {
-	return vulkanSchema + "." + topic.ConsumerGroupCursorTable(t.TopicId)
+	return sqlstreamsSchema + "." + stream.ConsumerGroupCursorTable(t.StreamId)
 }

@@ -4,7 +4,7 @@ import { interpolate } from './interpolate';
 import { idempotencyKeyTable, messageLogTable } from './table-names';
 
 export const protectedInsertUncompactedSqlTemplate = `
-			-- vulkan: produce.protectedInsert
+			-- sqlstreams: produce.protectedInsert
 			WITH claim AS (
 				INSERT INTO %[1]s.%[2]s (idempotency_key)
 				VALUES ($1)
@@ -22,10 +22,10 @@ export const protectedInsertUncompactedSqlTemplate = `
 			RETURNING id;
 		`;
 
-export function protectedInsertUncompactedSql(topicId: number): string {
+export function protectedInsertUncompactedSql(streamId: number): string {
 	return interpolate(
 		protectedInsertUncompactedSqlTemplate,
-		idempotencyKeyTable(topicId),
-		messageLogTable(topicId),
+		idempotencyKeyTable(streamId),
+		messageLogTable(streamId),
 	);
 }

@@ -17,7 +17,7 @@ import (
 	"os"
 	"time"
 
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 type VideoUploadedV1 struct {
@@ -40,21 +40,21 @@ func main() {
 }
 
 func run() error {
-	ctx, stop := vulkan.LifecycleContext(nil)
+	ctx, stop := sqlstreams.LifecycleContext(nil)
 	defer stop()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	if err != nil {
 		return err
 	}
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, nil)
+	client, err := sqlstreams.NewClient(ctx, pool, nil)
 	if err != nil {
 		return err
 	}
 
-	uploads := client.Topic[VideoUploadedV1]("videos.uploaded")
+	uploads := client.Stream[VideoUploadedV1]("videos.uploaded")
 	producer, err := uploads.Producer().Register(ctx, nil)
 	if err != nil {
 		return err
@@ -63,9 +63,9 @@ func run() error {
 	// ConsumerConfig.Message    -> the timeout a message gets when it asks for nothing (most videos)
 	// ConsumerConfig.MessageMax -> the most a message may ask for; a request above it is lowered to it
 	transcoder := uploads.Consumer("transcoder")
-	consumer, err := transcoder.Register(ctx, &vulkan.ConsumerConfig{
-		Message:    &vulkan.MessageOptions{Timeout: 2 * time.Minute},
-		MessageMax: &vulkan.MessageOptions{Timeout: time.Hour},
+	consumer, err := transcoder.Register(ctx, &sqlstreams.ConsumerConfig{
+		Message:    &sqlstreams.MessageOptions{Timeout: 2 * time.Minute},
+		MessageMax: &sqlstreams.MessageOptions{Timeout: time.Hour},
 	})
 	if err != nil {
 		return err
@@ -78,7 +78,7 @@ func run() error {
 		UploadId:        "upl-999",
 		DurationMinutes: 95,
 		SourceStatus:    "ready",
-	}, &vulkan.ProduceOptions{Message: &vulkan.MessageOptions{Timeout: time.Hour}}); err != nil {
+	}, &sqlstreams.ProduceOptions{Message: &sqlstreams.MessageOptions{Timeout: time.Hour}}); err != nil {
 		return err
 	}
 

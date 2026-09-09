@@ -7,7 +7,7 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/agentstax/vulkan/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common"
 )
 
 // KeyLeaseVerdict classifies a Claim attempt.
@@ -39,7 +39,7 @@ func NewRangeBounds(low int64, high int64) (RangeBounds, error) {
 // acquired; Release matches on it.
 type KeyLeaseClaim struct {
 	Verdict         KeyLeaseVerdict
-	TopicId         int64
+	StreamId        int64
 	ConsumerGroupId int64
 	MessageKey      string
 	Token           uuid.UUID
@@ -55,9 +55,9 @@ type KeyLeaseClaim struct {
 // head as its gate whatever the policy says.
 // Expiry does not stop a holder: the next claim on the key takes the lease
 // over, and the two runs can overlap until the old one returns.
-func (c *KeyLeaseController) Claim(ctx context.Context, topicId int64, groupId int64, key string, messageId int64, compacted bool, policy common.ConcurrencyPolicy, ownRange RangeBounds, duration time.Duration) (*KeyLeaseClaim, error) {
-	if topicId <= 0 {
-		return nil, fmt.Errorf("topicId must be > 0, got %d", topicId)
+func (c *KeyLeaseController) Claim(ctx context.Context, streamId int64, groupId int64, key string, messageId int64, compacted bool, policy common.ConcurrencyPolicy, ownRange RangeBounds, duration time.Duration) (*KeyLeaseClaim, error) {
+	if streamId <= 0 {
+		return nil, fmt.Errorf("streamId must be > 0, got %d", streamId)
 	}
 	if groupId <= 0 {
 		return nil, fmt.Errorf("groupId must be > 0, got %d", groupId)
@@ -82,7 +82,7 @@ func (c *KeyLeaseController) Claim(ctx context.Context, topicId int64, groupId i
 	// lets a retry after an ambiguous commit re-take its own lease
 	token := uuid.NewV7()
 
-	data, err := c.datastore.Claim(ctx, topicId, groupId, key, messageId, compacted, policy, ownRange.Low, ownRange.High, duration, toTokenData(token))
+	data, err := c.datastore.Claim(ctx, streamId, groupId, key, messageId, compacted, policy, ownRange.Low, ownRange.High, duration, toTokenData(token))
 	if err != nil || data == nil {
 		return nil, err
 	}
@@ -96,8 +96,8 @@ func (c *KeyLeaseController) Release(ctx context.Context, claim *KeyLeaseClaim) 
 	if claim == nil {
 		return false, errors.New("claim must not be nil")
 	}
-	if claim.TopicId <= 0 {
-		return false, fmt.Errorf("claim.TopicId must be > 0, got %d", claim.TopicId)
+	if claim.StreamId <= 0 {
+		return false, fmt.Errorf("claim.StreamId must be > 0, got %d", claim.StreamId)
 	}
 	if claim.Verdict != KeyLeaseAcquired {
 		return false, fmt.Errorf("only an acquired key lease can be released, got %q", claim.Verdict)

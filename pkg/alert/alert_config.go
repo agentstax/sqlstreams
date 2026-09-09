@@ -48,7 +48,7 @@ type PartitionCountAlertConfig struct {
 	// Default: @every 1m.
 	ScheduleExpression string
 
-	// Threshold - the partition count on one topic at or above which the
+	// Threshold - the partition count on one stream at or above which the
 	// alert is published.
 	// Default: 0, which measures against half the lock ceiling Postgres
 	// reports.

@@ -7,22 +7,22 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/produce"
-	"github.com/agentstax/vulkan/pkg/produce/batcher"
-	"github.com/agentstax/vulkan/pkg/produce/controller"
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/produce"
+	"github.com/agentstax/sqlstreams/pkg/produce/batcher"
+	"github.com/agentstax/sqlstreams/pkg/produce/controller"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 )
 
-// ProducerInstance is a registered producer: it appends messages to the topic
+// ProducerInstance is a registered producer: it appends messages to the stream
 // Register resolved. Shutdown is per call -- a cancelled ctx refuses that
 // call's message, the instance itself never stops accepting work.
 type ProducerInstance[Message common.Versioned] struct {
-	Topic  *topic.Topic    // the topic row Register resolved
+	Stream *stream.Stream  // the stream row Register resolved
 	Config *ProducerConfig // the resolved config every verb reads -- not the caller's struct
-	Logger logging.Logger  // bound to the topic; the batcher logs through it
+	Logger logging.Logger  // bound to the stream; the batcher logs through it
 
 	controller *controller.ProduceController
 	batcher    *batcher.Batcher[Message]
@@ -30,9 +30,9 @@ type ProducerInstance[Message common.Versioned] struct {
 
 // cfg is already resolved (WithDefaults + Validate) by Register; logger is
 // its per-instance pipeline over the datastore's logger.
-func NewProducerInstance[Message common.Versioned](resolvedTopic *topic.Topic, produceController *controller.ProduceController, cfg *ProducerConfig, logger logging.Logger) (*ProducerInstance[Message], error) {
-	if resolvedTopic == nil {
-		return nil, errors.New("topic must not be nil")
+func NewProducerInstance[Message common.Versioned](resolvedStream *stream.Stream, produceController *controller.ProduceController, cfg *ProducerConfig, logger logging.Logger) (*ProducerInstance[Message], error) {
+	if resolvedStream == nil {
+		return nil, errors.New("stream must not be nil")
 	}
 	if produceController == nil {
 		return nil, errors.New("controller must not be nil")
@@ -44,21 +44,21 @@ func NewProducerInstance[Message common.Versioned](resolvedTopic *topic.Topic, p
 		return nil, errors.New("logger must not be nil")
 	}
 
-	topicBatcher, err := batcher.NewBatcher[Message](produceController, resolvedTopic.Id, resolvedTopic.PartitionSize, &cfg.Batch, logger)
+	streamBatcher, err := batcher.NewBatcher[Message](produceController, resolvedStream.Id, resolvedStream.PartitionSize, &cfg.Batch, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	return &ProducerInstance[Message]{
-		Topic:      resolvedTopic,
+		Stream:     resolvedStream,
 		Config:     cfg,
 		Logger:     logger,
 		controller: produceController,
-		batcher:    topicBatcher,
+		batcher:    streamBatcher,
 	}, nil
 }
 
-// Produce appends message to the topic, returning once it is durably
+// Produce appends message to the stream, returning once it is durably
 // committed. Concurrent calls share transactions: batched under load,
 // committed alone (no added latency) at idle.
 //
@@ -90,7 +90,7 @@ func (p *ProducerInstance[Message]) Produce(ctx context.Context, message *Messag
 	// whole batch, so keyed calls take a per-call transaction
 	if resolved.IdempotencyKey != "" {
 		passthrough := func(context.Context, iDatastore.Tx) (*Message, error) { return message, nil }
-		appended, err := p.controller.AppendMessage(ctx, p.Topic.Id, p.Topic.PartitionSize, passthrough, resolved)
+		appended, err := p.controller.AppendMessage(ctx, p.Stream.Id, p.Stream.PartitionSize, passthrough, resolved)
 		if err != nil {
 			return nil, err
 		}
@@ -132,7 +132,7 @@ func (p *ProducerInstance[Message]) ProduceBatch(ctx context.Context, items ...*
 		appends = append(appends, appendItem)
 	}
 
-	appendedRows, failedIdx, err := p.controller.AppendMessageBatch(ctx, p.Topic.Id, p.Topic.PartitionSize, p.Config.Batch.AttemptTimeout, appends)
+	appendedRows, failedIdx, err := p.controller.AppendMessageBatch(ctx, p.Stream.Id, p.Stream.PartitionSize, p.Config.Batch.AttemptTimeout, appends)
 	if err != nil {
 		if failedIdx >= 0 {
 			return nil, fmt.Errorf("item %d: %w", failedIdx, err)
@@ -167,7 +167,7 @@ func (p *ProducerInstance[Message]) ProduceFunc(ctx context.Context, producerFun
 		return nil, err
 	}
 
-	appended, err := p.controller.AppendMessage(ctx, p.Topic.Id, p.Topic.PartitionSize, producerFunc, resolved)
+	appended, err := p.controller.AppendMessage(ctx, p.Stream.Id, p.Stream.PartitionSize, producerFunc, resolved)
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +182,7 @@ func (p *ProducerInstance[Message]) ProduceFunc(ctx context.Context, producerFun
 // keys short.
 //
 // For optimal performance call this LAST in your transaction. Producing
-// effectively takes a lock on consumer progress for the whole topic: claims
+// effectively takes a lock on consumer progress for the whole stream: claims
 // cannot advance past this message until tx commits, and every statement
 // after this call extends how long that lock is held.
 //
@@ -218,7 +218,7 @@ func (p *ProducerInstance[Message]) ProduceFuncInTx(ctx context.Context, tx iDat
 		return nil, err
 	}
 
-	appended, err := p.controller.AppendMessageInTx(ctx, tx, p.Topic.Id, p.Topic.PartitionSize, producerFunc, resolved)
+	appended, err := p.controller.AppendMessageInTx(ctx, tx, p.Stream.Id, p.Stream.PartitionSize, producerFunc, resolved)
 	if err != nil {
 		return nil, err
 	}
@@ -233,7 +233,7 @@ func (p *ProducerInstance[Message]) warnSlowProduce(ctx context.Context, start t
 	if p.Config.SlowProduceThreshold <= 0 || duration <= p.Config.SlowProduceThreshold {
 		return
 	}
-	p.Logger.WarnContext(ctx, produce.EventSlowProduce.Message(), "code", produce.EventSlowProduce.GetCode(), "topic", p.Topic.Name, "duration", duration, "threshold", p.Config.SlowProduceThreshold)
+	p.Logger.WarnContext(ctx, produce.EventSlowProduce.Message(), "code", produce.EventSlowProduce.GetCode(), "stream", p.Stream.Name, "duration", duration, "threshold", p.Config.SlowProduceThreshold)
 }
 
 // toAppend shapes one batch item for the controller: fills message options

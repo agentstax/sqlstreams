@@ -3,7 +3,7 @@ package main
 // reliability lab: an hour of real producers and consumers against a real
 // Postgres, ending in one verdict. Every produce and every handler invocation
 // is written to a record file; after producers stop and consumers drain, the
-// checker joins those records against Vulkan's own tables and sorts every
+// checker joins those records against SQLStreams's own tables and sorts every
 // message into a named bucket. Design in decision record 0687; the proposal
 // page is .website/src/content/docs/concepts/reliability-lab.mdx.
 //
@@ -21,12 +21,12 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/agentstax/vulkan/.bench/reliability/checker"
-	"github.com/agentstax/vulkan/.bench/reliability/common"
-	"github.com/agentstax/vulkan/.bench/reliability/runner"
-	"github.com/agentstax/vulkan/.bench/reliability/scenario"
-	"github.com/agentstax/vulkan/.bench/reliability/scenarios"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/.bench/reliability/checker"
+	"github.com/agentstax/sqlstreams/.bench/reliability/common"
+	"github.com/agentstax/sqlstreams/.bench/reliability/runner"
+	"github.com/agentstax/sqlstreams/.bench/reliability/scenario"
+	"github.com/agentstax/sqlstreams/.bench/reliability/scenarios"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 // exitLabFailure is the one exit code that is not a verdict: connection,
@@ -82,7 +82,7 @@ func run() (int, error) {
 		return 0, nil
 	}
 
-	ctx, stop := vulkan.LifecycleContext(nil)
+	ctx, stop := sqlstreams.LifecycleContext(nil)
 	defer stop()
 	connection, err := common.NewConnection(ctx, declared.MaxConns)
 	if err != nil {

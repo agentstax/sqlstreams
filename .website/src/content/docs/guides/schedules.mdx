@@ -1,13 +1,13 @@
 ---
 title: Schedules
-description: A schedule is a producer on a cron expression. Register it with the message it produces and the topic it produces to; any consumer group on that topic receives it.
+description: A schedule is a producer on a cron expression. Register it with the message it produces and the stream it produces to; any consumer group on that stream receives it.
 ---
 
 A schedule is a producer on a cron expression. You register it with a
-name, an expression, the topic it produces to, and the message it
-produces; the system produces that message onto that topic every time
+name, an expression, the stream it produces to, and the message it
+produces; the system produces that message onto that stream every time
 the expression comes due. Consuming it is a plain consumer group on
-that topic, and there can be any number of them - the schedule knows
+that stream, and there can be any number of them - the schedule knows
 nothing about who listens.
 
 ```go
@@ -30,13 +30,13 @@ return nightly.Schedule(ctx)
 And in whichever service does the invoicing, nothing about cron:
 
 ```go
-invoices, err := client.Topic[InvoiceRun]("invoices").Consumer("invoice-runner").Register(ctx, nil)
+invoices, err := client.Stream[InvoiceRun]("invoices").Consumer("invoice-runner").Register(ctx, nil)
 if err != nil {
 	return err
 }
 
 return invoices.Consume(ctx, func(ctx context.Context, run *InvoiceRun) error {
-	meta, _ := vulkan.MetaFromContext(ctx)
+	meta, _ := sqlstreams.MetaFromContext(ctx)
 	fmt.Printf("invoicing %s for %s\n", run.Region, meta.ScheduledAt.Format("2006-01-02"))
 	return nil
 }, nil)
@@ -44,7 +44,7 @@ return invoices.Consume(ctx, func(ctx context.Context, run *InvoiceRun) error {
 
 This is the same shape as the other two register verbs: declare a named
 resource on the client, run what comes back. For a producer -
-`Producer().Register` resolves the topic and `Produce` writes. For a
+`Producer().Register` resolves the stream and `Produce` writes. For a
 consumer - `Consumer(name).Register` declares the group and `Consume` runs it.
 For a schedule - `Scheduler(name).Register` declares it and returns a
 `SchedulerInstance`; its `Schedule` keeps the system producing it. The
@@ -61,7 +61,7 @@ entry:
 | --- | --- |
 | `name` | the first argument; also the message key every produce carries |
 | `expression` | the cron expression, UTC unless it carries `TZ=` |
-| `topic_id` | the target topic, resolved by name at `Register` |
+| `stream_id` | the target stream, resolved by name at `Register` |
 | `payload` | the message, marshaled once |
 | `schema_version` | `InvoiceRun.SchemaVersion()`, read from the type argument |
 | `concurrency`, `timeout_ns` | the config's `Concurrency` and `Timeout` |
@@ -71,7 +71,7 @@ schema version is captured at declaration, and every produce carries
 it on the row, so a consumer registered with `InvoiceRun` accepts the
 message the same way it accepts one from a live producer. Bump
 `SchemaVersion` and re-`Register` and the next produce is version 2;
-consumers still on version 1 skip it, as on any topic
+consumers still on version 1 skip it, as on any stream
 ([schema versions](/guides/schema-versions/)).
 
 The payload is the same document every time. A handler that needs to
@@ -80,7 +80,7 @@ it is not in the payload because the payload never changes.
 
 ## What SchedulerInstance.Schedule does
 
-`SchedulerInstance.Schedule` runs the system manager, the same thing `vulkan manager
+`SchedulerInstance.Schedule` runs the system manager, the same thing `sqlstreams manager
 run` does. The schedule producer is a system worker; it is what
 actually produces, and it produces every registered schedule, not just
 the one whose instance called `Schedule`. So `SchedulerInstance.Schedule` exists for one
@@ -107,12 +107,12 @@ transaction with the `schedule_cursor` advance:
 
 ## Worked case
 
-`invoices` is topic id `4`. `Scheduler("invoices.nightly").Register[InvoiceRun]` writes:
+`invoices` is stream id `4`. `Scheduler("invoices.nightly").Register[InvoiceRun]` writes:
 
 ```sql
-SELECT id, name, topic_id, expression, payload, schema_version
-FROM vulkan.schedule_config;
---  id | name             | topic_id | expression | payload          | schema_version
+SELECT id, name, stream_id, expression, payload, schema_version
+FROM sqlstreams.schedule_config;
+--  id | name             | stream_id | expression | payload          | schema_version
 --  3  | invoices.nightly | 4        | 0 2 * * *  | {"region":"eu"}  | 1
 ```
 
@@ -121,14 +121,14 @@ At `02:00 UTC` the schedule producer claims the row, produces onto
 
 ```sql
 SELECT id, routing_key, message_key, schema_version, payload
-FROM vulkan.message_log_4
+FROM sqlstreams.message_log_4
 ORDER BY id DESC LIMIT 1;
 --  id     | routing_key | message_key      | schema_version | payload
 --  88012  |             | invoices.nightly | 1              | {"region":"eu"}
 ```
 
 `invoice-runner` claims id `88012` like any other message; a second
-group `invoice-audit` on the same topic claims it too. Neither group
+group `invoice-audit` on the same stream claims it too. Neither group
 was named anywhere in the schedule.
 
 ## Admin verbs
@@ -139,20 +139,20 @@ one noun on both:
 
 | client | CLI | what it does |
 | --- | --- | --- |
-| `Scheduler(name).Run` | `vulkan schedule run` | produces one message now, off-schedule, from the stored payload |
-| `Suspend` / `Unsuspend` | `vulkan schedule suspend` / `unsuspend` | stops and resumes the schedule; a time that came due while suspended is dropped |
-| `Status`, `Messages` | `vulkan schedule get` / `get --messages` | per-group outcomes, read from the target topic's `delivery_log` by message key; a `succeeded` count needs the target topic's `DeliveryLogMode: all` (the default keeps failures only) - `Register` warns [VK0058](/errors/VK0058) when it isn't |
-| `Destroy` | `vulkan schedule destroy` | deletes the row; gated by `AllowDestroy` |
+| `Scheduler(name).Run` | `sqlstreams schedule run` | produces one message now, off-schedule, from the stored payload |
+| `Suspend` / `Unsuspend` | `sqlstreams schedule suspend` / `unsuspend` | stops and resumes the schedule; a time that came due while suspended is dropped |
+| `Status`, `Messages` | `sqlstreams schedule get` / `get --messages` | per-group outcomes, read from the target stream's `delivery_log` by message key; a `succeeded` count needs the target stream's `DeliveryLogMode: all` (the default keeps failures only) - `Register` warns [SS0058](/errors/SS0058) when it isn't |
+| `Destroy` | `sqlstreams schedule destroy` | deletes the row; gated by `AllowDestroy` |
 
 Temporal and EventBridge Scheduler use the same noun for the same
 thing; "cron job" stays the name of K8s's resource, where what fires
 is a batch job and not a message.
 
-## The message key on a shared topic
+## The message key on a shared stream
 
-The schedule's name is its message key on the target topic. On a topic
+The schedule's name is its message key on the target stream. On a stream
 where your producers also key messages, a schedule named the same as
-one of your keys would supersede it. Give a schedule its own topic, or
+one of your keys would supersede it. Give a schedule its own stream, or
 key your own messages so the two can't collide - I'm not sure a config
 knob here is worth its weight until someone hits it.
 

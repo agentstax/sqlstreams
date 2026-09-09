@@ -55,13 +55,15 @@ the item is removed.
   release [0726]. Public proposal and technical identity approved [0727];
   local logo sheet (`SQLSTREAMS_LOGO_SHEET.html`) is ready for review.
 
-- **Test suite: kinds, `vulkantest`, TEST.md transcription, e2e
+- **Test suite: kinds, `sqlstreamstest`, TEST.md transcription, e2e
   conversion** (14c) — rules settled in [0730] [0731]; the research and
   the entry-by-entry map of .docs/TEST.md are `TEST_EXPLORATION.md` at
-  root (deleted at close-out). Order of work: the `/reference/vulkantest/`
-  page is the spec and is reviewed first; build `pkg/vulkantest`
+  root (deleted at close-out). CONVENTIONS Part 5's fixture section is
+  the spec; the site gets a reference page only when the package ships.
+  Starts after the rename [0725] lands, since the fixture is built against
+  the renamed module. Order of work: build `pkg/sqlstreamstest`
   (`NewDatastore`, `NewClient`, `WaitFor`, `NewCountingLogger`), collapse
-  the four `*_TEST_*` env vars into `VULKAN_TEST_DATABASE_URL`, move
+  the four `*_TEST_*` env vars into `SQLSTREAMS_TEST_DATABASE_URL`, move
   `claim_test.go` onto the fixture as an external test package; CI gains a
   Postgres service in that change and `just verify` runs
   `-race -count=1 -shuffle=on` in every module with tests (cmd/vulkan and
@@ -74,9 +76,8 @@ the item is removed.
   `(checked)` candidates for .tools/conventions, each sabotaged before
   trusted: no third-party import in a `_test.go`; no `time.Sleep` in a
   `_test.go` outside a `synctest` bubble; no `CREATE TABLE` text in a
-  `_test.go`; one `VULKAN_TEST_*` name read only by `vulkantest`; no e2e
-  program declaring its own `must`. The project rename carries the
-  package name.
+  `_test.go`; one `SQLSTREAMS_TEST_*` name read only by `sqlstreamstest`;
+  no e2e program declaring its own `must`.
 
 - **Move the public entry package out of pkg/** — follow through on [0665]
   and [0670] once its destination is selected. Update imports and path-aware
@@ -87,6 +88,29 @@ the item is removed.
 - **Buy domain name**
 
 ## Next
+
+- **Whole-partition retention with explicit maximum-timestamp metadata.**
+  Replace repeated per-row expiry scans with partition lifecycle management
+  that drops sealed partitions only when their greatest message timestamp
+  has expired and consumer cursors permit deletion. User selected this as
+  the next design direction after native retention benchmarking exposed
+  million-row scans returning no expired rows and janitor timeouts.
+  - Preserve protection for lagging consumers and transactional cleanup of
+    associated rows. Highest message id does not imply newest created_at:
+    concurrent transactions and NOW() transaction timestamps can invert
+    their order. Resolve that correctness risk explicitly; timeout tuning
+    does not fix it.
+  - Define partition sealing/rotation for low-volume and idle topics, safe
+    maximum-timestamp maintenance under concurrent/late commits, and the
+    extra retention beyond TTL caused by whole-partition deletion. Surface
+    retained bytes, expiry backlog, oldest retained age and cleanup failures
+    so operators can see delayed cleanup rather than silently growing disk.
+  - Benchmark metadata write contention, WAL/index cost and steady paired
+    throughput over several cleanup cycles within the storage budget.
+    Idempotency-key expiry remains a separate cleanup workload.
+  - Interim: test longer janitor cleanup deadlines and polling intervals in
+    scratch benchmarks; keep current row-level semantics. Evidence:
+    `.bench/scratchnative/results/evidence/native18/scratch_142040/`.
 
 - **Idle-fleet worker-load benchmark** (14c; measure BEFORE building any
   fix). An idle deployment pays per worker row per poll: winner's claim

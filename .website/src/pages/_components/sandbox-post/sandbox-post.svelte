@@ -5,12 +5,12 @@
 	import ExampleQuery from '../example-query/example-query.svelte';
 
 	type Props = {
-		topic: string;
+		stream: string;
 		messages: PanelShell;
 		cursors: PanelShell;
 	};
 
-	let { topic, messages, cursors }: Props = $props();
+	let { stream, messages, cursors }: Props = $props();
 </script>
 
 <div class="sandbox-post">
@@ -18,7 +18,7 @@
 		<h3 class="headline">It's Kafka on Postgres.</h3>
 		<p>You can do cool things like this</p>
 		<div class="sandbox-region">
-			<Sandbox {topic} {messages} {cursors} />
+			<Sandbox {stream} {messages} {cursors} />
 		</div>
 		<div class="example-region">
 			<ExampleQuery panel={messages} />

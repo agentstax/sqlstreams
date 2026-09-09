@@ -1,7 +1,7 @@
 # the quiet run at one minute, for a laptop
 
 [input]
-topic        orders           DeliveryLogMode all
+stream       orders           DeliveryLogMode all
 consumers    fraud-scoring    handler fail rate 0, 3 retries then dead
 duration     1m
 

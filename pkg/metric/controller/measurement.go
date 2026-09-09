@@ -6,33 +6,33 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/metric"
-	"github.com/agentstax/vulkan/pkg/migrate"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/metric"
+	"github.com/agentstax/sqlstreams/pkg/migrate"
 )
 
 // ListMeasurements returns each series' newest retained measurement.
-// Returns migrate.ErrNotRegistered before the system metrics topic exists.
+// Returns migrate.ErrNotRegistered before the system metrics stream exists.
 func (c *MetricController) ListMeasurements(ctx context.Context) ([]*common.StoredMessage[metric.Measurement], error) {
-	found, err := c.topics.Get(ctx, metric.MetricTopicName)
+	found, err := c.streams.Get(ctx, metric.MetricStreamName)
 	if err != nil {
 		return nil, err
 	}
 	if found == nil {
-		return nil, migrate.ErrNotRegistered.With("topic", metric.MetricTopicName)
+		return nil, migrate.ErrNotRegistered.With("stream", metric.MetricStreamName)
 	}
 	return c.heads.ListHeads[metric.Measurement](ctx, found.Id)
 }
 
 // GetMeasurement returns the retained series head, or nil when absent.
-// Returns migrate.ErrNotRegistered until the metrics topic exists.
+// Returns migrate.ErrNotRegistered until the metrics stream exists.
 func (c *MetricController) GetMeasurement(ctx context.Context, messageKey string) (*common.StoredMessage[metric.Measurement], error) {
-	found, err := c.topics.Get(ctx, metric.MetricTopicName)
+	found, err := c.streams.Get(ctx, metric.MetricStreamName)
 	if err != nil {
 		return nil, err
 	}
 	if found == nil {
-		return nil, migrate.ErrNotRegistered.With("topic", metric.MetricTopicName)
+		return nil, migrate.ErrNotRegistered.With("stream", metric.MetricStreamName)
 	}
 	return c.heads.GetHead[metric.Measurement](ctx, found.Id, messageKey)
 }
@@ -47,12 +47,12 @@ func (c *MetricController) GetMeasurementHistory(ctx context.Context, messageKey
 		return nil, fmt.Errorf("window must be > 0, got %v", window)
 	}
 
-	found, err := c.topics.Get(ctx, metric.MetricTopicName)
+	found, err := c.streams.Get(ctx, metric.MetricStreamName)
 	if err != nil {
 		return nil, err
 	}
 	if found == nil {
-		return nil, migrate.ErrNotRegistered.With("topic", metric.MetricTopicName)
+		return nil, migrate.ErrNotRegistered.With("stream", metric.MetricStreamName)
 	}
 	if found.RetentionTTL > 0 && found.RetentionTTL <= window {
 		return nil, fmt.Errorf("retention must be > window %v or disabled, got %v", window, found.RetentionTTL)

@@ -24,7 +24,7 @@ func (d *PartitionCountDatastore) PartitionLockCeiling(ctx context.Context) (int
 func (d *PartitionCountDatastore) partitionLockCeiling(ctx context.Context) (int64, error) {
 	// the product is the lock table's total size, fixed at server start
 	sql := `
-		-- vulkan: partitioncount.partitionLockCeiling
+		-- sqlstreams: partitioncount.partitionLockCeiling
 		SELECT current_setting('max_locks_per_transaction')::bigint
 			* (current_setting('max_connections')::bigint
 				+ current_setting('max_prepared_transactions')::bigint);

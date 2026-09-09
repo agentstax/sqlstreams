@@ -3,23 +3,23 @@ import { fillSegments, sqlSegments } from './highlight';
 
 describe('sqlSegments', () => {
 	it('returns one plain segment for text with no keywords', () => {
-		expect(sqlSegments('the topic id')).toEqual([{ text: 'the topic id', kind: 'plain' }]);
+		expect(sqlSegments('the stream id')).toEqual([{ text: 'the stream id', kind: 'plain' }]);
 	});
 
 	it('splits keywords out of the surrounding text', () => {
-		expect(sqlSegments('SELECT id FROM topic_config')).toEqual([
+		expect(sqlSegments('SELECT id FROM stream_config')).toEqual([
 			{ text: 'SELECT', kind: 'keyword' },
 			{ text: ' id ', kind: 'plain' },
 			{ text: 'FROM', kind: 'keyword' },
-			{ text: ' topic_config', kind: 'plain' },
+			{ text: ' stream_config', kind: 'plain' },
 		]);
 	});
 
 	it('marks a placeholder inside an identifier without breaking the table name', () => {
-		expect(sqlSegments('FROM exception_queue_{topic_id}')).toEqual([
+		expect(sqlSegments('FROM exception_queue_{stream_id}')).toEqual([
 			{ text: 'FROM', kind: 'keyword' },
 			{ text: ' exception_queue_', kind: 'plain' },
-			{ text: '{topic_id}', kind: 'placeholder' },
+			{ text: '{stream_id}', kind: 'placeholder' },
 		]);
 	});
 
@@ -48,8 +48,8 @@ describe('sqlSegments', () => {
 	});
 
 	it('leaves a keyword and a brace run inside a comment as comment text', () => {
-		expect(sqlSegments('-- select {topic_id} first')).toEqual([
-			{ text: '-- select {topic_id} first', kind: 'comment' },
+		expect(sqlSegments('-- select {stream_id} first')).toEqual([
+			{ text: '-- select {stream_id} first', kind: 'comment' },
 		]);
 	});
 
@@ -61,8 +61,8 @@ describe('sqlSegments', () => {
 describe('fillSegments', () => {
 	it('substitutes an identifier position bare', () => {
 		const filled = fillSegments(
-			sqlSegments('FROM exception_queue_{topic_id}'),
-			new Map([['topic_id', '7']]),
+			sqlSegments('FROM exception_queue_{stream_id}'),
+			new Map([['stream_id', '7']]),
 		);
 
 		expect(filled).toEqual([
@@ -74,8 +74,8 @@ describe('fillSegments', () => {
 
 	it('substitutes a quoted position without adding quotes of its own', () => {
 		const filled = fillSegments(
-			sqlSegments("WHERE name = '{topic}';"),
-			new Map([['topic', 'orders']]),
+			sqlSegments("WHERE name = '{stream}';"),
+			new Map([['stream', 'orders']]),
 		);
 
 		expect(filled).toEqual([
@@ -90,8 +90,8 @@ describe('fillSegments', () => {
 	// that does not run
 	it('doubles a quote inside a text literal', () => {
 		const filled = fillSegments(
-			sqlSegments("WHERE name = '{topic}';"),
-			new Map([['topic', "o'brien"]]),
+			sqlSegments("WHERE name = '{stream}';"),
+			new Map([['stream', "o'brien"]]),
 		);
 
 		expect(filled[2]).toEqual({ text: "o''brien", kind: 'value' });
@@ -100,15 +100,15 @@ describe('fillSegments', () => {
 	it('leaves a bare position alone when the value is not an identifier', () => {
 		const filled = fillSegments(
 			sqlSegments('WHERE id = {message_id};'),
-			new Map([['message_id', '1; DROP TABLE topic_config']]),
+			new Map([['message_id', '1; DROP TABLE stream_config']]),
 		);
 
 		expect(filled[2]).toEqual({ text: '{message_id}', kind: 'placeholder' });
 	});
 
 	it('leaves a placeholder nothing filled as a blank', () => {
-		const filled = fillSegments(sqlSegments('FROM exception_queue_{topic_id}'), new Map());
+		const filled = fillSegments(sqlSegments('FROM exception_queue_{stream_id}'), new Map());
 
-		expect(filled[2]).toEqual({ text: '{topic_id}', kind: 'placeholder' });
+		expect(filled[2]).toEqual({ text: '{stream_id}', kind: 'placeholder' });
 	});
 });

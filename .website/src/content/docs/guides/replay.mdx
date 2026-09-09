@@ -14,7 +14,7 @@ Suppose `orders.placed` already contains months of orders and a new
 `Start` so it reads retained history, then continues with live traffic:
 
 ```go
-orders := client.Topic[OrderPlaced]("orders.placed")
+orders := client.Stream[OrderPlaced]("orders.placed")
 search := orders.Consumer("search-indexer")
 indexer, err := search.Register(ctx, nil)
 if err != nil {
@@ -25,7 +25,7 @@ return indexer.Consume(ctx, indexOrder, nil)
 
 If that name already has a cursor, it resumes the existing position.
 Use a new name for a separate rebuild. A group that needs only live
-traffic uses [`Start: vulkan.Head()`](/guides/new-group-start/).
+traffic uses [`Start: sqlstreams.Head()`](/guides/new-group-start/).
 
 For a damaged projection, run the corrected handler under a fresh group
 and write into a separate projection. For example, rebuild orders 101–104
@@ -49,11 +49,11 @@ mis-handles EU orders. Wednesday: you notice. The proposed loop:
 
    ```go
    // PROPOSED — not shipped API.
-   err := client.Topic[OrderPlaced](registered.Name).Consumer("warehouse-sync").
-       Rewind(ctx, vulkan.AtTime(tuesdayMorning))
+   err := client.Stream[OrderPlaced](registered.Name).Consumer("warehouse-sync").
+       Rewind(ctx, sqlstreams.AtTime(tuesdayMorning))
    ```
 
-   The position is the same `vulkan.CursorPosition` a new
+   The position is the same `sqlstreams.CursorPosition` a new
    group's [`Start`](/guides/new-group-start/) takes -- one type for
    every verb that places a cursor; `AtTime` and `AtMessageId` are the
    two constructors this verb adds.
@@ -84,8 +84,8 @@ history window, including any external provider's deduplication limits.
 Retention determines which messages remain available:
 
 ```go
-registered, err := client.Topic[OrderPlaced]("orders").Register(ctx,
-	&vulkan.TopicConfig{RetentionTTL: 30 * 24 * time.Hour})
+registered, err := client.Stream[OrderPlaced]("orders").Register(ctx,
+	&sqlstreams.StreamConfig{RetentionTTL: 30 * 24 * time.Hour})
 if err != nil {
 	return err
 }
@@ -94,4 +94,4 @@ if err != nil {
 The default retains messages indefinitely; a TTL trades history against
 storage. By default,
 [retention never drops past the slowest group's cursor](/concepts/fan-out/)
-unless the topic opts into `AllowDropPastCommitted`.
+unless the stream opts into `AllowDropPastCommitted`.

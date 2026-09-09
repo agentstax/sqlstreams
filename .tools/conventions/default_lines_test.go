@@ -1,6 +1,6 @@
 package conventions
 
-// Walks every struct reachable through vulkan that has a WithDefaults
+// Walks every struct reachable through sqlstreams that has a WithDefaults
 // method and requires each field WithDefaults fills to carry a `Default:`
 // line in its comment (CONVENTIONS.md ## Comments). Machinery configs
 // below the closure are exempt: their WithDefaults only backstops a
@@ -20,7 +20,7 @@ import (
 func TestReachableConfigFieldsStateTheirDefault(t *testing.T) {
 	root := repoRoot(t)
 	reachable := map[string]bool{}
-	for _, reached := range vulkanClosure(t).reachable() {
+	for _, reached := range sqlstreamsClosure(t).reachable() {
 		reachable[reached.Pkg().Path()+"."+reached.Name()] = true
 	}
 

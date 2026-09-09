@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common"
 )
 
 type MetricCollectorConfig struct {
@@ -23,12 +23,12 @@ type MetricCollectorConfig struct {
 	// Default: 0.1. Must be < 1.
 	JitterFraction float64
 
-	// TopicConcurrency caps how many topics one collection pass snapshots
+	// StreamConcurrency caps how many streams one collection pass snapshots
 	// and produces at once. The collector shares its connection pool with
-	// the process embedding it, so the cap is what keeps a large topic
+	// the process embedding it, so the cap is what keeps a large stream
 	// count from crowding out that process's own traffic.
 	// Default: 4.
-	TopicConcurrency int
+	StreamConcurrency int
 
 	CollectRetry *common.RetryPolicy // failed-collection backoff curve. Default: common.NewDefaultRetryPolicy().
 }
@@ -43,8 +43,8 @@ func (c *MetricCollectorConfig) WithDefaults() *MetricCollectorConfig {
 	if c.JitterFraction == 0 {
 		c.JitterFraction = 0.1
 	}
-	if c.TopicConcurrency == 0 {
-		c.TopicConcurrency = 4
+	if c.StreamConcurrency == 0 {
+		c.StreamConcurrency = 4
 	}
 	c.CollectRetry = c.CollectRetry.WithDefaults()
 	return c
@@ -60,8 +60,8 @@ func (c *MetricCollectorConfig) Validate() error {
 	if c.JitterFraction < 0 || c.JitterFraction >= 1 {
 		return fmt.Errorf("JitterFraction must be in [0, 1), got %v", c.JitterFraction)
 	}
-	if c.TopicConcurrency < 1 {
-		return fmt.Errorf("TopicConcurrency must be >= 1, got %d", c.TopicConcurrency)
+	if c.StreamConcurrency < 1 {
+		return fmt.Errorf("StreamConcurrency must be >= 1, got %d", c.StreamConcurrency)
 	}
 	if err := c.CollectRetry.Validate(); err != nil {
 		return fmt.Errorf("CollectRetry: %w", err)

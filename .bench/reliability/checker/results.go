@@ -9,8 +9,8 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/agentstax/vulkan/.bench/reliability/checker/datastore"
-	"github.com/agentstax/vulkan/.bench/reliability/scenario"
+	"github.com/agentstax/sqlstreams/.bench/reliability/checker/datastore"
+	"github.com/agentstax/sqlstreams/.bench/reliability/scenario"
 )
 
 // the results files under <dir>/<scenario>/<timestamp>/

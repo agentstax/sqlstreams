@@ -44,41 +44,41 @@ describe('the composed shapes', () => {
 		const line = errorExampleLine(
 			'schema version is older than this build requires',
 			'migrate the {owner_kind} schema up from {version} to {build_version}',
-			'VK0022',
+			'SS0022',
 			['owner_kind', 'version', 'build_version'],
 		);
 
 		expect(line).toBe(
-			'schema version is older than this build requires: version 2, build_version 3, owner_kind "topic" -- migrate the topic schema up from 2 to 3 [VK0022]',
+			'schema version is older than this build requires: version 2, build_version 3, owner_kind "stream" -- migrate the stream schema up from 2 to 3 [SS0022]',
 		);
 	});
 
 	it('renders the text-handler line with bare values', () => {
-		const line = eventExampleLine('lease reclaimed from expired worker', 'warn', 'VK0026', [
-			'topic_id',
+		const line = eventExampleLine('lease reclaimed from expired worker', 'warn', 'SS0026', [
+			'stream_id',
 			'group_id',
 			'low',
 			'high',
 		]);
 
 		expect(line).toBe(
-			'level=WARN msg="lease reclaimed from expired worker" code=VK0026 topic_id=1 group_id=7 low=4100 high=4200',
+			'level=WARN msg="lease reclaimed from expired worker" code=SS0026 stream_id=1 group_id=7 low=4100 high=4200',
 		);
 	});
 
 	it('keeps the minimal line for a code with no placeholder names', () => {
 		const line = errorExampleLine(
-			'topic name is required',
-			'pass the topic name to RegisterTopic',
-			'VK0001',
+			'stream name is required',
+			'pass the stream name to RegisterStream',
+			'SS0001',
 			[],
 		);
 
-		expect(line).toBe('topic name is required -- pass the topic name to RegisterTopic [VK0001]');
+		expect(line).toBe('stream name is required -- pass the stream name to RegisterStream [SS0001]');
 	});
 
 	it('throws for a name with no example value', () => {
-		expect(() => errorExampleLine('problem', null, 'VK9999', ['unregistered_name'])).toThrow(
+		expect(() => errorExampleLine('problem', null, 'SS9999', ['unregistered_name'])).toThrow(
 			'no example value',
 		);
 	});

@@ -3,12 +3,12 @@ package cursoradvancer
 import (
 	"errors"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	cursoradvancercontroller "github.com/agentstax/vulkan/pkg/consume/cursoradvancer/controller"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/worker"
-	"github.com/agentstax/vulkan/pkg/worker/controller"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	cursoradvancercontroller "github.com/agentstax/sqlstreams/pkg/consume/cursoradvancer/controller"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/worker"
+	"github.com/agentstax/sqlstreams/pkg/worker/controller"
 )
 
 const WorkerCursorAdvancer = "cursor_advancer"

@@ -15,14 +15,14 @@ type Scenario struct {
 	Summary  string
 	Duration time.Duration
 
-	// every topic runs Producer's phases, each at the phase's rate; every
+	// every stream runs Producer's phases, each at the phase's rate; every
 	// consumer process runs Consumers' instance count on every group
-	Topics    []TopicDeclaration
+	Streams   []StreamDeclaration
 	Producer  []ProducerPhase
 	Consumers []ConsumerChange
 	Expect    []Expectation
 
-	// ProducerBatchConcurrency is each topic's producer batch workers, one
+	// ProducerBatchConcurrency is each stream's producer batch workers, one
 	// connection each; 0 leaves the library's default
 	ProducerBatchConcurrency int
 	ProducerBatchSize        int
@@ -50,18 +50,18 @@ func (s *Scenario) Validate() error {
 	if s.MaxConns < 0 {
 		return fmt.Errorf("MaxConns must be >= 0, got %d", s.MaxConns)
 	}
-	if len(s.Topics) == 0 {
-		return errors.New("Topics must not be empty")
+	if len(s.Streams) == 0 {
+		return errors.New("Streams must not be empty")
 	}
-	topics := map[string]bool{}
-	for i, declared := range s.Topics {
+	streams := map[string]bool{}
+	for i, declared := range s.Streams {
 		if err := declared.Validate(); err != nil {
-			return fmt.Errorf("Topics[%d]: %w", i, err)
+			return fmt.Errorf("Streams[%d]: %w", i, err)
 		}
-		if topics[declared.Name] {
-			return fmt.Errorf("Topics[%d].Name already declared: %q", i, declared.Name)
+		if streams[declared.Name] {
+			return fmt.Errorf("Streams[%d].Name already declared: %q", i, declared.Name)
 		}
-		topics[declared.Name] = true
+		streams[declared.Name] = true
 	}
 
 	var phases time.Duration

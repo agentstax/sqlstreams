@@ -9,18 +9,18 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/datastore"
-	systemcontroller "github.com/agentstax/vulkan/pkg/system/controller"
-	"github.com/agentstax/vulkan/pkg/worker"
-	workerdatastore "github.com/agentstax/vulkan/pkg/worker/controller/datastore"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
+	systemcontroller "github.com/agentstax/sqlstreams/pkg/system/controller"
+	"github.com/agentstax/sqlstreams/pkg/worker"
+	workerdatastore "github.com/agentstax/sqlstreams/pkg/worker/controller/datastore"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func TestWorkerInstanceLog(t *testing.T) {
-	url := os.Getenv("VULKAN_WORKER_TEST_DATABASE_URL")
+	url := os.Getenv("SQLSTREAMS_WORKER_TEST_DATABASE_URL")
 	if url == "" {
-		t.Skip("set VULKAN_WORKER_TEST_DATABASE_URL for worker instance log integration")
+		t.Skip("set SQLSTREAMS_WORKER_TEST_DATABASE_URL for worker instance log integration")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

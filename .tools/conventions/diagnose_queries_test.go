@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/agentstax/vulkan/pkg/common/diagnostic"
+	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
 )
 
 // A declared diagnose query's placeholders are filled from the attributes on
@@ -49,7 +49,7 @@ func TestDiagnoseQueriesNameTheirColumns(t *testing.T) {
 
 // A diagnose query is pasted into psql by an operator whose own search_path
 // is public, where an unqualified name resolves to nothing -- or worse, to
-// another installation's table. Every vulkan table a query names carries the
+// another installation's table. Every sqlstreams table a query names carries the
 // {schema} placeholder; pg_catalog's own tables never do.
 func TestDiagnoseQueriesQualifyTheirTables(t *testing.T) {
 	walked := 0
@@ -76,7 +76,7 @@ func TestDiagnoseQueriesQualifyTheirTables(t *testing.T) {
 func TestRegisteredAttributesParse(t *testing.T) {
 	registered := registeredAttributes(t)
 
-	for _, name := range []string{"topic", "topic_id", "group_id", "message_id", "low", "high", "build_version"} {
+	for _, name := range []string{"stream", "stream_id", "group_id", "message_id", "low", "high", "build_version"} {
 		if !registered(name) {
 			t.Errorf("the ### Attributes table parsed without %q", name)
 		}

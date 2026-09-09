@@ -1,29 +1,29 @@
 package consume
 
 import (
-	"github.com/agentstax/vulkan/pkg/common/diagnostic"
+	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
 )
 
-// ErrConsumerNotFound means the named group has no row on that topic.
+// ErrConsumerNotFound means the named group has no row on that stream.
 //
-// Diagnose queries: vulkan explain VK0014
-var ErrConsumerNotFound = diagnostic.NewDiagnosticError("VK0014", diagnostic.RecoveryPermanent,
+// Diagnose queries: sqlstreams explain SS0014
+var ErrConsumerNotFound = diagnostic.NewDiagnosticError("SS0014", diagnostic.RecoveryPermanent,
 	"consumer group not found",
 	"register a consumer with this group name to create it",
 
-	diagnostic.NewDiagnosticQuery("every group registered on this topic", `
+	diagnostic.NewDiagnosticQuery("every group registered on this stream", `
 SELECT
 	consumer_group_config.id,
 	consumer_group_config.name,
 	consumer_group_config.created_at
 FROM {schema}.consumer_group_config
-JOIN {schema}.topic_config ON topic_config.id = consumer_group_config.topic_id
-WHERE topic_config.name = '{topic}'
+JOIN {schema}.stream_config ON stream_config.id = consumer_group_config.stream_id
+WHERE stream_config.name = '{stream}'
 ORDER BY consumer_group_config.name;`),
 	diagnostic.NewDiagnosticQuery("the group row behind an id, if that is what the line carried", `
 SELECT
 	id,
-	topic_id,
+	stream_id,
 	name,
 	created_at
 FROM {schema}.consumer_group_config
@@ -33,8 +33,8 @@ WHERE id = {group_id};`),
 // ErrConsumerGroupLive means Destroy was called while a worker instance still runs
 // on the group, without a force override.
 //
-// Diagnose queries: vulkan explain VK0015
-var ErrConsumerGroupLive = diagnostic.NewDiagnosticError("VK0015", diagnostic.RecoveryPermanent,
+// Diagnose queries: sqlstreams explain SS0015
+var ErrConsumerGroupLive = diagnostic.NewDiagnosticError("SS0015", diagnostic.RecoveryPermanent,
 	"consumer group still has a live consumer",
 	"stop the group's consumers, or pass DestroyOptions.Force",
 
@@ -56,14 +56,14 @@ ORDER BY worker_instance.expires_at;`),
 //   - ready/inflight/deferred rows -> failures promised a retry
 //   - dead rows                    -> the dead-letter record
 //
-// Diagnose queries: vulkan explain VK0016
-var ErrConsumerGroupDeliveriesPending = diagnostic.NewDiagnosticError("VK0016", diagnostic.RecoveryPermanent,
+// Diagnose queries: sqlstreams explain SS0016
+var ErrConsumerGroupDeliveriesPending = diagnostic.NewDiagnosticError("SS0016", diagnostic.RecoveryPermanent,
 	"consumer group still has delivery rows",
 	"pass DestroyOptions.Force to delete them",
 
 	diagnostic.NewDiagnosticQuery("what the delivery rows would discard, by status", `
 SELECT status, count(*) AS row_count
-FROM {schema}.exception_queue_{topic_id}
+FROM {schema}.exception_queue_{stream_id}
 WHERE consumer_group_id = {group_id}
 GROUP BY status;`),
 	diagnostic.NewDiagnosticQuery("the dead ones, whose dead-letter record goes with them", `
@@ -72,7 +72,7 @@ SELECT
 	attempts,
 	last_error,
 	updated_at
-FROM {schema}.exception_queue_{topic_id}
+FROM {schema}.exception_queue_{stream_id}
 WHERE consumer_group_id = {group_id}
 	AND status = 'dead'
 ORDER BY message_id;`),
@@ -80,12 +80,12 @@ ORDER BY message_id;`),
 
 // ErrDeliveryTerminal is what Terminal returns: the handler declared that no
 // retry could succeed, so the delivery dead-letters on this attempt.
-var ErrDeliveryTerminal = diagnostic.NewDiagnosticError("VK0055", diagnostic.RecoveryPermanent,
+var ErrDeliveryTerminal = diagnostic.NewDiagnosticError("SS0055", diagnostic.RecoveryPermanent,
 	"delivery cannot succeed",
 	"")
 
 // ErrDeliveryDelayed is what Delay returns: the handler asked for a later
 // run, so the delivery waits out the delay and no failure is counted.
-var ErrDeliveryDelayed = diagnostic.NewDiagnosticError("VK0054", diagnostic.RecoveryTransient,
+var ErrDeliveryDelayed = diagnostic.NewDiagnosticError("SS0054", diagnostic.RecoveryTransient,
 	"could not complete the delivery yet, the handler asked to run it later",
 	"")

@@ -1,6 +1,6 @@
 // verbatim from pkg/system/controller/datastore/tables.go createSystemTables -- drift-checked byte-exact
 export const createScheduleCursorSql = `
-		-- vulkan: system.createSystemTables
+		-- sqlstreams: system.createSystemTables
 		CREATE TABLE IF NOT EXISTS %[1]s.schedule_cursor (
 			id BIGSERIAL PRIMARY KEY,
 			schedule_id BIGINT NOT NULL UNIQUE REFERENCES %[1]s.schedule_config (id) ON DELETE CASCADE,

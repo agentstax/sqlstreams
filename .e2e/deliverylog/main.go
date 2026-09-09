@@ -14,11 +14,11 @@ package main
 //  2. retrying that same message twice logs two MORE distinct rows
 //     (attempt=1, attempt=2) -- the PK is (consumer_group, message_id,
 //     attempt), so a retry can never collide with or overwrite a prior one.
-//  3. a topic registered with DeliveryLogModeOff silently skips every write
+//  3. a stream registered with DeliveryLogModeOff silently skips every write
 //     path (the table itself always exists, so re-enabling needs no DDL) --
 //     a failure still writes its delivery row normally in delivery_<id>, just with no shadow
 //     row.
-//  4. a topic registered with DeliveryLogModeAll logs a 'success' row per
+//  4. a stream registered with DeliveryLogModeAll logs a 'success' row per
 //     success, in the same txn as the success itself: Commit logs its
 //     resolved successes, and an exception that later succeeds logs
 //     'success' at its own attempt as its delivery row deletes.
@@ -35,16 +35,16 @@ import (
 	"os"
 	"time"
 
-	"github.com/agentstax/vulkan/e2e/common"
-	iCommon "github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/consume"
-	consumecontroller "github.com/agentstax/vulkan/pkg/consume/controller"
-	exceptionconsumercontroller "github.com/agentstax/vulkan/pkg/consume/exceptionconsumer/controller"
-	messageconsumercontroller "github.com/agentstax/vulkan/pkg/consume/messageconsumer/controller"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/topic"
-	janitordatastore "github.com/agentstax/vulkan/pkg/topic/janitor/controller/datastore"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/e2e/common"
+	iCommon "github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/consume"
+	consumecontroller "github.com/agentstax/sqlstreams/pkg/consume/controller"
+	exceptionconsumercontroller "github.com/agentstax/sqlstreams/pkg/consume/exceptionconsumer/controller"
+	messageconsumercontroller "github.com/agentstax/sqlstreams/pkg/consume/messageconsumer/controller"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	"github.com/agentstax/sqlstreams/pkg/stream"
+	janitordatastore "github.com/agentstax/sqlstreams/pkg/stream/janitor/controller/datastore"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -83,7 +83,7 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
@@ -108,14 +108,14 @@ func run() (err error) {
 func scenarioFreshFailureAndSuccess(ctx context.Context, pool *pgxpool.Pool) {
 	step("SCENARIO 1: a fresh failure logs one delivery_log row, a success logs none")
 
-	tp, cd, wp, groupId := newTopic(ctx, pool, "scenario1", vulkan.TopicConfig{})
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	tp, cd, wp, groupId := newStream(ctx, pool, "scenario1", sqlstreams.StreamConfig{})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
 	defer func() {
-		must(client.Topic[common.Work](tp.Name).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[common.Work](tp.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	seed(ctx, wp, 2)
@@ -139,8 +139,8 @@ func scenarioFreshFailureAndSuccess(ctx context.Context, pool *pgxpool.Pool) {
 func scenarioRetryDistinctAttempts(ctx context.Context, pool *pgxpool.Pool) {
 	step("SCENARIO 2: retrying the same message twice appends attempt=1 then attempt=2, never overwrites")
 
-	tp, cd, wp, groupId := newTopic(ctx, pool, "scenario2", vulkan.TopicConfig{})
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	tp, cd, wp, groupId := newStream(ctx, pool, "scenario2", sqlstreams.StreamConfig{})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
@@ -148,7 +148,7 @@ func scenarioRetryDistinctAttempts(ctx context.Context, pool *pgxpool.Pool) {
 	must(err)
 
 	defer func() {
-		must(client.Topic[common.Work](tp.Name).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[common.Work](tp.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	seed(ctx, wp, 1)
@@ -185,19 +185,19 @@ func scenarioRetryDistinctAttempts(ctx context.Context, pool *pgxpool.Pool) {
 func scenarioDeliveryLogOff(ctx context.Context, pool *pgxpool.Pool) {
 	step("SCENARIO 3: DeliveryLogModeOff skips every write (the table itself always exists)")
 
-	tp, cd, wp, groupId := newTopic(ctx, pool, "scenario3", vulkan.TopicConfig{DeliveryLogMode: topic.DeliveryLogModeOff})
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	tp, cd, wp, groupId := newStream(ctx, pool, "scenario3", sqlstreams.StreamConfig{DeliveryLogMode: stream.DeliveryLogModeOff})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
 	defer func() {
-		must(client.Topic[common.Work](tp.Name).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[common.Work](tp.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	// registration creates delivery_log_<id> regardless of the flag -- the
 	// flag gates the writes, so re-enabling later needs no DDL
-	assertTableExists(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, topic.DeliveryLogTable(tp.Id)), true)
+	assertTableExists(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, stream.DeliveryLogTable(tp.Id)), true)
 
 	seed(ctx, wp, 1)
 	claim, err := cd.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, 1, 3, 5*time.Second, tp.DeliveryLogMode)
@@ -219,8 +219,8 @@ func scenarioDeliveryLogOff(ctx context.Context, pool *pgxpool.Pool) {
 func scenarioDeliveryLogAll(ctx context.Context, pool *pgxpool.Pool) {
 	step("SCENARIO 4: DeliveryLogModeAll logs a 'success' row per success, same txn as the success")
 
-	tp, cd, wp, groupId := newTopic(ctx, pool, "scenario4all", vulkan.TopicConfig{DeliveryLogMode: topic.DeliveryLogModeAll})
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	tp, cd, wp, groupId := newStream(ctx, pool, "scenario4all", sqlstreams.StreamConfig{DeliveryLogMode: stream.DeliveryLogModeAll})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
@@ -228,7 +228,7 @@ func scenarioDeliveryLogAll(ctx context.Context, pool *pgxpool.Pool) {
 	must(err)
 
 	defer func() {
-		must(client.Topic[common.Work](tp.Name).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[common.Work](tp.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	seed(ctx, wp, 2)
@@ -272,8 +272,8 @@ func scenarioRetentionDropPartition(ctx context.Context, pool *pgxpool.Pool) {
 	step("SCENARIO 5a: dropPartition reaps a dormant message's delivery_log row")
 
 	const partitionSize = int64(4)
-	tp, cd, wp, groupId := newTopic(ctx, pool, "scenario4drop", vulkan.TopicConfig{PartitionSize: partitionSize})
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	tp, cd, wp, groupId := newStream(ctx, pool, "scenario4drop", sqlstreams.StreamConfig{PartitionSize: partitionSize})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
@@ -281,7 +281,7 @@ func scenarioRetentionDropPartition(ctx context.Context, pool *pgxpool.Pool) {
 	must(err)
 
 	defer func() {
-		must(client.Topic[common.Work](tp.Name).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[common.Work](tp.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	dormantId := failOne(ctx, cd, wp, tp, groupId, 4) // fills partition 0 (ids 1-4), fails id 1
@@ -302,8 +302,8 @@ func scenarioRetentionSweepBatch(ctx context.Context, pool *pgxpool.Pool) {
 	step("SCENARIO 5b: sweepBatch reaps a dormant message's delivery_log row individually")
 
 	const partitionSize = int64(1000000) // never rolls -- exercises the sweep path instead of the drop
-	tp, cd, wp, groupId := newTopic(ctx, pool, "scenario4sweep", vulkan.TopicConfig{PartitionSize: partitionSize})
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	tp, cd, wp, groupId := newStream(ctx, pool, "scenario4sweep", sqlstreams.StreamConfig{PartitionSize: partitionSize})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
@@ -311,7 +311,7 @@ func scenarioRetentionSweepBatch(ctx context.Context, pool *pgxpool.Pool) {
 	must(err)
 
 	defer func() {
-		must(client.Topic[common.Work](tp.Name).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[common.Work](tp.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	dormantId := failOne(ctx, cd, wp, tp, groupId, 1)
@@ -333,8 +333,8 @@ func scenarioRetentionSweepBatch(ctx context.Context, pool *pgxpool.Pool) {
 func scenarioRedeferralSharesAttempt(ctx context.Context, pool *pgxpool.Pool) {
 	step("SCENARIO 6: a claim handed back at the key gate and the next run log under the same attempt")
 
-	tp, _, _, groupId := newTopic(ctx, pool, "scenario6", vulkan.TopicConfig{})
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	tp, _, _, groupId := newStream(ctx, pool, "scenario6", sqlstreams.StreamConfig{})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
@@ -342,15 +342,15 @@ func scenarioRedeferralSharesAttempt(ctx context.Context, pool *pgxpool.Pool) {
 	must(err)
 
 	defer func() {
-		must(client.Topic[common.Work](tp.Name).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[common.Work](tp.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	// a keyed message with its first-delivery 'deferred' row, as the cursor path writes it
 	var messageId int64
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`INSERT INTO %s.%s (message_key, schema_version, payload) VALUES ('k', 1, '{}') RETURNING id`, ds.Schema, topic.MessageLogTable(tp.Id))).Scan(&messageId))
-	_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (consumer_group_id, message_id, status, concurrency, attempts) VALUES ($1, $2, 'deferred', 'exclusive', 0)`, ds.Schema, topic.ExceptionQueueTable(tp.Id)), groupId, messageId)
+	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`INSERT INTO %s.%s (message_key, schema_version, payload) VALUES ('k', 1, '{}') RETURNING id`, ds.Schema, stream.MessageLogTable(tp.Id))).Scan(&messageId))
+	_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (consumer_group_id, message_id, status, concurrency, attempts) VALUES ($1, $2, 'deferred', 'exclusive', 0)`, ds.Schema, stream.ExceptionQueueTable(tp.Id)), groupId, messageId)
 	must(err)
-	_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (consumer_group_id, message_id, attempt, status, error) VALUES ($1, $2, 0, 'deferred', '')`, ds.Schema, topic.DeliveryLogTable(tp.Id)), groupId, messageId)
+	_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (consumer_group_id, message_id, attempt, status, error) VALUES ($1, $2, 0, 'deferred', '')`, ds.Schema, stream.DeliveryLogTable(tp.Id)), groupId, messageId)
 	must(err)
 
 	claimed, err := exceptionConsumers.Claim(ctx, tp.Id, groupId, 1, 10, 3, 5*time.Second, tp.DeliveryLogMode)
@@ -374,14 +374,14 @@ func scenarioRedeferralSharesAttempt(ctx context.Context, pool *pgxpool.Pool) {
 
 // ---- helpers ----
 
-func newTopic(ctx context.Context, pool *pgxpool.Pool, suffix string, cfg vulkan.TopicConfig) (*topic.Topic, *messageconsumercontroller.MessageConsumerGroupController, *vulkan.ProducerInstance[common.Work], int64) {
+func newStream(ctx context.Context, pool *pgxpool.Pool, suffix string, cfg sqlstreams.StreamConfig) (*stream.Stream, *messageconsumercontroller.MessageConsumerGroupController, *sqlstreams.ProducerInstance[common.Work], int64) {
 	name := fmt.Sprintf("phase11.deliverylog.%s.%d", suffix, time.Now().UnixNano())
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
-	tp, err := client.Topic[vulkan.RawPayload](name).Register(ctx, &cfg)
+	tp, err := client.Stream[sqlstreams.RawPayload](name).Register(ctx, &cfg)
 	must(err)
 
 	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
@@ -389,14 +389,14 @@ func newTopic(ctx context.Context, pool *pgxpool.Pool, suffix string, cfg vulkan
 	groupId := mustGroupID(cd.RegisterGroup(ctx, tp.Id, group, consume.Beginning()))
 	messageConsumers, err := messageconsumercontroller.NewMessageConsumerGroupController(ds, ds.Logger)
 	must(err)
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 	return tp, messageConsumers, wpInstance, groupId
 }
 
-func seed(ctx context.Context, wpInstance *vulkan.ProducerInstance[common.Work], n int) {
+func seed(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[common.Work], n int) {
 	for range n {
-		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
+		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 			return common.NewWork(30, "admin@example.com")
 		}, nil)
 		must(err)
@@ -406,7 +406,7 @@ func seed(ctx context.Context, wpInstance *vulkan.ProducerInstance[common.Work],
 // failOne claims a fresh range of n messages and fails the first one -- returns
 // its id. Used by the retention scenarios, which only care about one failure
 // per range, not the retry-distinctness scenario 2 already covers.
-func failOne(ctx context.Context, cd *messageconsumercontroller.MessageConsumerGroupController, wpInstance *vulkan.ProducerInstance[common.Work], tp *topic.Topic, groupId int64, n int) int64 {
+func failOne(ctx context.Context, cd *messageconsumercontroller.MessageConsumerGroupController, wpInstance *sqlstreams.ProducerInstance[common.Work], tp *stream.Stream, groupId int64, n int) int64 {
 	seed(ctx, wpInstance, n)
 	claim, err := cd.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, n, 3, 5*time.Second, tp.DeliveryLogMode)
 	must(err)
@@ -419,17 +419,17 @@ func failOne(ctx context.Context, cd *messageconsumercontroller.MessageConsumerG
 	return failingId
 }
 
-func assertDeliveryLogRow(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, groupId int64, messageId int64, attempt int, wantErr string, wantExists bool) {
+func assertDeliveryLogRow(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, groupId int64, messageId int64, attempt int, wantErr string, wantExists bool) {
 	var gotErr string
-	err := ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT error FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2 AND attempt = $3;`, ds.Schema, topic.DeliveryLogTable(topicId)), groupId, messageId, attempt).Scan(&gotErr)
+	err := ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT error FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2 AND attempt = $3;`, ds.Schema, stream.DeliveryLogTable(streamId)), groupId, messageId, attempt).Scan(&gotErr)
 	exists := err == nil
 	if exists != wantExists {
-		die(fmt.Sprintf("%s.%s[group=%d message=%d attempt=%d] exists=%v, want %v (err=%v)", ds.Schema, topic.DeliveryLogTable(topicId), groupId, messageId, attempt, exists, wantExists, err))
+		die(fmt.Sprintf("%s.%s[group=%d message=%d attempt=%d] exists=%v, want %v (err=%v)", ds.Schema, stream.DeliveryLogTable(streamId), groupId, messageId, attempt, exists, wantExists, err))
 	}
 	if wantExists && gotErr != wantErr {
-		die(fmt.Sprintf("%s.%s[message=%d attempt=%d] error=%q, want %q", ds.Schema, topic.DeliveryLogTable(topicId), messageId, attempt, gotErr, wantErr))
+		die(fmt.Sprintf("%s.%s[message=%d attempt=%d] error=%q, want %q", ds.Schema, stream.DeliveryLogTable(streamId), messageId, attempt, gotErr, wantErr))
 	}
-	fmt.Printf("  ✓ delivery_log_%d[message=%d attempt=%d] exists=%v%s\n", topicId, messageId, attempt, exists, errSuffix(wantExists, gotErr))
+	fmt.Printf("  ✓ delivery_log_%d[message=%d attempt=%d] exists=%v%s\n", streamId, messageId, attempt, exists, errSuffix(wantExists, gotErr))
 }
 
 func errSuffix(wantExists bool, gotErr string) string {
@@ -439,19 +439,19 @@ func errSuffix(wantExists bool, gotErr string) string {
 	return fmt.Sprintf(" error=%q", gotErr)
 }
 
-func assertDeliveryLogStatus(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, groupId int64, messageId int64, attempt int, wantStatus string) {
+func assertDeliveryLogStatus(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, groupId int64, messageId int64, attempt int, wantStatus string) {
 	var gotStatus string
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT status FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2 AND attempt = $3;`, ds.Schema, topic.DeliveryLogTable(topicId)), groupId, messageId, attempt).Scan(&gotStatus))
+	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT status FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2 AND attempt = $3;`, ds.Schema, stream.DeliveryLogTable(streamId)), groupId, messageId, attempt).Scan(&gotStatus))
 	if gotStatus != wantStatus {
-		die(fmt.Sprintf("%s.%s[message=%d attempt=%d] status=%q, want %q", ds.Schema, topic.DeliveryLogTable(topicId), messageId, attempt, gotStatus, wantStatus))
+		die(fmt.Sprintf("%s.%s[message=%d attempt=%d] status=%q, want %q", ds.Schema, stream.DeliveryLogTable(streamId), messageId, attempt, gotStatus, wantStatus))
 	}
-	fmt.Printf("  ✓ delivery_log_%d[message=%d attempt=%d] status=%q\n", topicId, messageId, attempt, gotStatus)
+	fmt.Printf("  ✓ delivery_log_%d[message=%d attempt=%d] status=%q\n", streamId, messageId, attempt, gotStatus)
 }
 
 // assertDeliveryLogStatusesAt checks every event logged under one attempt, in
 // insertion order.
-func assertDeliveryLogStatusesAt(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, groupId int64, messageId int64, attempt int, want []string) {
-	rows, err := ds.Pool.Query(ctx, fmt.Sprintf(`SELECT status FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2 AND attempt = $3 ORDER BY id;`, ds.Schema, topic.DeliveryLogTable(topicId)), groupId, messageId, attempt)
+func assertDeliveryLogStatusesAt(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, groupId int64, messageId int64, attempt int, want []string) {
+	rows, err := ds.Pool.Query(ctx, fmt.Sprintf(`SELECT status FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2 AND attempt = $3 ORDER BY id;`, ds.Schema, stream.DeliveryLogTable(streamId)), groupId, messageId, attempt)
 	must(err)
 	defer rows.Close()
 	var got []string
@@ -461,27 +461,27 @@ func assertDeliveryLogStatusesAt(ctx context.Context, ds *iDatastore.PostgresDat
 		got = append(got, status)
 	}
 	if fmt.Sprint(got) != fmt.Sprint(want) {
-		die(fmt.Sprintf("%s.%s[message=%d attempt=%d] statuses=%v, want %v", ds.Schema, topic.DeliveryLogTable(topicId), messageId, attempt, got, want))
+		die(fmt.Sprintf("%s.%s[message=%d attempt=%d] statuses=%v, want %v", ds.Schema, stream.DeliveryLogTable(streamId), messageId, attempt, got, want))
 	}
-	fmt.Printf("  ✓ delivery_log_%d[message=%d attempt=%d] statuses=%v\n", topicId, messageId, attempt, got)
+	fmt.Printf("  ✓ delivery_log_%d[message=%d attempt=%d] statuses=%v\n", streamId, messageId, attempt, got)
 }
 
-func assertDeliveryLogCount(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, groupId int64, messageId int64, want int) {
+func assertDeliveryLogCount(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, groupId int64, messageId int64, want int) {
 	var count int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2;`, ds.Schema, topic.DeliveryLogTable(topicId)), groupId, messageId).Scan(&count))
+	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2;`, ds.Schema, stream.DeliveryLogTable(streamId)), groupId, messageId).Scan(&count))
 	if count != want {
-		die(fmt.Sprintf("%s.%s[message=%d] has %d rows, want %d", ds.Schema, topic.DeliveryLogTable(topicId), messageId, count, want))
+		die(fmt.Sprintf("%s.%s[message=%d] has %d rows, want %d", ds.Schema, stream.DeliveryLogTable(streamId), messageId, count, want))
 	}
-	fmt.Printf("  ✓ delivery_log_%d[message=%d] has %d row(s)\n", topicId, messageId, count)
+	fmt.Printf("  ✓ delivery_log_%d[message=%d] has %d row(s)\n", streamId, messageId, count)
 }
 
-func assertDeliveryRowCount(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, want int) {
+func assertDeliveryRowCount(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, want int) {
 	var count int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s;`, ds.Schema, topic.ExceptionQueueTable(topicId))).Scan(&count))
+	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s;`, ds.Schema, stream.ExceptionQueueTable(streamId))).Scan(&count))
 	if count != want {
-		die(fmt.Sprintf("%s.%s has %d rows, want %d", ds.Schema, topic.ExceptionQueueTable(topicId), count, want))
+		die(fmt.Sprintf("%s.%s has %d rows, want %d", ds.Schema, stream.ExceptionQueueTable(streamId), count, want))
 	}
-	fmt.Printf("  ✓ exception_queue_%d has %d row(s)\n", topicId, count)
+	fmt.Printf("  ✓ exception_queue_%d has %d row(s)\n", streamId, count)
 }
 
 func assertTableExists(ctx context.Context, ds *iDatastore.PostgresDatastore, table string, want bool) {

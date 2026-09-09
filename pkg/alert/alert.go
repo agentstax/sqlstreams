@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common"
 )
 
 // AlertStatus is an alert's lifecycle state -- an active alert and its later
@@ -33,7 +33,7 @@ const (
 )
 
 // Alert is what one run found for one owner, published to the
-// __system.alerts topic as an ordinary message.
+// __system.alerts stream as an ordinary message.
 type Alert struct {
 	// identity
 	Name     string        `json:"name"`   // e.g. "partition_count"
@@ -124,8 +124,8 @@ func MessageKey(name string, owner *common.Owner) (string, error) {
 	switch owner.Kind() {
 	case common.OwnerSystem:
 		id = owner.SystemId
-	case common.OwnerTopic:
-		id = owner.TopicId
+	case common.OwnerStream:
+		id = owner.StreamId
 	case common.OwnerConsumerGroup:
 		id = owner.ConsumerGroupId
 	default:

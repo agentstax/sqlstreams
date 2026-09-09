@@ -3,14 +3,14 @@ title: Postgres pool
 description: NewPostgresPool and PostgresConnectionConfig — the DSN exploded into params, and what stays yours.
 ---
 
-`vulkan.NewPostgresPool` builds a `*pgxpool.Pool` from the parts of a
+`sqlstreams.NewPostgresPool` builds a `*pgxpool.Pool` from the parts of a
 Postgres URL, in the order the URL writes them:
 `postgres://user:password@host:port/database`. It does not dial; `NewClient`
 is what pings the pool, so a wrong password surfaces there, not here.
 
 ```go
-pool, err := vulkan.NewPostgresPool(ctx, "app_user", os.Getenv("PGPASSWORD"), "localhost", "app_db",
-	&vulkan.PostgresConnectionConfig{MaxConns: 20})
+pool, err := sqlstreams.NewPostgresPool(ctx, "app_user", os.Getenv("PGPASSWORD"), "localhost", "app_db",
+	&sqlstreams.PostgresConnectionConfig{MaxConns: 20})
 if err != nil {
 	return err
 }
@@ -40,15 +40,15 @@ the DSN is built through `net/url`.
 - A caller holding a DSN skips this entirely: `pgxpool.New(ctx, dsn)` and
   hand the result to `NewClient`, which takes any `*pgxpool.Pool`. That is
   the path for a `DATABASE_URL` deployment and for an application whose
-  pool exists before Vulkan enters it.
+  pool exists before SQLStreams enters it.
 - Whichever way the pool is built, you close it. `defer pool.Close()` is
   the only shutdown this layer needs.
 - Taking a pool commits the public API to pgx. A team on `database/sql`
-  runs one pool: build the pgxpool, hand it to Vulkan, and derive the
+  runs one pool: build the pgxpool, hand it to SQLStreams, and derive the
   `*sql.DB` view with pgx's own `stdlib.OpenDBFromPool(pool)`, which shares
   the pool and leaves closing to you. The derivation runs only that
   direction, so a team that will not import pgx runs a second pool beside
-  Vulkan's.
+  SQLStreams's.
 - A pool you built can carry its own `search_path`, on the DSN as
-  `?search_path=myapp` or in an `AfterConnect` hook. Vulkan does not care:
+  `?search_path=myapp` or in an `AfterConnect` hook. SQLStreams does not care:
   every statement it runs names its schema outright.

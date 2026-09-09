@@ -1,27 +1,27 @@
 ---
 title: Alerts
-description: The alert handles on the system, a topic, and a consumer group — Definitions, Latest, History, built-in selectors, and Alert(name).
+description: The alert handles on the system, a stream, and a consumer group — Definitions, Latest, History, built-in selectors, and Alert(name).
 ---
 
 `.Alerts()` on the [system](/reference/system/), a
-[topic](/reference/topic/), or a [consumer](/reference/consumer/) handle
+[stream](/reference/stream/), or a [consumer](/reference/consumer/) handle
 returns that scope's alerts handle: no I/O, no failure. An alert is a
 retained message on `__system.alerts` about one resource, keyed by the
 alert's name and its owner, and it takes the metrics grammar: `Latest`
 reads the newest retained one, `History` reads retained ones newest first,
-`Definitions` says what Vulkan can raise.
+`Definitions` says what SQLStreams can raise.
 
 ```go
-topic := client.Topic[PaymentRequestedV1]("payments.requested")
-current, err := topic.Alerts().PartitionCount().Latest(ctx) // *vulkan.Alert; nil before the first
+stream := client.Stream[PaymentRequestedV1]("payments.requested")
+current, err := stream.Alerts().PartitionCount().Latest(ctx) // *sqlstreams.Alert; nil before the first
 if err != nil {
 	return err
 }
-history, err := topic.Alerts().WorkerLiveness().History(ctx, 20)
+history, err := stream.Alerts().WorkerLiveness().History(ctx, 20)
 if err != nil {
 	return err
 }
-snapshot, err := topic.Alerts().PartitionCount().Snapshot(ctx)
+snapshot, err := stream.Alerts().PartitionCount().Snapshot(ctx)
 if err != nil {
 	return err
 }
@@ -38,7 +38,7 @@ On every scope:
 | `Latest(ctx)` | `[]*Alert` | the newest retained alert per name and owner in the scope, active or resolved, ordered by message key; the system list is every alert |
 | `Alert(name)` | `*AlertHandle` | no I/O; the alert named `name` whose owner is this resource, which is where a user-produced alert on it is read |
 
-On the topic handle, one selector per built-in: `PartitionCount()`,
+On the stream handle, one selector per built-in: `PartitionCount()`,
 `CompactionReadCost()`, `WorkerLiveness()`. Each is `Alert(name)` with
 the name filled in.
 
@@ -51,7 +51,7 @@ On an `AlertHandle`:
 | --- | --- | --- |
 | `Latest(ctx)` | `*Alert` | `(nil, nil)` when the owner exists and nothing is retained under the key |
 | `History(ctx, limit)` | `[]*Alert` | newest first; `limit` must be positive |
-| `Snapshot(ctx)` | `*AlertEvaluationSnapshot` | read-only evaluation of a built-in under its current declared schedule policy; returns `ErrScheduleNotFound` for a missing schedule, `ErrTopicNotFound` or `ErrConsumerNotFound` for a missing owner; unsupported names/scopes and malformed policies return errors |
+| `Snapshot(ctx)` | `*AlertEvaluationSnapshot` | read-only evaluation of a built-in under its current declared schedule policy; returns `ErrScheduleNotFound` for a missing schedule, `ErrStreamNotFound` or `ErrConsumerNotFound` for a missing owner; unsupported names/scopes and malformed policies return errors |
 
 A definition is metadata, never a value: `Code`, `Name`, `Description`,
 `Scope`, `Severity`. Severity is fixed per built-in; message, detail,
@@ -61,51 +61,51 @@ per finding and stay on the `Alert`.
 | scope | owner |
 | --- | --- |
 | `MetricScopeSystem` | the system |
-| `MetricScopeTopic` | the topic |
-| `MetricScopeConsumerGroup` | the topic and group |
+| `MetricScopeStream` | the stream |
+| `MetricScopeConsumerGroup` | the stream and group |
 
-Three built-ins are owned by a topic: `partition_count`,
+Three built-ins are owned by a stream: `partition_count`,
 `compaction_read_cost`, `worker_liveness`. The system owns
-`metrics_collector_progress`. Each has a VK code, so
-`vulkan explain VK0094` and its page say what an active one means. The
+`metrics_collector_progress`. Each has a SS code, so
+`sqlstreams explain SS0094` and its page say what an active one means. The
 group handle has no built-in selector: its `Definitions()` is empty and
 `Alert(name)` is its whole read.
 
-## Consuming the alert topic
+## Consuming the alert stream
 
-`__system.alerts` is a topic like any other, and a consumer group on it is
+`__system.alerts` is a stream like any other, and a consumer group on it is
 the push side: a Slack or PagerDuty hook hangs off `Consume`, the `Latest`
 reads are the pull side.
 
 ```go
-pager, err := client.Topic[vulkan.Alert](vulkan.AlertTopicName).Consumer("alert-pager").Register(ctx, nil)
+pager, err := client.Stream[sqlstreams.Alert](sqlstreams.AlertStreamName).Consumer("alert-pager").Register(ctx, nil)
 ```
 
 A new group starts at the beginning of retained history, so it replays
-what retention holds. Declare `Start: vulkan.Head()` to hear only alerts
+what retention holds. Declare `Start: sqlstreams.Head()` to hear only alerts
 raised after it registered, and read `Latest` once at startup for what is
 already active.
 
 ## Gotchas
 
-- The three topic alerts require two minutes of consecutive unhealthy
+- The three stream alerts require two minutes of consecutive unhealthy
   measurements by default. Each alert config exposes the same direct fields:
   `PendingDuration` and `MaximumGap` default to two minutes; `DisablePending: true` allows
   immediate activation but still requires fresh evidence. Missing or stale
   evidence leaves recorded alerts unchanged and increments the check's failed
-  topic count. See [measurement history](/concepts/alert-history/) for the rules.
+  stream count. See [measurement history](/concepts/alert-history/) for the rules.
 - Collector progress requires two minutes of overdue or absent completion
   during continuous manager lease coverage. A coverage gap restarts pending;
   insufficient evidence leaves the recorded alert unchanged and logs a warning.
   See [collector progress](/concepts/metrics-export/#observe-collector-progress-independently).
 - An alert's key is its owner's id, so the read resolves the name first.
-  Destroy the topic and `topic.Alerts().PartitionCount().Latest(ctx)`
-  returns `ErrTopicNotFound` rather than the last alert; a missing group is
+  Destroy the stream and `stream.Alerts().PartitionCount().Latest(ctx)`
+  returns `ErrStreamNotFound` rather than the last alert; a missing group is
   `ErrConsumerNotFound` the same way. The id is also what makes an alert
-  follow its topic through `Rename`.
+  follow its stream through `Rename`.
 - Nothing raises a test alert. To watch the pipeline on a healthy system,
-  declare `PartitionCountAlert: &vulkan.PartitionCountAlertConfig{Threshold: 1}`,
-  which alerts after a sustained count on every topic with a partition, and put the real threshold
+  declare `PartitionCountAlert: &sqlstreams.PartitionCountAlertConfig{Threshold: 1}`,
+  which alerts after a sustained count on every stream with a partition, and put the real threshold
   back on the next register.
 - `Snapshot` evaluates current evidence even when the schedule is suspended.
   Queued checks retain their consumed policy. Its `State` is one of

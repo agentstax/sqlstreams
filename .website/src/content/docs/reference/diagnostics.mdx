@@ -1,18 +1,18 @@
 ---
 title: Errors and events
-description: DiagnosticError and DiagnosticEvent — the accessors on every VK-coded error and log event, errors.Is against the Err variables, and Owner.
+description: DiagnosticError and DiagnosticEvent — the accessors on every SS-coded error and log event, errors.Is against the Err variables, and Owner.
 ---
 
-Every error Vulkan returns with a `VK` code is a `*vulkan.DiagnosticError`,
-and every coded log line is emitted from a `*vulkan.DiagnosticEvent`. Both
-are declared once as package variables, `vulkan.ErrTopicNotFound`,
-`vulkan.EventLeaseReclaimed`, and a raise attaches values to a copy.
+Every error SQLStreams returns with a `SS` code is a `*sqlstreams.DiagnosticError`,
+and every coded log line is emitted from a `*sqlstreams.DiagnosticEvent`. Both
+are declared once as package variables, `sqlstreams.ErrStreamNotFound`,
+`sqlstreams.EventLeaseReclaimed`, and a raise attaches values to a copy.
 Branch with `errors.Is` against the variable, never on message text.
 
 ```go
 _, err := orders.Register(ctx, nil)
-if errors.Is(err, vulkan.ErrTopicNameTaken) {
-	// another topic already holds the name
+if errors.Is(err, sqlstreams.ErrStreamNameTaken) {
+	// another stream already holds the name
 }
 ```
 
@@ -22,7 +22,7 @@ On a `DiagnosticError`:
 
 | accessor | returns | notes |
 | --- | --- | --- |
-| `GetCode()` | `string` | the `VK` code, the link to its page |
+| `GetCode()` | `string` | the `SS` code, the link to its page |
 | `Recovery()` | `DiagnosticRecovery` | `RecoveryTransient` when an unchanged retry can succeed, else `RecoveryPermanent` |
 | `Problem()`, `Fix()` | `string` | the declared problem and fix; the fix carries `{attribute}` placeholders that `Error()` fills from the attached values |
 | `Queries()` | `[]DiagnosticQuery` | the diagnose queries, detached copies |
@@ -35,8 +35,8 @@ On a `DiagnosticEvent`: `GetCode()`, `Message()`, `Queries()`, `Docs()`.
 ## Owner
 
 `Owner` is the resource a worker row, an alert, or a lease belongs to. It
-exposes the ids, the name, and `Kind()`: `OwnerSystem`, `OwnerTopic`, or
-`OwnerConsumerGroup`. A consumer-group owner carries system id `1`, topic
+exposes the ids, the name, and `Kind()`: `OwnerSystem`, `OwnerStream`, or
+`OwnerConsumerGroup`. A consumer-group owner carries system id `1`, stream
 id `12`, and group id `34` together, and `Kind()` says the group is the
 owning resource.
 
@@ -45,9 +45,9 @@ owning resource.
 - `With` copies the error; arbitrary application values attached through
   it are not deep-copied.
 - `Recovery` is read-only. A service can attach context to
-  `ErrTopicNotFound` and still match it with `errors.Is`, and it cannot
+  `ErrStreamNotFound` and still match it with `errors.Is`, and it cannot
   change the declaration's retry classification.
 - The SQL owner-column helpers are not on `Owner`; advanced datastore
   callers use `pkg/datastore.NewOwnerColumns`, outside the supported API.
 - Every code has its thread on [Troubleshooting](/boards/troubleshooting/),
-  and `vulkan explain VK0005` prints the same page offline.
+  and `sqlstreams explain SS0005` prints the same page offline.

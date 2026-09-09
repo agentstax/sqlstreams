@@ -10,8 +10,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/agentstax/vulkan/e2e/common"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/e2e/common"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 func main() {
@@ -25,7 +25,7 @@ func run() error {
 	// FLAGS
 
 	groupPtr := flag.String("group", "learning.v1", "consumer group name")
-	topicPtr := flag.String("topic", "learning.v1", "topic to consume from (must already be registered, e.g. via `just produce`)")
+	streamPtr := flag.String("stream", "learning.v1", "stream to consume from (must already be registered, e.g. via `just produce`)")
 	processorSleepPtr := flag.Float64("processor-sleep", 0.1, "artifical sleep in consumer func for testing (in seconds)")
 	failRatePtr := flag.Float64("fail-rate", 0.0, "artifical fail rate in consumer func for testing")
 	crashAfterPtr := flag.Float64("crash-after", -1, "artificial crash after n attempts for testing")
@@ -34,38 +34,38 @@ func run() error {
 	flag.Parse()
 
 	fmt.Printf("flag group: %s\n", *groupPtr)
-	fmt.Printf("flag topic: %s\n", *topicPtr)
+	fmt.Printf("flag stream: %s\n", *streamPtr)
 	fmt.Printf("flag processor sleep: %f\n", *processorSleepPtr)
 	fmt.Printf("flag fail rate: %f\n", *failRatePtr)
 	fmt.Printf("crash after: %f\n", *crashAfterPtr)
 
 	// SETUP
-	ctx, stop := vulkan.LifecycleContext(nil)
+	ctx, stop := sqlstreams.LifecycleContext(nil)
 	defer stop()
 
 	const concurrencyLimit = 5
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	if err != nil {
 		return err
 	}
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	if err != nil {
 		return err
 	}
 
-	t, err := client.Topic[vulkan.RawPayload](*topicPtr).Get(ctx)
+	t, err := client.Stream[sqlstreams.RawPayload](*streamPtr).Get(ctx)
 	if err != nil {
 		return err
 	}
 	if t == nil {
-		return fmt.Errorf("topic %q is not registered -- `just produce` declares it\n", *topicPtr)
+		return fmt.Errorf("stream %q is not registered -- `just produce` declares it\n", *streamPtr)
 	}
 
-	workInstance, err := client.Topic[common.Work](t.Name).Consumer(*groupPtr).Register(ctx, &vulkan.ConsumerConfig{
-		Message: &vulkan.MessageOptions{Timeout: 5 * time.Second, Retry: &vulkan.RetryPolicy{MaxRetries: 3}},
+	workInstance, err := client.Stream[common.Work](t.Name).Consumer(*groupPtr).Register(ctx, &sqlstreams.ConsumerConfig{
+		Message: &sqlstreams.MessageOptions{Timeout: 5 * time.Second, Retry: &sqlstreams.RetryPolicy{MaxRetries: 3}},
 	})
 
 	if err != nil {
@@ -96,7 +96,7 @@ func run() error {
 
 		fmt.Printf("work processes end %s\n", work.Id)
 		return nil
-	}, &vulkan.ConsumeOptions{
+	}, &sqlstreams.ConsumeOptions{
 		BatchLimit:         10,
 		QueueSize:          concurrencyLimit * 10,
 		MessageConcurrency: concurrencyLimit,

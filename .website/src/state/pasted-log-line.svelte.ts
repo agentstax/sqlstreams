@@ -1,5 +1,5 @@
 // The log line a reader pasted on a code thread. Deliberately not stored: it
-// carries their own topic names and error text, and nothing needs it after the
+// carries their own stream names and error text, and nothing needs it after the
 // tab closes.
 
 export class PastedLogLine {

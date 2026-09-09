@@ -3,16 +3,16 @@ package datastore
 import (
 	"errors"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	"github.com/agentstax/vulkan/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
 )
 
 // SystemDatastore owns the shared control-plane tables.
 // Tables:
 // - system_config
-// - topic_config
-// - topic_config_log
+// - stream_config
+// - stream_config_log
 // - consumer_group_config
 // - worker_config
 // - worker_config_log

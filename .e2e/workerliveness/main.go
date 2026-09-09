@@ -3,9 +3,9 @@
 // resolves.
 //
 // Sections:
-//  1. register-time -- a produce-only process logs VK0063 naming the topic's
-//     unclaimed topic_janitor; with a consumer running, every row on the
-//     topic is claimed and the next Register is silent
+//  1. register-time -- a produce-only process logs SS0063 naming the stream's
+//     unclaimed stream_janitor; with a consumer running, every row on the
+//     stream is claimed and the next Register is silent
 //  2. scheduled -- with the group's consumer stopped, a run of the
 //     worker_liveness job publishes an active alert naming the group's
 //     message_consumer; restarting the consumer resolves it on the next run
@@ -19,24 +19,24 @@ import (
 	"sync"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/alert"
-	"github.com/agentstax/vulkan/pkg/alert/compactionreadcost"
-	"github.com/agentstax/vulkan/pkg/alert/partitioncount"
-	"github.com/agentstax/vulkan/pkg/alert/workerliveness"
-	"github.com/agentstax/vulkan/pkg/common"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/metric"
-	"github.com/agentstax/vulkan/pkg/metric/collector"
-	"github.com/agentstax/vulkan/pkg/schedule"
-	"github.com/agentstax/vulkan/pkg/topic"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
-	"github.com/agentstax/vulkan/pkg/worker"
-	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
+	"github.com/agentstax/sqlstreams/pkg/alert"
+	"github.com/agentstax/sqlstreams/pkg/alert/compactionreadcost"
+	"github.com/agentstax/sqlstreams/pkg/alert/partitioncount"
+	"github.com/agentstax/sqlstreams/pkg/alert/workerliveness"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/metric"
+	"github.com/agentstax/sqlstreams/pkg/metric/collector"
+	"github.com/agentstax/sqlstreams/pkg/schedule"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	"github.com/agentstax/sqlstreams/pkg/stream"
+	"github.com/agentstax/sqlstreams/pkg/worker"
+	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
 )
 
-const eventCode = "VK0063"
+const eventCode = "SS0063"
 
-// testMessage is the e2e test topic's payload -- the group never has to process
+// testMessage is the e2e test stream's payload -- the group never has to process
 // one, the e2e test only needs the group's worker rows to exist.
 type testMessage struct {
 	Value string
@@ -46,19 +46,19 @@ func (testMessage) SchemaVersion() int { return 1 }
 
 var (
 	ds     *iDatastore.PostgresDatastore
-	client *vulkan.Client
+	client *sqlstreams.Client
 
 	// registerClient logs through capture so the Register-time pass can be counted
-	registerClient *vulkan.Client
+	registerClient *sqlstreams.Client
 	capture        *captureLogger
 
-	schedulesTopic *topic.Topic
-	alertsTopic    *topic.Topic
-	prefix         string
+	schedulesStream *stream.Stream
+	alertsStream    *stream.Stream
+	prefix          string
 
-	testTopic      *topic.Topic
-	testTopicOwner *common.Owner
-	testGroupName  string
+	testStream      *stream.Stream
+	testStreamOwner *common.Owner
+	testGroupName   string
 
 	jobGroup      int64
 	jobGroupOwner *common.Owner
@@ -93,40 +93,40 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err = vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err = sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err = iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
-	must(client.System().Register(ctx, &vulkan.SystemConfig{
+	must(client.System().Register(ctx, &sqlstreams.SystemConfig{
 		WorkerLivenessAlert: &alert.WorkerLivenessAlertConfig{DisablePending: true},
 		MetricCollector:     &metric.MetricCollectorWorkerConfig{PollRate: 200 * time.Millisecond},
 	}))
 	defer func() { must(client.System().Register(ctx, nil)) }()
 
 	capture = newCaptureLogger()
-	registerClient, err = vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{Logger: capture})
+	registerClient, err = sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{Logger: capture})
 	must(err)
 
-	schedulesTopic, err = client.Topic[vulkan.RawPayload](schedule.ScheduleTopicName).Get(ctx)
+	schedulesStream, err = client.Stream[sqlstreams.RawPayload](schedule.ScheduleStreamName).Get(ctx)
 	must(err)
-	alertsTopic, err = client.Topic[vulkan.RawPayload](alert.AlertTopicName).Get(ctx)
+	alertsStream, err = client.Stream[sqlstreams.RawPayload](alert.AlertStreamName).Get(ctx)
 	must(err)
 
 	jobGroup = scalarInt64(ctx,
-		fmt.Sprintf(`SELECT id FROM %s.consumer_group_config WHERE topic_id = $1 AND name = $2;`, ds.Schema),
-		schedulesTopic.Id, workerliveness.JobName)
-	jobGroupOwner, err = common.NewConsumerGroupOwner(schedulesTopic.SystemId, schedulesTopic.Id, jobGroup, workerliveness.JobName)
+		fmt.Sprintf(`SELECT id FROM %s.consumer_group_config WHERE stream_id = $1 AND name = $2;`, ds.Schema),
+		schedulesStream.Id, workerliveness.JobName)
+	jobGroupOwner, err = common.NewConsumerGroupOwner(schedulesStream.SystemId, schedulesStream.Id, jobGroup, workerliveness.JobName)
 	must(err)
 
 	prefix = fmt.Sprintf("workerliveness.%d", time.Now().UnixNano())
 	testGroupName = prefix + ".group"
-	testTopic, err = client.Topic[vulkan.RawPayload](prefix+".topic").Register(ctx, nil)
+	testStream, err = client.Stream[sqlstreams.RawPayload](prefix+".stream").Register(ctx, nil)
 	must(err)
-	testTopicOwner, err = common.NewTopicOwner(testTopic.SystemId, testTopic.Id, testTopic.Name)
+	testStreamOwner, err = common.NewStreamOwner(testStream.SystemId, testStream.Id, testStream.Name)
 	must(err)
 	defer cleanup()
 
@@ -143,35 +143,35 @@ func run() (err error) {
 	scheduledSection(ctx)
 
 	fmt.Println("\n✅ WORKER LIVENESS E2E TEST PASSED")
-	fmt.Println("   a produce-only process learns nothing is running its topic's rows;")
+	fmt.Println("   a produce-only process learns nothing is running its stream's rows;")
 	fmt.Println("   the scheduled check turns the same fact into an alert that resolves itself")
 	return nil
 }
 
 func registerSection(ctx context.Context) {
-	step("register-time: produce-only warns VK0063, a running consumer silences it")
+	step("register-time: produce-only warns SS0063, a running consumer silences it")
 
-	// a fresh topic's only worker row is its janitor, and nothing has claimed it
-	_, err := registerClient.Topic[testMessage](testTopic.Name).Producer().Register(ctx, nil)
+	// a fresh stream's only worker row is its janitor, and nothing has claimed it
+	_, err := registerClient.Stream[testMessage](testStream.Name).Producer().Register(ctx, nil)
 	must(err)
-	lines := capture.find(eventCode, alert.AlertWorkerLiveness.Name, testTopic.Name)
+	lines := capture.find(eventCode, alert.AlertWorkerLiveness.Name, testStream.Name)
 	if len(lines) != 1 {
 		die(fmt.Sprintf("produce-only Register: want 1 %s line, got %d", eventCode, len(lines)))
 	}
-	if detail := lines[0]["detail"]; !strings.Contains(fmt.Sprint(detail), "topic_janitor") {
+	if detail := lines[0]["detail"]; !strings.Contains(fmt.Sprint(detail), "stream_janitor") {
 		die(fmt.Sprintf("produce-only Register: the line must name the unclaimed janitor, got %v", detail))
 	}
-	fmt.Println("  ✓ a produce-only Register warned once, naming the unclaimed topic_janitor")
+	fmt.Println("  ✓ a produce-only Register warned once, naming the unclaimed stream_janitor")
 
-	// the consumer's manager claims the topic's rows, its own included
+	// the consumer's manager claims the stream's rows, its own included
 	stopConsumer := startConsumer(ctx)
 	waitUnclaimed(ctx, 0)
 	waitCollectedWorkers(ctx, true)
 
-	before := len(capture.find(eventCode, alert.AlertWorkerLiveness.Name, testTopic.Name))
-	_, err = registerClient.Topic[testMessage](testTopic.Name).Producer().Register(ctx, nil)
+	before := len(capture.find(eventCode, alert.AlertWorkerLiveness.Name, testStream.Name))
+	_, err = registerClient.Stream[testMessage](testStream.Name).Producer().Register(ctx, nil)
 	must(err)
-	if got := len(capture.find(eventCode, alert.AlertWorkerLiveness.Name, testTopic.Name)); got != before {
+	if got := len(capture.find(eventCode, alert.AlertWorkerLiveness.Name, testStream.Name)); got != before {
 		die(fmt.Sprintf("Register under a live consumer must be silent, got %d lines after %d", got, before))
 	}
 	fmt.Println("  ✓ with every row claimed, the next Register said nothing")
@@ -192,14 +192,14 @@ func scheduledSection(ctx context.Context) {
 	must(err)
 	waitDelivered(ctx, activeRun.Id, "success")
 
-	key := alertKey(testTopicOwner)
+	key := alertKey(testStreamOwner)
 	if got := headStatus(ctx, key); got != string(alert.AlertStatusActive) {
-		die(fmt.Sprintf("the check must publish an active alert for the topic, got %q", got))
+		die(fmt.Sprintf("the check must publish an active alert for the stream, got %q", got))
 	}
 
 	found := listedAlert(ctx)
 	if found == nil {
-		die("ListAlerts must carry the topic's active worker_liveness alert")
+		die("ListAlerts must carry the stream's active worker_liveness alert")
 	}
 	if !namesWorker(found, "message_consumer", testGroupName) {
 		die(fmt.Sprintf("the alert must name the group's unclaimed message_consumer, got %v", found.Data["workers"]))
@@ -223,7 +223,7 @@ func scheduledSection(ctx context.Context) {
 
 // --- harness ---
 
-// The collector runs independently so it can observe the e2e test topic without claiming its workers.
+// The collector runs independently so it can observe the e2e test stream without claiming its workers.
 func startCollector(ctx context.Context) func() {
 	system, err := client.System().Get(ctx)
 	must(err)
@@ -255,7 +255,7 @@ func waitCollectedWorkers(ctx context.Context, healthy bool) {
 	for {
 		select {
 		case <-ticker.C:
-			measurement, err := client.Topic[testMessage](testTopic.Name).Metrics().UnclaimedWorkers().Latest(ctx)
+			measurement, err := client.Stream[testMessage](testStream.Name).Metrics().UnclaimedWorkers().Latest(ctx)
 			must(err)
 			if measurement != nil && measurement.At.After(started) && (measurement.Value == 0) == healthy {
 				return
@@ -268,10 +268,10 @@ func waitCollectedWorkers(ctx context.Context, healthy bool) {
 	}
 }
 
-// startConsumer runs a consumer on the e2e test topic until the returned stop is
-// called; its manager claims every worker row the topic owns.
+// startConsumer runs a consumer on the e2e test stream until the returned stop is
+// called; its manager claims every worker row the stream owns.
 func startConsumer(ctx context.Context) func() {
-	instance, err := client.Topic[testMessage](testTopic.Name).Consumer(testGroupName).Register(ctx, nil)
+	instance, err := client.Stream[testMessage](testStream.Name).Consumer(testGroupName).Register(ctx, nil)
 	must(err)
 
 	runCtx, cancel := context.WithCancel(ctx)
@@ -330,27 +330,27 @@ func cleanup() {
 		must(client.Scheduler(jobName).Unsuspend(ctx))
 	}
 
-	// the check evaluates every topic, so a run leaves a head on each one --
+	// the check evaluates every stream, so a run leaves a head on each one --
 	// all of them are this e2e test's, and nothing is left running to resolve them
 	pattern := alert.AlertWorkerLiveness.Name + "/%"
-	exec(ctx, fmt.Sprintf(`DELETE FROM %s.%s WHERE compaction_key LIKE $1;`, ds.Schema, topic.CompactionHeadTable(alertsTopic.Id)), pattern)
-	exec(ctx, fmt.Sprintf(`DELETE FROM %s.%s WHERE message_key LIKE $1;`, ds.Schema, topic.MessageLogTable(alertsTopic.Id)), pattern)
+	exec(ctx, fmt.Sprintf(`DELETE FROM %s.%s WHERE compaction_key LIKE $1;`, ds.Schema, stream.CompactionHeadTable(alertsStream.Id)), pattern)
+	exec(ctx, fmt.Sprintf(`DELETE FROM %s.%s WHERE message_key LIKE $1;`, ds.Schema, stream.MessageLogTable(alertsStream.Id)), pattern)
 
-	must(client.Topic[testMessage](testTopic.Name).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+	must(client.Stream[testMessage](testStream.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 }
 
 // --- assertion helpers ---
 
-// waitUnclaimed returns once the number of the e2e test topic's worker rows with
+// waitUnclaimed returns once the number of the e2e test stream's worker rows with
 // no live instance is at least want -- 0 waits for every row claimed.
 func waitUnclaimed(ctx context.Context, want int64) {
 	sql := fmt.Sprintf(`
 		SELECT COUNT(*)
 		FROM %s.worker_config w
 		LEFT JOIN %s.consumer_group_config g ON g.id = w.consumer_group_id
-		WHERE COALESCE(w.topic_id, g.topic_id) = %d
+		WHERE COALESCE(w.stream_id, g.stream_id) = %d
 			AND NOT EXISTS (SELECT 1 FROM %s.worker_instance i WHERE i.worker_id = w.id AND i.expires_at > now());
-	`, ds.Schema, ds.Schema, testTopic.Id, ds.Schema)
+	`, ds.Schema, ds.Schema, testStream.Id, ds.Schema)
 
 	deadline := time.Now().Add(60 * time.Second)
 	for time.Now().Before(deadline) {
@@ -360,13 +360,13 @@ func waitUnclaimed(ctx context.Context, want int64) {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	die(fmt.Sprintf("timed out waiting for %d unclaimed worker rows on the e2e test topic", want))
+	die(fmt.Sprintf("timed out waiting for %d unclaimed worker rows on the e2e test stream", want))
 }
 
-// listedAlert is the e2e test topic's worker_liveness alert as the topic's
-// alerts handle reads it, nil when the topic has none.
+// listedAlert is the e2e test stream's worker_liveness alert as the stream's
+// alerts handle reads it, nil when the stream has none.
 func listedAlert(ctx context.Context) *alert.Alert {
-	found, err := client.Topic[vulkan.RawPayload](testTopic.Name).Alerts().WorkerLiveness().Latest(ctx)
+	found, err := client.Stream[sqlstreams.RawPayload](testStream.Name).Alerts().WorkerLiveness().Latest(ctx)
 	must(err)
 	return found
 }
@@ -400,7 +400,7 @@ func headStatus(ctx context.Context, messageKey string) string {
 		FROM %s.%s h
 		JOIN %s.%s m ON m.id = h.message_id
 		WHERE h.compaction_key = $1;
-	`, ds.Schema, topic.CompactionHeadTable(alertsTopic.Id), ds.Schema, topic.MessageLogTable(alertsTopic.Id))
+	`, ds.Schema, stream.CompactionHeadTable(alertsStream.Id), ds.Schema, stream.MessageLogTable(alertsStream.Id))
 	var status *string
 	err := ds.Pool.QueryRow(ctx, sql, messageKey).Scan(&status)
 	must(err)
@@ -413,7 +413,7 @@ func headStatus(ctx context.Context, messageKey string) string {
 // waitDelivered returns once the job group's delivery log holds the request
 // at the given status.
 func waitDelivered(ctx context.Context, messageId int64, status string) {
-	sql := fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND message_id = %d AND status = '%s';`, ds.Schema, topic.DeliveryLogTable(schedulesTopic.Id), jobGroup, messageId, status)
+	sql := fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND message_id = %d AND status = '%s';`, ds.Schema, stream.DeliveryLogTable(schedulesStream.Id), jobGroup, messageId, status)
 
 	deadline := time.Now().Add(60 * time.Second)
 	for time.Now().Before(deadline) {

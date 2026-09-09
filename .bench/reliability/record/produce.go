@@ -19,7 +19,7 @@ const (
 type ProduceRecord struct {
 	At          time.Time   `json:"at"`
 	Kind        ProduceKind `json:"kind"`
-	Topic       string      `json:"topic"`
+	Stream      string      `json:"stream"`
 	Producer    string      `json:"producer"`
 	Sequence    int64       `json:"sequence"`
 	Key         string      `json:"key"`

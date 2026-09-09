@@ -3,7 +3,7 @@ package main
 // log compaction + retention e2e test: does 8a's retention correctly garbage
 // collect compaction_head when it reaps a compacted key's last surviving row?
 //
-// Two scenarios, one per janitor path a topic's PartitionSize routes it
+// Two scenarios, one per janitor path a stream's PartitionSize routes it
 // through:
 //   - dropPartition: a small PartitionSize rolls a dormant key's sole
 //     partition out of active use and past ttl; DropExpiredPartitions
@@ -21,14 +21,14 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 	"os"
 	"time"
 
-	"github.com/agentstax/vulkan/e2e/common"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	janitordatastore "github.com/agentstax/vulkan/pkg/topic/janitor/controller/datastore"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/e2e/common"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	janitordatastore "github.com/agentstax/sqlstreams/pkg/stream/janitor/controller/datastore"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -67,7 +67,7 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
@@ -85,20 +85,20 @@ func dropPartitionScenario(ctx context.Context, pool *pgxpool.Pool) {
 	step("dropPartition: a whole-partition rollover reaps a dormant key's last row")
 
 	const partitionSize = int64(4)
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	topicName := fmt.Sprintf("phase8c.compactionheadretention.drop.%d", time.Now().UnixNano())
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{PartitionSize: partitionSize})
+	streamName := fmt.Sprintf("phase8c.compactionheadretention.drop.%d", time.Now().UnixNano())
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: partitionSize})
 	must(err)
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 	janitorDatastore, err := janitordatastore.NewJanitorDatastore(ds, ds.Logger)
 	must(err)
@@ -129,20 +129,20 @@ func sweepBatchScenario(ctx context.Context, pool *pgxpool.Pool) {
 	step("sweepBatch: a low-volume tail reaps a dormant key's last row individually")
 
 	const partitionSize = int64(1000000) // matches migration 001's original width -- never rolls
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	topicName := fmt.Sprintf("phase8c.compactionheadretention.sweep.%d", time.Now().UnixNano())
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{PartitionSize: partitionSize})
+	streamName := fmt.Sprintf("phase8c.compactionheadretention.sweep.%d", time.Now().UnixNano())
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: partitionSize})
 	must(err)
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 	janitorDatastore, err := janitordatastore.NewJanitorDatastore(ds, ds.Logger)
 	must(err)
@@ -170,21 +170,21 @@ func sweepBatchScenario(ctx context.Context, pool *pgxpool.Pool) {
 
 // ---- helpers ----
 
-func publish(ctx context.Context, wpInstance *vulkan.ProducerInstance[common.Work], key string) {
-	opts := &vulkan.ProduceOptions{}
+func publish(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[common.Work], key string) {
+	opts := &sqlstreams.ProduceOptions{}
 	if key != "" {
 		opts.MessageKey = key
-		opts.Compaction = &vulkan.CompactionOptions{Enable: true}
+		opts.Compaction = &sqlstreams.CompactionOptions{Enable: true}
 	}
-	_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
+	_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 		return common.NewWork(30, "admin@example.com")
 	}, opts)
 	must(err)
 }
 
-func assertLatestExists(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, key string, want bool) {
+func assertLatestExists(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, key string, want bool) {
 	var count int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE compaction_key=$1;`, ds.Schema, topic.CompactionHeadTable(topicId)), key).Scan(&count))
+	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE compaction_key=$1;`, ds.Schema, stream.CompactionHeadTable(streamId)), key).Scan(&count))
 	got := count > 0
 	if got != want {
 		die(fmt.Sprintf("compaction_head[%s] exists=%v, want %v", key, got, want))

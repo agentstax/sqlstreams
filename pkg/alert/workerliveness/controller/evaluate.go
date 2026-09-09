@@ -7,17 +7,17 @@ import (
 	"math"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/alert"
-	"github.com/agentstax/vulkan/pkg/alert/evaluation"
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/metric"
-	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
+	"github.com/agentstax/sqlstreams/pkg/alert"
+	"github.com/agentstax/sqlstreams/pkg/alert/evaluation"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/metric"
+	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
 )
 
-// Evaluate reads the retained topic-level unclaimed count and worker details.
+// Evaluate reads the retained stream-level unclaimed count and worker details.
 // Threshold is unused; any unclaimed worker makes the condition unhealthy.
 func (c *WorkerLivenessController) Evaluate(ctx context.Context, owner *common.Owner, policy *alert.JobPayload) (*alert.AlertEvaluationSnapshot, error) {
-	if err := workercontroller.ValidateOwner(owner, common.OwnerTopic, alert.AlertWorkerLiveness.Name); err != nil {
+	if err := workercontroller.ValidateOwner(owner, common.OwnerStream, alert.AlertWorkerLiveness.Name); err != nil {
 		return nil, err
 	}
 	if policy == nil {
@@ -27,7 +27,7 @@ func (c *WorkerLivenessController) Evaluate(ctx context.Context, owner *common.O
 		return nil, err
 	}
 
-	key := metric.MeasurementKey(metric.MetricTopicUnclaimedWorkers.Name, map[string]string{"topic": owner.Name})
+	key := metric.MeasurementKey(metric.MetricStreamUnclaimedWorkers.Name, map[string]string{"stream": owner.Name})
 	history, err := c.metrics.GetMeasurementHistory(ctx, key, policy.Window())
 	if err != nil {
 		return nil, err
@@ -50,9 +50,9 @@ func (c *WorkerLivenessController) evaluateHistory(owner *common.Owner, policy *
 
 func (c *WorkerLivenessController) evaluateMeasurement(owner *common.Owner, measurement *metric.Measurement, at time.Time) (*alert.AlertEvaluationSnapshot, error) {
 	// Check measurement identity and value.
-	if measurement.Name != metric.MetricTopicUnclaimedWorkers.Name ||
+	if measurement.Name != metric.MetricStreamUnclaimedWorkers.Name ||
 		measurement.Kind != metric.MetricKindGauge ||
-		measurement.Unit != metric.MetricUnit(metric.MetricTopicUnclaimedWorkers.Unit) {
+		measurement.Unit != metric.MetricUnit(metric.MetricStreamUnclaimedWorkers.Unit) {
 		return alert.NewAlertEvaluationSnapshot(alert.AlertEvaluationStateInsufficientEvidence, nil, nil)
 	}
 	value := measurement.Value
@@ -75,12 +75,12 @@ func (c *WorkerLivenessController) evaluateMeasurement(owner *common.Owner, meas
 		if worker == nil || worker.Name == "" || worker.Owner == nil {
 			return alert.NewAlertEvaluationSnapshot(alert.AlertEvaluationStateInsufficientEvidence, nil, nil)
 		}
-		if worker.Owner.TopicId != owner.TopicId || worker.TargetInstances == 0 {
+		if worker.Owner.StreamId != owner.StreamId || worker.TargetInstances == 0 {
 			return alert.NewAlertEvaluationSnapshot(alert.AlertEvaluationStateInsufficientEvidence, nil, nil)
 		}
 	}
 
-	// No unclaimed workers means the topic is healthy.
+	// No unclaimed workers means the stream is healthy.
 	if value == 0 {
 		return alert.NewAlertEvaluationSnapshot(alert.AlertEvaluationStateHealthy, nil, nil)
 	}

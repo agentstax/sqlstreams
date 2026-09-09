@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// CompactionHeadRow models a compaction_head_<topic_id> table row exactly.
+// CompactionHeadRow models a compaction_head_<stream_id> table row exactly.
 // The three head fields are nil together when the key has a lockable row but
 // no current head.
 type CompactionHeadRow struct {

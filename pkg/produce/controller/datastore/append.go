@@ -3,20 +3,20 @@ package datastore
 import (
 	"context"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/produce"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/produce"
 )
 
 // AppendMessage commits one message in its own transaction, self-healing a
 // missing partition and retrying transient errors. The caller resolves
 // data.IdempotencyKey once, outside the retry -- that's what makes a retried
 // attempt safe after an ambiguous commit instead of a double-publish.
-func (d *ProduceDatastore) AppendMessage[Message common.Versioned](ctx context.Context, topicId int64, partitionSize int64, produceFunc produce.ProducerFunc[Message], data *Append[Message]) (*Appended[Message], error) {
+func (d *ProduceDatastore) AppendMessage[Message common.Versioned](ctx context.Context, streamId int64, partitionSize int64, produceFunc produce.ProducerFunc[Message], data *Append[Message]) (*Appended[Message], error) {
 	var appended *Appended[Message]
 	err := d.DatastoreRetry.Wrap(ctx, func() error {
 		var err error
-		appended, err = d.appendMessage(ctx, topicId, partitionSize, produceFunc, data)
+		appended, err = d.appendMessage(ctx, streamId, partitionSize, produceFunc, data)
 		return err
 	})
 	return appended, err
@@ -25,26 +25,26 @@ func (d *ProduceDatastore) AppendMessage[Message common.Versioned](ctx context.C
 // appendMessage runs the append's transaction until a partition covers it.
 // Rerunning produceFunc is safe because its writes all go through the tx
 // that just rolled back.
-func (d *ProduceDatastore) appendMessage[Message common.Versioned](ctx context.Context, topicId int64, partitionSize int64, produceFunc produce.ProducerFunc[Message], data *Append[Message]) (*Appended[Message], error) {
+func (d *ProduceDatastore) appendMessage[Message common.Versioned](ctx context.Context, streamId int64, partitionSize int64, produceFunc produce.ProducerFunc[Message], data *Append[Message]) (*Appended[Message], error) {
 	var appended *Appended[Message]
-	err := d.insertUntilCovered(ctx, topicId, partitionSize, func() error {
+	err := d.insertUntilCovered(ctx, streamId, partitionSize, func() error {
 		var err error
-		appended, err = d.appendMessageTransaction(ctx, topicId, produceFunc, data)
+		appended, err = d.appendMessageTransaction(ctx, streamId, produceFunc, data)
 		return err
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	if d.createAheadGate.shouldTriggerWithId(topicId, partitionSize, appended.Id) {
-		d.createPartitionAhead(topicId, partitionSize, appended.Id)
+	if d.createAheadGate.shouldTriggerWithId(streamId, partitionSize, appended.Id) {
+		d.createPartitionAhead(streamId, partitionSize, appended.Id)
 	}
 	return appended, nil
 }
 
 // appendMessageTransaction opens the append's own transaction: produceFunc +
 // the claim-protected insert, committed together.
-func (d *ProduceDatastore) appendMessageTransaction[Message common.Versioned](ctx context.Context, topicId int64, produceFunc produce.ProducerFunc[Message], data *Append[Message]) (*Appended[Message], error) {
+func (d *ProduceDatastore) appendMessageTransaction[Message common.Versioned](ctx context.Context, streamId int64, produceFunc produce.ProducerFunc[Message], data *Append[Message]) (*Appended[Message], error) {
 	var appended *Appended[Message]
 
 	// the one genuinely ambiguous point -- a blip AT Commit loses the commit
@@ -52,7 +52,7 @@ func (d *ProduceDatastore) appendMessageTransaction[Message common.Versioned](ct
 	// makes a retry safe.
 	err := iDatastore.InTransaction(ctx, d.Datastore, func(ctx context.Context, tx iDatastore.Tx) error {
 		var err error
-		appended, err = d.runInsert(ctx, tx, topicId, produceFunc, data)
+		appended, err = d.runInsert(ctx, tx, streamId, produceFunc, data)
 		return err
 	})
 	if err != nil {
@@ -67,11 +67,11 @@ func (d *ProduceDatastore) appendMessageTransaction[Message common.Versioned](ct
 // (runInsertSavepoint), so the rerun can't undo an earlier target's insert
 // or rerun a caller side effect between calls. No transient retry: the tx
 // owns its own error handling.
-func (d *ProduceDatastore) AppendMessageInTx[Message common.Versioned](ctx context.Context, tx iDatastore.Tx, topicId int64, partitionSize int64, produceFunc produce.ProducerFunc[Message], data *Append[Message]) (*Appended[Message], error) {
+func (d *ProduceDatastore) AppendMessageInTx[Message common.Versioned](ctx context.Context, tx iDatastore.Tx, streamId int64, partitionSize int64, produceFunc produce.ProducerFunc[Message], data *Append[Message]) (*Appended[Message], error) {
 	var appended *Appended[Message]
-	err := d.insertUntilCovered(ctx, topicId, partitionSize, func() error {
+	err := d.insertUntilCovered(ctx, streamId, partitionSize, func() error {
 		var err error
-		appended, err = d.runInsertSavepoint(ctx, tx, topicId, produceFunc, data)
+		appended, err = d.runInsertSavepoint(ctx, tx, streamId, produceFunc, data)
 		return err
 	})
 	if err != nil {
@@ -81,8 +81,8 @@ func (d *ProduceDatastore) AppendMessageInTx[Message common.Versioned](ctx conte
 	// pre-commit on purpose: a rollback burns the id either way, and an early
 	// empty partition is harmless. The CREATE waits on this tx's own parent
 	// lock, so its first attempts back off until the caller commits.
-	if d.createAheadGate.shouldTriggerWithId(topicId, partitionSize, appended.Id) {
-		d.createPartitionAhead(topicId, partitionSize, appended.Id)
+	if d.createAheadGate.shouldTriggerWithId(streamId, partitionSize, appended.Id) {
+		d.createPartitionAhead(streamId, partitionSize, appended.Id)
 	}
 	return appended, nil
 }

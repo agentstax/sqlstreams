@@ -2,7 +2,7 @@ package diagnostic
 
 import "fmt"
 
-// DiagnosticAlert is a declared Vulkan-owned alert: the identity and
+// DiagnosticAlert is a declared SQLStreams-owned alert: the identity and
 // metadata every check and rendering surface shares. Severity is plain
 // text here because its vocabulary belongs to the alert domain.
 type DiagnosticAlert struct {
@@ -69,7 +69,7 @@ func Alerts() []*DiagnosticAlert {
 }
 
 // GetAlert returns the declaration behind an alert name; comma-ok absence
-// for names the registry does not know (user alerts on the same topic).
+// for names the registry does not know (user alerts on the same stream).
 func GetAlert(name string) (*DiagnosticAlert, bool) {
 	registryLock.Lock()
 	defer registryLock.Unlock()

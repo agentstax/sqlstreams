@@ -8,16 +8,16 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	keyleasecontroller "github.com/agentstax/vulkan/pkg/consume/base/controller"
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	keyleasecontroller "github.com/agentstax/sqlstreams/pkg/consume/base/controller"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 )
 
 // one exception claimed off the exception window for (re)processing -- the
 // lease token guards its resolution: every write against the row matches on it.
 type ClaimedException struct {
 	ConsumerGroupId int64
-	TopicId         int64
+	StreamId        int64
 	MessageId       int64
 	Attempts        int
 	Delays          int
@@ -36,9 +36,9 @@ type ClaimedException struct {
 // so nothing else resolves them. Run it before Claim so an exhausted
 // expired row is dead-lettered rather than claimed again.
 // Returns how many rows it marked.
-func (c *ExceptionConsumerGroupController) Kill(ctx context.Context, topicId int64, groupId int64, maxRetries int, deliveryLogMode topic.DeliveryLogMode) (int64, error) {
-	if topicId <= 0 {
-		return 0, fmt.Errorf("topicId must be > 0, got %d", topicId)
+func (c *ExceptionConsumerGroupController) Kill(ctx context.Context, streamId int64, groupId int64, maxRetries int, deliveryLogMode stream.DeliveryLogMode) (int64, error) {
+	if streamId <= 0 {
+		return 0, fmt.Errorf("streamId must be > 0, got %d", streamId)
 	}
 	if groupId <= 0 {
 		return 0, fmt.Errorf("groupId must be > 0, got %d", groupId)
@@ -47,14 +47,14 @@ func (c *ExceptionConsumerGroupController) Kill(ctx context.Context, topicId int
 		return 0, fmt.Errorf("maxRetries must be >= 0, got %d", maxRetries)
 	}
 
-	return c.datastore.Kill(ctx, topicId, groupId, maxRetries, deliveryLogMode)
+	return c.datastore.Kill(ctx, streamId, groupId, maxRetries, deliveryLogMode)
 }
 
 // Claim claims 'ready', expired 'inflight', and 'deferred' rows up
 // to maxRetries attempts. A leased message key excludes its rows.
-func (c *ExceptionConsumerGroupController) Claim(ctx context.Context, topicId int64, groupId int64, schemaVersion int64, limit int, maxRetries int, leaseDuration time.Duration, deliveryLogMode topic.DeliveryLogMode) ([]ClaimedException, error) {
-	if topicId <= 0 {
-		return nil, fmt.Errorf("topicId must be > 0, got %d", topicId)
+func (c *ExceptionConsumerGroupController) Claim(ctx context.Context, streamId int64, groupId int64, schemaVersion int64, limit int, maxRetries int, leaseDuration time.Duration, deliveryLogMode stream.DeliveryLogMode) ([]ClaimedException, error) {
+	if streamId <= 0 {
+		return nil, fmt.Errorf("streamId must be > 0, got %d", streamId)
 	}
 	if groupId <= 0 {
 		return nil, fmt.Errorf("groupId must be > 0, got %d", groupId)
@@ -69,7 +69,7 @@ func (c *ExceptionConsumerGroupController) Claim(ctx context.Context, topicId in
 		return nil, fmt.Errorf("leaseDuration must be > 0, got %v", leaseDuration)
 	}
 
-	claimed, err := c.datastore.Claim(ctx, topicId, groupId, schemaVersion, limit, maxRetries, leaseDuration, deliveryLogMode)
+	claimed, err := c.datastore.Claim(ctx, streamId, groupId, schemaVersion, limit, maxRetries, leaseDuration, deliveryLogMode)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func (c *ExceptionConsumerGroupController) RenewLease(ctx context.Context, excep
 // RecordSuccess deletes the row
 // DeliveryLogModeAll also writes the 'success' log row in the same statement.
 // A non-nil keyClaim frees the key in the same transaction.
-func (c *ExceptionConsumerGroupController) RecordSuccess(ctx context.Context, exception *ClaimedException, deliveryLogMode topic.DeliveryLogMode, keyClaim *keyleasecontroller.KeyLeaseClaim) error {
+func (c *ExceptionConsumerGroupController) RecordSuccess(ctx context.Context, exception *ClaimedException, deliveryLogMode stream.DeliveryLogMode, keyClaim *keyleasecontroller.KeyLeaseClaim) error {
 	if exception == nil {
 		return errors.New("exception must not be nil")
 	}
@@ -108,7 +108,7 @@ func (c *ExceptionConsumerGroupController) RecordSuccess(ctx context.Context, ex
 // RecordFailure resets the row as 'ready' with retryPolicy's
 // backoff so it can be retried.
 // A non-nil keyClaim frees the key in the same transaction.
-func (c *ExceptionConsumerGroupController) RecordFailure(ctx context.Context, retryPolicy *common.RetryPolicy, exception *ClaimedException, failureErr error, deliveryLogMode topic.DeliveryLogMode, keyClaim *keyleasecontroller.KeyLeaseClaim) error {
+func (c *ExceptionConsumerGroupController) RecordFailure(ctx context.Context, retryPolicy *common.RetryPolicy, exception *ClaimedException, failureErr error, deliveryLogMode stream.DeliveryLogMode, keyClaim *keyleasecontroller.KeyLeaseClaim) error {
 	if retryPolicy == nil {
 		return errors.New("retryPolicy must not be nil")
 	}
@@ -125,7 +125,7 @@ func (c *ExceptionConsumerGroupController) RecordFailure(ctx context.Context, re
 // RecordDelayed resets the row 'ready' after the handler's requested delay,
 // counted in delays rather than as a failure.
 // A non-nil keyClaim frees the key in the same transaction.
-func (c *ExceptionConsumerGroupController) RecordDelayed(ctx context.Context, delay time.Duration, exception *ClaimedException, delayErr error, deliveryLogMode topic.DeliveryLogMode, keyClaim *keyleasecontroller.KeyLeaseClaim) error {
+func (c *ExceptionConsumerGroupController) RecordDelayed(ctx context.Context, delay time.Duration, exception *ClaimedException, delayErr error, deliveryLogMode stream.DeliveryLogMode, keyClaim *keyleasecontroller.KeyLeaseClaim) error {
 	if exception == nil {
 		return errors.New("exception must not be nil")
 	}
@@ -138,7 +138,7 @@ func (c *ExceptionConsumerGroupController) RecordDelayed(ctx context.Context, de
 
 // RecordTerminal marks the row 'dead' -- no retry could succeed.
 // A non-nil keyClaim frees the key in the same transaction.
-func (c *ExceptionConsumerGroupController) RecordTerminal(ctx context.Context, exception *ClaimedException, failureErr error, deliveryLogMode topic.DeliveryLogMode, keyClaim *keyleasecontroller.KeyLeaseClaim) error {
+func (c *ExceptionConsumerGroupController) RecordTerminal(ctx context.Context, exception *ClaimedException, failureErr error, deliveryLogMode stream.DeliveryLogMode, keyClaim *keyleasecontroller.KeyLeaseClaim) error {
 	if exception == nil {
 		return errors.New("exception must not be nil")
 	}
@@ -151,7 +151,7 @@ func (c *ExceptionConsumerGroupController) RecordTerminal(ctx context.Context, e
 
 // RecordSuperseded never runs the row again: the claim's attempts
 // increment is decremented back and the log row lands at that attempt.
-func (c *ExceptionConsumerGroupController) RecordSuperseded(ctx context.Context, exception *ClaimedException, deliveryLogMode topic.DeliveryLogMode) error {
+func (c *ExceptionConsumerGroupController) RecordSuperseded(ctx context.Context, exception *ClaimedException, deliveryLogMode stream.DeliveryLogMode) error {
 	if exception == nil {
 		return errors.New("exception must not be nil")
 	}
@@ -163,7 +163,7 @@ func (c *ExceptionConsumerGroupController) RecordSuperseded(ctx context.Context,
 // gate, so no run started. The claim's attempts increment is decremented
 // back, the log row lands at that attempt, and the row's concurrency is
 // set to the policy the gate resolved.
-func (c *ExceptionConsumerGroupController) RecordDeferred(ctx context.Context, exception *ClaimedException, concurrency common.ConcurrencyPolicy, deliveryLogMode topic.DeliveryLogMode) error {
+func (c *ExceptionConsumerGroupController) RecordDeferred(ctx context.Context, exception *ClaimedException, concurrency common.ConcurrencyPolicy, deliveryLogMode stream.DeliveryLogMode) error {
 	if exception == nil {
 		return errors.New("exception must not be nil")
 	}

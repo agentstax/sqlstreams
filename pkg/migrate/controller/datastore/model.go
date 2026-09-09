@@ -3,7 +3,7 @@ package datastore
 import (
 	"context"
 
-	"github.com/agentstax/vulkan/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
 )
 
 type StepType string

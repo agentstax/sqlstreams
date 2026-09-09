@@ -1,9 +1,9 @@
 # 1 KB messages with automatic batching and one group; short exploration, not a sustainable verdict
 
 [input]
-topic        orders       DeliveryLogMode failures
+stream       orders       DeliveryLogMode failures
 consumers    processor    handler fail rate 0, 3 retries then dead, batch 100, queue 0, concurrency 0, idle poll 10ms
-producer     batch concurrency 4 per topic
+producer     batch concurrency 4 per stream
 workload     automatic batching true, payload bytes 1000, pool max 16, batch size 100
 duration     30s
 

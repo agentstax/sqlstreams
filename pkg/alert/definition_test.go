@@ -3,17 +3,17 @@ package alert
 import (
 	"testing"
 
-	"github.com/agentstax/vulkan/pkg/common/diagnostic"
+	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
 )
 
 func TestDefinitionsCarriesRegisteredMetadata(t *testing.T) {
 	definitions := Definitions()
 	partitionCount := definitionByName(t, definitions, AlertPartitionCount.Name)
 
-	if partitionCount.Code != "VK0094" || partitionCount.Severity != AlertSeverityWarn {
+	if partitionCount.Code != "SS0094" || partitionCount.Severity != AlertSeverityWarn {
 		t.Fatalf("definition = %+v", partitionCount)
 	}
-	if partitionCount.Scope != diagnostic.MetricScopeTopic {
+	if partitionCount.Scope != diagnostic.MetricScopeStream {
 		t.Fatalf("scope = %q", partitionCount.Scope)
 	}
 	if partitionCount.Description != AlertPartitionCount.Description {
@@ -22,8 +22,8 @@ func TestDefinitionsCarriesRegisteredMetadata(t *testing.T) {
 }
 
 func TestDefinitionsFiltersScopes(t *testing.T) {
-	if got := len(Definitions(diagnostic.MetricScopeTopic)); got != 3 {
-		t.Fatalf("got %d topic definitions, want 3", got)
+	if got := len(Definitions(diagnostic.MetricScopeStream)); got != 3 {
+		t.Fatalf("got %d stream definitions, want 3", got)
 	}
 	if got := len(Definitions(diagnostic.MetricScopeSystem, diagnostic.MetricScopeConsumerGroup)); got != 1 {
 		t.Fatalf("got %d system/group definitions, want 1", got)

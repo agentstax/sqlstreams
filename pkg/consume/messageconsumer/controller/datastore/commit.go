@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/consume"
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/consume"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -16,16 +16,16 @@ import (
 // as sparse delivery rows -- initialBackoff sets how long a freshly written 'ready' row
 // waits before it's first eligible for ClaimExceptions
 // (RecordExceptionFailure's own retry policy takes over on later retries).
-// deliveryLogMode gates the parallel delivery_log_<topic_id> audit writes.
+// deliveryLogMode gates the parallel delivery_log_<stream_id> audit writes.
 // The lease is freed FIRST, token-guarded -- so a reclaimed worker's stale
 // commit bails before writing any phantom exception rows.
-func (d *MessageConsumerGroupDatastore) Commit(ctx context.Context, topicId int64, groupId int64, token pgtype.UUID, outcomes []Outcome, initialBackoff time.Duration, deliveryLogMode topic.DeliveryLogMode) error {
+func (d *MessageConsumerGroupDatastore) Commit(ctx context.Context, streamId int64, groupId int64, token pgtype.UUID, outcomes []Outcome, initialBackoff time.Duration, deliveryLogMode stream.DeliveryLogMode) error {
 	return d.DatastoreRetry.Wrap(ctx, func() error {
-		return d.commit(ctx, topicId, groupId, token, outcomes, initialBackoff, deliveryLogMode)
+		return d.commit(ctx, streamId, groupId, token, outcomes, initialBackoff, deliveryLogMode)
 	})
 }
 
-func (d *MessageConsumerGroupDatastore) commit(ctx context.Context, topicId int64, groupId int64, token pgtype.UUID, outcomes []Outcome, initialBackoff time.Duration, deliveryLogMode topic.DeliveryLogMode) error {
+func (d *MessageConsumerGroupDatastore) commit(ctx context.Context, streamId int64, groupId int64, token pgtype.UUID, outcomes []Outcome, initialBackoff time.Duration, deliveryLogMode stream.DeliveryLogMode) error {
 	tx, err := d.Datastore.Pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return err
@@ -33,11 +33,11 @@ func (d *MessageConsumerGroupDatastore) commit(ctx context.Context, topicId int6
 	defer tx.Rollback(ctx)
 
 	freeSql := fmt.Sprintf(`
-		-- vulkan: messageconsumer.commit
+		-- sqlstreams: messageconsumer.commit
 		DELETE FROM %[1]s.%[2]s
 		WHERE consumer_group_id = $1
 			AND token = $2;
-	`, d.Datastore.Schema, topic.ClaimLeaseTable(topicId))
+	`, d.Datastore.Schema, stream.ClaimLeaseTable(streamId))
 	tag, err := tx.Exec(ctx, freeSql, groupId, token)
 	if err != nil {
 		return err
@@ -50,7 +50,7 @@ func (d *MessageConsumerGroupDatastore) commit(ctx context.Context, topicId int6
 	// reaches this INSERT -- a stale worker's DELETE above matches 0 rows and
 	// returns before ever running deliverySql.
 	batch := &pgx.Batch{}
-	terminals := queueOutcomes(batch, deliveryStatement(topicId, d.Datastore.Schema), logStatement(topicId, d.Datastore.Schema), groupId, outcomes, initialBackoff, deliveryLogMode)
+	terminals := queueOutcomes(batch, deliveryStatement(streamId, d.Datastore.Schema), logStatement(streamId, d.Datastore.Schema), groupId, outcomes, initialBackoff, deliveryLogMode)
 	if err := execBatch(ctx, tx, batch); err != nil {
 		return err
 	}
@@ -60,7 +60,7 @@ func (d *MessageConsumerGroupDatastore) commit(ctx context.Context, topicId int6
 	}
 
 	if terminals > 0 {
-		d.Logger.WarnContext(ctx, consume.EventMessagesDeadLettered.Message(), "code", consume.EventMessagesDeadLettered.GetCode(), "group_id", groupId, "topic_id", topicId, "dead_count", terminals)
+		d.Logger.WarnContext(ctx, consume.EventMessagesDeadLettered.Message(), "code", consume.EventMessagesDeadLettered.GetCode(), "group_id", groupId, "stream_id", streamId, "dead_count", terminals)
 	}
 	return nil
 }
@@ -68,13 +68,13 @@ func (d *MessageConsumerGroupDatastore) commit(ctx context.Context, topicId int6
 // PartialCommit narrows a still-open lease to lastProcessed and records whatever
 // resolved before an interruption. The lease token isn't freed, it
 // naturally expires and gets reclaimed.
-func (d *MessageConsumerGroupDatastore) PartialCommit(ctx context.Context, topicId int64, groupId int64, token pgtype.UUID, lastProcessed int64, outcomes []Outcome, initialBackoff time.Duration, deliveryLogMode topic.DeliveryLogMode) error {
+func (d *MessageConsumerGroupDatastore) PartialCommit(ctx context.Context, streamId int64, groupId int64, token pgtype.UUID, lastProcessed int64, outcomes []Outcome, initialBackoff time.Duration, deliveryLogMode stream.DeliveryLogMode) error {
 	return d.DatastoreRetry.Wrap(ctx, func() error {
-		return d.partialCommit(ctx, topicId, groupId, token, lastProcessed, outcomes, initialBackoff, deliveryLogMode)
+		return d.partialCommit(ctx, streamId, groupId, token, lastProcessed, outcomes, initialBackoff, deliveryLogMode)
 	})
 }
 
-func (d *MessageConsumerGroupDatastore) partialCommit(ctx context.Context, topicId int64, groupId int64, token pgtype.UUID, lastProcessed int64, outcomes []Outcome, initialBackoff time.Duration, deliveryLogMode topic.DeliveryLogMode) error {
+func (d *MessageConsumerGroupDatastore) partialCommit(ctx context.Context, streamId int64, groupId int64, token pgtype.UUID, lastProcessed int64, outcomes []Outcome, initialBackoff time.Duration, deliveryLogMode stream.DeliveryLogMode) error {
 	tx, err := d.Datastore.Pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return err
@@ -87,12 +87,12 @@ func (d *MessageConsumerGroupDatastore) partialCommit(ctx context.Context, topic
 	// UPDATE still matches it, so it reaches the delivery insert again. See the
 	// recorded-anything guard below.
 	truncateSql := fmt.Sprintf(`
-		-- vulkan: messageconsumer.partialCommit
+		-- sqlstreams: messageconsumer.partialCommit
 		UPDATE %[1]s.%[2]s
 		SET low = $3
 		WHERE consumer_group_id = $1
 			AND token = $2;
-	`, d.Datastore.Schema, topic.ClaimLeaseTable(topicId))
+	`, d.Datastore.Schema, stream.ClaimLeaseTable(streamId))
 	tag, err := tx.Exec(ctx, truncateSql, groupId, token, lastProcessed)
 	if err != nil {
 		return err
@@ -103,7 +103,7 @@ func (d *MessageConsumerGroupDatastore) partialCommit(ctx context.Context, topic
 
 	// same delivery-insert shape as commit -- only the lease-side effect differs.
 	batch := &pgx.Batch{}
-	terminals := queueOutcomes(batch, deliveryStatement(topicId, d.Datastore.Schema), logStatement(topicId, d.Datastore.Schema), groupId, outcomes, initialBackoff, deliveryLogMode)
+	terminals := queueOutcomes(batch, deliveryStatement(streamId, d.Datastore.Schema), logStatement(streamId, d.Datastore.Schema), groupId, outcomes, initialBackoff, deliveryLogMode)
 	if err := execBatch(ctx, tx, batch); err != nil {
 		return err
 	}
@@ -115,13 +115,13 @@ func (d *MessageConsumerGroupDatastore) partialCommit(ctx context.Context, topic
 	// was recorded.
 	if err := tx.Commit(ctx); err != nil {
 		if len(outcomes) > 0 {
-			return common.ErrCommitConfirmationLost.With("topic_id", topicId, "group_id", groupId).Wrap(err)
+			return common.ErrCommitConfirmationLost.With("stream_id", streamId, "group_id", groupId).Wrap(err)
 		}
 		return err // nothing recorded -- safe for Retry to auto-classify
 	}
 
 	if terminals > 0 {
-		d.Logger.WarnContext(ctx, consume.EventMessagesDeadLettered.Message(), "code", consume.EventMessagesDeadLettered.GetCode(), "group_id", groupId, "topic_id", topicId, "dead_count", terminals)
+		d.Logger.WarnContext(ctx, consume.EventMessagesDeadLettered.Message(), "code", consume.EventMessagesDeadLettered.GetCode(), "group_id", groupId, "stream_id", streamId, "dead_count", terminals)
 	}
 	return nil
 }
@@ -130,9 +130,9 @@ func (d *MessageConsumerGroupDatastore) partialCommit(ctx context.Context, topic
 // *** HELPERS ***
 // ***************
 
-func deliveryStatement(topicId int64, schema string) string {
+func deliveryStatement(streamId int64, schema string) string {
 	return fmt.Sprintf(`
-		-- vulkan: messageconsumer.deliveryStatement
+		-- sqlstreams: messageconsumer.deliveryStatement
 		INSERT INTO %[1]s.%[2]s (
 			consumer_group_id,
 			message_id,
@@ -155,22 +155,22 @@ func deliveryStatement(topicId int64, schema string) string {
 			now() + make_interval(secs => $5),
 			$4
 		);
-	`, schema, topic.ExceptionQueueTable(topicId))
+	`, schema, stream.ExceptionQueueTable(streamId))
 }
 
 // a freshly written delivery row is always the first recorded attempt (0)
-func logStatement(topicId int64, schema string) string {
+func logStatement(streamId int64, schema string) string {
 	return fmt.Sprintf(`
-		-- vulkan: messageconsumer.logStatement
+		-- sqlstreams: messageconsumer.logStatement
 		INSERT INTO %[1]s.%[2]s (consumer_group_id, message_id, attempt, status, error)
 		VALUES ($1, $2, 0, $3, $4);
-	`, schema, topic.DeliveryLogTable(topicId))
+	`, schema, stream.DeliveryLogTable(streamId))
 }
 
 // queueOutcomes queues one delivery insert + one log statement per resolved message, sent
 // as a single pipelined round trip. Returns how many rows were written 'dead'.
 // OutcomeSuperseded and OutcomeSuccess write no delivery row -- they record a log row only.
-func queueOutcomes(batch *pgx.Batch, deliverySql string, logSql string, groupId int64, outcomes []Outcome, initialBackoff time.Duration, deliveryLogMode topic.DeliveryLogMode) int {
+func queueOutcomes(batch *pgx.Batch, deliverySql string, logSql string, groupId int64, outcomes []Outcome, initialBackoff time.Duration, deliveryLogMode stream.DeliveryLogMode) int {
 	terminals := 0
 	for _, outcome := range outcomes {
 		switch outcome.Kind {
@@ -184,7 +184,7 @@ func queueOutcomes(batch *pgx.Batch, deliverySql string, logSql string, groupId 
 		case OutcomeDelayed:
 			batch.Queue(deliverySql, groupId, outcome.MessageId, "ready", outcome.Err, outcome.Delay.Seconds(), 1, outcome.MessageKey, outcome.Concurrency)
 		}
-		if deliveryLogMode != topic.DeliveryLogModeOff {
+		if deliveryLogMode != stream.DeliveryLogModeOff {
 			batch.Queue(logSql, groupId, outcome.MessageId, outcomeLogStatus(outcome.Kind), outcome.Err)
 		}
 	}

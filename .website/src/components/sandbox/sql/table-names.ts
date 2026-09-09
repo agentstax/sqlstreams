@@ -1,45 +1,45 @@
-// mirrors internal/topic's table-name functions -- the per-topic table name is
-// the scope, so every family table interpolates the topic id
-export function messageLogTable(topicId: number): string {
-	return `message_log_${topicId}`;
+// mirrors internal/stream's table-name functions -- the per-stream table name is
+// the scope, so every family table interpolates the stream id
+export function messageLogTable(streamId: number): string {
+	return `message_log_${streamId}`;
 }
 
-export function messageLogPartitionTable(topicId: number, n: number): string {
-	return `${messageLogTable(topicId)}_${n}`;
+export function messageLogPartitionTable(streamId: number, n: number): string {
+	return `${messageLogTable(streamId)}_${n}`;
 }
 
-export function idempotencyKeyTable(topicId: number): string {
-	return `idempotency_key_${topicId}`;
+export function idempotencyKeyTable(streamId: number): string {
+	return `idempotency_key_${streamId}`;
 }
 
-export function exceptionQueueTable(topicId: number): string {
-	return `exception_queue_${topicId}`;
+export function exceptionQueueTable(streamId: number): string {
+	return `exception_queue_${streamId}`;
 }
 
-export function deliveryLogTable(topicId: number): string {
-	return `delivery_log_${topicId}`;
+export function deliveryLogTable(streamId: number): string {
+	return `delivery_log_${streamId}`;
 }
 
-export function consumerGroupCursorTable(topicId: number): string {
-	return `consumer_group_cursor_${topicId}`;
+export function consumerGroupCursorTable(streamId: number): string {
+	return `consumer_group_cursor_${streamId}`;
 }
 
-export function claimLeaseTable(topicId: number): string {
-	return `claim_lease_${topicId}`;
+export function claimLeaseTable(streamId: number): string {
+	return `claim_lease_${streamId}`;
 }
 
-export function messageKeyLeaseTable(topicId: number): string {
-	return `message_key_lease_${topicId}`;
+export function messageKeyLeaseTable(streamId: number): string {
+	return `message_key_lease_${streamId}`;
 }
 
-export function compactionHeadTable(topicId: number): string {
-	return `compaction_head_${topicId}`;
+export function compactionHeadTable(streamId: number): string {
+	return `compaction_head_${streamId}`;
 }
 
-export function bindingConfigTable(topicId: number): string {
-	return `binding_config_${topicId}`;
+export function bindingConfigTable(streamId: number): string {
+	return `binding_config_${streamId}`;
 }
 
-export function bindingConfigLogTable(topicId: number): string {
-	return `binding_config_log_${topicId}`;
+export function bindingConfigLogTable(streamId: number): string {
+	return `binding_config_log_${streamId}`;
 }

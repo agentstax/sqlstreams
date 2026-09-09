@@ -11,11 +11,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/agentstax/vulkan/.bench/reliability/record"
+	"github.com/agentstax/sqlstreams/.bench/reliability/record"
 )
 
 // labSchema is the Postgres namespace the checker loads the records into, on
-// the same database as vulkan's own schema so the checks are plain joins.
+// the same database as sqlstreams's own schema so the checks are plain joins.
 const labSchema = "lab"
 
 const (
@@ -52,26 +52,26 @@ type tableLayout struct {
 var produceLayout = tableLayout{
 	kind:    record.FileKindProduce,
 	table:   produceTable,
-	columns: []string{"at", "kind", "topic", "producer", "sequence", "key", "scheduled_at", "message_id", "duplicate", "code", "error"},
+	columns: []string{"at", "kind", "stream", "producer", "sequence", "key", "scheduled_at", "message_id", "duplicate", "code", "error"},
 	decode: func(line []byte) ([]any, error) {
 		var row record.ProduceRecord
 		if err := json.Unmarshal(line, &row); err != nil {
 			return nil, err
 		}
-		return []any{row.At, string(row.Kind), row.Topic, row.Producer, row.Sequence, row.Key, row.ScheduledAt, row.MessageId, row.Duplicate, row.Code, row.Error}, nil
+		return []any{row.At, string(row.Kind), row.Stream, row.Producer, row.Sequence, row.Key, row.ScheduledAt, row.MessageId, row.Duplicate, row.Code, row.Error}, nil
 	},
 }
 
 var handlerLayout = tableLayout{
 	kind:    record.FileKindHandler,
 	table:   handlerTable,
-	columns: []string{"at", "consumer", "topic", "group", "message_id", "key", "attempt", "outcome"},
+	columns: []string{"at", "consumer", "stream", "group", "message_id", "key", "attempt", "outcome"},
 	decode: func(line []byte) ([]any, error) {
 		var row record.HandlerRecord
 		if err := json.Unmarshal(line, &row); err != nil {
 			return nil, err
 		}
-		return []any{row.At, row.Consumer, row.Topic, row.Group, row.MessageId, row.Key, row.Attempt, string(row.Outcome)}, nil
+		return []any{row.At, row.Consumer, row.Stream, row.Group, row.MessageId, row.Key, row.Attempt, string(row.Outcome)}, nil
 	},
 }
 
@@ -104,13 +104,13 @@ var sampleLayout = tableLayout{
 var backlogLayout = tableLayout{
 	kind:    record.FileKindBacklog,
 	table:   backlogTable,
-	columns: []string{"at", "topic", "group", "highest_message", "committed"},
+	columns: []string{"at", "stream", "group", "highest_message", "committed"},
 	decode: func(line []byte) ([]any, error) {
 		var row record.BacklogRecord
 		if err := json.Unmarshal(line, &row); err != nil {
 			return nil, err
 		}
-		return []any{row.At, row.Topic, row.Group, row.HighestMessage, row.Committed}, nil
+		return []any{row.At, row.Stream, row.Group, row.HighestMessage, row.Committed}, nil
 	},
 }
 
@@ -182,31 +182,31 @@ func (d *CheckerDatastore) CreateTables(ctx context.Context) error {
 		CREATE TABLE %[1]s.%[2]s (
 			at           TIMESTAMPTZ NOT NULL,
 			kind         TEXT NOT NULL,           -- 'attempted' | 'committed' | 'rejected' | 'unknown'
-			topic        TEXT NOT NULL,
+			stream        TEXT NOT NULL,
 			producer     TEXT NOT NULL,
 			sequence     BIGINT NOT NULL,
-			key          TEXT NOT NULL,           -- '<producer>-<sequence>', the idempotency key, unique per topic
+			key          TEXT NOT NULL,           -- '<producer>-<sequence>', the idempotency key, unique per stream
 			scheduled_at TIMESTAMPTZ NOT NULL,
 			message_id   BIGINT NOT NULL,         -- 0 unless committed
 			duplicate    BOOLEAN NOT NULL,
 			code         TEXT NOT NULL,           -- '' unless rejected
 			error        TEXT NOT NULL            -- '' unless rejected or unknown
 		);
-		CREATE INDEX %[2]s_topic_key ON %[1]s.%[2]s (topic, key);
-		CREATE INDEX %[2]s_topic_kind_message_id ON %[1]s.%[2]s (topic, kind, message_id);
+		CREATE INDEX %[2]s_stream_key ON %[1]s.%[2]s (stream, key);
+		CREATE INDEX %[2]s_stream_kind_message_id ON %[1]s.%[2]s (stream, kind, message_id);
 		CREATE INDEX %[2]s_kind_scheduled_at ON %[1]s.%[2]s (kind, scheduled_at);
 
 		CREATE TABLE %[1]s.%[3]s (
 			at         TIMESTAMPTZ NOT NULL,
 			consumer   TEXT NOT NULL,
-			topic      TEXT NOT NULL,
+			stream      TEXT NOT NULL,
 			"group"    TEXT NOT NULL,
 			message_id BIGINT NOT NULL,
 			key        TEXT NOT NULL,
 			attempt    INT NOT NULL,
 			outcome    TEXT NOT NULL               -- 'success' | 'error'
 		);
-		CREATE INDEX %[3]s_topic_group_message_id ON %[1]s.%[3]s (topic, "group", message_id);
+		CREATE INDEX %[3]s_stream_group_message_id ON %[1]s.%[3]s (stream, "group", message_id);
 
 		CREATE TABLE %[1]s.%[4]s (
 			at      TIMESTAMPTZ NOT NULL,
@@ -232,7 +232,7 @@ func (d *CheckerDatastore) CreateTables(ctx context.Context) error {
 
 		CREATE TABLE %[1]s.%[6]s (
 			at              TIMESTAMPTZ NOT NULL,
-			topic           TEXT NOT NULL,
+			stream           TEXT NOT NULL,
 			"group"         TEXT NOT NULL,
 			highest_message BIGINT NOT NULL,
 			committed       BIGINT NOT NULL

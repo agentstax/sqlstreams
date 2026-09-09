@@ -5,7 +5,7 @@ import { interpolate } from './interpolate';
 import { bindingConfigTable, compactionHeadTable, messageLogTable } from './table-names';
 
 export const readMessagesSqlTemplate = `
-		-- vulkan: messageconsumer.readMessages
+		-- sqlstreams: messageconsumer.readMessages
 		SELECT
 			m.id,
 			m.payload,
@@ -51,12 +51,12 @@ export const readMessagesSqlTemplate = `
 		ORDER BY m.id;
 	`;
 
-export function readMessagesSql(topicId: number): string {
+export function readMessagesSql(streamId: number): string {
 	return interpolate(
 		readMessagesSqlTemplate,
-		messageLogTable(topicId),
-		bindingConfigTable(topicId),
-		bindingConfigTable(topicId),
-		compactionHeadTable(topicId),
+		messageLogTable(streamId),
+		bindingConfigTable(streamId),
+		bindingConfigTable(streamId),
+		compactionHeadTable(streamId),
 	);
 }

@@ -22,8 +22,8 @@ func (s *Scenario) Report(phaseColumns map[string]string, expectColumns map[Chec
 
 func (s *Scenario) inputLines() []string {
 	lines := []string{}
-	for _, declared := range s.Topics {
-		line := fmt.Sprintf("topic\t%s\tDeliveryLogMode %s", declared.Name, declared.DeliveryLogMode)
+	for _, declared := range s.Streams {
+		line := fmt.Sprintf("stream\t%s\tDeliveryLogMode %s", declared.Name, declared.DeliveryLogMode)
 		if declared.PartitionSize > 0 {
 			line += fmt.Sprintf(", partition size %d", declared.PartitionSize)
 		}
@@ -33,7 +33,7 @@ func (s *Scenario) inputLines() []string {
 		}
 	}
 	if s.ProducerBatchConcurrency > 0 {
-		lines = append(lines, fmt.Sprintf("producer\tbatch concurrency %d per topic", s.ProducerBatchConcurrency))
+		lines = append(lines, fmt.Sprintf("producer\tbatch concurrency %d per stream", s.ProducerBatchConcurrency))
 	}
 	if s.AutomaticBatching || s.PayloadBytes > 0 || s.MaxConns > 0 {
 		lines = append(lines, fmt.Sprintf("workload\tautomatic batching %t, payload bytes %d, pool max %d, batch size %d", s.AutomaticBatching, s.PayloadBytes, s.MaxConns, s.ProducerBatchSize))
@@ -41,14 +41,14 @@ func (s *Scenario) inputLines() []string {
 	return append(lines, fmt.Sprintf("duration\t%s", formatDuration(s.Duration)))
 }
 
-// producerLines say "per topic" once the rate is multiplied by more than one
-// topic, so a reader never mistakes a phase's rate for the total.
+// producerLines say "per stream" once the rate is multiplied by more than one
+// stream, so a reader never mistakes a phase's rate for the total.
 func (s *Scenario) producerLines(columns map[string]string) []string {
 	lines := make([]string, 0, len(s.Producer))
 	for _, phase := range s.Producer {
 		line := phase.Name + ":\t" + phase.String()
-		if len(s.Topics) > 1 {
-			line = phase.Name + ":\t" + phase.PerTopicString()
+		if len(s.Streams) > 1 {
+			line = phase.Name + ":\t" + phase.PerStreamString()
 		}
 		if extra, ok := columns[phase.Name]; ok {
 			line += "\t" + extra

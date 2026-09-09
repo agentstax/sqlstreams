@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	cursoradvancercontroller "github.com/agentstax/vulkan/pkg/consume/cursoradvancer/controller"
-	"github.com/agentstax/vulkan/pkg/worker"
-	"github.com/agentstax/vulkan/pkg/worker/controller"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	cursoradvancercontroller "github.com/agentstax/sqlstreams/pkg/consume/cursoradvancer/controller"
+	"github.com/agentstax/sqlstreams/pkg/worker"
+	"github.com/agentstax/sqlstreams/pkg/worker/controller"
 )
 
 // advances cursor.committed behind the group's resolved work at the row's
@@ -31,7 +31,7 @@ func newCursorAdvancerInstance(provisioner *CursorAdvancerProvisioner, owner *co
 		return nil, errors.New("metadata must not be nil")
 	}
 
-	logger := logging.NewPipelineLogger(provisioner.Logger, &logging.PipelineLoggerConfig{Args: []any{"worker", WorkerCursorAdvancer, "topic_id", owner.TopicId, "group", owner.Name}})
+	logger := logging.NewPipelineLogger(provisioner.Logger, &logging.PipelineLoggerConfig{Args: []any{"worker", WorkerCursorAdvancer, "stream_id", owner.StreamId, "group", owner.Name}})
 	runner, err := controller.NewInstanceTickRunner(provisioner.workers, claimed, metadata.PollRate, &controller.InstanceTickRunnerConfig{
 		InstanceTTL:    provisioner.Config.InstanceTTL,
 		JitterFraction: provisioner.Config.JitterFraction,
@@ -54,7 +54,7 @@ func newCursorAdvancerInstance(provisioner *CursorAdvancerProvisioner, owner *co
 // Run advances committed until ctx cancels; a requested stop returns nil. The claimed
 // instance releases on the way out however Run exits.
 func (i *CursorAdvancerInstance) Run(ctx context.Context) error {
-	i.Logger.InfoContext(ctx, "cursor advancer starting", "vulkan_version", common.BuildVersion(), "rate", i.metadata.PollRate)
+	i.Logger.InfoContext(ctx, "cursor advancer starting", "sqlstreams_version", common.BuildVersion(), "rate", i.metadata.PollRate)
 
 	err := i.runner.Run(ctx, i.advance)
 	if err == nil {
@@ -64,6 +64,6 @@ func (i *CursorAdvancerInstance) Run(ctx context.Context) error {
 }
 
 func (i *CursorAdvancerInstance) advance(ctx context.Context) error {
-	_, err := i.controller.AdvanceCommitted(ctx, i.Owner.TopicId, i.Owner.ConsumerGroupId)
+	_, err := i.controller.AdvanceCommitted(ctx, i.Owner.StreamId, i.Owner.ConsumerGroupId)
 	return err
 }

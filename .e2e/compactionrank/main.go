@@ -4,7 +4,7 @@ package main
 // database -- the claims Chunk 1/2 make about rank but can't verify without
 // Postgres actually evaluating the row comparison.
 //
-// Registers its own topic (destroyed on exit), self-seeds, fully
+// Registers its own stream (destroyed on exit), self-seeds, fully
 // self-contained.
 //
 // Confirms, in order:
@@ -23,12 +23,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/consume"
-	consumecontroller "github.com/agentstax/vulkan/pkg/consume/controller"
-	messageconsumercontroller "github.com/agentstax/vulkan/pkg/consume/messageconsumer/controller"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/topic"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/pkg/consume"
+	consumecontroller "github.com/agentstax/sqlstreams/pkg/consume/controller"
+	messageconsumercontroller "github.com/agentstax/sqlstreams/pkg/consume/messageconsumer/controller"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 )
 
 const group = "phase14a.compactionrank"
@@ -71,27 +71,27 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	topicName := fmt.Sprintf("phase14a.compactionrank.%d", time.Now().UnixNano())
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{})
+	streamName := fmt.Sprintf("phase14a.compactionrank.%d", time.Now().UnixNano())
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{})
 	must(err)
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
 	must(err)
 	messageConsumers, err := messageconsumercontroller.NewMessageConsumerGroupController(ds, ds.Logger)
 	must(err)
-	wpInstance, err := client.Topic[RankedRecord](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[RankedRecord](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 	groupId := mustGroupID(cd.RegisterGroup(ctx, tp.Id, group, consume.Beginning()))
 
@@ -107,13 +107,13 @@ func run() (err error) {
 
 	assertInt("compaction_head still points at the pin despite two higher-id normal writes after it", headID(ctx, ds, tp.Id, "user:1"), 2)
 
-	claim, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, 10, maxRangeReclaims, lease, topic.DeliveryLogModeFailures)
+	claim, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, 10, maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
 	must(err)
 	if claim == nil {
 		die("expected a fresh claim, got nil")
 	}
 	assertIDs("only the pinned row comes back for user:1", ids(claim.Messages), []int64{2})
-	must(messageConsumers.Commit(ctx, tp.Id, groupId, claim.Lease.Token, nil, 5*time.Second, topic.DeliveryLogModeFailures))
+	must(messageConsumers.Commit(ctx, tp.Id, groupId, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 	assertInt("v1/v3/v4 still physically exist -- compaction filters, never deletes", rowCount(ctx, ds, tp.Id), 4)
 
 	// ===== the bridge interleaving: -1 never beats 0, either arrival order (ids 5-8) =====
@@ -127,13 +127,13 @@ func run() (err error) {
 	publish(ctx, wpInstance, "user:3", "live", 0)      // id 8 <- wins, same as any normal update would
 	assertInt("compaction_head points at the live write", headID(ctx, ds, tp.Id, "user:3"), 8)
 
-	claim, err = messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, 10, maxRangeReclaims, lease, topic.DeliveryLogModeFailures)
+	claim, err = messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, 10, maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
 	must(err)
 	if claim == nil {
 		die("expected a fresh claim, got nil")
 	}
 	assertIDs("only the two live-rank winners come back, neither backfill", ids(claim.Messages), []int64{5, 8})
-	must(messageConsumers.Commit(ctx, tp.Id, groupId, claim.Lease.Token, nil, 5*time.Second, topic.DeliveryLogModeFailures))
+	must(messageConsumers.Commit(ctx, tp.Id, groupId, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 
 	step("both backfill rows still physically exist, just never claimed")
 	assertTrue("user:2's backfill row (id 6) still exists", rowExists(ctx, ds, tp.Id, 6))
@@ -149,23 +149,23 @@ func run() (err error) {
 
 // ---- helpers ----
 
-func publish(ctx context.Context, wpInstance *vulkan.ProducerInstance[RankedRecord], key, label string, rank int64) {
-	_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*RankedRecord, error) {
+func publish(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[RankedRecord], key, label string, rank int64) {
+	_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*RankedRecord, error) {
 		return &RankedRecord{Key: key, Label: label}, nil
-	}, &vulkan.ProduceOptions{MessageKey: key, Compaction: &vulkan.CompactionOptions{Enable: true, Rank: rank}})
+	}, &sqlstreams.ProduceOptions{MessageKey: key, Compaction: &sqlstreams.CompactionOptions{Enable: true, Rank: rank}})
 	must(err)
 }
 
-func headID(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, key string) int64 {
-	return scalar(ctx, ds, fmt.Sprintf(`SELECT message_id FROM %s.%s WHERE compaction_key=$1;`, ds.Schema, topic.CompactionHeadTable(topicId)), key)
+func headID(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, key string) int64 {
+	return scalar(ctx, ds, fmt.Sprintf(`SELECT message_id FROM %s.%s WHERE compaction_key=$1;`, ds.Schema, stream.CompactionHeadTable(streamId)), key)
 }
 
-func rowCount(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64) int64 {
-	return scalar(ctx, ds, fmt.Sprintf(`SELECT count(*) FROM %s.%s`, ds.Schema, topic.MessageLogTable(topicId)))
+func rowCount(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) int64 {
+	return scalar(ctx, ds, fmt.Sprintf(`SELECT count(*) FROM %s.%s`, ds.Schema, stream.MessageLogTable(streamId)))
 }
 
-func rowExists(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId, id int64) bool {
-	return scalar(ctx, ds, fmt.Sprintf(`SELECT count(*) FROM %s.%s WHERE id=$1`, ds.Schema, topic.MessageLogTable(topicId)), id) == 1
+func rowExists(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId, id int64) bool {
+	return scalar(ctx, ds, fmt.Sprintf(`SELECT count(*) FROM %s.%s WHERE id=$1`, ds.Schema, stream.MessageLogTable(streamId)), id) == 1
 }
 
 func scalar(ctx context.Context, ds *iDatastore.PostgresDatastore, q string, args ...any) int64 {

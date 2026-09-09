@@ -3,9 +3,9 @@ package controller
 import (
 	"errors"
 
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	"github.com/agentstax/vulkan/pkg/compaction/controller/datastore"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	"github.com/agentstax/sqlstreams/pkg/compaction/controller/datastore"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
 )
 
 // CompactionController owns compaction-head reads and the transactional

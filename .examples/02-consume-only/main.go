@@ -2,8 +2,8 @@ package main
 
 // Scenario 02 -- consume-only service.
 //
-// A transcoder only handles VideoUploaded. It owns no topic and needs no
-// admin verbs -- consumer registration resolves the topic by name.
+// A transcoder only handles VideoUploaded. It owns no stream and needs no
+// admin verbs -- consumer registration resolves the stream by name.
 //
 // Run first: 01
 
@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"os"
 
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 type VideoUploadedV1 struct {
@@ -35,21 +35,21 @@ func main() {
 }
 
 func run() error {
-	ctx, stop := vulkan.LifecycleContext(nil)
+	ctx, stop := sqlstreams.LifecycleContext(nil)
 	defer stop()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	if err != nil {
 		return err
 	}
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, nil)
+	client, err := sqlstreams.NewClient(ctx, pool, nil)
 	if err != nil {
 		return err
 	}
 
-	uploads := client.Topic[VideoUploadedV1]("videos.uploaded")
+	uploads := client.Stream[VideoUploadedV1]("videos.uploaded")
 	transcoder := uploads.Consumer("transcoder")
 	consumer, err := transcoder.Register(ctx, nil)
 	if err != nil {

@@ -21,7 +21,7 @@ go.work.sum
 
 # go build run inside a main package drops a binary named for its directory;
 # go test -c and profiling flags drop *.test and *.prof beside the source
-/cmd/vulkan/vulkan
+/cmd/sqlstreams/sqlstreams
 /.tools/codeexport/codeexport
 /.tools/compat/compat
 /.tools/compatexport/compatexport

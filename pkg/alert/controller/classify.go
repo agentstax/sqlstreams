@@ -3,8 +3,8 @@ package controller
 import (
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/alert"
-	"github.com/agentstax/vulkan/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/alert"
+	"github.com/agentstax/sqlstreams/pkg/common"
 )
 
 // classify compares the alert a run built (nil when it built none) against

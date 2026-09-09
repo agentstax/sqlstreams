@@ -18,7 +18,7 @@ type Props = {
 };
 
 const { title, description, navCurrent } = Astro.props;
-const documentTitle = `${title} | Vulkan Docs`;
+const documentTitle = `${title} | SQLStreams Docs`;
 const searchEngineIndexable = isSearchEngineIndexable(Astro.url.pathname);
 
 // on a frozen version deployment the canonical still names the live
@@ -57,7 +57,7 @@ const versionManifestHref = new URL('/versions.json', siteUrl).href;
 			(() => {
 				const readStyle = () => {
 					try {
-						const stored = window.localStorage.getItem('vulkan-board:style');
+						const stored = window.localStorage.getItem('sqlstreams-board:style');
 						if (stored !== null) return stored;
 					} catch {
 						// storage denied -- the preference below decides every load

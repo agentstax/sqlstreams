@@ -1,10 +1,10 @@
 package consumer
 
 import (
-	"github.com/agentstax/vulkan/pkg/consume/exceptionconsumer"
-	"github.com/agentstax/vulkan/pkg/consume/messageconsumer"
-	"github.com/agentstax/vulkan/pkg/worker"
-	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
+	"github.com/agentstax/sqlstreams/pkg/consume/exceptionconsumer"
+	"github.com/agentstax/sqlstreams/pkg/consume/messageconsumer"
+	"github.com/agentstax/sqlstreams/pkg/worker"
+	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
 )
 
 func toMessageConsumerWorkerConfig(declared *ConsumerConfig) *workercontroller.WorkerConfig {

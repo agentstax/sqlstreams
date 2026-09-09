@@ -1,9 +1,9 @@
 package controller
 
 import (
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/worker"
-	"github.com/agentstax/vulkan/pkg/worker/controller/datastore"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/worker"
+	"github.com/agentstax/sqlstreams/pkg/worker/controller/datastore"
 	"time"
 	"uuid"
 )
@@ -21,9 +21,9 @@ func toWorker(data datastore.ListWorkersRow) (*worker.Worker, error) {
 	var err error
 	switch {
 	case data.ConsumerGroupId != nil:
-		owner, err = common.NewConsumerGroupOwner(data.OwnerSystemId, data.OwnerTopicId, *data.ConsumerGroupId, data.ConsumerGroup)
-	case data.TopicId != nil:
-		owner, err = common.NewTopicOwner(data.OwnerSystemId, *data.TopicId, data.TopicName)
+		owner, err = common.NewConsumerGroupOwner(data.OwnerSystemId, data.OwnerStreamId, *data.ConsumerGroupId, data.ConsumerGroup)
+	case data.StreamId != nil:
+		owner, err = common.NewStreamOwner(data.OwnerSystemId, *data.StreamId, data.StreamName)
 	default:
 		owner, err = common.NewSystemOwner(data.OwnerSystemId)
 	}

@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	janitorcontroller "github.com/agentstax/vulkan/pkg/consume/janitor/controller"
-	"github.com/agentstax/vulkan/pkg/worker"
-	"github.com/agentstax/vulkan/pkg/worker/controller"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	janitorcontroller "github.com/agentstax/sqlstreams/pkg/consume/janitor/controller"
+	"github.com/agentstax/sqlstreams/pkg/worker"
+	"github.com/agentstax/sqlstreams/pkg/worker/controller"
 )
 
 // sweeps superseded waiting binding_log rows at the row's poll_rate while a
@@ -54,7 +54,7 @@ func newJanitorInstance(provisioner *JanitorProvisioner, owner *common.Owner, cl
 // Run sweeps until ctx cancels; a requested stop returns nil. The claimed
 // instance releases on the way out however Run exits.
 func (i *JanitorInstance) Run(ctx context.Context) error {
-	i.Logger.InfoContext(ctx, "consumer group janitor starting", "vulkan_version", common.BuildVersion(), "rate", i.metadata.PollRate)
+	i.Logger.InfoContext(ctx, "consumer group janitor starting", "sqlstreams_version", common.BuildVersion(), "rate", i.metadata.PollRate)
 
 	err := i.runner.Run(ctx, i.sweep)
 	if err == nil {

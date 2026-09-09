@@ -13,7 +13,7 @@ type BatcherConfig struct {
 	// Default: 100.
 	MaxSize int
 
-	// ConcurrencyLimit - workers committing a topic's batches at once
+	// ConcurrencyLimit - workers committing a stream's batches at once
 	// (one pooled connection each).
 	// Default: 4.
 	ConcurrencyLimit int

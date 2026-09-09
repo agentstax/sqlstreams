@@ -4,19 +4,19 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
 )
 
 func (d *MigrateDatastore) recordSuccess(ctx context.Context, q datastore.Querier, owner *common.Owner, version int64, minCompatibleVersion int64) error {
 	columns := datastore.NewOwnerColumns(*owner)
 
 	sql := fmt.Sprintf(`
-		-- vulkan: migrate.recordSuccess
-		INSERT INTO %[1]s.migration_log (system_id, topic_id, consumer_group_id, version, min_compatible_version, status) VALUES ($1, $2, $3, $4, $5, 'success');
+		-- sqlstreams: migrate.recordSuccess
+		INSERT INTO %[1]s.migration_log (system_id, stream_id, consumer_group_id, version, min_compatible_version, status) VALUES ($1, $2, $3, $4, $5, 'success');
 	`, d.Datastore.Schema)
 	_, err := q.Exec(ctx, sql,
-		columns.SystemId, columns.TopicId, columns.ConsumerGroupId, version, minCompatibleVersion)
+		columns.SystemId, columns.StreamId, columns.ConsumerGroupId, version, minCompatibleVersion)
 	return err
 }
 
@@ -29,14 +29,14 @@ func (d *MigrateDatastore) TryRecordFailure(ctx context.Context, q datastore.Que
 	ctx = context.WithoutCancel(ctx)
 	err := d.DatastoreRetry.Wrap(ctx, func() error {
 		sql := fmt.Sprintf(`
-			-- vulkan: migrate.TryRecordFailure
-			INSERT INTO %[1]s.migration_log (system_id, topic_id, consumer_group_id, version, status, error) VALUES ($1, $2, $3, $4, 'failure', $5);
+			-- sqlstreams: migrate.TryRecordFailure
+			INSERT INTO %[1]s.migration_log (system_id, stream_id, consumer_group_id, version, status, error) VALUES ($1, $2, $3, $4, 'failure', $5);
 		`, d.Datastore.Schema)
 		_, e := q.Exec(ctx, sql,
-			columns.SystemId, columns.TopicId, columns.ConsumerGroupId, version, cause.Error())
+			columns.SystemId, columns.StreamId, columns.ConsumerGroupId, version, cause.Error())
 		return e
 	})
 	if err != nil {
-		d.Logger.ErrorContext(ctx, "could not record migration failure", "owner", owner.Name, "owner_kind", owner.Kind(), "topic_id", owner.TopicId, "group_id", owner.ConsumerGroupId, "version", version, "cause", cause, "error", err)
+		d.Logger.ErrorContext(ctx, "could not record migration failure", "owner", owner.Name, "owner_kind", owner.Kind(), "stream_id", owner.StreamId, "group_id", owner.ConsumerGroupId, "version", version, "cause", cause, "error", err)
 	}
 }

@@ -40,7 +40,7 @@ I'd love to use Kafka for my [agentic powered TODO app](https://github.com/agent
     <img alt="INTRODUCING" src=".website/public/introducing-light.svg" width="140" height="28">
   </picture>
   <br />
-  <b>SQLStreams</b> for when you barely know what a Topic is but know Kafka is good...
+  <b>SQLStreams</b> for when you barely know what a Stream is but know Kafka is good...
   <br />
   <em>for some reason or another.</em>
 </p>
@@ -50,7 +50,7 @@ I'd love to use Kafka for my [agentic powered TODO app](https://github.com/agent
 - It's actually a log, not a queue 🤓, and it does [N msgs/s](.bench/) on my laptop 😎.
 - You get consumer groups, replay, retention and compaction without running a single broker.
 - Dead letters are `WHERE status = 'dead'`. There’s no admin UI. Just write some SQL.
-- Every error has a code, and `vulkan explain <code>` will hand you the fix because I don't like thinking either.
+- Every error has a code, and `sqlstreams explain <code>` will hand you the fix because I don't like thinking either.
 
 ## Usage
 
@@ -59,7 +59,7 @@ I'd love to use Kafka for my [agentic powered TODO app](https://github.com/agent
 Add it to your module. You need a Postgres.
 
 ```sh
-go get github.com/agentstax/vulkan
+go get github.com/agentstax/sqlstreams
 ```
 
 A message is a struct with a schema version.
@@ -75,13 +75,13 @@ func (VideoUploaded) SchemaVersion() int { return 1 } // increment on breaking c
 [Produce](.examples/01-produce-only/)
 
 ```go
-ctx, stop := vulkan.LifecycleContext(nil)
+ctx, stop := sqlstreams.LifecycleContext(nil)
 defer stop()
 
-pool, _ := vulkan.NewPostgresPool(ctx, "user", "password", "localhost", "db", nil)
-client, _ := vulkan.NewClient(ctx, pool, nil)
+pool, _ := sqlstreams.NewPostgresPool(ctx, "user", "password", "localhost", "db", nil)
+client, _ := sqlstreams.NewClient(ctx, pool, nil)
 
-uploads := client.Topic[VideoUploaded]("videos.uploaded")
+uploads := client.Stream[VideoUploaded]("videos.uploaded")
 uploads.Register(ctx, nil)
 
 producer, _ := uploads.Producer().Register(ctx, nil)
@@ -109,10 +109,10 @@ fmt.Println("backlog", snapshot.Cursor.Backlog, "dead", snapshot.Exceptions.Dead
 [Consume built-in alerts](.examples/12-alert-consumer/)
 
 ```go
-alerts := client.Topic[vulkan.Alert](vulkan.AlertTopicName)
+alerts := client.Stream[sqlstreams.Alert](sqlstreams.AlertStreamName)
 pager := alerts.Consumer("pager")
 alertConsumer, _ := pager.Register(ctx, nil)
-alertConsumer.Consume(ctx, func(ctx context.Context, alert *vulkan.Alert) error {
+alertConsumer.Consume(ctx, func(ctx context.Context, alert *sqlstreams.Alert) error {
 	fmt.Println(alert.Status, alert.Name, alert.Message, alert.Hint)
 	return nil
 }, nil)
@@ -125,30 +125,30 @@ Retries, dead letters, transactional produce, idempotent produce, keyed ordering
 macOS
 
 ```sh
-brew install --cask agentstax/tap/vulkan
+brew install --cask agentstax/tap/sqlstreams
 ```
 
 Windows
 
 ```sh
-choco install vulkan
+choco install sqlstreams
 ```
 
 Linux, or anywhere with Go
 
 ```sh
-go install github.com/agentstax/vulkan/cmd/vulkan@latest
+go install github.com/agentstax/sqlstreams/cmd/sqlstreams@latest
 ```
 
 ```sh
-export VULKAN_ADMIN_DATABASE_URL=postgres://user:password@localhost/db
+export SQLSTREAMS_ADMIN_DATABASE_URL=postgres://user:password@localhost/db
 
-vulkan topic list                              # every registered topic
-vulkan topic get videos.uploaded               # one specific topic's info
-vulkan explain VK0022                          # what an error code means, the fix, the SQL
-vulkan metric list                             # current value of every built-in metric
-vulkan alert list                              # what's active right now
-vulkan manager run --metrics-address :9464     # run upkeep process, serve Prometheus /metrics
+sqlstreams stream list                              # every registered stream
+sqlstreams stream get videos.uploaded               # one specific stream's info
+sqlstreams explain SS0022                          # what an error code means, the fix, the SQL
+sqlstreams metric list                             # current value of every built-in metric
+sqlstreams alert list                              # what's active right now
+sqlstreams manager run --metrics-address :9464     # run upkeep process, serve Prometheus /metrics
 ```
 
 ## Development
@@ -160,6 +160,6 @@ vulkan manager run --metrics-address :9464     # run upkeep process, serve Prome
 
 ## License
 
-Vulkan is licensed under the Apache License, Version 2.0. See
+SQLStreams is licensed under the Apache License, Version 2.0. See
 [LICENSE](LICENSE). Third-party components remain subject to their respective
 licenses.

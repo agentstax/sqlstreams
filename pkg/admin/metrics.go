@@ -3,33 +3,33 @@ package admin
 import (
 	"context"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/metric"
-	"github.com/agentstax/vulkan/pkg/migrate"
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/metric"
+	"github.com/agentstax/sqlstreams/pkg/migrate"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 )
 
-// TopicMetrics returns the named topic's live snapshot.
-func (a *MessageAdmin) TopicMetrics(ctx context.Context, name string) (*metric.TopicSnapshot, error) {
-	found, err := a.GetTopic(ctx, name)
+// StreamMetrics returns the named stream's live snapshot.
+func (a *MessageAdmin) StreamMetrics(ctx context.Context, name string) (*metric.StreamSnapshot, error) {
+	found, err := a.GetStream(ctx, name)
 	if err != nil {
 		return nil, err
 	}
 	if found == nil {
-		return nil, topic.ErrTopicNotFound.With("topic", name)
+		return nil, stream.ErrStreamNotFound.With("stream", name)
 	}
 
-	return a.metricController.TopicSnapshot(ctx, found.Id)
+	return a.metricController.StreamSnapshot(ctx, found.Id)
 }
 
 // ConsumerGroupMetrics returns the named consumer group's live snapshot.
-// Returns ErrTopicNotFound / ErrConsumerNotFound when either side is missing.
-func (a *MessageAdmin) ConsumerGroupMetrics(ctx context.Context, topicName string, consumerName string) (*metric.ConsumerGroupSnapshot, error) {
-	owner, err := a.ConsumerGroupOwner(ctx, topicName, consumerName)
+// Returns ErrStreamNotFound / ErrConsumerNotFound when either side is missing.
+func (a *MessageAdmin) ConsumerGroupMetrics(ctx context.Context, streamName string, consumerName string) (*metric.ConsumerGroupSnapshot, error) {
+	owner, err := a.ConsumerGroupOwner(ctx, streamName, consumerName)
 	if err != nil {
 		return nil, err
 	}
-	return a.metricController.ConsumerGroupSnapshot(ctx, owner.TopicId, owner.ConsumerGroupId, owner.Name)
+	return a.metricController.ConsumerGroupSnapshot(ctx, owner.StreamId, owner.ConsumerGroupId, owner.Name)
 }
 
 // ListMeasurements returns the current head per (name, attributes)
@@ -50,20 +50,20 @@ func (a *MessageAdmin) GetMeasurement(ctx context.Context, messageKey string) (*
 // messageKey is metric.MeasurementKey(name, attributes); limit is required.
 // Returns migrate.ErrNotRegistered until RegisterSystem has run.
 func (a *MessageAdmin) ListMeasurementMessages(ctx context.Context, messageKey string, limit int) ([]*common.StoredMessage[metric.Measurement], error) {
-	found, err := a.metricTopic(ctx)
+	found, err := a.metricStream(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return a.heads.ListKeyMessages[metric.Measurement](ctx, found.Id, messageKey, limit)
 }
 
-func (a *MessageAdmin) metricTopic(ctx context.Context) (*topic.Topic, error) {
-	found, err := a.topicController.Get(ctx, metric.MetricTopicName)
+func (a *MessageAdmin) metricStream(ctx context.Context) (*stream.Stream, error) {
+	found, err := a.streamController.Get(ctx, metric.MetricStreamName)
 	if err != nil {
 		return nil, err
 	}
 	if found == nil {
-		return nil, migrate.ErrNotRegistered.With("topic", metric.MetricTopicName)
+		return nil, migrate.ErrNotRegistered.With("stream", metric.MetricStreamName)
 	}
 	return found, nil
 }

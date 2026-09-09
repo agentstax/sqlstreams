@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/schedule"
-	"github.com/agentstax/vulkan/pkg/systemmanager"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/schedule"
+	"github.com/agentstax/sqlstreams/pkg/systemmanager"
 )
 
 // SchedulerInstance is a registered schedule: Schedule keeps the system producing it.
@@ -41,7 +41,7 @@ func newSchedulerInstance[Message common.Versioned](registered *schedule.Schedul
 	}, nil
 }
 
-// Schedule runs the system manager until ctx cancels -- what `vulkan manager
+// Schedule runs the system manager until ctx cancels -- what `sqlstreams manager
 // run` does; the schedule producer worker produces every registered
 // schedule, not just this one. A requested stop returns nil.
 func (i *SchedulerInstance[Message]) Schedule(ctx context.Context) error {

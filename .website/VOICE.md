@@ -101,7 +101,7 @@ shipped pages; a hand-corrected pair beats a constructed one.
 
 Generic:
 
-> Leases are the heart of Vulkan's delivery guarantees. When a
+> Leases are the heart of SQLStreams's delivery guarantees. When a
 > consumer instance crashes, its lease doesn't simply disappear — it
 > expires. This isn't a failure mode; it's the design working as
 > intended. Expired leases are reclaimed on the next claim cycle,

@@ -5,12 +5,12 @@
 // statement added to only one of them visible.
 import { interpolate } from '../interpolate';
 import { createSystemConfigSql } from './create-system-config';
-import { createTopicConfigSql } from './create-topic-config';
-import { createTopicConfigLogSql } from './create-topic-config-log';
-import { createTopicConfigLogIndexSql } from './create-topic-config-log-index';
+import { createStreamConfigSql } from './create-stream-config';
+import { createStreamConfigLogSql } from './create-stream-config-log';
+import { createStreamConfigLogIndexSql } from './create-stream-config-log-index';
 import { createConsumerGroupConfigSql } from './create-consumer-group-config';
 import { createWorkerConfigSql } from './create-worker-config';
-import { createWorkerConfigTopicNameIndexSql } from './create-worker-config-topic-name-index';
+import { createWorkerConfigStreamNameIndexSql } from './create-worker-config-stream-name-index';
 import { createWorkerConfigGroupNameIndexSql } from './create-worker-config-group-name-index';
 import { createWorkerConfigSystemNameIndexSql } from './create-worker-config-system-name-index';
 import { createWorkerConfigLogSql } from './create-worker-config-log';
@@ -25,12 +25,12 @@ import { createMigrationLogSql } from './create-migration-log';
 
 export const createSystemTablesTemplates: string[] = [
 	createSystemConfigSql,
-	createTopicConfigSql,
-	createTopicConfigLogSql,
-	createTopicConfigLogIndexSql,
+	createStreamConfigSql,
+	createStreamConfigLogSql,
+	createStreamConfigLogIndexSql,
 	createConsumerGroupConfigSql,
 	createWorkerConfigSql,
-	createWorkerConfigTopicNameIndexSql,
+	createWorkerConfigStreamNameIndexSql,
 	createWorkerConfigGroupNameIndexSql,
 	createWorkerConfigSystemNameIndexSql,
 	createWorkerConfigLogSql,
@@ -45,7 +45,7 @@ export const createSystemTablesTemplates: string[] = [
 ];
 
 // every statement names only shared tables, so the schema is the one verb to
-// fill -- the topic side's sibling takes the topic id as well
+// fill -- the stream side's sibling takes the stream id as well
 export function createSystemTablesStatements(): string[] {
 	return createSystemTablesTemplates.map((template) => interpolate(template));
 }

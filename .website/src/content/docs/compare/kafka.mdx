@@ -1,5 +1,5 @@
 ---
-title: Vulkan vs. Kafka
+title: SQLStreams vs. Kafka
 description: Kafka's log semantics without Kafka's cluster — and an honest account of when you really do need Kafka.
 ---
 
@@ -12,7 +12,7 @@ month for *scale* they never use — in brokers, partition math,
 consumer-group rebalances, and a dedicated platform engineer who is
 "the Kafka person."
 
-Vulkan's claim: you can have those semantics on Postgres, and you
+SQLStreams's claim: you can have those semantics on Postgres, and you
 probably should — until the day your numbers say otherwise.
 
 ## Feature by feature
@@ -20,14 +20,14 @@ probably should — until the day your numbers say otherwise.
 Scored on shipped behavior; proposed capabilities are labeled, never
 checkmarked.
 
-| | Kafka | Vulkan |
+| | Kafka | SQLStreams |
 | --- | --- | --- |
 | Retained, append-only log | yes | yes |
 | Independent consumer groups | yes | yes |
 | New consumer reads history | yes | yes — a new group's default |
 | Per-key ordering | yes — partitions (count fixed up front) | per-key order, or exclusivity with latest-wins (opt-in per message) |
-| Per-message retry/backoff | no — retry topics, hand-built | yes — native |
-| Dead-lettering | DIY topic + tooling | native, per group, queryable |
+| Per-message retry/backoff | no — retry streams, hand-built | yes — native |
+| Dead-lettering | DIY stream + tooling | native, per group, queryable |
 | Routing by key bindings | no — consumers filter client-side | yes — native |
 | Producing in the same transaction as your DB writes | structurally impossible | the headline feature |
 | Ops footprint | brokers + KRaft/ZK + partitions + rebalancing | the Postgres you already run |
@@ -57,7 +57,7 @@ ripped out angrily. Reach for Kafka (or Redpanda) when:
 
 - **Sustained firehose throughput** at a scale your measurements show
   Postgres can't hold — log-structured storage and sequential disk I/O
-  genuinely beat a B-tree database at the top end. (Where Vulkan's own
+  genuinely beat a B-tree database at the top end. (Where SQLStreams's own
   ceiling sits is exactly what the [benchmark pipeline](/roadmap/)
   exists to publish; until then we won't name a number in either
   direction.)
@@ -68,10 +68,10 @@ ripped out angrily. Reach for Kafka (or Redpanda) when:
 - **Cross-org pipelines** where "Kafka topic" is the contract.
 
 <ThreadAside label="TIP" title="The graduation path">
-Because Vulkan topics are durable and ordered, the day you outgrow one,
+Because SQLStreams streams are durable and ordered, the day you outgrow one,
 a relay consumer group can forward it to a Kafka topic — with the
-cutover happening per-topic, gradually, while transactional produce
-keeps working on the Postgres side. Adopting Vulkan first doesn't paint
+cutover happening per-stream, gradually, while transactional produce
+keeps working on the Postgres side. Adopting SQLStreams first doesn't paint
 you into a corner; it defers a big decision until you have the data to
 make it.
 
@@ -82,6 +82,6 @@ make it.
 > Are you buying Kafka for its semantics, or for its scale?
 
 If it's semantics — retention, fan-out, per-message state, durability —
-Vulkan gives you those, plus the failure lifecycle and the transaction
+SQLStreams gives you those, plus the failure lifecycle and the transaction
 guarantee Kafka can't offer, with zero new infrastructure. If it's
 scale, and the numbers are real: use Kafka, with our blessing.

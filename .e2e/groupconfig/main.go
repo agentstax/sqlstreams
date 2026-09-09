@@ -8,7 +8,7 @@ package main
 //  1. RegisterConsumer writes a SPARSE document: only the declared fields
 //     appear as keys on the message_consumer row's metadata.
 //  2. a second declarer with a differing document replaces the stored one,
-//     the VK0059 warn fires on the second declarer's logger, and every
+//     the SS0059 warn fires on the second declarer's logger, and every
 //     replace appends a worker_config_log snapshot with declared_by.
 //  3. an instance registered BEFORE the second declaration still consumes
 //     under the stored (second) document -- Consume reads at start, so the
@@ -22,13 +22,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 	"os"
 	"sync"
 	"time"
 
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 type testMessage struct {
@@ -67,7 +67,7 @@ func run() (err error) {
 
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
@@ -75,33 +75,33 @@ func run() (err error) {
 	must(err)
 
 	captureA := newCaptureLogger()
-	clientA, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true, Logger: captureA})
+	clientA, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true, Logger: captureA})
 	must(err)
 	captureB := newCaptureLogger()
-	clientB, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true, Logger: captureB})
+	clientB, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true, Logger: captureB})
 	must(err)
 
 	suffix := time.Now().UnixNano()
-	topicName := fmt.Sprintf("groupconfig.%d", suffix)
-	registered, err := clientA.Topic[testMessage](topicName).Register(ctx, nil)
+	streamName := fmt.Sprintf("groupconfig.%d", suffix)
+	registered, err := clientA.Stream[testMessage](streamName).Register(ctx, nil)
 	must(err)
 	defer func() {
-		if destroyErr := clientA.Topic[testMessage](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}); destroyErr != nil {
+		if destroyErr := clientA.Stream[testMessage](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}); destroyErr != nil {
 			fmt.Printf("  cleanup: %s\n", destroyErr.Error())
 		}
 	}()
 	group := fmt.Sprintf("groupconfig.group.%d", suffix)
 
 	step("RegisterConsumer stores the declared config as a sparse document")
-	instanceA, err := clientA.Topic[testMessage](topicName).Consumer(group).Register(ctx, &vulkan.ConsumerConfig{
-		Message:                 &vulkan.MessageOptions{Retry: &vulkan.RetryPolicy{MaxRetries: 5, BaseDelay: 100 * time.Millisecond}},
+	instanceA, err := clientA.Stream[testMessage](streamName).Consumer(group).Register(ctx, &sqlstreams.ConsumerConfig{
+		Message:                 &sqlstreams.MessageOptions{Retry: &sqlstreams.RetryPolicy{MaxRetries: 5, BaseDelay: 100 * time.Millisecond}},
 		ExceptionInitialBackoff: 200 * time.Millisecond,
 	})
 
 	must(err)
 
 	var groupId int64
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT id FROM %s.consumer_group_config WHERE topic_id = $1 AND name = $2;`, ds.Schema), registered.Id, group).Scan(&groupId))
+	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT id FROM %s.consumer_group_config WHERE stream_id = $1 AND name = $2;`, ds.Schema), registered.Id, group).Scan(&groupId))
 	var hasMessage, hasBackoff, hasReclaims bool
 	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`
 		SELECT
@@ -120,18 +120,18 @@ func run() (err error) {
 	fmt.Println("  ✓ declared keys stored, undeclared keys absent")
 
 	step("a differing second declaration replaces the document and warns")
-	_, err = clientB.Topic[testMessage](topicName).Consumer(group).Register(ctx, &vulkan.ConsumerConfig{
-		Message:                 &vulkan.MessageOptions{Retry: &vulkan.RetryPolicy{MaxRetries: 2, BaseDelay: 100 * time.Millisecond}},
+	_, err = clientB.Stream[testMessage](streamName).Consumer(group).Register(ctx, &sqlstreams.ConsumerConfig{
+		Message:                 &sqlstreams.MessageOptions{Retry: &sqlstreams.RetryPolicy{MaxRetries: 2, BaseDelay: 100 * time.Millisecond}},
 		ExceptionInitialBackoff: 200 * time.Millisecond,
 	})
 
 	must(err)
 
-	if count := captureB.countCode("warn", "VK0059"); count < 1 {
-		die(fmt.Sprintf("second declarer logged %d VK0059 warns, want >= 1", count))
+	if count := captureB.countCode("warn", "SS0059"); count < 1 {
+		die(fmt.Sprintf("second declarer logged %d SS0059 warns, want >= 1", count))
 	}
-	if count := captureA.countCode("warn", "VK0059"); count != 0 {
-		die(fmt.Sprintf("first declarer logged %d VK0059 warns, want 0", count))
+	if count := captureA.countCode("warn", "SS0059"); count != 0 {
+		die(fmt.Sprintf("first declarer logged %d SS0059 warns, want 0", count))
 	}
 	var storedMaxRetries string
 	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`
@@ -152,10 +152,10 @@ func run() (err error) {
 	if logRows != 2 {
 		die(fmt.Sprintf("message_consumer has %d worker_config_log rows, want 2 (create + replace)", logRows))
 	}
-	fmt.Println("  ✓ VK0059 on the second declarer only; log snapshots carry declared_by")
+	fmt.Println("  ✓ SS0059 on the second declarer only; log snapshots carry declared_by")
 
 	step("an instance registered before the replace consumes under the stored document")
-	produced, err := clientA.Topic[testMessage](topicName).Producer().Register(ctx, nil)
+	produced, err := clientA.Stream[testMessage](streamName).Producer().Register(ctx, nil)
 	must(err)
 	_, err = produced.Produce(ctx, &testMessage{N: 1}, nil)
 	must(err)
@@ -167,14 +167,14 @@ func run() (err error) {
 		defer wg.Done()
 		_ = instanceA.Consume(consumeCtx, func(ctx context.Context, message *testMessage) error {
 			return errors.New("groupconfig: always fails")
-		}, &vulkan.ConsumeOptions{ClaimPollRate: 100 * time.Millisecond})
+		}, &sqlstreams.ConsumeOptions{ClaimPollRate: 100 * time.Millisecond})
 	}()
 
 	var attempts int
 	deadline := time.Now().Add(30 * time.Second)
 	for {
 		var status string
-		err := ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT status, attempts FROM %s.%s WHERE consumer_group_id = $1;`, ds.Schema, topic.ExceptionQueueTable(registered.Id)), groupId).Scan(&status, &attempts)
+		err := ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT status, attempts FROM %s.%s WHERE consumer_group_id = $1;`, ds.Schema, stream.ExceptionQueueTable(registered.Id)), groupId).Scan(&status, &attempts)
 		if err == nil && status == "dead" {
 			break
 		}
@@ -197,15 +197,15 @@ func run() (err error) {
 
 	step("a running instance picks up a redeclared retry budget on refresh")
 	liveGroup := fmt.Sprintf("groupconfig.live.%d", suffix)
-	instanceLive, err := clientA.Topic[testMessage](topicName).Consumer(liveGroup).Register(ctx, &vulkan.ConsumerConfig{
+	instanceLive, err := clientA.Stream[testMessage](streamName).Consumer(liveGroup).Register(ctx, &sqlstreams.ConsumerConfig{
 
-		Message:                 &vulkan.MessageOptions{Retry: &vulkan.RetryPolicy{MaxRetries: 3, BaseDelay: 3 * time.Second, MaxDelay: 3 * time.Second}},
+		Message:                 &sqlstreams.MessageOptions{Retry: &sqlstreams.RetryPolicy{MaxRetries: 3, BaseDelay: 3 * time.Second, MaxDelay: 3 * time.Second}},
 		ExceptionInitialBackoff: 300 * time.Millisecond,
 	})
 
 	must(err)
 	var liveGroupId int64
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT id FROM %s.consumer_group_config WHERE topic_id = $1 AND name = $2;`, ds.Schema), registered.Id, liveGroup).Scan(&liveGroupId))
+	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT id FROM %s.consumer_group_config WHERE stream_id = $1 AND name = $2;`, ds.Schema), registered.Id, liveGroup).Scan(&liveGroupId))
 	_, err = produced.Produce(ctx, &testMessage{N: 2}, nil)
 	must(err)
 
@@ -216,7 +216,7 @@ func run() (err error) {
 		defer liveWg.Done()
 		_ = instanceLive.Consume(liveCtx, func(ctx context.Context, message *testMessage) error {
 			return errors.New("groupconfig: always fails")
-		}, &vulkan.ConsumeOptions{ClaimPollRate: 100 * time.Millisecond, ConfigRefreshInterval: 200 * time.Millisecond})
+		}, &sqlstreams.ConsumeOptions{ClaimPollRate: 100 * time.Millisecond, ConfigRefreshInterval: 200 * time.Millisecond})
 	}()
 	stopLiveConsumer := func() {
 		stopLive()
@@ -228,7 +228,7 @@ func run() (err error) {
 	for {
 		var status string
 		var liveAttempts int
-		err := ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT status, attempts FROM %s.%s WHERE consumer_group_id = $1;`, ds.Schema, topic.ExceptionQueueTable(registered.Id)), liveGroupId).Scan(&status, &liveAttempts)
+		err := ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT status, attempts FROM %s.%s WHERE consumer_group_id = $1;`, ds.Schema, stream.ExceptionQueueTable(registered.Id)), liveGroupId).Scan(&status, &liveAttempts)
 		if err == nil && liveAttempts >= 2 && status == "ready" {
 			if liveAttempts > 2 {
 				stopLiveConsumer()
@@ -244,8 +244,8 @@ func run() (err error) {
 	}
 
 	// redeclare under the running instance: budget 3 -> 5, same backoff curve
-	_, err = clientB.Topic[testMessage](topicName).Consumer(liveGroup).Register(ctx, &vulkan.ConsumerConfig{
-		Message:                 &vulkan.MessageOptions{Retry: &vulkan.RetryPolicy{MaxRetries: 5, BaseDelay: 3 * time.Second, MaxDelay: 3 * time.Second}},
+	_, err = clientB.Stream[testMessage](streamName).Consumer(liveGroup).Register(ctx, &sqlstreams.ConsumerConfig{
+		Message:                 &sqlstreams.MessageOptions{Retry: &sqlstreams.RetryPolicy{MaxRetries: 5, BaseDelay: 3 * time.Second, MaxDelay: 3 * time.Second}},
 		ExceptionInitialBackoff: 300 * time.Millisecond,
 	})
 
@@ -258,7 +258,7 @@ func run() (err error) {
 	for {
 		var status string
 		var liveAttempts int
-		err := ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT status, attempts FROM %s.%s WHERE consumer_group_id = $1;`, ds.Schema, topic.ExceptionQueueTable(registered.Id)), liveGroupId).Scan(&status, &liveAttempts)
+		err := ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT status, attempts FROM %s.%s WHERE consumer_group_id = $1;`, ds.Schema, stream.ExceptionQueueTable(registered.Id)), liveGroupId).Scan(&status, &liveAttempts)
 		if err == nil && status == "dead" {
 			stopLiveConsumer()
 			// dead at 3 means the refresh never reached the running instance;
@@ -278,7 +278,7 @@ func run() (err error) {
 
 	fmt.Println("\n✅ GROUP CONFIG E2E TEST PASSED")
 	fmt.Println("   the declaration is stored sparse, the newest declaration wins with a")
-	fmt.Println("   VK0059 warn, Consume reads the stored document back at start, and a")
+	fmt.Println("   SS0059 warn, Consume reads the stored document back at start, and a")
 	fmt.Println("   running instance follows a redeclaration on its refresh interval.")
 	return nil
 }

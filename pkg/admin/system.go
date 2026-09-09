@@ -4,30 +4,30 @@ import (
 	"context"
 	"strings"
 
-	"github.com/agentstax/vulkan/pkg/alert"
-	"github.com/agentstax/vulkan/pkg/alert/collectorprogress"
-	"github.com/agentstax/vulkan/pkg/alert/compactionreadcost"
-	alertcontroller "github.com/agentstax/vulkan/pkg/alert/controller"
-	"github.com/agentstax/vulkan/pkg/alert/partitioncount"
-	"github.com/agentstax/vulkan/pkg/alert/workerliveness"
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/metric"
-	"github.com/agentstax/vulkan/pkg/metric/collector"
-	metricscontroller "github.com/agentstax/vulkan/pkg/metric/controller"
-	"github.com/agentstax/vulkan/pkg/migrate"
-	"github.com/agentstax/vulkan/pkg/schedule"
-	schedulecontroller "github.com/agentstax/vulkan/pkg/schedule/controller"
-	"github.com/agentstax/vulkan/pkg/scheduler"
-	"github.com/agentstax/vulkan/pkg/system"
-	systemMigrations "github.com/agentstax/vulkan/pkg/system/migrations"
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/alert"
+	"github.com/agentstax/sqlstreams/pkg/alert/collectorprogress"
+	"github.com/agentstax/sqlstreams/pkg/alert/compactionreadcost"
+	alertcontroller "github.com/agentstax/sqlstreams/pkg/alert/controller"
+	"github.com/agentstax/sqlstreams/pkg/alert/partitioncount"
+	"github.com/agentstax/sqlstreams/pkg/alert/workerliveness"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/metric"
+	"github.com/agentstax/sqlstreams/pkg/metric/collector"
+	metricscontroller "github.com/agentstax/sqlstreams/pkg/metric/controller"
+	"github.com/agentstax/sqlstreams/pkg/migrate"
+	"github.com/agentstax/sqlstreams/pkg/schedule"
+	schedulecontroller "github.com/agentstax/sqlstreams/pkg/schedule/controller"
+	"github.com/agentstax/sqlstreams/pkg/scheduler"
+	"github.com/agentstax/sqlstreams/pkg/stream"
+	"github.com/agentstax/sqlstreams/pkg/system"
+	systemMigrations "github.com/agentstax/sqlstreams/pkg/system/migrations"
 )
 
-// RegisterSystem stands up the shared control-plane tables every topic uses.
-// The first RegisterTopic against an empty database runs it with a nil cfg,
+// RegisterSystem stands up the shared control-plane tables every stream uses.
+// The first RegisterStream against an empty database runs it with a nil cfg,
 // so calling it directly matters when cfg does. Safe to call on every startup:
 // cfg is applied on every call, so changing a value and redeploying changes
-// the system's topics, its built-in alerts' schedules, and its collector rate.
+// the system's streams, its built-in alerts' schedules, and its collector rate.
 //   - cfg: may be nil or sparse
 func (a *MessageAdmin) RegisterSystem(ctx context.Context, cfg *system.SystemConfig) error {
 	if cfg == nil {
@@ -66,27 +66,27 @@ func (a *MessageAdmin) RegisterSystem(ctx context.Context, cfg *system.SystemCon
 		return err
 	}
 
-	// registerTopic, not RegisterTopic -- the latter guards the __system. prefix
-	if _, err := a.registerTopic(ctx, metric.MetricTopicName, metricscontroller.TopicConfig()); err != nil {
+	// registerStream, not RegisterStream -- the latter guards the __system. prefix
+	if _, err := a.registerStream(ctx, metric.MetricStreamName, metricscontroller.StreamConfig()); err != nil {
 		return err
 	}
-	if _, err := a.registerTopic(ctx, alert.AlertTopicName, alertcontroller.TopicConfig()); err != nil {
+	if _, err := a.registerStream(ctx, alert.AlertStreamName, alertcontroller.StreamConfig()); err != nil {
 		return err
 	}
-	if _, err := a.registerTopic(ctx, schedule.ScheduleTopicName, schedulecontroller.TopicConfig()); err != nil {
+	if _, err := a.registerStream(ctx, schedule.ScheduleStreamName, schedulecontroller.StreamConfig()); err != nil {
 		return err
 	}
 
 	for _, job := range []*alertcontroller.Job{partitionCountJob, compactionReadCostJob, workerLivenessJob, collectorProgressJob} {
-		if _, err := a.scheduler.Register[alert.JobPayload](ctx, job.Name, schedule.ScheduleTopicName, job.Cron, job.Payload, &scheduler.SchedulerConfig{
+		if _, err := a.scheduler.Register[alert.JobPayload](ctx, job.Name, schedule.ScheduleStreamName, job.Cron, job.Payload, &scheduler.SchedulerConfig{
 			Concurrency: common.ConcurrencyExclusive,
 		}); err != nil {
 			return err
 		}
 	}
 
-	// declared after the topics: the alert declarers resolve the schedules
-	// topic to create their consumer groups and worker rows
+	// declared after the streams: the alert declarers resolve the schedules
+	// stream to create their consumer groups and worker rows
 	owner, err := common.NewSystemOwner(registered.Id)
 	if err != nil {
 		return err
@@ -136,23 +136,23 @@ func (a *MessageAdmin) SystemMigrationVersion(ctx context.Context) (int64, error
 }
 
 // DestroySystem permanently deletes:
-// - every registered topic and its messages
-// - the system topics
+// - every registered stream and its messages
+// - the system streams
 // - schedules
 // - consumer groups
 // - workers
 // - shared control-plane tables
 //
-// Returns topic.ErrDestroyDisabled unless MessageAdminConfig.AllowDestroy is set.
+// Returns stream.ErrDestroyDisabled unless MessageAdminConfig.AllowDestroy is set.
 // Idempotent -- a system already destroyed (or never registered) resolves as
 // a no-op, and a re-run after a partial failure resumes where it stopped.
 //
 // Unless options.Force is set:
 //   - a worker instance is still live   -> system.ErrSystemLive
-//   - a non-system topic is registered  -> system.ErrTopicsRegistered
+//   - a non-system stream is registered  -> system.ErrStreamsRegistered
 func (a *MessageAdmin) DestroySystem(ctx context.Context, options *DestroyOptions) error {
 	if !a.allowDestroy {
-		return topic.ErrDestroyDisabled
+		return stream.ErrDestroyDisabled
 	}
 	if options == nil {
 		options = &DestroyOptions{}
@@ -174,14 +174,14 @@ func (a *MessageAdmin) DestroySystem(ctx context.Context, options *DestroyOption
 		}
 	}
 
-	// each topic through the same delete path DestroyTopic uses, keeping its
+	// each stream through the same delete path DestroyStream uses, keeping its
 	// partition-drain safety against a still-writing producer
-	topics, err := a.topicController.List(ctx)
+	streams, err := a.streamController.List(ctx)
 	if err != nil {
 		return err
 	}
-	for _, found := range topics {
-		if err := a.topicController.Delete(ctx, found.Id, found.Name); err != nil {
+	for _, found := range streams {
+		if err := a.streamController.Delete(ctx, found.Id, found.Name); err != nil {
 			return err
 		}
 	}
@@ -190,7 +190,7 @@ func (a *MessageAdmin) DestroySystem(ctx context.Context, options *DestroyOption
 }
 
 // assertSystemIdle is DestroySystem's guard: nothing is running against the
-// schema, and no user topic would be taken with it.
+// schema, and no user stream would be taken with it.
 func (a *MessageAdmin) assertSystemIdle(ctx context.Context) error {
 	// a running manager or consumer heartbeats its worker instances
 	workers, err := a.metricController.WorkerSnapshots(ctx)
@@ -203,18 +203,18 @@ func (a *MessageAdmin) assertSystemIdle(ctx context.Context) error {
 		}
 	}
 
-	topics, err := a.topicController.List(ctx)
+	streams, err := a.streamController.List(ctx)
 	if err != nil {
 		return err
 	}
 	var names []string
-	for _, found := range topics {
-		if !isReservedTopicName(found.Name) {
+	for _, found := range streams {
+		if !isReservedStreamName(found.Name) {
 			names = append(names, found.Name)
 		}
 	}
 	if len(names) > 0 {
-		return system.ErrTopicsRegistered.With("topics", strings.Join(names, ", "))
+		return system.ErrStreamsRegistered.With("streams", strings.Join(names, ", "))
 	}
 	return nil
 }

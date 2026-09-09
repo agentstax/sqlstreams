@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/compaction/controller/datastore"
+	"github.com/agentstax/sqlstreams/pkg/compaction/controller/datastore"
 )
 
 type adapterMessage struct {

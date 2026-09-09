@@ -2,15 +2,15 @@
 // browser sandbox uses is created here in Node at every build, so the shell
 // rows are actual query output and a broken statement fails the build.
 import {
-	createVulkanDatabase,
+	createSQLStreamsDatabase,
 	cursorSql,
-	demoTopicName,
+	demoStreamName,
 	messageLogSql,
 } from '../../components/sandbox/database';
-import type { VulkanDatabase } from '../../components/sandbox/database';
+import type { SQLStreamsDatabase } from '../../components/sandbox/database';
 import type { PanelShell } from '../../components/sandbox/types';
 
-export const sandboxTopic = demoTopicName;
+export const sandboxStream = demoStreamName;
 
 export type SandboxShell = {
 	messages: PanelShell;
@@ -18,7 +18,7 @@ export type SandboxShell = {
 };
 
 export async function sandboxShell(): Promise<SandboxShell> {
-	const database = await createVulkanDatabase(() => {});
+	const database = await createSQLStreamsDatabase(() => {});
 	const messages = await panelShell(database, 'message_log_1', messageLogSql);
 	const cursors = await panelShell(database, 'consumer_group_cursor_1', cursorSql);
 	await database.close();
@@ -30,7 +30,7 @@ export async function sandboxShell(): Promise<SandboxShell> {
 // ***************
 
 async function panelShell(
-	database: VulkanDatabase,
+	database: SQLStreamsDatabase,
 	table: string,
 	sql: string,
 ): Promise<PanelShell> {

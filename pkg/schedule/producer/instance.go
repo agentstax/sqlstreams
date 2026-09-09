@@ -4,20 +4,20 @@ import (
 	"context"
 	"errors"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/produce"
-	"github.com/agentstax/vulkan/pkg/producer"
-	"github.com/agentstax/vulkan/pkg/schedule"
-	scheduleproducercontroller "github.com/agentstax/vulkan/pkg/schedule/producer/controller"
-	"github.com/agentstax/vulkan/pkg/worker"
-	"github.com/agentstax/vulkan/pkg/worker/controller"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/produce"
+	"github.com/agentstax/sqlstreams/pkg/producer"
+	"github.com/agentstax/sqlstreams/pkg/schedule"
+	scheduleproducercontroller "github.com/agentstax/sqlstreams/pkg/schedule/producer/controller"
+	"github.com/agentstax/sqlstreams/pkg/worker"
+	"github.com/agentstax/sqlstreams/pkg/worker/controller"
 )
 
 // scans schedule_config for due rows at the row's poll_rate while a heartbeat
 // holds the claim, producing each due row's stored message onto its target
-// topic and advancing the row to its next scheduled time
+// stream and advancing the row to its next scheduled time
 type ScheduleProducerInstance struct {
 	Owner  *common.Owner
 	Config *ScheduleProducerConfig
@@ -63,7 +63,7 @@ func newScheduleProducerInstance(scheduleProducer *ScheduleProducerProvisioner, 
 // Run scans until ctx cancels; a requested stop returns nil. The claimed
 // instance releases on the way out however Run exits.
 func (i *ScheduleProducerInstance) Run(ctx context.Context) error {
-	i.Logger.InfoContext(ctx, "schedule producer starting", "vulkan_version", common.BuildVersion(), "rate", i.metadata.PollRate)
+	i.Logger.InfoContext(ctx, "schedule producer starting", "sqlstreams_version", common.BuildVersion(), "rate", i.metadata.PollRate)
 
 	err := i.runner.Run(ctx, i.scan)
 	if err == nil {
@@ -74,7 +74,7 @@ func (i *ScheduleProducerInstance) Run(ctx context.Context) error {
 
 // scan is one scheduler pass: an unlocked scan for due rows, then ONE
 // transaction per row -- a shared transaction would let one bad row roll back
-// every schedule's produce, and would hold ProduceInTx's whole-topic
+// every schedule's produce, and would hold ProduceInTx's whole-stream
 // consumer-progress lock from the first produce to the end of the pass.
 func (i *ScheduleProducerInstance) scan(ctx context.Context) error {
 	ids, err := i.controller.ListDue(ctx)
@@ -93,7 +93,7 @@ func (i *ScheduleProducerInstance) scan(ctx context.Context) error {
 }
 
 // produceDue resolves one due row: recheck under lock, produce the stored
-// message for the NEWEST due scheduled time onto the row's target topic,
+// message for the NEWEST due scheduled time onto the row's target stream,
 // advance the row. Produce + advance + idempotency claim share the
 // transaction, so an ambiguous-commit replay rolls all three back together
 // and the schedule.IdempotencyKey dedupe covers exactly that replay.
@@ -123,9 +123,9 @@ func (i *ScheduleProducerInstance) produceDue(ctx context.Context, id int64) err
 			return err
 		}
 
-		// registered per produce: the target topic is the row's, and a due
+		// registered per produce: the target stream is the row's, and a due
 		// row is minute-scale rare
-		target, err := i.producer.Register[schedule.ScheduleStoredMessage](ctx, row.TopicName, nil)
+		target, err := i.producer.Register[schedule.ScheduleStoredMessage](ctx, row.StreamName, nil)
 		if err != nil {
 			return err
 		}

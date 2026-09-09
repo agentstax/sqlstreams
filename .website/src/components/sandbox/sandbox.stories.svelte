@@ -6,7 +6,7 @@
 		title: 'Board/Sandbox',
 		component: Sandbox,
 		args: {
-			topic: 'orders',
+			stream: 'orders',
 			messages: {
 				table: 'message_log_1',
 				sql: 'SELECT id, payload\nFROM message_log_1\nORDER BY id DESC;',

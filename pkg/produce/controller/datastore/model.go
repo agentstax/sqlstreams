@@ -3,7 +3,7 @@ package datastore
 import (
 	"uuid"
 
-	"github.com/agentstax/vulkan/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common"
 )
 
 // Append is one message append's inputs, insert-arg exact.

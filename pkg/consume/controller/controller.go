@@ -3,9 +3,9 @@ package controller
 import (
 	"errors"
 
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	"github.com/agentstax/vulkan/pkg/consume/controller/datastore"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	"github.com/agentstax/sqlstreams/pkg/consume/controller/datastore"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
 )
 
 type ConsumeController struct {

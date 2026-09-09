@@ -3,7 +3,7 @@ package datastore
 import (
 	"context"
 
-	"github.com/agentstax/vulkan/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -27,10 +27,10 @@ func (d *MigrateDatastore) isLocked(ctx context.Context) (bool, error) {
 	}
 
 	// objsubid 1 is postgres's marker for a bigint key, which is the form
-	// every vulkan lock takes -- a two-int key lands under 2 and is not ours
+	// every sqlstreams lock takes -- a two-int key lands under 2 and is not ours
 	var locked bool
 	err = d.Datastore.Pool.QueryRow(ctx, `
-		-- vulkan: migrate.isLocked
+		-- sqlstreams: migrate.isLocked
 		SELECT EXISTS (
 			SELECT 1 FROM pg_locks
 			WHERE locktype = 'advisory'
@@ -57,7 +57,7 @@ func (d *MigrateDatastore) AcquireLock(ctx context.Context) (*pgxpool.Conn, erro
 		return nil, err
 	}
 	if _, err := conn.Exec(ctx, `
-		-- vulkan: migrate.AcquireLock
+		-- sqlstreams: migrate.AcquireLock
 		SELECT pg_advisory_lock($1);
 	`, lockKey.Value()); err != nil {
 		conn.Release()
@@ -79,7 +79,7 @@ func (d *MigrateDatastore) ReleaseLock(ctx context.Context, conn *pgxpool.Conn) 
 	}
 
 	if _, err := conn.Exec(ctx, `
-		-- vulkan: migrate.ReleaseLock
+		-- sqlstreams: migrate.ReleaseLock
 		SELECT pg_advisory_unlock($1);
 	`, lockKey.Value()); err != nil {
 		d.Logger.ErrorContext(ctx, "could not release migration advisory lock", "error", err)

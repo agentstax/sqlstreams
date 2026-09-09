@@ -11,7 +11,7 @@ import (
 // each trigger point id -- no coordination.
 type createAheadGate struct {
 	triggerPointPercentages []float64
-	data                    sync.Map // topicId -> *atomic.Int64
+	data                    sync.Map // streamId -> *atomic.Int64
 }
 
 // triggerPointPercentages are positions within a partition, e.g. .80 & .95
@@ -28,28 +28,28 @@ func newCreateAheadGate(triggerPointPercentages []float64) (*createAheadGate, er
 }
 
 // a duplicate's zero id never lands on a trigger point
-func (g *createAheadGate) shouldTriggerWithId(topicId int64, partitionSize int64, id int64) bool {
+func (g *createAheadGate) shouldTriggerWithId(streamId int64, partitionSize int64, id int64) bool {
 	atTriggerPoint := g.isTriggerPointId(partitionSize, id)
 	if atTriggerPoint == -1 {
 		return false
 	}
 
-	return g.tryToGetClaim(topicId, id/partitionSize, atTriggerPoint)
+	return g.tryToGetClaim(streamId, id/partitionSize, atTriggerPoint)
 }
 
 // an all-duplicates (0, 0) range never contains a trigger point
-func (g *createAheadGate) shouldTriggerWithRange(topicId int64, partitionSize int64, firstId int64, lastId int64) bool {
+func (g *createAheadGate) shouldTriggerWithRange(streamId int64, partitionSize int64, firstId int64, lastId int64) bool {
 	atTriggerPoint := g.isTriggerPointRange(partitionSize, firstId, lastId)
 	if atTriggerPoint == -1 {
 		return false
 	}
 
-	return g.tryToGetClaim(topicId, lastId/partitionSize, atTriggerPoint)
+	return g.tryToGetClaim(streamId, lastId/partitionSize, atTriggerPoint)
 }
 
-// Delete drops topicId's claim entry, keeping the map bounded by live topics.
-func (g *createAheadGate) delete(topicId int64) {
-	g.data.Delete(topicId)
+// Delete drops streamId's claim entry, keeping the map bounded by live streams.
+func (g *createAheadGate) delete(streamId int64) {
+	g.data.Delete(streamId)
 }
 
 func (g *createAheadGate) isTriggerPointId(partitionSize int64, id int64) float64 {
@@ -76,13 +76,13 @@ func (g *createAheadGate) isTriggerPointRange(partitionSize int64, firstId int64
 
 // monotonic, never reset -- a failed create stays claimed, the boundary heal
 // covers it
-func (g *createAheadGate) tryToGetClaim(topicId int64, partition int64, triggerPointPercentage float64) bool {
+func (g *createAheadGate) tryToGetClaim(streamId int64, partition int64, triggerPointPercentage float64) bool {
 	claimId := createClaimId(partition, triggerPointPercentage)
 
 	fresh := &atomic.Int64{}
 	fresh.Store(-1) // seed below partition 0's first claim so it still wins
 
-	value, _ := g.data.LoadOrStore(topicId, fresh)
+	value, _ := g.data.LoadOrStore(streamId, fresh)
 	attempted := value.(*atomic.Int64)
 
 	for {

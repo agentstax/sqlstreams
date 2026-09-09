@@ -1,10 +1,10 @@
 package metric
 
-import "github.com/agentstax/vulkan/pkg/common/diagnostic"
+import "github.com/agentstax/sqlstreams/pkg/common/diagnostic"
 
 var MetricOverdueSchedules = diagnostic.NewDiagnosticMetric(
-	"VK0070",
-	"vulkan.schedule.state.overdue",
+	"SS0070",
+	"sqlstreams.schedule.state.overdue",
 	string(MetricKindGauge),
 	string(MetricUnitCount("found")),
 	"unsuspended schedules due past the overdue threshold",
@@ -12,8 +12,8 @@ var MetricOverdueSchedules = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricOldestDueAge = diagnostic.NewDiagnosticMetric(
-	"VK0071",
-	"vulkan.schedule.state.oldest_due_age",
+	"SS0071",
+	"sqlstreams.schedule.state.oldest_due_age",
 	string(MetricKindGauge),
 	string(MetricUnitMilliseconds),
 	"largest time past next scheduled production among unsuspended schedules",
@@ -21,8 +21,8 @@ var MetricOldestDueAge = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricSuspendedSchedules = diagnostic.NewDiagnosticMetric(
-	"VK0072",
-	"vulkan.schedule.state.suspended",
+	"SS0072",
+	"sqlstreams.schedule.state.suspended",
 	string(MetricKindGauge),
 	string(MetricUnitCount("found")),
 	"schedules excluded from overdue counts because they are suspended",

@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 )
 
 // SweepExpiredWaitingDeclarations deletes waiting binding_config_log rows whose
-// attempt ran more than ttl ago -- one batched DELETE per topic's table, at
+// attempt ran more than ttl ago -- one batched DELETE per stream's table, at
 // most batchSize rows each -- and returns how many were deleted in total.
 func (d *JanitorDatastore) SweepExpiredWaitingDeclarations(ctx context.Context, ttl time.Duration, batchSize int) (int64, error) {
 	var swept int64
@@ -22,29 +22,29 @@ func (d *JanitorDatastore) SweepExpiredWaitingDeclarations(ctx context.Context, 
 }
 
 func (d *JanitorDatastore) sweepExpiredWaitingDeclarations(ctx context.Context, ttl time.Duration, batchSize int) (int64, error) {
-	topicIds, err := d.listGroupTopicIds(ctx)
+	streamIds, err := d.listGroupStreamIds(ctx)
 	if err != nil {
 		return 0, err
 	}
 	cutoff := time.Now().Add(-ttl)
 
 	var swept int64
-	for _, topicId := range topicIds {
-		topicSwept, err := d.sweepTopicWaitingDeclarations(ctx, topicId, cutoff, batchSize)
+	for _, streamId := range streamIds {
+		streamSwept, err := d.sweepStreamWaitingDeclarations(ctx, streamId, cutoff, batchSize)
 		if err != nil {
 			return 0, err
 		}
-		swept += topicSwept
+		swept += streamSwept
 	}
 	return swept, nil
 }
 
-func (d *JanitorDatastore) sweepTopicWaitingDeclarations(ctx context.Context, topicId int64, cutoff time.Time, batchSize int) (int64, error) {
+func (d *JanitorDatastore) sweepStreamWaitingDeclarations(ctx context.Context, streamId int64, cutoff time.Time, batchSize int) (int64, error) {
 	// a declarer's newest waiting id is protected even past the cutoff, so
 	// a dead waiter stays visible in listings. Installed rows are never
 	// touched.
 	sql := fmt.Sprintf(`
-		-- vulkan: consumejanitor.sweepTopicWaitingDeclarations
+		-- sqlstreams: consumejanitor.sweepStreamWaitingDeclarations
 		WITH newest_waiting AS (
 			SELECT consumer_group_id, declared_by, max(id) AS newest_id
 			FROM %[1]s.%[2]s
@@ -62,7 +62,7 @@ func (d *JanitorDatastore) sweepTopicWaitingDeclarations(ctx context.Context, to
 			AND binding_config_log.id < newest_waiting.newest_id
 			LIMIT $2
 		);
-	`, d.Datastore.Schema, topic.BindingConfigLogTable(topicId))
+	`, d.Datastore.Schema, stream.BindingConfigLogTable(streamId))
 	tag, err := d.Datastore.Pool.Exec(ctx, sql, cutoff, batchSize)
 	if err != nil {
 		return 0, err
@@ -70,14 +70,14 @@ func (d *JanitorDatastore) sweepTopicWaitingDeclarations(ctx context.Context, to
 	return tag.RowsAffected(), nil
 }
 
-// listGroupTopicIds is every topic id with registered groups. A binding_config_log
-// row cascades with its group, so these topics cover every declaration.
-func (d *JanitorDatastore) listGroupTopicIds(ctx context.Context) ([]int64, error) {
+// listGroupStreamIds is every stream id with registered groups. A binding_config_log
+// row cascades with its group, so these streams cover every declaration.
+func (d *JanitorDatastore) listGroupStreamIds(ctx context.Context) ([]int64, error) {
 	sql := fmt.Sprintf(`
-		-- vulkan: consumejanitor.listGroupTopicIds
-		SELECT DISTINCT topic_id
+		-- sqlstreams: consumejanitor.listGroupStreamIds
+		SELECT DISTINCT stream_id
 		FROM %[1]s.consumer_group_config
-		ORDER BY topic_id;
+		ORDER BY stream_id;
 	`, d.Datastore.Schema)
 	rows, err := d.Datastore.Pool.Query(ctx, sql)
 	if err != nil {
@@ -85,13 +85,13 @@ func (d *JanitorDatastore) listGroupTopicIds(ctx context.Context) ([]int64, erro
 	}
 	defer rows.Close()
 
-	var topicIds []int64
+	var streamIds []int64
 	for rows.Next() {
-		var topicId int64
-		if err := rows.Scan(&topicId); err != nil {
+		var streamId int64
+		if err := rows.Scan(&streamId); err != nil {
 			return nil, err
 		}
-		topicIds = append(topicIds, topicId)
+		streamIds = append(streamIds, streamId)
 	}
-	return topicIds, rows.Err()
+	return streamIds, rows.Err()
 }

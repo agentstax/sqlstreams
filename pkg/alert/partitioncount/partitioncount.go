@@ -3,28 +3,28 @@ package partitioncount
 import (
 	"errors"
 
-	"github.com/agentstax/vulkan/pkg/alert/partitioncount/controller"
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	compactioncontroller "github.com/agentstax/vulkan/pkg/compaction/controller"
-	consumecontroller "github.com/agentstax/vulkan/pkg/consume/controller"
-	"github.com/agentstax/vulkan/pkg/consumer"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/producer"
-	topiccontroller "github.com/agentstax/vulkan/pkg/topic/controller"
-	"github.com/agentstax/vulkan/pkg/worker"
-	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
+	"github.com/agentstax/sqlstreams/pkg/alert/partitioncount/controller"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	compactioncontroller "github.com/agentstax/sqlstreams/pkg/compaction/controller"
+	consumecontroller "github.com/agentstax/sqlstreams/pkg/consume/controller"
+	"github.com/agentstax/sqlstreams/pkg/consumer"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/producer"
+	streamcontroller "github.com/agentstax/sqlstreams/pkg/stream/controller"
+	"github.com/agentstax/sqlstreams/pkg/worker"
+	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
 )
 
 // PartitionCountProvisioner is the alert's worker kind: one row owning the
-// alert's consumer group on the schedules topic.
+// alert's consumer group on the schedules stream.
 type PartitionCountProvisioner struct {
 	Config *PartitionCountConfig
 	Logger logging.Logger
 
 	ds               *iDatastore.PostgresDatastore
 	workers          *workercontroller.WorkerController
-	topics           *topiccontroller.TopicController
+	streams          *streamcontroller.StreamController
 	consumers        *consumecontroller.ConsumeController
 	controller       *controller.PartitionCountController
 	producer         *producer.Producer
@@ -55,7 +55,7 @@ func NewPartitionCountProvisioner(ds *iDatastore.PostgresDatastore, cfg *Partiti
 		return nil, err
 	}
 
-	topics, err := topiccontroller.NewTopicController(ds, logger)
+	streams, err := streamcontroller.NewStreamController(ds, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func NewPartitionCountProvisioner(ds *iDatastore.PostgresDatastore, cfg *Partiti
 		Logger:           logger,
 		ds:               ds,
 		workers:          workers,
-		topics:           topics,
+		streams:          streams,
 		consumers:        consumers,
 		controller:       partitionCountController,
 		producer:         alertProducer,

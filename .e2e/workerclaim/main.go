@@ -1,7 +1,7 @@
 // Command workerclaim proves worker-claim coordination across a fleet of
 // consumers.
 //
-// Registers its own topic (destroyed on exit), then runs three Consumers in
+// Registers its own stream (destroyed on exit), then runs three Consumers in
 // one group and watches live worker_instance rows. The maintenance workers
 // on the group's chain (janitor, cursor advancer) are target-1 rows: EXACTLY one
 // live instance each no matter how many processes reconcile them -- the
@@ -19,13 +19,13 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 	"os"
 	"time"
 
-	"github.com/agentstax/vulkan/e2e/common"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/e2e/common"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 const (
@@ -37,8 +37,8 @@ const (
 
 // the target-1 rows on the group's chain; the manager rows are unbounded by
 // design, and the system's schedule_producer is shared state outside this
-// e2e test's topic
-var exclusive = []string{"topic_janitor", "cursor_advancer"}
+// e2e test's stream
+var exclusive = []string{"stream_janitor", "cursor_advancer"}
 
 func main() {
 	if err := run(); err != nil {
@@ -69,38 +69,38 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	topicName := fmt.Sprintf("workerclaim.%d", time.Now().UnixNano())
-	tp, err := client.Topic[common.Work](topicName).Register(ctx, &vulkan.TopicConfig{})
+	streamName := fmt.Sprintf("workerclaim.%d", time.Now().UnixNano())
+	tp, err := client.Stream[common.Work](streamName).Register(ctx, &sqlstreams.StreamConfig{})
 	must(err)
 	defer func() {
-		must(client.Topic[common.Work](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[common.Work](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 	for range seedRows {
-		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
+		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 			return common.NewWork(30, "admin@example.com")
 		}, nil)
 		must(err)
 	}
-	head := scalar(ctx, ds, fmt.Sprintf(`SELECT COALESCE(max(id),0) FROM %s.%s`, ds.Schema, topic.MessageLogTable(tp.Id)))
-	fmt.Printf("topic=%q id=%d seeded head=%d, instance ttl=%s, %d consumers\n", topicName, tp.Id, head, instanceTTL, consumers)
+	head := scalar(ctx, ds, fmt.Sprintf(`SELECT COALESCE(max(id),0) FROM %s.%s`, ds.Schema, stream.MessageLogTable(tp.Id)))
+	fmt.Printf("stream=%q id=%d seeded head=%d, instance ttl=%s, %d consumers\n", streamName, tp.Id, head, instanceTTL, consumers)
 
 	running := make([]*runningConsumer, 0, consumers)
 	for i := range consumers {
 		running = append(running, start(ctx, client, tp.Name, i))
 	}
-	groupId := scalar(ctx, ds, fmt.Sprintf(`SELECT id FROM %s.consumer_group_config WHERE topic_id=$1 AND name=$2`, ds.Schema), tp.Id, group)
+	groupId := scalar(ctx, ds, fmt.Sprintf(`SELECT id FROM %s.consumer_group_config WHERE stream_id=$1 AND name=$2`, ds.Schema), tp.Id, group)
 
 	// ===== phase 1: N consumers, one live instance per target-1 row =====
 	step("PHASE 1: 3 consumers for 8s -- janitor/cursor-advancer hold exactly 1 live instance, never 3")
@@ -138,7 +138,7 @@ func run() (err error) {
 
 	// ===== the workers actually did their jobs =====
 	step("END STATE: the coordinated workers did real work")
-	assertInt("committed reached head", scalar(ctx, ds, fmt.Sprintf(`SELECT c.committed FROM %s.%s c JOIN %s.consumer_group_config g ON g.id = c.consumer_group_id WHERE g.name=$1`, ds.Schema, topic.ConsumerGroupCursorTable(tp.Id), ds.Schema), group), head)
+	assertInt("committed reached head", scalar(ctx, ds, fmt.Sprintf(`SELECT c.committed FROM %s.%s c JOIN %s.consumer_group_config g ON g.id = c.consumer_group_id WHERE g.name=$1`, ds.Schema, stream.ConsumerGroupCursorTable(tp.Id), ds.Schema), group), head)
 
 	fmt.Println("\n✅ WORKER CLAIM E2E TEST PASSED")
 	fmt.Println("   3 consumers -> one live instance per target-1 worker row, failover to the")
@@ -158,12 +158,12 @@ func (rc *runningConsumer) stop() {
 	must(<-rc.done)
 }
 
-func start(ctx context.Context, client *vulkan.Client, topicName string, i int) *runningConsumer {
+func start(ctx context.Context, client *sqlstreams.Client, streamName string, i int) *runningConsumer {
 	lifecycleCtx, cancel := context.WithCancel(ctx)
-	cInstance, err := client.Topic[common.Work](topicName).Consumer(group).Register(lifecycleCtx, nil)
+	cInstance, err := client.Stream[common.Work](streamName).Consumer(group).Register(lifecycleCtx, nil)
 	must(err)
 
-	options := &vulkan.ConsumeOptions{
+	options := &sqlstreams.ConsumeOptions{
 		BatchLimit:         50,
 		QueueSize:          64,
 		MessageConcurrency: 4,
@@ -186,7 +186,7 @@ func start(ctx context.Context, client *vulkan.Client, topicName string, i int) 
 // sampleLive polls the chain's worker rows for dur and tracks live instance
 // counts per row: the last count seen and the highest ever seen -- the max
 // is what proves the claim gate held while processes fought over it.
-func sampleLive(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, groupId int64, dur time.Duration) (map[string]int, map[string]int) {
+func sampleLive(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, groupId int64, dur time.Duration) (map[string]int, map[string]int) {
 	maxLive := map[string]int{}
 	live := map[string]int{}
 	deadline := time.Now().Add(dur)
@@ -195,9 +195,9 @@ func sampleLive(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId i
 			SELECT w.name, COUNT(i.id) FILTER (WHERE i.expires_at > now())
 			FROM %s.worker_config w
 			LEFT JOIN %s.worker_instance i ON i.worker_id = w.id
-			WHERE w.topic_id = $1
+			WHERE w.stream_id = $1
 				OR w.consumer_group_id = $2
-			GROUP BY w.name`, ds.Schema, ds.Schema), topicId, groupId)
+			GROUP BY w.name`, ds.Schema, ds.Schema), streamId, groupId)
 		must(err)
 		for rows.Next() {
 			var name string

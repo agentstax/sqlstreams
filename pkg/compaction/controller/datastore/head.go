@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/topic"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -14,24 +14,24 @@ import (
 // caller's transaction resolves. No retry wrapper belongs here: the
 // caller owns the transaction and decides whether its whole closure is safe
 // to run again.
-func (d *CompactionDatastore) LockHead(ctx context.Context, tx iDatastore.Tx, topicId int64, messageKey string) (*MessageLogRow, error) {
-	head, err := d.ensureAndLockHead(ctx, tx, topicId, messageKey)
+func (d *CompactionDatastore) LockHead(ctx context.Context, tx iDatastore.Tx, streamId int64, messageKey string) (*MessageLogRow, error) {
+	head, err := d.ensureAndLockHead(ctx, tx, streamId, messageKey)
 	if err != nil {
 		return nil, err
 	}
 	if head.MessageId == nil {
 		return nil, nil
 	}
-	return d.getHeadMessage(ctx, tx, topicId, *head.MessageId)
+	return d.getHeadMessage(ctx, tx, streamId, *head.MessageId)
 }
 
 // ensureAndLockHead creates the lockable identity when absent. On conflict,
 // PostgreSQL's update locks the existing row until tx resolves; the CASE
 // refreshes only an empty row's activity timestamp while still returning a
 // populated row unchanged.
-func (d *CompactionDatastore) ensureAndLockHead(ctx context.Context, q iDatastore.Querier, topicId int64, messageKey string) (*CompactionHeadRow, error) {
+func (d *CompactionDatastore) ensureAndLockHead(ctx context.Context, q iDatastore.Querier, streamId int64, messageKey string) (*CompactionHeadRow, error) {
 	sql := fmt.Sprintf(`
-		-- vulkan: compaction.ensureAndLockHead
+		-- sqlstreams: compaction.ensureAndLockHead
 		INSERT INTO %[1]s.%[2]s AS h (compaction_key)
 		VALUES ($1)
 		ON CONFLICT (compaction_key) DO UPDATE
@@ -46,7 +46,7 @@ func (d *CompactionDatastore) ensureAndLockHead(ctx context.Context, q iDatastor
 			compaction_rank,
 			created_at,
 			updated_at;
-	`, d.Datastore.Schema, topic.CompactionHeadTable(topicId))
+	`, d.Datastore.Schema, stream.CompactionHeadTable(streamId))
 
 	var head CompactionHeadRow
 	err := q.QueryRow(ctx, sql, messageKey).Scan(
@@ -63,9 +63,9 @@ func (d *CompactionDatastore) ensureAndLockHead(ctx context.Context, q iDatastor
 	return &head, nil
 }
 
-func (d *CompactionDatastore) getHeadMessage(ctx context.Context, q iDatastore.Querier, topicId int64, headId int64) (*MessageLogRow, error) {
+func (d *CompactionDatastore) getHeadMessage(ctx context.Context, q iDatastore.Querier, streamId int64, headId int64) (*MessageLogRow, error) {
 	sql := fmt.Sprintf(`
-		-- vulkan: compaction.getHeadMessage
+		-- sqlstreams: compaction.getHeadMessage
 		SELECT
 			id,
 			payload,
@@ -75,7 +75,7 @@ func (d *CompactionDatastore) getHeadMessage(ctx context.Context, q iDatastore.Q
 			compaction_rank
 		FROM %[1]s.%[2]s
 		WHERE id = $1;
-	`, d.Datastore.Schema, topic.MessageLogTable(topicId))
+	`, d.Datastore.Schema, stream.MessageLogTable(streamId))
 
 	var head MessageLogRow
 	err := q.QueryRow(ctx, sql, headId).Scan(
@@ -97,19 +97,19 @@ func (d *CompactionDatastore) getHeadMessage(ctx context.Context, q iDatastore.Q
 
 // GetHead reads the current compaction head under messageKey,
 // nil if the key has no head.
-func (d *CompactionDatastore) GetHead(ctx context.Context, topicId int64, messageKey string) (*MessageLogRow, error) {
+func (d *CompactionDatastore) GetHead(ctx context.Context, streamId int64, messageKey string) (*MessageLogRow, error) {
 	var head *MessageLogRow
 	err := d.DatastoreRetry.Wrap(ctx, func() error {
 		var err error
-		head, err = d.getHead(ctx, topicId, messageKey)
+		head, err = d.getHead(ctx, streamId, messageKey)
 		return err
 	})
 	return head, err
 }
 
-func (d *CompactionDatastore) getHead(ctx context.Context, topicId int64, messageKey string) (*MessageLogRow, error) {
+func (d *CompactionDatastore) getHead(ctx context.Context, streamId int64, messageKey string) (*MessageLogRow, error) {
 	sql := fmt.Sprintf(`
-		-- vulkan: compaction.getHead
+		-- sqlstreams: compaction.getHead
 		SELECT
 			m.id,
 			m.payload,
@@ -120,7 +120,7 @@ func (d *CompactionDatastore) getHead(ctx context.Context, topicId int64, messag
 		FROM %[1]s.%[2]s h
 		JOIN %[1]s.%[3]s m ON m.id = h.message_id
 		WHERE h.compaction_key = $1;
-	`, d.Datastore.Schema, topic.CompactionHeadTable(topicId), topic.MessageLogTable(topicId))
+	`, d.Datastore.Schema, stream.CompactionHeadTable(streamId), stream.MessageLogTable(streamId))
 
 	var head MessageLogRow
 	err := d.Datastore.Pool.QueryRow(ctx, sql, messageKey).Scan(
@@ -140,21 +140,21 @@ func (d *CompactionDatastore) getHead(ctx context.Context, topicId int64, messag
 	return &head, nil
 }
 
-// ListHeads reads every key's current head on the topic, ordered by
+// ListHeads reads every key's current head on the stream, ordered by
 // message key.
-func (d *CompactionDatastore) ListHeads(ctx context.Context, topicId int64) ([]MessageLogRow, error) {
+func (d *CompactionDatastore) ListHeads(ctx context.Context, streamId int64) ([]MessageLogRow, error) {
 	var heads []MessageLogRow
 	err := d.DatastoreRetry.Wrap(ctx, func() error {
 		var err error
-		heads, err = d.listHeads(ctx, topicId)
+		heads, err = d.listHeads(ctx, streamId)
 		return err
 	})
 	return heads, err
 }
 
-func (d *CompactionDatastore) listHeads(ctx context.Context, topicId int64) ([]MessageLogRow, error) {
+func (d *CompactionDatastore) listHeads(ctx context.Context, streamId int64) ([]MessageLogRow, error) {
 	sql := fmt.Sprintf(`
-		-- vulkan: compaction.listHeads
+		-- sqlstreams: compaction.listHeads
 		SELECT
 			m.id,
 			m.payload,
@@ -165,7 +165,7 @@ func (d *CompactionDatastore) listHeads(ctx context.Context, topicId int64) ([]M
 		FROM %[1]s.%[2]s h
 		JOIN %[1]s.%[3]s m ON m.id = h.message_id
 		ORDER BY h.compaction_key;
-	`, d.Datastore.Schema, topic.CompactionHeadTable(topicId), topic.MessageLogTable(topicId))
+	`, d.Datastore.Schema, stream.CompactionHeadTable(streamId), stream.MessageLogTable(streamId))
 
 	rows, err := d.Datastore.Pool.Query(ctx, sql)
 	if err != nil {

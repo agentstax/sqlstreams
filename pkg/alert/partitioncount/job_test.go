@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/alert"
+	"github.com/agentstax/sqlstreams/pkg/alert"
 )
 
 func TestJobCarriesPendingPolicy(t *testing.T) {

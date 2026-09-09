@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/produce/batcher"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/produce/batcher"
 )
 
 // ProducerConfig is one producer instance's process-local settings: its

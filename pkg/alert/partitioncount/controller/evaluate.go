@@ -6,11 +6,11 @@ import (
 	"math"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/alert"
-	"github.com/agentstax/vulkan/pkg/alert/evaluation"
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/metric"
-	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
+	"github.com/agentstax/sqlstreams/pkg/alert"
+	"github.com/agentstax/sqlstreams/pkg/alert/evaluation"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/metric"
+	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
 )
 
 // warnDivisor halves the lock ceiling so the alert leaves headroom to act
@@ -20,7 +20,7 @@ const warnDivisor = 2
 // Evaluate derives pending from retained partition counts, using storage time.
 // Threshold 0 uses half the live lock ceiling; missing evidence cannot resolve.
 func (c *PartitionCountController) Evaluate(ctx context.Context, owner *common.Owner, policy *alert.JobPayload) (*alert.AlertEvaluationSnapshot, error) {
-	if err := workercontroller.ValidateOwner(owner, common.OwnerTopic, alert.AlertPartitionCount.Name); err != nil {
+	if err := workercontroller.ValidateOwner(owner, common.OwnerStream, alert.AlertPartitionCount.Name); err != nil {
 		return nil, err
 	}
 	if policy == nil {
@@ -35,7 +35,7 @@ func (c *PartitionCountController) Evaluate(ctx context.Context, owner *common.O
 		return nil, err
 	}
 
-	key := metric.MeasurementKey(metric.MetricTopicPartitions.Name, map[string]string{"topic": owner.Name})
+	key := metric.MeasurementKey(metric.MetricStreamPartitions.Name, map[string]string{"stream": owner.Name})
 	history, err := c.metrics.GetMeasurementHistory(ctx, key, policy.Window())
 	if err != nil {
 		return nil, err
@@ -61,9 +61,9 @@ func (c *PartitionCountController) evaluateHistory(owner *common.Owner, policy *
 
 func (c *PartitionCountController) evaluateMeasurement(owner *common.Owner, threshold int64, ceiling int64, measurement *metric.Measurement, at time.Time) (*alert.AlertEvaluationSnapshot, error) {
 	// Check measurement identity and value.
-	if measurement.Name != metric.MetricTopicPartitions.Name ||
+	if measurement.Name != metric.MetricStreamPartitions.Name ||
 		measurement.Kind != metric.MetricKindGauge ||
-		measurement.Unit != metric.MetricUnit(metric.MetricTopicPartitions.Unit) {
+		measurement.Unit != metric.MetricUnit(metric.MetricStreamPartitions.Unit) {
 		return alert.NewAlertEvaluationSnapshot(alert.AlertEvaluationStateInsufficientEvidence, nil, nil)
 	}
 	value := measurement.Value

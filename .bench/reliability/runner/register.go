@@ -3,57 +3,57 @@ package runner
 import (
 	"context"
 
-	"github.com/agentstax/vulkan/.bench/reliability/common"
-	"github.com/agentstax/vulkan/.bench/reliability/scenario"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/.bench/reliability/common"
+	"github.com/agentstax/sqlstreams/.bench/reliability/scenario"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 // The scenario's [input] section, translated into the library's own
 // declarations. Every role registers: registration is idempotent and
 // newest-wins, so whichever role starts first bootstraps and the rest agree.
 
-// registeredTopic is one declared topic and its handle, in declaration
+// registeredStream is one declared stream and its handle, in declaration
 // order.
-type registeredTopic struct {
-	declared scenario.TopicDeclaration
-	handle   *vulkan.TopicHandle[common.Order]
+type registeredStream struct {
+	declared scenario.StreamDeclaration
+	handle   *sqlstreams.StreamHandle[common.Order]
 }
 
-func (r *Runner) registerTopics(ctx context.Context) ([]registeredTopic, error) {
+func (r *Runner) registerStreams(ctx context.Context) ([]registeredStream, error) {
 	if err := r.connection.Client.System().Register(ctx, nil); err != nil {
 		return nil, err
 	}
-	registered := make([]registeredTopic, 0, len(r.declared.Topics))
-	for _, declared := range r.declared.Topics {
-		handle := r.connection.Client.Topic[common.Order](declared.Name)
-		if _, err := handle.Register(ctx, &vulkan.TopicConfig{DeliveryLogMode: declared.DeliveryLogMode, PartitionSize: declared.PartitionSize}); err != nil {
+	registered := make([]registeredStream, 0, len(r.declared.Streams))
+	for _, declared := range r.declared.Streams {
+		handle := r.connection.Client.Stream[common.Order](declared.Name)
+		if _, err := handle.Register(ctx, &sqlstreams.StreamConfig{DeliveryLogMode: declared.DeliveryLogMode, PartitionSize: declared.PartitionSize}); err != nil {
 			return nil, err
 		}
-		registered = append(registered, registeredTopic{declared: declared, handle: handle})
+		registered = append(registered, registeredStream{declared: declared, handle: handle})
 	}
 	return registered, nil
 }
 
 // producerConfig is the producer line; a zero batch concurrency is the
 // library's own default.
-func producerConfig(declared *scenario.Scenario) *vulkan.ProducerConfig {
-	cfg := &vulkan.ProducerConfig{}
+func producerConfig(declared *scenario.Scenario) *sqlstreams.ProducerConfig {
+	cfg := &sqlstreams.ProducerConfig{}
 	cfg.Batch.ConcurrencyLimit = declared.ProducerBatchConcurrency
 	cfg.Batch.MaxSize = declared.ProducerBatchSize
 	return cfg
 }
 
 // consumerConfig is the "N retries then dead" half of a consumers line.
-func consumerConfig(group scenario.GroupDeclaration) *vulkan.ConsumerConfig {
-	return &vulkan.ConsumerConfig{
-		Message: &vulkan.MessageOptions{
-			Retry: &vulkan.RetryPolicy{MaxRetries: group.MaxRetries},
+func consumerConfig(group scenario.GroupDeclaration) *sqlstreams.ConsumerConfig {
+	return &sqlstreams.ConsumerConfig{
+		Message: &sqlstreams.MessageOptions{
+			Retry: &sqlstreams.RetryPolicy{MaxRetries: group.MaxRetries},
 		},
 	}
 }
 
 // consumeOptions is the "batch N" half; a zero BatchLimit is the library's
 // own default.
-func consumeOptions(group scenario.GroupDeclaration) *vulkan.ConsumeOptions {
-	return &vulkan.ConsumeOptions{BatchLimit: group.BatchLimit, QueueSize: group.QueueSize, MessageConcurrency: group.MessageConcurrency, ClaimPollRate: group.ClaimPollRate}
+func consumeOptions(group scenario.GroupDeclaration) *sqlstreams.ConsumeOptions {
+	return &sqlstreams.ConsumeOptions{BatchLimit: group.BatchLimit, QueueSize: group.QueueSize, MessageConcurrency: group.MessageConcurrency, ClaimPollRate: group.ClaimPollRate}
 }

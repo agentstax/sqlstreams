@@ -32,8 +32,8 @@ func (p ProducerPhase) String() string {
 	return fmt.Sprintf("steady %d/s %s", p.Rate, formatDuration(p.Duration))
 }
 
-// PerTopicString is String for a scenario with several topics, each running
-// the phase at this rate: "steady 200/s per topic 10m".
-func (p ProducerPhase) PerTopicString() string {
-	return fmt.Sprintf("steady %d/s per topic %s", p.Rate, formatDuration(p.Duration))
+// PerStreamString is String for a scenario with several streams, each running
+// the phase at this rate: "steady 200/s per stream 10m".
+func (p ProducerPhase) PerStreamString() string {
+	return fmt.Sprintf("steady %d/s per stream %s", p.Rate, formatDuration(p.Duration))
 }

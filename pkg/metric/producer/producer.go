@@ -8,12 +8,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common/diagnostic"
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	"github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/metric"
-	"github.com/agentstax/vulkan/pkg/produce"
-	iProducer "github.com/agentstax/vulkan/pkg/producer"
+	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/metric"
+	"github.com/agentstax/sqlstreams/pkg/produce"
+	iProducer "github.com/agentstax/sqlstreams/pkg/producer"
 )
 
 const pendingGoRoutineEventsLimit = 256
@@ -47,7 +47,7 @@ type MetricProducer struct {
 	abandoned   atomic.Int64
 	leaseLost   atomic.Int64
 
-	// the last counter snapshot that landed on the topic
+	// the last counter snapshot that landed on the stream
 	// this allows skipping a flush when nothing changed
 	lastFlushedCounters metric.SessionCounters
 }
@@ -86,19 +86,19 @@ func NewMetricsProducer(ds *datastore.PostgresDatastore, cfg *MetricProducerConf
 // and the session counters. No last flush on cancel, the stopped log line
 // carries the final totals. Each call registers its own producer instances,
 // so Run is callable again after it returns.
-func (p *MetricProducer) Run(ctx context.Context, group string, topicName string, version int, sessionId string) error {
-	events, err := p.producer.Register[metric.GoRoutineEvent](ctx, metric.MetricTopicName, nil)
+func (p *MetricProducer) Run(ctx context.Context, group string, streamName string, version int, sessionId string) error {
+	events, err := p.producer.Register[metric.GoRoutineEvent](ctx, metric.MetricStreamName, nil)
 	if err != nil {
 		return err
 	}
-	measurements, err := p.producer.Register[metric.Measurement](ctx, metric.MetricTopicName, nil)
+	measurements, err := p.producer.Register[metric.Measurement](ctx, metric.MetricStreamName, nil)
 	if err != nil {
 		return err
 	}
 
 	attributes := map[string]string{
 		"group":   group,
-		"topic":   topicName,
+		"stream":  streamName,
 		"version": strconv.FormatInt(int64(version), 10),
 		"session": sessionId,
 	}
@@ -124,7 +124,7 @@ func (p *MetricProducer) Run(ctx context.Context, group string, topicName string
 
 // flushGoRoutineEvents drains the queued events into one batch. Every drop
 // -- events past the cap since the last tick, a batch that could not land
-// (dropped, not requeued) -- is reported on the declared VK0052 line.
+// (dropped, not requeued) -- is reported on the declared SS0052 line.
 func (p *MetricProducer) flushGoRoutineEvents(ctx context.Context, instance *iProducer.ProducerInstance[metric.GoRoutineEvent]) {
 	p.goRoutineEventsLock.Lock()
 	events := p.pendingGoRoutineEvents
@@ -156,7 +156,7 @@ func (p *MetricProducer) flushGoRoutineEvents(ctx context.Context, instance *iPr
 func (p *MetricProducer) produceGoRoutineEvents(ctx context.Context, instance *iProducer.ProducerInstance[metric.GoRoutineEvent], events []*metric.GoRoutineEvent) error {
 	items := make([]*iProducer.ProduceItem[metric.GoRoutineEvent], 0, len(events))
 	for _, event := range events {
-		item, err := iProducer.NewProduceItem(event, &produce.ProduceOptions{RoutingKey: metric.AbandonedRoutineKey(event.TopicId, event.Group)})
+		item, err := iProducer.NewProduceItem(event, &produce.ProduceOptions{RoutingKey: metric.AbandonedRoutineKey(event.StreamId, event.Group)})
 		if err != nil {
 			return err
 		}
@@ -197,7 +197,7 @@ func (p *MetricProducer) flushSessionCounters(ctx context.Context, instance *iPr
 	for _, point := range points {
 		measurement, err := metric.NewBuiltInMeasurement(point.metric, float64(point.value), attributes, at)
 		if err != nil {
-			p.Logger.WarnContext(ctx, "could not produce session counters", "group", attributes["group"], "topic", attributes["topic"], "session", attributes["session"], "error", err)
+			p.Logger.WarnContext(ctx, "could not produce session counters", "group", attributes["group"], "stream", attributes["stream"], "session", attributes["session"], "error", err)
 			return
 		}
 		item, err := iProducer.NewProduceItem(measurement, &produce.ProduceOptions{
@@ -206,7 +206,7 @@ func (p *MetricProducer) flushSessionCounters(ctx context.Context, instance *iPr
 			Compaction: &produce.CompactionOptions{Enable: true},
 		})
 		if err != nil {
-			p.Logger.WarnContext(ctx, "could not produce session counters", "group", attributes["group"], "topic", attributes["topic"], "session", attributes["session"], "error", err)
+			p.Logger.WarnContext(ctx, "could not produce session counters", "group", attributes["group"], "stream", attributes["stream"], "session", attributes["session"], "error", err)
 			return
 		}
 		items = append(items, item)
@@ -215,7 +215,7 @@ func (p *MetricProducer) flushSessionCounters(ctx context.Context, instance *iPr
 	if _, err := instance.ProduceBatch(ctx, items...); err != nil {
 		// a cancel mid-produce is the shutdown, not a failure
 		if ctx.Err() == nil {
-			p.Logger.WarnContext(ctx, "could not produce session counters", "group", attributes["group"], "topic", attributes["topic"], "session", attributes["session"], "error", err)
+			p.Logger.WarnContext(ctx, "could not produce session counters", "group", attributes["group"], "stream", attributes["stream"], "session", attributes["session"], "error", err)
 		}
 		return
 	}
@@ -224,13 +224,13 @@ func (p *MetricProducer) flushSessionCounters(ctx context.Context, instance *iPr
 
 // RecordAbandoned queues an abandoned event and counts it -- the counter is
 // monotonic, a later clear does not undo it.
-func (p *MetricProducer) RecordAbandoned(topicId int64, group string, messageId int64, attempt int) {
+func (p *MetricProducer) RecordAbandoned(streamId int64, group string, messageId int64, attempt int) {
 	p.abandoned.Add(1)
-	p.enqueue(metric.NewGoRoutineEvent(metric.EventAbandoned, topicId, group, messageId, attempt, time.Now()))
+	p.enqueue(metric.NewGoRoutineEvent(metric.EventAbandoned, streamId, group, messageId, attempt, time.Now()))
 }
 
-func (p *MetricProducer) RecordCleared(topicId int64, group string, messageId int64, attempt int) {
-	p.enqueue(metric.NewGoRoutineEvent(metric.EventCleared, topicId, group, messageId, attempt, time.Now()))
+func (p *MetricProducer) RecordCleared(streamId int64, group string, messageId int64, attempt int) {
+	p.enqueue(metric.NewGoRoutineEvent(metric.EventCleared, streamId, group, messageId, attempt, time.Now()))
 }
 
 func (p *MetricProducer) enqueue(event *metric.GoRoutineEvent) {

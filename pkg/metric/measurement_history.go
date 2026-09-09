@@ -3,7 +3,7 @@ package metric
 import (
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common"
 )
 
 // MeasurementHistory contains retained messages in a database-time window,

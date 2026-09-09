@@ -3,14 +3,14 @@ package main
 // Scenario 04 -- produce inside the caller's own transaction.
 //
 // A completed upload and its VideoUploaded message are recorded atomically;
-// then the multi-topic form also records billable usage.
+// then the multi-stream form also records billable usage.
 
 import (
 	"context"
 	"fmt"
 	"os"
 
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -43,10 +43,10 @@ func main() {
 }
 
 func run() error {
-	ctx, stop := vulkan.LifecycleContext(nil)
+	ctx, stop := sqlstreams.LifecycleContext(nil)
 	defer stop()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	if err != nil {
 		return err
 	}
@@ -56,18 +56,18 @@ func run() error {
 		return err
 	}
 
-	client, err := vulkan.NewClient(ctx, pool, nil)
+	client, err := sqlstreams.NewClient(ctx, pool, nil)
 	if err != nil {
 		return err
 	}
 
-	uploads := client.Topic[VideoUploadedV1]("videos.uploaded")
+	uploads := client.Stream[VideoUploadedV1]("videos.uploaded")
 	_, err = uploads.Register(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	usage := client.Topic[UsageRecordedV1]("usage.recorded")
+	usage := client.Stream[UsageRecordedV1]("usage.recorded")
 	_, err = usage.Register(ctx, nil)
 	if err != nil {
 		return err
@@ -83,9 +83,9 @@ func run() error {
 		return err
 	}
 
-	// one topic: the message's own transaction carries the business write
+	// one stream: the message's own transaction carries the business write
 	produced, err := uploadsProducer.ProduceFunc(ctx,
-		func(ctx context.Context, tx vulkan.Tx) (*VideoUploadedV1, error) {
+		func(ctx context.Context, tx sqlstreams.Tx) (*VideoUploadedV1, error) {
 			if _, err := tx.Exec(ctx, `INSERT INTO playground_videos (id, owner_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, "video-42", "creator-7"); err != nil {
 				return nil, err
 			}
@@ -102,8 +102,8 @@ func run() error {
 	}
 	fmt.Printf("produced id=%d\n", produced.Id)
 
-	// two topics: the caller owns the transaction, each instance produces into it
-	if err := client.InTransaction(ctx, func(ctx context.Context, tx vulkan.Tx) error {
+	// two streams: the caller owns the transaction, each instance produces into it
+	if err := client.InTransaction(ctx, func(ctx context.Context, tx sqlstreams.Tx) error {
 		if _, err := tx.Exec(ctx, `INSERT INTO playground_videos (id, owner_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, "video-43", "creator-7"); err != nil {
 			return err
 		}
@@ -122,7 +122,7 @@ func run() error {
 	}); err != nil {
 		return err
 	}
-	fmt.Println("two topics committed together")
+	fmt.Println("two streams committed together")
 	return nil
 }
 

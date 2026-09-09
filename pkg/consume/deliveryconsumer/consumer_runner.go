@@ -6,9 +6,9 @@ import (
 	"errors"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	consumebase "github.com/agentstax/vulkan/pkg/consume/base"
-	"github.com/agentstax/vulkan/pkg/consume/deliveryconsumer/controller"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	consumebase "github.com/agentstax/sqlstreams/pkg/consume/base"
+	"github.com/agentstax/sqlstreams/pkg/consume/deliveryconsumer/controller"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -53,7 +53,7 @@ func (r *deliveryRunner[Message]) project(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
-			if err := r.consumers.FanOut(ctx, r.Topic.Id, r.Owner.ConsumerGroupId, int64(r.SchemaVersion), r.cfg.FanOutBatchLimit); err != nil {
+			if err := r.consumers.FanOut(ctx, r.Stream.Id, r.Owner.ConsumerGroupId, int64(r.SchemaVersion), r.cfg.FanOutBatchLimit); err != nil {
 				return err
 			}
 		}
@@ -82,7 +82,7 @@ func (r *deliveryRunner[Message]) processDeliveries(ctx context.Context) error {
 // No lease handling: this path never grew crash recovery, so a delivery left in
 // 'processing' by a consumer that died mid-run just sits there.
 func (r *deliveryRunner[Message]) deliveryClaim(ctx context.Context) error {
-	deliveries, err := r.consumers.ClaimMessagesWithLifecycle(ctx, r.Topic.Id, r.Owner.ConsumerGroupId, r.cfg.BatchLimit)
+	deliveries, err := r.consumers.ClaimMessagesWithLifecycle(ctx, r.Stream.Id, r.Owner.ConsumerGroupId, r.cfg.BatchLimit)
 	if err != nil {
 		return err
 	}
@@ -91,7 +91,7 @@ func (r *deliveryRunner[Message]) deliveryClaim(ctx context.Context) error {
 		var payload Message
 		if err := json.Unmarshal(delivery.Payload, &payload); err != nil {
 			// a bad payload will never deserialize -> straight to the DLQ, no retries
-			if recordErr := r.consumers.RecordTerminal(ctx, &delivery, err, r.Topic.DeliveryLogMode); recordErr != nil {
+			if recordErr := r.consumers.RecordTerminal(ctx, &delivery, err, r.Stream.DeliveryLogMode); recordErr != nil {
 				return recordErr
 			}
 			continue
@@ -103,18 +103,18 @@ func (r *deliveryRunner[Message]) deliveryClaim(ctx context.Context) error {
 			// delay included -- this claim reads no can_run_after) retries
 			// until attempts exhaust, then dead-letters
 			if consumebase.ClassifyHandlerError(err) == consumebase.HandlerOutcomeTerminal {
-				if recordErr := r.consumers.RecordTerminal(ctx, &delivery, err, r.Topic.DeliveryLogMode); recordErr != nil {
+				if recordErr := r.consumers.RecordTerminal(ctx, &delivery, err, r.Stream.DeliveryLogMode); recordErr != nil {
 					return recordErr
 				}
 				continue
 			}
-			if recordErr := r.consumers.RecordFailure(ctx, resolvedOptions.Retry.MaxRetries, &delivery, err, r.Topic.DeliveryLogMode); recordErr != nil {
+			if recordErr := r.consumers.RecordFailure(ctx, resolvedOptions.Retry.MaxRetries, &delivery, err, r.Stream.DeliveryLogMode); recordErr != nil {
 				return recordErr
 			}
 			continue
 		}
 
-		if err := r.consumers.RecordSuccess(ctx, &delivery, r.Topic.DeliveryLogMode); err != nil {
+		if err := r.consumers.RecordSuccess(ctx, &delivery, r.Stream.DeliveryLogMode); err != nil {
 			return err
 		}
 	}

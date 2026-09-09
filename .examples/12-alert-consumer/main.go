@@ -4,7 +4,7 @@ package main
 //
 // The built-in checks (partition_count, compaction_read_cost,
 // worker_liveness, metrics_collector_progress) run as schedules under the
-// manager and produce Alert messages; a consumer group on the alert topic is
+// manager and produce Alert messages; a consumer group on the alert stream is
 // the push integration a PagerDuty hook would use.
 
 import (
@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"os"
 
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 func main() {
@@ -23,21 +23,21 @@ func main() {
 }
 
 func run() error {
-	ctx, stop := vulkan.LifecycleContext(nil)
+	ctx, stop := sqlstreams.LifecycleContext(nil)
 	defer stop()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	if err != nil {
 		return err
 	}
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, nil)
+	client, err := sqlstreams.NewClient(ctx, pool, nil)
 	if err != nil {
 		return err
 	}
 
-	// stands up the control-plane tables and the __system.alerts topic; the
+	// stands up the control-plane tables and the __system.alerts stream; the
 	// built-in checks run every minute by default
 	if err := client.System().Register(ctx, nil); err != nil {
 		return err
@@ -50,7 +50,7 @@ func run() error {
 	}
 	fmt.Printf("%d current alerts at startup\n", len(current))
 
-	alerts := client.Topic[vulkan.Alert](vulkan.AlertTopicName)
+	alerts := client.Stream[sqlstreams.Alert](sqlstreams.AlertStreamName)
 	pager := alerts.Consumer("pager")
 	consumer, err := pager.Register(ctx, nil)
 	if err != nil {
@@ -60,7 +60,7 @@ func run() error {
 	return consumer.Consume(ctx, handleAlert, nil)
 }
 
-func handleAlert(ctx context.Context, foundAlert *vulkan.Alert) error {
+func handleAlert(ctx context.Context, foundAlert *sqlstreams.Alert) error {
 	fmt.Printf("[%s] %s %s: %s -- %s\n",
 		foundAlert.Severity, foundAlert.Status, foundAlert.Name, foundAlert.Message, foundAlert.Hint)
 	return nil

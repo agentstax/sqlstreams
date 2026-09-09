@@ -1,30 +1,30 @@
 ---
 title: Table Design
-description: Every Vulkan table on one page — the shared control plane, the per-topic family, and the relationships and deliberate absences between them.
+description: Every SQLStreams table on one page — the shared control plane, the per-stream family, and the relationships and deliberate absences between them.
 ---
 
-Every Vulkan table is one of two kinds: a shared control-plane table,
-created once by `System().Register` (the first topic `Register` runs it), or
-a member of one topic's family,
-created by the topic's `Register` and named by the topic's id. The
+Every SQLStreams table is one of two kinds: a shared control-plane table,
+created once by `System().Register` (the first stream `Register` runs it), or
+a member of one stream's family,
+created by the stream's `Register` and named by the stream's id. The
 [architecture page](/concepts/architecture/) explains why the split
 exists; this page is the map of what's actually there.
 
 ```
-   SHARED CONTROL PLANE                           ONE FAMILY PER TOPIC (suffix = id)
-   created by System().Register                   created by Topic(name).Register
+   SHARED CONTROL PLANE                           ONE FAMILY PER STREAM (suffix = id)
+   created by System().Register                   created by Stream(name).Register
 
    ┌───────────────┐
    │ system_config │
    └───────┬───────┘
            │ system_id
    ┌───────▼──────┐      id names the family      ┌─────────────────────────────────────┐
-   │ topic_config │ ····························▶ │ message_log_1  (partitioned)        │
+   │ stream_config │ ····························▶ │ message_log_1  (partitioned)        │
    └───────┬──────┘                               │ idempotency_key_1                   │
-           │ topic_id                             │ compaction_head_1                   │
+           │ stream_id                             │ compaction_head_1                   │
    ┌───────┴───────────────┐                      │ exception_queue_1 · delivery_log_1  │
 ┌──▼───────────────┐ ┌─────▼─────────────────┐    │ consumer_group_cursor_1             │
-│ topic_config_log │ │ consumer_group_config │◀───│ claim_lease_1 · message_key_lease_1 │
+│ stream_config_log │ │ consumer_group_config │◀───│ claim_lease_1 · message_key_lease_1 │
 └──────────────────┘ └───────────────────────┘ FK │ binding_config_1                    │
                                              from │ binding_config_log_1                │
    worker_config ─▶ worker_config_log     cursor, └─────────────────────────────────────┘
@@ -35,22 +35,22 @@ exists; this page is the map of what's actually there.
 
 ## The control plane
 
-`system_config` -> `topic_config` -> `consumer_group_config` is the
+`system_config` -> `stream_config` -> `consumer_group_config` is the
 ownership spine, each link a real foreign key with
-`ON DELETE CASCADE`. The `topic_config` row is where a topic's
+`ON DELETE CASCADE`. The `stream_config` row is where a stream's
 identity and config live: `name` is unique, and its `id` is what
 names the family's physical tables. A payload schema bump is not a
 new row here — the version sits on each `message_log` row
 ([schema versions](/guides/schema-versions/)). `partition_size` is immutable
 after creation because the log's partition boundaries depend on it
 staying fixed. `empty_compaction_head_ttl_ns` bounds how long an idle,
-headless compaction-key row remains before the topic janitor may sweep it.
+headless compaction-key row remains before the stream janitor may sweep it.
 
 The fleet and history tables hang off the spine with one shared
 pattern: `worker_config`, `schedule_config`, and `migration_log` each
-carry all three owner columns (`system_id`, `topic_id`,
+carry all three owner columns (`system_id`, `stream_id`,
 `consumer_group_id`) and a CHECK that exactly one is set — a worker
-belongs to the system, a topic, or a group, never two.
+belongs to the system, a stream, or a group, never two.
 `worker_instance` is the live-copy row under a `worker_config`: a
 `token` only its creator can match and a heartbeat-renewed
 `expires_at`, the same lease shape the
@@ -61,8 +61,8 @@ the near-static `schedule_config`, so per-fire churn never touches
 the config row.
 
 Two of these are append-only operator trails, never updated:
-`topic_config_log` and `worker_config_log` snapshot every
-declaration, while the `topic_config` and `worker_config` rows stay
+`stream_config_log` and `worker_config_log` snapshot every
+declaration, while the `stream_config` and `worker_config` rows stay
 the truth.
 
 `worker_instance_log` snapshots each successful claim and renewal in the
@@ -76,7 +76,7 @@ timestamps.
 
 ## The family
 
-Suffix `1` throughout — the topic's id from the catalog.
+Suffix `1` throughout — the stream's id from the catalog.
 
 - **`message_log_1`** — the log. `id BIGSERIAL PRIMARY KEY` is the
   position, and the table is partitioned by id range
@@ -136,8 +136,8 @@ deliveries need reconciliation; changing the claim rule does not replay them.
 
 ## The deliberate absences
 
-- **No `topic_id` column anywhere in the family.** The table name is
-  the scope; a cross-topic read resolves ids from the catalog first
+- **No `stream_id` column anywhere in the family.** The table name is
+  the scope; a cross-stream read resolves ids from the catalog first
   and loops the families.
 - **No foreign key into `message_log_1`.** Delivery rows carry bare
   `message_id` values and cursor positions are plain ids, so retention
@@ -148,5 +148,5 @@ deliveries need reconciliation; changing the claim rule does not replay them.
   `consumer_group_id` foreign keys; the churn-heavy `exception_queue_1`,
   `delivery_log_1`, and the lease tables carry the same column
   unconstrained.
-- **Destroying a topic drops the family's tables outright** — cleanup
+- **Destroying a stream drops the family's tables outright** — cleanup
   is `DROP TABLE`, never a cross-table `DELETE` sweep.

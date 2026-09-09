@@ -1,11 +1,11 @@
 ---
 title: Roadmap
-description: Where Vulkan is, where it's going, and what we want your opinion on.
+description: Where SQLStreams is, where it's going, and what we want your opinion on.
 ---
 
 import ThreadAside from '../../components/thread-aside/thread-aside.svelte';
 
-Vulkan is early, in the open, and built in deliberate layers — each one
+SQLStreams is early, in the open, and built in deliberate layers — each one
 proven against failure-injection e2e tests (kill -9 mid-process, crash
 mid-commit, expired-lease reclaim) before the next goes on top. This page
 is the honest state of the world: what ships today, what's in flight, and
@@ -15,7 +15,7 @@ what waits for a real workload to demand it.
 
 The core described throughout these docs is shipped, not planned:
 
-- **One immutable message log per topic, per-group delivery state beside
+- **One immutable message log per stream, per-group delivery state beside
   it** — the architectural keystone. Retention, independent fan-out, and
   per-group dead-lettered messages all fall out of that split.
 - **Transactional produce** — your business writes and the message in one
@@ -31,9 +31,9 @@ The core described throughout these docs is shipped, not planned:
   range; expiry is a `DROP`, not a million-row `DELETE`.
 - **The maintenance fleet** — partition upkeep, cursor advancement,
   expired-lease reclaim, schedules, and default alerts run embedded in
-  every consumer, or standalone via `vulkan manager run`.
+  every consumer, or standalone via `sqlstreams manager run`.
 - **Diagnostics as a system** — every error and operator-facing log event
-  carries a `VK` code with a docs page; `vulkan explain` works offline;
+  carries a `SS` code with a docs page; `sqlstreams explain` works offline;
   the CLI speaks `--output json` throughout.
 - **A migration compatibility gate** — every schema step declares the
   oldest library version that can run against it, checked at migration

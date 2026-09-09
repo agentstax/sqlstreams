@@ -7,7 +7,7 @@ import ThreadAside from '../../../components/thread-aside/thread-aside.svelte';
 
 The mark of a healthy message architecture: **producers don't know
 consumers exist.** A producer states what happened, tagged with a routing
-key; each consumer group declares which keys it cares about. In Vulkan
+key; each consumer group declares which keys it cares about. In SQLStreams
 that declaration is a **binding** — a stored pattern matched against the
 message's routing key when the group's deliveries materialize.
 
@@ -15,7 +15,7 @@ message's routing key when the group's deliveries materialize.
 
 ```go
 produced, err := instance.Produce(ctx, &OrderCreated{OrderId: order.Id},
-	&vulkan.ProduceOptions{RoutingKey: "orders.eu.created"})
+	&sqlstreams.ProduceOptions{RoutingKey: "orders.eu.created"})
 ```
 
 The key is optional. A message produced without one is received only by
@@ -28,17 +28,17 @@ A group's bindings are declared as a whole set, in `ConsumerConfig.Bindings`
 at `Register` — there is no separate bind verb to call one pattern at a time:
 
 ```go
-orders := client.Topic[OrderCreated](registered.Name)
+orders := client.Stream[OrderCreated](registered.Name)
 
 // Receipts care about created orders.
 receipts, err := orders.Consumer("email-receipts").Register(ctx,
-	&vulkan.ConsumerConfig{Bindings: []string{"orders.*.created"}})
+	&sqlstreams.ConsumerConfig{Bindings: []string{"orders.*.created"}})
 
 // EU compliance wants everything EU.
 compliance, err := orders.Consumer("eu-compliance").Register(ctx,
-	&vulkan.ConsumerConfig{Bindings: []string{"orders.eu.*"}})
+	&sqlstreams.ConsumerConfig{Bindings: []string{"orders.eu.*"}})
 
-// The analytics group passes nil: no bindings, the whole topic.
+// The analytics group passes nil: no bindings, the whole stream.
 analytics, err := orders.Consumer("order-analytics").Register(ctx, nil)
 ```
 
@@ -80,14 +80,14 @@ declaration has explicit outcomes rather than last-writer-wins:
 Inspect where every group stands:
 
 ```sh
-vulkan consumer binding list
+sqlstreams consumer binding list
 ```
 
 One group's effective set is a read on its handle. nil means the group
-never declared a set and receives the whole topic:
+never declared a set and receives the whole stream:
 
 ```go
-binding, err := client.Topic[OrderPlaced]("orders").Consumer("email-receipts").Binding().Get(ctx)
+binding, err := client.Stream[OrderPlaced]("orders").Consumer("email-receipts").Binding().Get(ctx)
 if err != nil {
 	return err
 }
@@ -96,7 +96,7 @@ if binding != nil {
 }
 ```
 
-The same read from the shell is `vulkan consumer binding get orders email-receipts`.
+The same read from the shell is `sqlstreams consumer binding get orders email-receipts`.
 
 <ThreadAside label="NOTE" title="Binding changes are forward-only">
 The pattern is evaluated when a message
@@ -109,19 +109,19 @@ skipped) keep the outcome they had.
 
 ## It's all rows
 
-Each topic owns a physical binding_config table, named by the topic's id
+Each stream owns a physical binding_config table, named by the stream's id
 ([table design](/concepts/table-design/)). The
 `pattern` column keeps the pattern as you wrote it; the POSIX
 translation it matches with sits beside it as `pattern_regex`:
 
 ```sql
 SELECT g.name AS consumer_group, b.pattern
-FROM vulkan.binding_config_1 b JOIN vulkan.consumer_group_config g ON g.id = b.consumer_group_id
+FROM sqlstreams.binding_config_1 b JOIN sqlstreams.consumer_group_config g ON g.id = b.consumer_group_id
 ORDER BY 1;
 ```
 
 Every declaration attempt — installed and waiting alike — is also
-appended to the topic's `binding_config_log` table with who declared it and
+appended to the stream's `binding_config_log` table with who declared it and
 when, so "who changed the routing and when" is a query, not a mystery.
 
 ## What routing is not (yet)

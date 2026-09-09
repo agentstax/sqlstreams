@@ -1,8 +1,8 @@
 package workerliveness
 
 import (
-	"github.com/agentstax/vulkan/pkg/alert"
-	alertcontroller "github.com/agentstax/vulkan/pkg/alert/controller"
+	"github.com/agentstax/sqlstreams/pkg/alert"
+	alertcontroller "github.com/agentstax/sqlstreams/pkg/alert/controller"
 )
 
 var JobName = "alert." + alert.AlertWorkerLiveness.Name

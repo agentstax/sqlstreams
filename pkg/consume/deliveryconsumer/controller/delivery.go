@@ -9,18 +9,18 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/consume/deliveryconsumer/controller/datastore"
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/consume/deliveryconsumer/controller/datastore"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 )
 
-// Delivery is one (consumer_group_id, message_id) row of the per-topic
+// Delivery is one (consumer_group_id, message_id) row of the per-stream
 // exception_queue table: the mutable per-consumer lifecycle state that lives off the
 // immutable message_log. Payload is joined back in from message_log at claim
 // time rather than stored on the row.
 type Delivery struct {
 	ConsumerGroupId int64
-	TopicId         int64
+	StreamId        int64
 	MessageId       int64
 	Payload         json.RawMessage
 	Status          datastore.DeliveryStatus
@@ -31,9 +31,9 @@ type Delivery struct {
 // FanOut materializes one delivery row per message this group is bound to
 // receive. Scans only above the group's mark, so steady-state cost is O(new
 // messages) per tick, not O(whole log).
-func (c *DeliveryConsumerGroupController) FanOut(ctx context.Context, topicId int64, groupId int64, schemaVersion int64, limit int) error {
-	if topicId <= 0 {
-		return fmt.Errorf("topicId must be > 0, got %d", topicId)
+func (c *DeliveryConsumerGroupController) FanOut(ctx context.Context, streamId int64, groupId int64, schemaVersion int64, limit int) error {
+	if streamId <= 0 {
+		return fmt.Errorf("streamId must be > 0, got %d", streamId)
 	}
 	if groupId <= 0 {
 		return fmt.Errorf("groupId must be > 0, got %d", groupId)
@@ -42,14 +42,14 @@ func (c *DeliveryConsumerGroupController) FanOut(ctx context.Context, topicId in
 		return fmt.Errorf("limit must be >= 1, got %d", limit)
 	}
 
-	return c.datastore.FanOut(ctx, topicId, groupId, schemaVersion, limit)
+	return c.datastore.FanOut(ctx, streamId, groupId, schemaVersion, limit)
 }
 
 // ClaimMessagesWithLifecycle moves this group's own 'ready' delivery rows to
 // 'processing'. No lease: the lifecycle path never grew crash recovery.
-func (c *DeliveryConsumerGroupController) ClaimMessagesWithLifecycle(ctx context.Context, topicId int64, groupId int64, limit int) ([]Delivery, error) {
-	if topicId <= 0 {
-		return nil, fmt.Errorf("topicId must be > 0, got %d", topicId)
+func (c *DeliveryConsumerGroupController) ClaimMessagesWithLifecycle(ctx context.Context, streamId int64, groupId int64, limit int) ([]Delivery, error) {
+	if streamId <= 0 {
+		return nil, fmt.Errorf("streamId must be > 0, got %d", streamId)
 	}
 	if groupId <= 0 {
 		return nil, fmt.Errorf("groupId must be > 0, got %d", groupId)
@@ -58,7 +58,7 @@ func (c *DeliveryConsumerGroupController) ClaimMessagesWithLifecycle(ctx context
 		return nil, fmt.Errorf("limit must be >= 1, got %d", limit)
 	}
 
-	claimed, err := c.datastore.ClaimMessagesWithLifecycle(ctx, topicId, groupId, limit)
+	claimed, err := c.datastore.ClaimMessagesWithLifecycle(ctx, streamId, groupId, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func (c *DeliveryConsumerGroupController) ClaimMessagesWithLifecycle(ctx context
 // DeliveryLogModeAll also writes the 'success' log row in the same statement.
 // Terminal success for this (group, message); the message row is untouched
 // and other groups are unaffected.
-func (c *DeliveryConsumerGroupController) RecordSuccess(ctx context.Context, delivery *Delivery, deliveryLogMode topic.DeliveryLogMode) error {
+func (c *DeliveryConsumerGroupController) RecordSuccess(ctx context.Context, delivery *Delivery, deliveryLogMode stream.DeliveryLogMode) error {
 	if delivery == nil {
 		return errors.New("delivery must not be nil")
 	}
@@ -85,7 +85,7 @@ func (c *DeliveryConsumerGroupController) RecordSuccess(ctx context.Context, del
 // RecordFailure retries until attempts are exhausted, then dead-letters. No
 // retry backoff -- the exception_queue table carries no can_run_after, so a 'ready'
 // row is simply re-claimed on the next poll.
-func (c *DeliveryConsumerGroupController) RecordFailure(ctx context.Context, maxAttempts int, delivery *Delivery, failureErr error, deliveryLogMode topic.DeliveryLogMode) error {
+func (c *DeliveryConsumerGroupController) RecordFailure(ctx context.Context, maxAttempts int, delivery *Delivery, failureErr error, deliveryLogMode stream.DeliveryLogMode) error {
 	if delivery == nil {
 		return errors.New("delivery must not be nil")
 	}
@@ -101,7 +101,7 @@ func (c *DeliveryConsumerGroupController) RecordFailure(ctx context.Context, max
 
 // RecordTerminal dead-letters a delivery: no more retries. One group can
 // dead-letter a message while another processes the same offset fine.
-func (c *DeliveryConsumerGroupController) RecordTerminal(ctx context.Context, delivery *Delivery, terminalErr error, deliveryLogMode topic.DeliveryLogMode) error {
+func (c *DeliveryConsumerGroupController) RecordTerminal(ctx context.Context, delivery *Delivery, terminalErr error, deliveryLogMode stream.DeliveryLogMode) error {
 	if delivery == nil {
 		return errors.New("delivery must not be nil")
 	}

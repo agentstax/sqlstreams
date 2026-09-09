@@ -4,7 +4,7 @@ import { interpolate } from './interpolate';
 import { idempotencyKeyTable, messageLogTable, compactionHeadTable } from './table-names';
 
 export const protectedInsertCompactedSqlTemplate = `
-			-- vulkan: produce.protectedInsert
+			-- sqlstreams: produce.protectedInsert
 			WITH claim AS (
 				INSERT INTO %[1]s.%[2]s (idempotency_key)
 				VALUES ($1)
@@ -31,11 +31,11 @@ export const protectedInsertCompactedSqlTemplate = `
 			SELECT id FROM inserted;
 		`;
 
-export function protectedInsertCompactedSql(topicId: number): string {
+export function protectedInsertCompactedSql(streamId: number): string {
 	return interpolate(
 		protectedInsertCompactedSqlTemplate,
-		idempotencyKeyTable(topicId),
-		messageLogTable(topicId),
-		compactionHeadTable(topicId),
+		idempotencyKeyTable(streamId),
+		messageLogTable(streamId),
+		compactionHeadTable(streamId),
 	);
 }

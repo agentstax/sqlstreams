@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/metric"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/metric"
 )
 
 func TestRejectedFamilies(t *testing.T) {
@@ -63,12 +63,12 @@ func TestRejectedFamilies(t *testing.T) {
 			{Name: "billing.depth", Kind: metric.MetricKindGauge, Attributes: map[string]string{"queue_name": "two"}},
 		}, want: []string{"billing.depth"}},
 		{name: "reserved names", measurements: []metric.Measurement{
-			{Name: "vulkan_custom", Kind: metric.MetricKindGauge},
+			{Name: "sqlstreams_custom", Kind: metric.MetricKindGauge},
 			{Name: "target.info", Kind: metric.MetricKindGauge},
 			{Name: "otel.scope.info", Kind: metric.MetricKindGauge},
 			{Name: metric.MetricOTelSourceReadSuccess.Name, Kind: metric.MetricKindGauge},
 			{Name: metric.MetricOTelMeasurementsRejected.Name, Kind: metric.MetricKindGauge, Unit: "{measurement}"},
-		}, want: []string{"vulkan_custom", "target.info", "otel.scope.info", metric.MetricOTelSourceReadSuccess.Name, metric.MetricOTelMeasurementsRejected.Name}},
+		}, want: []string{"sqlstreams_custom", "target.info", "otel.scope.info", metric.MetricOTelSourceReadSuccess.Name, metric.MetricOTelMeasurementsRejected.Name}},
 		{name: "reserved label", measurements: []metric.Measurement{
 			{Name: "billing.depth", Kind: metric.MetricKindGauge, Attributes: map[string]string{"otel.scope.name": "spoof"}},
 		}, want: []string{"billing.depth"}},

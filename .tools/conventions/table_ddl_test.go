@@ -1,7 +1,7 @@
 package conventions
 
-// Walks every baseline CREATE TABLE literal under pkg/ plus the per-topic
-// table-name funcs in pkg/topic and enforces the mechanical half of
+// Walks every baseline CREATE TABLE literal under pkg/ plus the per-stream
+// table-name funcs in pkg/stream and enforces the mechanical half of
 // CONVENTIONS.md ## Tables naming rules [0611][0613]: table names end in a
 // known kind, TIMESTAMPTZ columns end _at/_after, duration columns are
 // BIGINT nanoseconds ending _ns, every _config table carries created_at and
@@ -22,7 +22,7 @@ import (
 
 type tableStatement struct {
 	Position string             // file:line of the CREATE TABLE line
-	Name     string             // "" when the name is a %s placeholder (per-topic)
+	Name     string             // "" when the name is a %s placeholder (per-stream)
 	Columns  []columnDefinition // empty for PARTITION OF statements
 }
 
@@ -56,7 +56,7 @@ func TestTableNamesEndInAKnownKind(t *testing.T) {
 			names[statement.Name] = statement.Position
 		}
 	}
-	for name, position := range perTopicTableNames(t) {
+	for name, position := range perStreamTableNames(t) {
 		names[name] = position
 	}
 
@@ -124,7 +124,7 @@ func TestCursorTablesCarryTheirOwnId(t *testing.T) {
 type indexStatement struct {
 	Position string
 	Name     string   // the full name as written
-	Suffix   string   // Name minus "<table>_" (or "%[2]s_" per-topic)
+	Suffix   string   // Name minus "<table>_" (or "%[2]s_" per-stream)
 	Columns  []string // the parenthesised column list, in order
 }
 
@@ -198,8 +198,8 @@ func baselineTableStatements(t *testing.T) []tableStatement {
 		if err != nil {
 			relative = path
 		}
-		// a per-topic literal names its table only through the Sprintf's
-		// table-name call (topic.BindingConfigTable(id)), so the call is
+		// a per-stream literal names its table only through the Sprintf's
+		// table-name call (stream.BindingConfigTable(id)), so the call is
 		// inspected first and the literal it holds is skipped on its own visit
 		parsedLiterals := make(map[token.Pos]bool)
 		ast.Inspect(parsed, func(node ast.Node) bool {
@@ -215,9 +215,9 @@ func baselineTableStatements(t *testing.T) []tableStatement {
 					return true
 				}
 				// a PARTITION OF statement parses no columns and takes no name:
-				// the kind check reads partition names through pkg/topic's funcs
+				// the kind check reads partition names through pkg/stream's funcs
 				if statement.Name == "" && len(statement.Columns) > 0 {
-					statement.Name = perTopicTableNameFromCall(node)
+					statement.Name = perStreamTableNameFromCall(node)
 				}
 				statements = append(statements, statement)
 			case *ast.BasicLit:
@@ -269,11 +269,11 @@ func sprintfCreateTableLiteral(call *ast.CallExpr) (*ast.BasicLit, bool) {
 	return literal, true
 }
 
-// perTopicTableNameFromCall reads the table name a per-topic CREATE TABLE
-// literal is filled with: the Sprintf's [2] value is a pkg/topic table-name
+// perStreamTableNameFromCall reads the table name a per-stream CREATE TABLE
+// literal is filled with: the Sprintf's [2] value is a pkg/stream table-name
 // call, and the func's name minus its Table suffix is the table's root in
 // CamelCase (BindingConfigTable -> binding_config). "" when the shape differs.
-func perTopicTableNameFromCall(call *ast.CallExpr) string {
+func perStreamTableNameFromCall(call *ast.CallExpr) string {
 	if len(call.Args) < 3 {
 		return ""
 	}
@@ -350,7 +350,7 @@ func baselineIndexStatements(t *testing.T) []indexStatement {
 }
 
 // parseIndexLine splits a matched CREATE INDEX into its parts. A shared
-// table's index carries the bare table name as its prefix; a per-topic
+// table's index carries the bare table name as its prefix; a per-stream
 // index carries the same %[2]s verb its table name is filled from.
 func parseIndexLine(match []string, position string) indexStatement {
 	name, table, columnList := match[1], match[2], match[3]
@@ -373,7 +373,7 @@ func parseIndexLine(match []string, position string) indexStatement {
 
 // schemaQualifier is what every SQL literal writes ahead of a table name.
 // Trimming it is what keeps a shared table's name visible to the kind check:
-// left on, the name still holds a %% and reads as a per-topic placeholder, so
+// left on, the name still holds a %% and reads as a per-stream placeholder, so
 // the check walks nothing.
 const schemaQualifier = schemaVerb + "."
 
@@ -384,8 +384,8 @@ func parseCreateTable(text string, file string, startLine int) tableStatement {
 	statement := tableStatement{Position: file + ":" + strconv.Itoa(startLine)}
 	lines := strings.Split(text, "\n")
 
-	// the CREATE line names the table; a %s placeholder means per-topic --
-	// those names are checked through pkg/topic's funcs instead
+	// the CREATE line names the table; a %s placeholder means per-stream --
+	// those names are checked through pkg/stream's funcs instead
 	createIndex := -1
 	for i, line := range lines {
 		after, found := strings.CutPrefix(strings.TrimSpace(line), "CREATE TABLE IF NOT EXISTS ")
@@ -431,12 +431,12 @@ func parseCreateTable(text string, file string, startLine int) tableStatement {
 	return statement
 }
 
-// perTopicTableNames reads pkg/topic's table-name funcs: every Sprintf
-// format shaped <name>_%d is a per-topic table name.
-func perTopicTableNames(t *testing.T) map[string]string {
+// perStreamTableNames reads pkg/stream's table-name funcs: every Sprintf
+// format shaped <name>_%d is a per-stream table name.
+func perStreamTableNames(t *testing.T) map[string]string {
 	t.Helper()
 	root := repoRoot(t)
-	path := filepath.Join(root, "pkg", "topic", "tables.go")
+	path := filepath.Join(root, "pkg", "stream", "tables.go")
 
 	fileSet := token.NewFileSet()
 	parsed, err := parser.ParseFile(fileSet, path, nil, 0)
@@ -444,7 +444,7 @@ func perTopicTableNames(t *testing.T) map[string]string {
 		t.Fatal(err)
 	}
 
-	perTopicName := regexp.MustCompile(`^([a-z_]+)_%d$`)
+	perStreamName := regexp.MustCompile(`^([a-z_]+)_%d$`)
 	names := make(map[string]string)
 	ast.Inspect(parsed, func(node ast.Node) bool {
 		literal, ok := node.(*ast.BasicLit)
@@ -455,11 +455,11 @@ func perTopicTableNames(t *testing.T) map[string]string {
 		if err != nil {
 			return true
 		}
-		match := perTopicName.FindStringSubmatch(text)
+		match := perStreamName.FindStringSubmatch(text)
 		if match == nil {
 			return true
 		}
-		names[match[1]] = "pkg/topic/tables.go:" + strconv.Itoa(fileSet.Position(literal.Pos()).Line)
+		names[match[1]] = "pkg/stream/tables.go:" + strconv.Itoa(fileSet.Position(literal.Pos()).Line)
 		return true
 	})
 	return names

@@ -1,7 +1,7 @@
 package datastore
 
 // datastore is every query the checker runs: the lab schema the record
-// files are loaded into, and the reads across it and vulkan's own tables.
+// files are loaded into, and the reads across it and sqlstreams's own tables.
 // The judgment lives in package checker; nothing here decides.
 
 import (

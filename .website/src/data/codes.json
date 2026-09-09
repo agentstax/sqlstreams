@@ -1,159 +1,159 @@
 {
   "codes": {
-    "VK0001": {
-      "code": "VK0001",
+    "SS0001": {
+      "code": "SS0001",
       "kind": "error",
       "problem": "instance is already consuming",
       "recovery": "permanent",
       "fix": "wait for the running Consume to return, or Register another instance"
     },
-    "VK0002": {
-      "code": "VK0002",
+    "SS0002": {
+      "code": "SS0002",
       "kind": "error",
       "problem": "lifecycle context can never be cancelled",
       "recovery": "permanent",
       "fix": "pass the application's shutdown context, or set ConsumeOptions.DisableGracefulShutdown"
     },
-    "VK0003": {
-      "code": "VK0003",
+    "SS0003": {
+      "code": "SS0003",
       "kind": "error",
       "problem": "lease lost to another consumer",
       "recovery": "permanent"
     },
-    "VK0004": {
-      "code": "VK0004",
+    "SS0004": {
+      "code": "SS0004",
       "kind": "error",
-      "problem": "topic partition size does not match the existing topic",
+      "problem": "stream partition size does not match the existing stream",
       "recovery": "permanent",
-      "fix": "register with PartitionSize {existing_partition_size}, or use a new topic name",
+      "fix": "register with PartitionSize {existing_partition_size}, or use a new stream name",
       "fix_placeholders": [
         "existing_partition_size"
       ]
     },
-    "VK0005": {
-      "code": "VK0005",
+    "SS0005": {
+      "code": "SS0005",
       "kind": "error",
-      "problem": "topic not found",
+      "problem": "stream not found",
       "recovery": "permanent",
-      "fix": "register it with Client.Topic(name).Register first",
+      "fix": "register it with Client.Stream(name).Register first",
       "queries": [
         {
-          "label": "the topic row under this name",
-          "sql": "SELECT id, name, created_at FROM {schema}.topic_config WHERE name = '{topic}';",
+          "label": "the stream row under this name",
+          "sql": "SELECT id, name, created_at FROM {schema}.stream_config WHERE name = '{stream}';",
           "placeholders": [
             "schema",
-            "topic"
+            "stream"
           ]
         },
         {
-          "label": "the topic row behind an id, if that is what the line carried",
-          "sql": "SELECT id, name, created_at FROM {schema}.topic_config WHERE id = {topic_id};",
+          "label": "the stream row behind an id, if that is what the line carried",
+          "sql": "SELECT id, name, created_at FROM {schema}.stream_config WHERE id = {stream_id};",
           "placeholders": [
             "schema",
-            "topic_id"
+            "stream_id"
           ]
         },
         {
-          "label": "every registered topic, if the name itself is wrong",
-          "sql": "SELECT name FROM {schema}.topic_config ORDER BY name;",
+          "label": "every registered stream, if the name itself is wrong",
+          "sql": "SELECT name FROM {schema}.stream_config ORDER BY name;",
           "placeholders": [
             "schema"
           ]
         }
       ]
     },
-    "VK0006": {
-      "code": "VK0006",
+    "SS0006": {
+      "code": "SS0006",
       "kind": "error",
-      "problem": "topic still holds messages",
+      "problem": "stream still holds messages",
       "recovery": "permanent",
-      "fix": "pass DestroyOptions.Force to destroy them with the topic",
+      "fix": "pass DestroyOptions.Force to destroy them with the stream",
       "queries": [
         {
           "label": "how many messages the destroy would discard",
-          "sql": "SELECT count(*) AS message_count FROM {schema}.message_log_{topic_id};",
+          "sql": "SELECT count(*) AS message_count FROM {schema}.message_log_{stream_id};",
           "placeholders": [
             "schema",
-            "topic_id"
+            "stream_id"
           ]
         },
         {
-          "label": "the newest of them, to judge whether the topic is still in use",
-          "sql": "SELECT\n\tid,\n\trouting_key,\n\tcreated_at\nFROM {schema}.message_log_{topic_id}\nORDER BY id DESC\nLIMIT 20;",
+          "label": "the newest of them, to judge whether the stream is still in use",
+          "sql": "SELECT\n\tid,\n\trouting_key,\n\tcreated_at\nFROM {schema}.message_log_{stream_id}\nORDER BY id DESC\nLIMIT 20;",
           "placeholders": [
             "schema",
-            "topic_id"
+            "stream_id"
           ]
         }
       ]
     },
-    "VK0007": {
-      "code": "VK0007",
+    "SS0007": {
+      "code": "SS0007",
       "kind": "error",
-      "problem": "topic name already taken",
+      "problem": "stream name already taken",
       "recovery": "permanent",
       "fix": "choose a different name"
     },
-    "VK0008": {
-      "code": "VK0008",
+    "SS0008": {
+      "code": "SS0008",
       "kind": "error",
       "problem": "destroy is disabled",
       "recovery": "permanent",
       "fix": "set ClientConfig.AllowDestroy"
     },
-    "VK0009": {
-      "code": "VK0009",
+    "SS0009": {
+      "code": "SS0009",
       "kind": "error",
-      "problem": "topic name uses the reserved __system. prefix",
+      "problem": "stream name uses the reserved __system. prefix",
       "recovery": "permanent",
       "fix": "choose a name outside the __system. prefix"
     },
-    "VK0010": {
-      "code": "VK0010",
+    "SS0010": {
+      "code": "SS0010",
       "kind": "error",
       "problem": "a worker instance is still live",
       "recovery": "permanent",
       "fix": "stop running managers and consumers, or pass DestroyOptions.Force"
     },
-    "VK0011": {
-      "code": "VK0011",
+    "SS0011": {
+      "code": "SS0011",
       "kind": "error",
-      "problem": "topics are still registered",
+      "problem": "streams are still registered",
       "recovery": "permanent",
       "fix": "destroy them first, or pass DestroyOptions.Force to destroy them and their messages"
     },
-    "VK0012": {
-      "code": "VK0012",
+    "SS0012": {
+      "code": "SS0012",
       "kind": "error",
       "problem": "worker instance row expired or was removed",
       "recovery": "permanent",
       "fix": "stop the work; a replacement may already be running"
     },
-    "VK0013": {
-      "code": "VK0013",
+    "SS0013": {
+      "code": "SS0013",
       "kind": "error",
       "problem": "schedule not found",
       "recovery": "permanent",
       "fix": "register the named schedule with Client.Scheduler(name).Register first"
     },
-    "VK0014": {
-      "code": "VK0014",
+    "SS0014": {
+      "code": "SS0014",
       "kind": "error",
       "problem": "consumer group not found",
       "recovery": "permanent",
       "fix": "register a consumer with this group name to create it",
       "queries": [
         {
-          "label": "every group registered on this topic",
-          "sql": "SELECT\n\tconsumer_group_config.id,\n\tconsumer_group_config.name,\n\tconsumer_group_config.created_at\nFROM {schema}.consumer_group_config\nJOIN {schema}.topic_config ON topic_config.id = consumer_group_config.topic_id\nWHERE topic_config.name = '{topic}'\nORDER BY consumer_group_config.name;",
+          "label": "every group registered on this stream",
+          "sql": "SELECT\n\tconsumer_group_config.id,\n\tconsumer_group_config.name,\n\tconsumer_group_config.created_at\nFROM {schema}.consumer_group_config\nJOIN {schema}.stream_config ON stream_config.id = consumer_group_config.stream_id\nWHERE stream_config.name = '{stream}'\nORDER BY consumer_group_config.name;",
           "placeholders": [
             "schema",
-            "topic"
+            "stream"
           ]
         },
         {
           "label": "the group row behind an id, if that is what the line carried",
-          "sql": "SELECT\n\tid,\n\ttopic_id,\n\tname,\n\tcreated_at\nFROM {schema}.consumer_group_config\nWHERE id = {group_id};",
+          "sql": "SELECT\n\tid,\n\tstream_id,\n\tname,\n\tcreated_at\nFROM {schema}.consumer_group_config\nWHERE id = {group_id};",
           "placeholders": [
             "schema",
             "group_id"
@@ -161,8 +161,8 @@
         }
       ]
     },
-    "VK0015": {
-      "code": "VK0015",
+    "SS0015": {
+      "code": "SS0015",
       "kind": "error",
       "problem": "consumer group still has a live consumer",
       "recovery": "permanent",
@@ -178,8 +178,8 @@
         }
       ]
     },
-    "VK0016": {
-      "code": "VK0016",
+    "SS0016": {
+      "code": "SS0016",
       "kind": "error",
       "problem": "consumer group still has delivery rows",
       "recovery": "permanent",
@@ -187,97 +187,97 @@
       "queries": [
         {
           "label": "what the delivery rows would discard, by status",
-          "sql": "SELECT status, count(*) AS row_count\nFROM {schema}.exception_queue_{topic_id}\nWHERE consumer_group_id = {group_id}\nGROUP BY status;",
+          "sql": "SELECT status, count(*) AS row_count\nFROM {schema}.exception_queue_{stream_id}\nWHERE consumer_group_id = {group_id}\nGROUP BY status;",
           "placeholders": [
             "schema",
-            "topic_id",
+            "stream_id",
             "group_id"
           ]
         },
         {
           "label": "the dead ones, whose dead-letter record goes with them",
-          "sql": "SELECT\n\tmessage_id,\n\tattempts,\n\tlast_error,\n\tupdated_at\nFROM {schema}.exception_queue_{topic_id}\nWHERE consumer_group_id = {group_id}\n\tAND status = 'dead'\nORDER BY message_id;",
+          "sql": "SELECT\n\tmessage_id,\n\tattempts,\n\tlast_error,\n\tupdated_at\nFROM {schema}.exception_queue_{stream_id}\nWHERE consumer_group_id = {group_id}\n\tAND status = 'dead'\nORDER BY message_id;",
           "placeholders": [
             "schema",
-            "topic_id",
+            "stream_id",
             "group_id"
           ]
         }
       ]
     },
-    "VK0017": {
-      "code": "VK0017",
+    "SS0017": {
+      "code": "SS0017",
       "kind": "error",
       "problem": "system not registered",
       "recovery": "permanent",
       "fix": "register the system with Client.System().Register first"
     },
-    "VK0018": {
-      "code": "VK0018",
+    "SS0018": {
+      "code": "SS0018",
       "kind": "error",
       "problem": "could not create the covering partition",
       "recovery": "transient"
     },
-    "VK0019": {
-      "code": "VK0019",
+    "SS0019": {
+      "code": "SS0019",
       "kind": "error",
       "problem": "commit confirmation was lost",
       "recovery": "permanent",
       "queries": [
         {
           "label": "whether the outcomes landed -- rows updated at the commit",
-          "sql": "SELECT\n\tmessage_id,\n\tstatus,\n\tattempts,\n\tupdated_at\nFROM {schema}.exception_queue_{topic_id}\nWHERE consumer_group_id = {group_id}\nORDER BY updated_at DESC\nLIMIT 20;",
+          "sql": "SELECT\n\tmessage_id,\n\tstatus,\n\tattempts,\n\tupdated_at\nFROM {schema}.exception_queue_{stream_id}\nWHERE consumer_group_id = {group_id}\nORDER BY updated_at DESC\nLIMIT 20;",
           "placeholders": [
             "schema",
-            "topic_id",
+            "stream_id",
             "group_id"
           ]
         },
         {
           "label": "the range lease whose expiry settles it either way",
-          "sql": "SELECT\n\ttoken,\n\tlow,\n\thigh,\n\texpires_at,\n\treclaims\nFROM {schema}.claim_lease_{topic_id}\nWHERE consumer_group_id = {group_id};",
+          "sql": "SELECT\n\ttoken,\n\tlow,\n\thigh,\n\texpires_at,\n\treclaims\nFROM {schema}.claim_lease_{stream_id}\nWHERE consumer_group_id = {group_id};",
           "placeholders": [
             "schema",
-            "topic_id",
+            "stream_id",
             "group_id"
           ]
         }
       ]
     },
-    "VK0020": {
-      "code": "VK0020",
+    "SS0020": {
+      "code": "SS0020",
       "kind": "error",
-      "problem": "topic partitions remain after draining",
+      "problem": "stream partitions remain after draining",
       "recovery": "permanent",
-      "fix": "stop the topic's producers and call Client.Topic(name).Destroy again",
+      "fix": "stop the stream's producers and call Client.Stream(name).Destroy again",
       "queries": [
         {
           "label": "the partitions still attached to the log",
-          "sql": "SELECT partition.relname AS partition\nFROM pg_inherits\nJOIN pg_class AS partition ON partition.oid = pg_inherits.inhrelid\nWHERE pg_inherits.inhparent = to_regclass('{schema}.message_log_{topic_id}')\nORDER BY partition.relname;",
+          "sql": "SELECT partition.relname AS partition\nFROM pg_inherits\nJOIN pg_class AS partition ON partition.oid = pg_inherits.inhrelid\nWHERE pg_inherits.inhparent = to_regclass('{schema}.message_log_{stream_id}')\nORDER BY partition.relname;",
           "placeholders": [
             "schema",
-            "topic_id"
+            "stream_id"
           ]
         },
         {
           "label": "whether a producer is still writing -- run it twice",
-          "sql": "SELECT max(id) AS head, count(*) AS message_count FROM {schema}.message_log_{topic_id};",
+          "sql": "SELECT max(id) AS head, count(*) AS message_count FROM {schema}.message_log_{stream_id};",
           "placeholders": [
             "schema",
-            "topic_id"
+            "stream_id"
           ]
         }
       ]
     },
-    "VK0021": {
-      "code": "VK0021",
+    "SS0021": {
+      "code": "SS0021",
       "kind": "error",
-      "problem": "could not finish the topic declaration",
+      "problem": "could not finish the stream declaration",
       "recovery": "transient",
-      "fix": "run Client.Topic(name).Register again if the topic should still exist"
+      "fix": "run Client.Stream(name).Register again if the stream should still exist"
     },
-    "VK0022": {
-      "code": "VK0022",
+    "SS0022": {
+      "code": "SS0022",
       "kind": "error",
       "problem": "schema version is older than this build requires",
       "recovery": "permanent",
@@ -297,8 +297,8 @@
         }
       ]
     },
-    "VK0023": {
-      "code": "VK0023",
+    "SS0023": {
+      "code": "SS0023",
       "kind": "error",
       "problem": "schema version is newer than this build understands",
       "recovery": "permanent",
@@ -324,40 +324,40 @@
         }
       ]
     },
-    "VK0024": {
-      "code": "VK0024",
+    "SS0024": {
+      "code": "SS0024",
       "kind": "error",
       "problem": "could not finish the worker declaration",
       "recovery": "transient",
       "fix": "rerun the declaration if the worker should still exist"
     },
-    "VK0025": {
-      "code": "VK0025",
+    "SS0025": {
+      "code": "SS0025",
       "kind": "error",
       "problem": "could not finish the schedule declaration",
       "recovery": "transient",
       "fix": "rerun the declaration if the schedule should still exist"
     },
-    "VK0026": {
-      "code": "VK0026",
+    "SS0026": {
+      "code": "SS0026",
       "kind": "event",
       "message": "lease reclaimed from expired worker",
       "queries": [
         {
           "label": "the leases this group holds now",
-          "sql": "SELECT\n\ttoken,\n\tlow,\n\thigh,\n\texpires_at,\n\treclaims\nFROM {schema}.claim_lease_{topic_id}\nWHERE consumer_group_id = {group_id}\nORDER BY low;",
+          "sql": "SELECT\n\ttoken,\n\tlow,\n\thigh,\n\texpires_at,\n\treclaims\nFROM {schema}.claim_lease_{stream_id}\nWHERE consumer_group_id = {group_id}\nORDER BY low;",
           "placeholders": [
             "schema",
-            "topic_id",
+            "stream_id",
             "group_id"
           ]
         },
         {
           "label": "what the reclaimed range left behind",
-          "sql": "SELECT\n\tmessage_id,\n\tstatus,\n\tattempts,\n\tlast_error\nFROM {schema}.exception_queue_{topic_id}\nWHERE consumer_group_id = {group_id}\n\tAND message_id BETWEEN {low} AND {high}\nORDER BY message_id;",
+          "sql": "SELECT\n\tmessage_id,\n\tstatus,\n\tattempts,\n\tlast_error\nFROM {schema}.exception_queue_{stream_id}\nWHERE consumer_group_id = {group_id}\n\tAND message_id BETWEEN {low} AND {high}\nORDER BY message_id;",
           "placeholders": [
             "schema",
-            "topic_id",
+            "stream_id",
             "group_id",
             "low",
             "high"
@@ -365,17 +365,17 @@
         }
       ]
     },
-    "VK0027": {
-      "code": "VK0027",
+    "SS0027": {
+      "code": "SS0027",
       "kind": "event",
       "message": "range quarantined after max reclaims -- messages written as 'ready' exceptions",
       "queries": [
         {
           "label": "the exceptions the quarantine wrote",
-          "sql": "SELECT\n\tmessage_id,\n\tstatus,\n\tattempts,\n\tcan_run_after,\n\tlast_error\nFROM {schema}.exception_queue_{topic_id}\nWHERE consumer_group_id = {group_id}\n\tAND message_id BETWEEN {low} AND {high}\nORDER BY message_id;",
+          "sql": "SELECT\n\tmessage_id,\n\tstatus,\n\tattempts,\n\tcan_run_after,\n\tlast_error\nFROM {schema}.exception_queue_{stream_id}\nWHERE consumer_group_id = {group_id}\n\tAND message_id BETWEEN {low} AND {high}\nORDER BY message_id;",
           "placeholders": [
             "schema",
-            "topic_id",
+            "stream_id",
             "group_id",
             "low",
             "high"
@@ -383,141 +383,141 @@
         },
         {
           "label": "the messages in the range, to find what kills a consumer",
-          "sql": "SELECT\n\tid,\n\trouting_key,\n\tpayload\nFROM {schema}.message_log_{topic_id}\nWHERE id BETWEEN {low} AND {high}\nORDER BY id;",
+          "sql": "SELECT\n\tid,\n\trouting_key,\n\tpayload\nFROM {schema}.message_log_{stream_id}\nWHERE id BETWEEN {low} AND {high}\nORDER BY id;",
           "placeholders": [
             "schema",
-            "topic_id",
+            "stream_id",
             "low",
             "high"
           ]
         }
       ]
     },
-    "VK0028": {
-      "code": "VK0028",
+    "SS0028": {
+      "code": "SS0028",
       "kind": "event",
       "message": "messages dead-lettered -- unrecoverable, will not be retried",
       "queries": [
         {
           "label": "every dead row this group holds, newest first",
-          "sql": "SELECT\n\tmessage_id,\n\tattempts,\n\tlast_error,\n\tupdated_at\nFROM {schema}.exception_queue_{topic_id}\nWHERE consumer_group_id = {group_id}\n\tAND status = 'dead'\nORDER BY updated_at DESC;",
+          "sql": "SELECT\n\tmessage_id,\n\tattempts,\n\tlast_error,\n\tupdated_at\nFROM {schema}.exception_queue_{stream_id}\nWHERE consumer_group_id = {group_id}\n\tAND status = 'dead'\nORDER BY updated_at DESC;",
           "placeholders": [
             "schema",
-            "topic_id",
+            "stream_id",
             "group_id"
           ]
         },
         {
           "label": "which errors account for them",
-          "sql": "SELECT last_error, count(*) AS dead_count\nFROM {schema}.exception_queue_{topic_id}\nWHERE consumer_group_id = {group_id}\n\tAND status = 'dead'\nGROUP BY last_error\nORDER BY dead_count DESC;",
+          "sql": "SELECT last_error, count(*) AS dead_count\nFROM {schema}.exception_queue_{stream_id}\nWHERE consumer_group_id = {group_id}\n\tAND status = 'dead'\nGROUP BY last_error\nORDER BY dead_count DESC;",
           "placeholders": [
             "schema",
-            "topic_id",
+            "stream_id",
             "group_id"
           ]
         }
       ]
     },
-    "VK0029": {
-      "code": "VK0029",
+    "SS0029": {
+      "code": "SS0029",
       "kind": "event",
       "message": "message dead-lettered -- unrecoverable, will not be retried",
       "queries": [
         {
           "label": "the delivery row the dead-lettering wrote",
-          "sql": "SELECT\n\tstatus,\n\tattempts,\n\tlast_error,\n\tupdated_at\nFROM {schema}.exception_queue_{topic_id}\nWHERE consumer_group_id = {group_id}\n\tAND message_id = {message_id};",
+          "sql": "SELECT\n\tstatus,\n\tattempts,\n\tlast_error,\n\tupdated_at\nFROM {schema}.exception_queue_{stream_id}\nWHERE consumer_group_id = {group_id}\n\tAND message_id = {message_id};",
           "placeholders": [
             "schema",
-            "topic_id",
+            "stream_id",
             "group_id",
             "message_id"
           ]
         },
         {
           "label": "every attempt it made, oldest first",
-          "sql": "SELECT\n\tattempt,\n\tstatus,\n\terror,\n\tattempted_at\nFROM {schema}.delivery_log_{topic_id}\nWHERE consumer_group_id = {group_id}\n\tAND message_id = {message_id}\nORDER BY attempt;",
+          "sql": "SELECT\n\tattempt,\n\tstatus,\n\terror,\n\tattempted_at\nFROM {schema}.delivery_log_{stream_id}\nWHERE consumer_group_id = {group_id}\n\tAND message_id = {message_id}\nORDER BY attempt;",
           "placeholders": [
             "schema",
-            "topic_id",
+            "stream_id",
             "group_id",
             "message_id"
           ]
         },
         {
           "label": "the message itself",
-          "sql": "SELECT\n\tid,\n\trouting_key,\n\tpayload,\n\tcreated_at\nFROM {schema}.message_log_{topic_id}\nWHERE id = {message_id};",
+          "sql": "SELECT\n\tid,\n\trouting_key,\n\tpayload,\n\tcreated_at\nFROM {schema}.message_log_{stream_id}\nWHERE id = {message_id};",
           "placeholders": [
             "schema",
-            "topic_id",
+            "stream_id",
             "message_id"
           ]
         }
       ]
     },
-    "VK0030": {
-      "code": "VK0030",
+    "SS0030": {
+      "code": "SS0030",
       "kind": "event",
       "message": "exception dead-lettered -- unrecoverable, will not be retried",
       "queries": [
         {
           "label": "the exception row now recorded dead",
-          "sql": "SELECT\n\tstatus,\n\tattempts,\n\tlast_error,\n\tupdated_at\nFROM {schema}.exception_queue_{topic_id}\nWHERE consumer_group_id = {group_id}\n\tAND message_id = {message_id};",
+          "sql": "SELECT\n\tstatus,\n\tattempts,\n\tlast_error,\n\tupdated_at\nFROM {schema}.exception_queue_{stream_id}\nWHERE consumer_group_id = {group_id}\n\tAND message_id = {message_id};",
           "placeholders": [
             "schema",
-            "topic_id",
+            "stream_id",
             "group_id",
             "message_id"
           ]
         },
         {
           "label": "the attempts that exhausted its budget",
-          "sql": "SELECT\n\tattempt,\n\tstatus,\n\terror,\n\tattempted_at\nFROM {schema}.delivery_log_{topic_id}\nWHERE consumer_group_id = {group_id}\n\tAND message_id = {message_id}\nORDER BY attempt;",
+          "sql": "SELECT\n\tattempt,\n\tstatus,\n\terror,\n\tattempted_at\nFROM {schema}.delivery_log_{stream_id}\nWHERE consumer_group_id = {group_id}\n\tAND message_id = {message_id}\nORDER BY attempt;",
           "placeholders": [
             "schema",
-            "topic_id",
+            "stream_id",
             "group_id",
             "message_id"
           ]
         }
       ]
     },
-    "VK0031": {
-      "code": "VK0031",
+    "SS0031": {
+      "code": "SS0031",
       "kind": "event",
       "message": "crash-loop kill backstop fired -- exceptions marked dead",
       "queries": [
         {
           "label": "the rows the backstop marked dead",
-          "sql": "SELECT\n\tmessage_id,\n\tattempts,\n\tlast_error,\n\tupdated_at\nFROM {schema}.exception_queue_{topic_id}\nWHERE consumer_group_id = {group_id}\n\tAND status = 'dead'\nORDER BY updated_at DESC;",
+          "sql": "SELECT\n\tmessage_id,\n\tattempts,\n\tlast_error,\n\tupdated_at\nFROM {schema}.exception_queue_{stream_id}\nWHERE consumer_group_id = {group_id}\n\tAND status = 'dead'\nORDER BY updated_at DESC;",
           "placeholders": [
             "schema",
-            "topic_id",
+            "stream_id",
             "group_id"
           ]
         },
         {
           "label": "the attempts that crashed without recording an outcome",
-          "sql": "SELECT\n\tmessage_id,\n\tattempt,\n\tstatus,\n\tattempted_at\nFROM {schema}.delivery_log_{topic_id}\nWHERE consumer_group_id = {group_id}\n\tAND status = 'expired'\nORDER BY attempted_at DESC\nLIMIT 50;",
+          "sql": "SELECT\n\tmessage_id,\n\tattempt,\n\tstatus,\n\tattempted_at\nFROM {schema}.delivery_log_{stream_id}\nWHERE consumer_group_id = {group_id}\n\tAND status = 'expired'\nORDER BY attempted_at DESC\nLIMIT 50;",
           "placeholders": [
             "schema",
-            "topic_id",
+            "stream_id",
             "group_id"
           ]
         }
       ]
     },
-    "VK0032": {
-      "code": "VK0032",
+    "SS0032": {
+      "code": "SS0032",
       "kind": "event",
       "message": "stored message options outside this consumer's bounds -- clamped"
     },
-    "VK0033": {
-      "code": "VK0033",
+    "SS0033": {
+      "code": "SS0033",
       "kind": "event",
       "message": "could not create partition ahead -- the first insert past the boundary will create it"
     },
-    "VK0034": {
-      "code": "VK0034",
+    "SS0034": {
+      "code": "SS0034",
       "kind": "event",
       "message": "worker instance lost -- stopping, a replacement may already be running",
       "queries": [
@@ -531,22 +531,22 @@
         }
       ]
     },
-    "VK0035": {
-      "code": "VK0035",
+    "SS0035": {
+      "code": "SS0035",
       "kind": "event",
       "message": "manager row suspended -- its chain goes unreconciled until target_instances is restored",
       "queries": [
         {
           "label": "every suspended worker row -- target_instances 0",
-          "sql": "SELECT\n\tid,\n\tname,\n\tsystem_id,\n\ttopic_id,\n\tconsumer_group_id\nFROM {schema}.worker_config\nWHERE target_instances = 0\nORDER BY name;",
+          "sql": "SELECT\n\tid,\n\tname,\n\tsystem_id,\n\tstream_id,\n\tconsumer_group_id\nFROM {schema}.worker_config\nWHERE target_instances = 0\nORDER BY name;",
           "placeholders": [
             "schema"
           ]
         }
       ]
     },
-    "VK0036": {
-      "code": "VK0036",
+    "SS0036": {
+      "code": "SS0036",
       "kind": "event",
       "message": "worker tick backoff curve exhausted -- ticks continue at its cap",
       "queries": [
@@ -560,224 +560,224 @@
         }
       ]
     },
-    "VK0037": {
-      "code": "VK0037",
+    "SS0037": {
+      "code": "SS0037",
       "kind": "event",
       "message": "schedule message was already produced by an earlier ambiguous commit"
     },
-    "VK0038": {
-      "code": "VK0038",
+    "SS0038": {
+      "code": "SS0038",
       "kind": "event",
       "message": "produce exceeded the duration threshold"
     },
-    "VK0039": {
-      "code": "VK0039",
+    "SS0039": {
+      "code": "SS0039",
       "kind": "event",
       "message": "delivery dispatch exceeded the duration threshold"
     },
-    "VK0040": {
-      "code": "VK0040",
+    "SS0040": {
+      "code": "SS0040",
       "kind": "event",
       "message": "worker tick exceeded its poll rate -- the next tick is late"
     },
-    "VK0041": {
-      "code": "VK0041",
+    "SS0041": {
+      "code": "SS0041",
       "kind": "event",
       "message": "consumer stopped"
     },
-    "VK0042": {
-      "code": "VK0042",
+    "SS0042": {
+      "code": "SS0042",
       "kind": "metric",
-      "name": "vulkan.consumer.session.claimed",
+      "name": "sqlstreams.consumer.session.claimed",
       "metric_kind": "counter",
       "unit": "{message}",
       "description": "messages this instance claimed -- cursor ranges and exception retries together",
       "scope": "consumer_session",
       "attribute_keys": [
-        "topic",
+        "stream",
         "group",
         "version",
         "session"
       ]
     },
-    "VK0043": {
-      "code": "VK0043",
+    "SS0043": {
+      "code": "SS0043",
       "kind": "metric",
-      "name": "vulkan.consumer.session.success",
+      "name": "sqlstreams.consumer.session.success",
       "metric_kind": "counter",
       "unit": "{message}",
       "description": "consumerFunc runs that completed cleanly, counted at resolution",
       "scope": "consumer_session",
       "attribute_keys": [
-        "topic",
+        "stream",
         "group",
         "version",
         "session"
       ]
     },
-    "VK0044": {
-      "code": "VK0044",
+    "SS0044": {
+      "code": "SS0044",
       "kind": "metric",
-      "name": "vulkan.consumer.session.superseded",
+      "name": "sqlstreams.consumer.session.superseded",
       "metric_kind": "counter",
       "unit": "{message}",
       "description": "messages resolved without running -- a newer version of their compacted message key had already arrived",
       "scope": "consumer_session",
       "attribute_keys": [
-        "topic",
+        "stream",
         "group",
         "version",
         "session"
       ]
     },
-    "VK0045": {
-      "code": "VK0045",
+    "SS0045": {
+      "code": "SS0045",
       "kind": "metric",
-      "name": "vulkan.consumer.session.ready",
+      "name": "sqlstreams.consumer.session.ready",
       "metric_kind": "counter",
       "unit": "{message}",
       "description": "delivery rows written 'ready' -- each will be retried once its backoff passes",
       "scope": "consumer_session",
       "attribute_keys": [
-        "topic",
+        "stream",
         "group",
         "version",
         "session"
       ]
     },
-    "VK0046": {
-      "code": "VK0046",
+    "SS0046": {
+      "code": "SS0046",
       "kind": "metric",
-      "name": "vulkan.consumer.session.deferred",
+      "name": "sqlstreams.consumer.session.deferred",
       "metric_kind": "counter",
       "unit": "{message}",
       "description": "delivery rows written 'deferred' -- another delivery held their message key",
       "scope": "consumer_session",
       "attribute_keys": [
-        "topic",
+        "stream",
         "group",
         "version",
         "session"
       ]
     },
-    "VK0047": {
-      "code": "VK0047",
+    "SS0047": {
+      "code": "SS0047",
       "kind": "metric",
-      "name": "vulkan.consumer.session.dead",
+      "name": "sqlstreams.consumer.session.dead",
       "metric_kind": "counter",
       "unit": "{message}",
       "description": "delivery rows written 'dead' -- exhausted retries, unrecoverable payloads, and the kill backstop",
       "scope": "consumer_session",
       "attribute_keys": [
-        "topic",
+        "stream",
         "group",
         "version",
         "session"
       ]
     },
-    "VK0048": {
-      "code": "VK0048",
+    "SS0048": {
+      "code": "SS0048",
       "kind": "metric",
-      "name": "vulkan.consumer.session.reclaimed",
+      "name": "sqlstreams.consumer.session.reclaimed",
       "metric_kind": "counter",
       "unit": "{lease}",
       "description": "leases taken over from expired workers -- another instance died or stalled mid-range",
       "scope": "consumer_session",
       "attribute_keys": [
-        "topic",
+        "stream",
         "group",
         "version",
         "session"
       ]
     },
-    "VK0049": {
-      "code": "VK0049",
+    "SS0049": {
+      "code": "SS0049",
       "kind": "metric",
-      "name": "vulkan.consumer.session.quarantined",
+      "name": "sqlstreams.consumer.session.quarantined",
       "metric_kind": "counter",
       "unit": "{range}",
       "description": "ranges past the reclaim cap, written out as independent 'ready' exceptions",
       "scope": "consumer_session",
       "attribute_keys": [
-        "topic",
+        "stream",
         "group",
         "version",
         "session"
       ]
     },
-    "VK0050": {
-      "code": "VK0050",
+    "SS0050": {
+      "code": "SS0050",
       "kind": "metric",
-      "name": "vulkan.consumer.session.abandoned",
+      "name": "sqlstreams.consumer.session.abandoned",
       "metric_kind": "counter",
       "unit": "{routine}",
       "description": "consumerFunc goroutines written off past the hard timeout",
       "scope": "consumer_session",
       "attribute_keys": [
-        "topic",
+        "stream",
         "group",
         "version",
         "session"
       ]
     },
-    "VK0051": {
-      "code": "VK0051",
+    "SS0051": {
+      "code": "SS0051",
       "kind": "metric",
-      "name": "vulkan.consumer.session.lease_lost",
+      "name": "sqlstreams.consumer.session.lease_lost",
       "metric_kind": "counter",
       "unit": "{commit}",
       "description": "commits rejected because another worker reclaimed the lease first -- that work was redone elsewhere",
       "scope": "consumer_session",
       "attribute_keys": [
-        "topic",
+        "stream",
         "group",
         "version",
         "session"
       ]
     },
-    "VK0052": {
-      "code": "VK0052",
+    "SS0052": {
+      "code": "SS0052",
       "kind": "event",
       "message": "abandoned-routine events dropped -- abandoned-routine snapshots undercount"
     },
-    "VK0053": {
-      "code": "VK0053",
+    "SS0053": {
+      "code": "SS0053",
       "kind": "error",
       "problem": "could not take a lock needed by the migration step",
       "recovery": "transient",
       "fix": "end the blocking session (pg_stat_activity), then run the migration again"
     },
-    "VK0054": {
-      "code": "VK0054",
+    "SS0054": {
+      "code": "SS0054",
       "kind": "error",
       "problem": "could not complete the delivery yet, the handler asked to run it later",
       "recovery": "transient"
     },
-    "VK0055": {
-      "code": "VK0055",
+    "SS0055": {
+      "code": "SS0055",
       "kind": "error",
       "problem": "delivery cannot succeed",
       "recovery": "permanent"
     },
-    "VK0056": {
-      "code": "VK0056",
+    "SS0056": {
+      "code": "SS0056",
       "kind": "error",
       "problem": "partition creation cannot keep up with the id sequence",
       "recovery": "permanent",
       "fix": "raise PartitionSize, or run a consumer so create-ahead stays ahead of the producers"
     },
-    "VK0057": {
-      "code": "VK0057",
+    "SS0057": {
+      "code": "SS0057",
       "kind": "event",
-      "message": "no partition covers the next message id -- the insert creates it and pays the creation latency; run a consumer for the topic's upkeep or raise PartitionSize"
+      "message": "no partition covers the next message id -- the insert creates it and pays the creation latency; run a consumer for the stream's upkeep or raise PartitionSize"
     },
-    "VK0058": {
-      "code": "VK0058",
+    "SS0058": {
+      "code": "SS0058",
       "kind": "event",
-      "message": "schedule target topic keeps no success rows -- Client.Scheduler(name).Status counts no successes for it; set DeliveryLogMode all on the topic to count them"
+      "message": "schedule target stream keeps no success rows -- Client.Scheduler(name).Status counts no successes for it; set DeliveryLogMode all on the stream to count them"
     },
-    "VK0059": {
-      "code": "VK0059",
+    "SS0059": {
+      "code": "SS0059",
       "kind": "event",
       "message": "worker config replaced -- the newest declaration wins; if this is unexpected or repeats on every restart, two services declare this worker with different configs and overwrite each other",
       "queries": [
@@ -791,8 +791,8 @@
         }
       ]
     },
-    "VK0060": {
-      "code": "VK0060",
+    "SS0060": {
+      "code": "SS0060",
       "kind": "event",
       "message": "could not refresh group config -- the last copy stays in use",
       "queries": [
@@ -806,23 +806,23 @@
         }
       ]
     },
-    "VK0061": {
-      "code": "VK0061",
+    "SS0061": {
+      "code": "SS0061",
       "kind": "event",
-      "message": "topic config replaced -- the newest declaration wins; if this is unexpected or repeats on every restart, two services declare this topic with different configs and overwrite each other",
+      "message": "stream config replaced -- the newest declaration wins; if this is unexpected or repeats on every restart, two services declare this stream with different configs and overwrite each other",
       "queries": [
         {
-          "label": "every declaration this topic has received, newest first",
-          "sql": "SELECT\n\tname,\n\tretention_ttl_ns,\n\tallow_drop_past_committed,\n\tidempotency_key_ttl_ns,\n\tempty_compaction_head_ttl_ns,\n\tdelivery_log_mode,\n\tdeclared_by,\n\tdeclared_at\nFROM {schema}.topic_config_log\nWHERE topic_id = {topic_id}\nORDER BY id DESC\nLIMIT 10;",
+          "label": "every declaration this stream has received, newest first",
+          "sql": "SELECT\n\tname,\n\tretention_ttl_ns,\n\tallow_drop_past_committed,\n\tidempotency_key_ttl_ns,\n\tempty_compaction_head_ttl_ns,\n\tdelivery_log_mode,\n\tdeclared_by,\n\tdeclared_at\nFROM {schema}.stream_config_log\nWHERE stream_id = {stream_id}\nORDER BY id DESC\nLIMIT 10;",
           "placeholders": [
             "schema",
-            "topic_id"
+            "stream_id"
           ]
         }
       ]
     },
-    "VK0062": {
-      "code": "VK0062",
+    "SS0062": {
+      "code": "SS0062",
       "kind": "event",
       "message": "schedule config replaced -- the newest declaration wins; if this is unexpected or repeats on every restart, two services declare this schedule with different configs and overwrite each other",
       "queries": [
@@ -836,13 +836,13 @@
         }
       ]
     },
-    "VK0063": {
-      "code": "VK0063",
+    "SS0063": {
+      "code": "SS0063",
       "kind": "event",
       "message": "alert condition holds -- nothing was published; the scheduled check is what publishes and resolves an alert"
     },
-    "VK0064": {
-      "code": "VK0064",
+    "SS0064": {
+      "code": "SS0064",
       "kind": "error",
       "problem": "the connecting role cannot create the schema",
       "recovery": "permanent",
@@ -851,142 +851,142 @@
         "schema"
       ]
     },
-    "VK0065": {
-      "code": "VK0065",
+    "SS0065": {
+      "code": "SS0065",
       "kind": "event",
       "message": "system manager stopped -- nothing reconciles the deployment's workers until the loop re-claims the row after its backoff"
     },
-    "VK0066": {
-      "code": "VK0066",
+    "SS0066": {
+      "code": "SS0066",
       "kind": "error",
       "problem": "compaction head not found",
       "recovery": "permanent",
-      "fix": "produce under message key \"{message_key}\" on topic \"{topic}\" with CompactionOptions.Enable set",
+      "fix": "produce under message key \"{message_key}\" on stream \"{stream}\" with CompactionOptions.Enable set",
       "fix_placeholders": [
         "message_key",
-        "topic"
+        "stream"
       ],
       "queries": [
         {
           "label": "the key's compaction_head row, if one exists",
-          "sql": "SELECT\n\tcompaction_key,\n\tmessage_id,\n\tschema_version,\n\tcompaction_rank\nFROM {schema}.compaction_head_{topic_id}\nWHERE compaction_key = '{message_key}';",
+          "sql": "SELECT\n\tcompaction_key,\n\tmessage_id,\n\tschema_version,\n\tcompaction_rank\nFROM {schema}.compaction_head_{stream_id}\nWHERE compaction_key = '{message_key}';",
           "placeholders": [
             "schema",
-            "topic_id",
+            "stream_id",
             "message_key"
           ]
         },
         {
           "label": "the messages produced under the key -- a NULL compaction_rank never opted into compaction",
-          "sql": "SELECT\n\tid,\n\tschema_version,\n\tcompaction_rank,\n\tcreated_at\nFROM {schema}.message_log_{topic_id}\nWHERE message_key = '{message_key}'\nORDER BY id DESC\nLIMIT 20;",
+          "sql": "SELECT\n\tid,\n\tschema_version,\n\tcompaction_rank,\n\tcreated_at\nFROM {schema}.message_log_{stream_id}\nWHERE message_key = '{message_key}'\nORDER BY id DESC\nLIMIT 20;",
           "placeholders": [
             "schema",
-            "topic_id",
+            "stream_id",
             "message_key"
           ]
         }
       ]
     },
-    "VK0067": {
-      "code": "VK0067",
+    "SS0067": {
+      "code": "SS0067",
       "kind": "metric",
-      "name": "vulkan.worker.state.unclaimed_workers",
+      "name": "sqlstreams.worker.state.unclaimed_workers",
       "metric_kind": "gauge",
       "unit": "{worker}",
       "description": "workers with no live instance and a nonzero target",
       "scope": "system"
     },
-    "VK0068": {
-      "code": "VK0068",
+    "SS0068": {
+      "code": "SS0068",
       "kind": "metric",
-      "name": "vulkan.worker.state.oldest_unclaimed_age",
+      "name": "sqlstreams.worker.state.oldest_unclaimed_age",
       "metric_kind": "gauge",
       "unit": "ms",
       "description": "largest time since expiry among workers with no live instance and a nonzero target",
       "scope": "system"
     },
-    "VK0069": {
-      "code": "VK0069",
+    "SS0069": {
+      "code": "SS0069",
       "kind": "metric",
-      "name": "vulkan.worker.state.failing_workers",
+      "name": "sqlstreams.worker.state.failing_workers",
       "metric_kind": "gauge",
       "unit": "{worker}",
       "description": "workers with a live instance on a nonzero consecutive failure streak",
       "scope": "system"
     },
-    "VK0070": {
-      "code": "VK0070",
+    "SS0070": {
+      "code": "SS0070",
       "kind": "metric",
-      "name": "vulkan.schedule.state.overdue",
+      "name": "sqlstreams.schedule.state.overdue",
       "metric_kind": "gauge",
       "unit": "{found}",
       "description": "unsuspended schedules due past the overdue threshold",
       "scope": "system"
     },
-    "VK0071": {
-      "code": "VK0071",
+    "SS0071": {
+      "code": "SS0071",
       "kind": "metric",
-      "name": "vulkan.schedule.state.oldest_due_age",
+      "name": "sqlstreams.schedule.state.oldest_due_age",
       "metric_kind": "gauge",
       "unit": "ms",
       "description": "largest time past next scheduled production among unsuspended schedules",
       "scope": "system"
     },
-    "VK0072": {
-      "code": "VK0072",
+    "SS0072": {
+      "code": "SS0072",
       "kind": "metric",
-      "name": "vulkan.schedule.state.suspended",
+      "name": "sqlstreams.schedule.state.suspended",
       "metric_kind": "gauge",
       "unit": "{found}",
       "description": "schedules excluded from overdue counts because they are suspended",
       "scope": "system"
     },
-    "VK0073": {
-      "code": "VK0073",
+    "SS0073": {
+      "code": "SS0073",
       "kind": "metric",
-      "name": "vulkan.alert.state.active_alerts",
+      "name": "sqlstreams.alert.state.active_alerts",
       "metric_kind": "gauge",
       "unit": "{alert}",
       "description": "retained alert heads whose status is active",
       "scope": "system"
     },
-    "VK0074": {
-      "code": "VK0074",
+    "SS0074": {
+      "code": "SS0074",
       "kind": "metric",
-      "name": "vulkan.alert.state.resolved_alerts",
+      "name": "sqlstreams.alert.state.resolved_alerts",
       "metric_kind": "gauge",
       "unit": "{alert}",
       "description": "retained alert heads whose status is resolved",
       "scope": "system"
     },
-    "VK0075": {
-      "code": "VK0075",
+    "SS0075": {
+      "code": "SS0075",
       "kind": "metric",
-      "name": "vulkan.alert.check.topics_evaluated",
+      "name": "sqlstreams.alert.check.streams_evaluated",
       "metric_kind": "gauge",
-      "unit": "{topic}",
-      "description": "topics the alert check evaluated",
+      "unit": "{stream}",
+      "description": "streams the alert check evaluated",
       "scope": "system",
       "attribute_keys": [
         "alert"
       ]
     },
-    "VK0076": {
-      "code": "VK0076",
+    "SS0076": {
+      "code": "SS0076",
       "kind": "metric",
-      "name": "vulkan.alert.check.topics_failed",
+      "name": "sqlstreams.alert.check.streams_failed",
       "metric_kind": "gauge",
-      "unit": "{topic}",
-      "description": "topics whose alert evaluation or result production did not complete",
+      "unit": "{stream}",
+      "description": "streams whose alert evaluation or result production did not complete",
       "scope": "system",
       "attribute_keys": [
         "alert"
       ]
     },
-    "VK0077": {
-      "code": "VK0077",
+    "SS0077": {
+      "code": "SS0077",
       "kind": "metric",
-      "name": "vulkan.alert.check.published_alerts",
+      "name": "sqlstreams.alert.check.published_alerts",
       "metric_kind": "gauge",
       "unit": "{alert}",
       "description": "alerts the check changed to active",
@@ -995,10 +995,10 @@
         "alert"
       ]
     },
-    "VK0078": {
-      "code": "VK0078",
+    "SS0078": {
+      "code": "SS0078",
       "kind": "metric",
-      "name": "vulkan.alert.check.resolved_alerts",
+      "name": "sqlstreams.alert.check.resolved_alerts",
       "metric_kind": "gauge",
       "unit": "{alert}",
       "description": "alerts the check changed to resolved",
@@ -1007,295 +1007,295 @@
         "alert"
       ]
     },
-    "VK0079": {
-      "code": "VK0079",
+    "SS0079": {
+      "code": "SS0079",
       "kind": "metric",
-      "name": "vulkan.topic.state.compacted",
+      "name": "sqlstreams.stream.state.compacted",
       "metric_kind": "gauge",
-      "description": "1 once the topic has received a keyed message, otherwise 0",
-      "scope": "topic",
+      "description": "1 once the stream has received a keyed message, otherwise 0",
+      "scope": "stream",
       "attribute_keys": [
-        "topic"
+        "stream"
       ]
     },
-    "VK0080": {
-      "code": "VK0080",
+    "SS0080": {
+      "code": "SS0080",
       "kind": "metric",
-      "name": "vulkan.consumer.cursor.head",
+      "name": "sqlstreams.consumer.cursor.head",
       "metric_kind": "gauge",
       "unit": "{message}",
-      "description": "highest message id ever appended to the topic",
+      "description": "highest message id ever appended to the stream",
       "scope": "consumer_group",
       "attribute_keys": [
-        "topic",
+        "stream",
         "group"
       ]
     },
-    "VK0081": {
-      "code": "VK0081",
+    "SS0081": {
+      "code": "SS0081",
       "kind": "metric",
-      "name": "vulkan.consumer.cursor.claimed",
+      "name": "sqlstreams.consumer.cursor.claimed",
       "metric_kind": "gauge",
       "unit": "{message}",
       "description": "the consumer group's read frontier",
       "scope": "consumer_group",
       "attribute_keys": [
-        "topic",
+        "stream",
         "group"
       ]
     },
-    "VK0082": {
-      "code": "VK0082",
+    "SS0082": {
+      "code": "SS0082",
       "kind": "metric",
-      "name": "vulkan.consumer.cursor.committed",
+      "name": "sqlstreams.consumer.cursor.committed",
       "metric_kind": "gauge",
       "unit": "{message}",
       "description": "the frontier at or below which every message is complete or dead",
       "scope": "consumer_group",
       "attribute_keys": [
-        "topic",
+        "stream",
         "group"
       ]
     },
-    "VK0083": {
-      "code": "VK0083",
+    "SS0083": {
+      "code": "SS0083",
       "kind": "metric",
-      "name": "vulkan.consumer.cursor.backlog",
+      "name": "sqlstreams.consumer.cursor.backlog",
       "metric_kind": "gauge",
       "unit": "{message}",
       "description": "messages beyond the consumer group's committed frontier",
       "scope": "consumer_group",
       "attribute_keys": [
-        "topic",
+        "stream",
         "group"
       ]
     },
-    "VK0084": {
-      "code": "VK0084",
+    "SS0084": {
+      "code": "SS0084",
       "kind": "metric",
-      "name": "vulkan.consumer.cursor.inflight",
+      "name": "sqlstreams.consumer.cursor.inflight",
       "metric_kind": "gauge",
       "unit": "{message}",
       "description": "claimed messages beyond the consumer group's committed frontier",
       "scope": "consumer_group",
       "attribute_keys": [
-        "topic",
+        "stream",
         "group"
       ]
     },
-    "VK0085": {
-      "code": "VK0085",
+    "SS0085": {
+      "code": "SS0085",
       "kind": "metric",
-      "name": "vulkan.consumer.exceptions.ready",
+      "name": "sqlstreams.consumer.exceptions.ready",
       "metric_kind": "gauge",
       "unit": "{exception}",
       "description": "delivery rows waiting for their retry delay",
       "scope": "consumer_group",
       "attribute_keys": [
-        "topic",
+        "stream",
         "group"
       ]
     },
-    "VK0086": {
-      "code": "VK0086",
+    "SS0086": {
+      "code": "SS0086",
       "kind": "metric",
-      "name": "vulkan.consumer.exceptions.inflight",
+      "name": "sqlstreams.consumer.exceptions.inflight",
       "metric_kind": "gauge",
       "unit": "{exception}",
       "description": "delivery rows held by a retry attempt",
       "scope": "consumer_group",
       "attribute_keys": [
-        "topic",
+        "stream",
         "group"
       ]
     },
-    "VK0087": {
-      "code": "VK0087",
+    "SS0087": {
+      "code": "SS0087",
       "kind": "metric",
-      "name": "vulkan.consumer.exceptions.deferred",
+      "name": "sqlstreams.consumer.exceptions.deferred",
       "metric_kind": "gauge",
       "unit": "{exception}",
       "description": "delivery rows waiting for their message key's lease to become free",
       "scope": "consumer_group",
       "attribute_keys": [
-        "topic",
+        "stream",
         "group"
       ]
     },
-    "VK0088": {
-      "code": "VK0088",
+    "SS0088": {
+      "code": "SS0088",
       "kind": "metric",
-      "name": "vulkan.consumer.exceptions.dead",
+      "name": "sqlstreams.consumer.exceptions.dead",
       "metric_kind": "gauge",
       "unit": "{exception}",
       "description": "dead-lettered delivery rows",
       "scope": "consumer_group",
       "attribute_keys": [
-        "topic",
+        "stream",
         "group"
       ]
     },
-    "VK0089": {
-      "code": "VK0089",
+    "SS0089": {
+      "code": "SS0089",
       "kind": "metric",
-      "name": "vulkan.consumer.exceptions.oldest_unresolved_age",
+      "name": "sqlstreams.consumer.exceptions.oldest_unresolved_age",
       "metric_kind": "gauge",
       "unit": "ms",
       "description": "age of the oldest ready, inflight, or deferred delivery row",
       "scope": "consumer_group",
       "attribute_keys": [
-        "topic",
+        "stream",
         "group"
       ]
     },
-    "VK0090": {
-      "code": "VK0090",
+    "SS0090": {
+      "code": "SS0090",
       "kind": "metric",
-      "name": "vulkan.consumer.open_leases",
+      "name": "sqlstreams.consumer.open_leases",
       "metric_kind": "gauge",
       "unit": "{lease}",
       "description": "open leases held by the consumer group",
       "scope": "consumer_group",
       "attribute_keys": [
-        "topic",
+        "stream",
         "group"
       ]
     },
-    "VK0091": {
-      "code": "VK0091",
+    "SS0091": {
+      "code": "SS0091",
       "kind": "metric",
-      "name": "vulkan.consumer.abandoned_routines.outstanding",
+      "name": "sqlstreams.consumer.abandoned_routines.outstanding",
       "metric_kind": "gauge",
       "unit": "{routine}",
       "description": "abandoned routines with no matching cleared record",
       "scope": "consumer_group",
       "attribute_keys": [
-        "topic",
+        "stream",
         "group"
       ]
     },
-    "VK0092": {
-      "code": "VK0092",
+    "SS0092": {
+      "code": "SS0092",
       "kind": "metric",
-      "name": "vulkan.consumer.abandoned_routines.total",
+      "name": "sqlstreams.consumer.abandoned_routines.total",
       "metric_kind": "gauge",
       "unit": "{routine}",
-      "description": "distinct abandoned routines retained on the metrics topic",
+      "description": "distinct abandoned routines retained on the metrics stream",
       "scope": "consumer_group",
       "attribute_keys": [
-        "topic",
+        "stream",
         "group"
       ]
     },
-    "VK0093": {
-      "code": "VK0093",
+    "SS0093": {
+      "code": "SS0093",
       "kind": "metric",
-      "name": "vulkan.consumer.abandoned_routines.self_clear_latency_avg",
+      "name": "sqlstreams.consumer.abandoned_routines.self_clear_latency_avg",
       "metric_kind": "gauge",
       "unit": "ms",
       "description": "mean time between an abandoned routine and its matching cleared record",
       "scope": "consumer_group",
       "attribute_keys": [
-        "topic",
+        "stream",
         "group"
       ]
     },
-    "VK0094": {
-      "code": "VK0094",
+    "SS0094": {
+      "code": "SS0094",
       "kind": "alert",
       "name": "partition_count",
-      "description": "a topic's message log holds enough partitions that dropping the topic approaches the lock-table ceiling",
-      "scope": "topic",
+      "description": "a stream's message log holds enough partitions that dropping the stream approaches the lock-table ceiling",
+      "scope": "stream",
       "severity": "warn"
     },
-    "VK0095": {
-      "code": "VK0095",
+    "SS0095": {
+      "code": "SS0095",
       "kind": "alert",
       "name": "compaction_read_cost",
-      "description": "a compacted topic holds enough partitions that replaying a never-superseded key is a long scan",
-      "scope": "topic",
+      "description": "a compacted stream holds enough partitions that replaying a never-superseded key is a long scan",
+      "scope": "stream",
       "severity": "warn"
     },
-    "VK0096": {
-      "code": "VK0096",
+    "SS0096": {
+      "code": "SS0096",
       "kind": "alert",
       "name": "worker_liveness",
-      "description": "a topic's worker rows have no live instance, so nothing runs its upkeep",
-      "scope": "topic",
+      "description": "a stream's worker rows have no live instance, so nothing runs its upkeep",
+      "scope": "stream",
       "severity": "warn"
     },
-    "VK0097": {
-      "code": "VK0097",
+    "SS0097": {
+      "code": "SS0097",
       "kind": "error",
       "problem": "payload cannot be encoded as JSON",
       "recovery": "permanent",
       "fix": "give the payload a shape encoding/json accepts -- the cause names what it could not encode"
     },
-    "VK0098": {
-      "code": "VK0098",
+    "SS0098": {
+      "code": "SS0098",
       "kind": "metric",
-      "name": "vulkan.topic.state.partitions",
+      "name": "sqlstreams.stream.state.partitions",
       "metric_kind": "gauge",
       "unit": "{partition}",
-      "description": "partitions on the topic's message log",
-      "scope": "topic",
+      "description": "partitions on the stream's message log",
+      "scope": "stream",
       "attribute_keys": [
-        "topic"
+        "stream"
       ]
     },
-    "VK0099": {
-      "code": "VK0099",
+    "SS0099": {
+      "code": "SS0099",
       "kind": "metric",
-      "name": "vulkan.topic.workers.unclaimed",
+      "name": "sqlstreams.stream.workers.unclaimed",
       "metric_kind": "gauge",
       "unit": "{worker}",
-      "description": "unclaimed workers owned by the topic or its consumer groups",
-      "scope": "topic",
+      "description": "unclaimed workers owned by the stream or its consumer groups",
+      "scope": "stream",
       "attribute_keys": [
-        "topic"
+        "stream"
       ]
     },
-    "VK0100": {
-      "code": "VK0100",
+    "SS0100": {
+      "code": "SS0100",
       "kind": "metric",
-      "name": "vulkan.metrics.collector.completed_timestamp",
+      "name": "sqlstreams.metrics.collector.completed_timestamp",
       "metric_kind": "gauge",
       "unit": "s",
       "description": "Unix timestamp of the last completed metrics collection pass",
       "scope": "system"
     },
-    "VK0101": {
-      "code": "VK0101",
+    "SS0101": {
+      "code": "SS0101",
       "kind": "alert",
       "name": "metrics_collector_progress",
       "description": "metrics collection has not completed within the allowed age while manager leases remain continuous",
       "scope": "system",
       "severity": "warn"
     },
-    "VK0102": {
-      "code": "VK0102",
+    "SS0102": {
+      "code": "SS0102",
       "kind": "metric",
-      "name": "vulkan.otel.source.read_success",
+      "name": "sqlstreams.otel.source.read_success",
       "metric_kind": "gauge",
       "description": "whether the adapter read retained measurements successfully",
       "scope": "exporter"
     },
-    "VK0103": {
-      "code": "VK0103",
+    "SS0103": {
+      "code": "SS0103",
       "kind": "metric",
-      "name": "vulkan.otel.measurements.rejected",
+      "name": "sqlstreams.otel.measurements.rejected",
       "metric_kind": "gauge",
       "unit": "{measurement}",
       "description": "retained measurements omitted from the current export",
       "scope": "exporter"
     },
-    "VK0104": {
-      "code": "VK0104",
+    "SS0104": {
+      "code": "SS0104",
       "kind": "event",
       "message": "measurements cannot be exported -- the current collection omits the rejected metric family; healthy families still export"
     },
-    "VK0105": {
-      "code": "VK0105",
+    "SS0105": {
+      "code": "SS0105",
       "kind": "event",
       "message": "queued message has insufficient lease time -- range waits for reclaim; successful handlers in the range can repeat"
     }

@@ -37,7 +37,7 @@
 		<form class="search-form" onsubmit={submit}>
 			<input
 				type="search"
-				placeholder="a VK code, a log line, or any phrase from a thread"
+				placeholder="a SS code, a log line, or any phrase from a thread"
 				aria-label="Search the board"
 				bind:value={state.query}
 			/>

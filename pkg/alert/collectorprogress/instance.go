@@ -5,14 +5,14 @@ import (
 	"errors"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/alert"
-	alertcontroller "github.com/agentstax/vulkan/pkg/alert/controller"
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	"github.com/agentstax/vulkan/pkg/consumer"
-	"github.com/agentstax/vulkan/pkg/schedule"
-	"github.com/agentstax/vulkan/pkg/worker"
-	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
+	"github.com/agentstax/sqlstreams/pkg/alert"
+	alertcontroller "github.com/agentstax/sqlstreams/pkg/alert/controller"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	"github.com/agentstax/sqlstreams/pkg/consumer"
+	"github.com/agentstax/sqlstreams/pkg/schedule"
+	"github.com/agentstax/sqlstreams/pkg/worker"
+	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
 )
 
 // CollectorProgressInstance consumes scheduled checks while a heartbeat holds its claim.
@@ -54,7 +54,7 @@ func (i *CollectorProgressInstance) Run(ctx context.Context) error {
 }
 
 func (i *CollectorProgressInstance) consume(ctx context.Context) error {
-	registered, err := i.provisioner.producer.Register[alert.Alert](ctx, alert.AlertTopicName, nil)
+	registered, err := i.provisioner.producer.Register[alert.Alert](ctx, alert.AlertStreamName, nil)
 	if err != nil {
 		return err
 	}
@@ -64,7 +64,7 @@ func (i *CollectorProgressInstance) consume(ctx context.Context) error {
 	}
 	i.alerts = alerts
 
-	instance, err := i.provisioner.scheduleConsumer.Register[alert.JobPayload](ctx, JobName, schedule.ScheduleTopicName, &consumer.ConsumerConfig{Bindings: []string{JobName}})
+	instance, err := i.provisioner.scheduleConsumer.Register[alert.JobPayload](ctx, JobName, schedule.ScheduleStreamName, &consumer.ConsumerConfig{Bindings: []string{JobName}})
 	if err != nil {
 		return err
 	}

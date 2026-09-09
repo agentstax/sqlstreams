@@ -15,8 +15,8 @@ export const boards: Board[] = [
 	{
 		title: 'Getting Started',
 		slug: 'getting-started',
-		description: 'first produce and consume, why Vulkan, a demo, and the roadmap',
-		threads: () => ['quickstart', 'why-vulkan', 'demo', 'roadmap'],
+		description: 'first produce and consume, why SQLStreams, a demo, and the roadmap',
+		threads: () => ['quickstart', 'why-sqlstreams', 'demo', 'roadmap'],
 	},
 	{
 		title: 'Concepts',
@@ -69,7 +69,7 @@ export const boards: Board[] = [
 			'reference',
 			'reference/client',
 			'reference/pool',
-			'reference/topic',
+			'reference/stream',
 			'reference/producer',
 			'reference/consumer',
 			'reference/key',
@@ -80,13 +80,12 @@ export const boards: Board[] = [
 			'reference/alerts',
 			'reference/message-options',
 			'reference/diagnostics',
-			'reference/vulkantest',
 		],
 	},
 	{
 		title: 'Troubleshooting',
 		slug: 'troubleshooting',
-		description: 'every VK error code and log event, one thread each',
+		description: 'every SS error code and log event, one thread each',
 		// the code index leads, then the code threads in code order
 		threads: (ids) => ['errors', ...ids.filter(isErrorThread).sort()],
 	},
@@ -105,7 +104,7 @@ export const boards: Board[] = [
 	},
 ];
 
-export const stickyIds = ['quickstart', 'why-vulkan'];
+export const stickyIds = ['quickstart', 'why-sqlstreams'];
 
 // the Jump to select navigates to each board's listing page
 export const jumpTargets: JumpTarget[] = boards.map((board) => ({

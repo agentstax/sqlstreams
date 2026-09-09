@@ -51,7 +51,7 @@ if len(monitor)>3:
    if len(parts)!=6:continue
    pid=parts[0];t=parts[4].split(':')
    cpu=sum(float(v)*60**i for i,v in enumerate(reversed(t)))
-   group='apps' if 'vulkan-native-scratch' in parts[5] else 'postgres'
+   group='apps' if 'sqlstreams-native-scratch' in parts[5] else 'postgres'
    current[pid]=cpu
    if pid in previous:totals[group]+=max(0,cpu-previous[pid])
   previous=current

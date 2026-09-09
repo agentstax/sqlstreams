@@ -3,7 +3,7 @@
 // holds through a failure -- the failed message's retry goes before the
 // messages behind it -- while a dead-lettered predecessor releases the lane.
 //
-// Registers its own topic (destroyed on exit), produces keyed messages under
+// Registers its own stream (destroyed on exit), produces keyed messages under
 // MessageConcurrency 4 so a plain exclusive policy would let the later ones
 // run first, and reads exception_queue_<id> for the assertions.
 //
@@ -22,18 +22,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 	"os"
 	"sync"
 	"time"
 
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 const (
-	topicName = "phase1.ordered"
-	group     = "phase1.ordered"
+	streamName = "phase1.ordered"
+	group      = "phase1.ordered"
 )
 
 type Adjustment struct {
@@ -72,37 +72,37 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{})
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{})
 	must(err)
 	defer func() {
-		must(client.Topic[Adjustment](tp.Name).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[Adjustment](tp.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
-	adjustments, err := client.Topic[Adjustment](tp.Name).Producer().Register(ctx, nil)
+	adjustments, err := client.Stream[Adjustment](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 
 	step("produce-time guards")
-	ordered := &vulkan.MessageOptions{Concurrency: vulkan.ConcurrencyOrdered}
-	if _, err := adjustments.Produce(ctx, &Adjustment{Account: "acct-0"}, &vulkan.ProduceOptions{Message: ordered}); err == nil {
+	ordered := &sqlstreams.MessageOptions{Concurrency: sqlstreams.ConcurrencyOrdered}
+	if _, err := adjustments.Produce(ctx, &Adjustment{Account: "acct-0"}, &sqlstreams.ProduceOptions{Message: ordered}); err == nil {
 		die("ordered without a MessageKey must be refused")
 	}
-	if _, err := adjustments.Produce(ctx, &Adjustment{Account: "acct-0"}, &vulkan.ProduceOptions{MessageKey: "acct-0", Message: ordered, Compaction: &vulkan.CompactionOptions{Enable: true}}); err == nil {
+	if _, err := adjustments.Produce(ctx, &Adjustment{Account: "acct-0"}, &sqlstreams.ProduceOptions{MessageKey: "acct-0", Message: ordered, Compaction: &sqlstreams.CompactionOptions{Enable: true}}); err == nil {
 		die("ordered with Compaction enabled must be refused")
 	}
 	fmt.Println("PASS: ordered needs a key and refuses compaction")
 
 	ids := map[string]int64{}
 	produce := func(account string, seq int) {
-		produced, err := adjustments.Produce(ctx, &Adjustment{Account: account, Seq: seq}, &vulkan.ProduceOptions{MessageKey: account, Message: ordered})
+		produced, err := adjustments.Produce(ctx, &Adjustment{Account: account, Seq: seq}, &sqlstreams.ProduceOptions{MessageKey: account, Message: ordered})
 		must(err)
 		ids[fmt.Sprintf("%s/%d", account, seq)] = produced.Id
 	}
@@ -116,11 +116,11 @@ func run() (err error) {
 		produce("acct-4", seq)
 	}
 
-	instance, err := client.Topic[Adjustment](tp.Name).Consumer(group).Register(ctx, &vulkan.ConsumerConfig{
+	instance, err := client.Stream[Adjustment](tp.Name).Consumer(group).Register(ctx, &sqlstreams.ConsumerConfig{
 		ExceptionInitialBackoff: 500 * time.Millisecond,
-		Message: &vulkan.MessageOptions{
+		Message: &sqlstreams.MessageOptions{
 			Timeout: 5 * time.Second,
-			Retry:   &vulkan.RetryPolicy{MaxRetries: 3, BaseDelay: 200 * time.Millisecond},
+			Retry:   &sqlstreams.RetryPolicy{MaxRetries: 3, BaseDelay: 200 * time.Millisecond},
 		},
 	})
 
@@ -145,10 +145,10 @@ func run() (err error) {
 			case adjustment.Account == "acct-1" && adjustment.Seq == 1 && runs == 1:
 				return errors.New("ledger unavailable")
 			case adjustment.Account == "acct-2" && adjustment.Seq == 1:
-				return vulkan.Terminal(errors.New("account closed"))
+				return sqlstreams.Terminal(errors.New("account closed"))
 			}
 			return nil
-		}, &vulkan.ConsumeOptions{
+		}, &sqlstreams.ConsumeOptions{
 			BatchLimit:         50,
 			MessageConcurrency: 4,
 			ClaimPollRate:      100 * time.Millisecond,
@@ -209,22 +209,22 @@ func run() (err error) {
 	return nil
 }
 
-func rowStatus(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, groupId int64, messageId int64) string {
-	sql := fmt.Sprintf(`SELECT COALESCE(MAX(status), '') FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2`, ds.Schema, topic.ExceptionQueueTable(topicId))
+func rowStatus(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, groupId int64, messageId int64) string {
+	sql := fmt.Sprintf(`SELECT COALESCE(MAX(status), '') FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2`, ds.Schema, stream.ExceptionQueueTable(streamId))
 	var status string
 	must(ds.Pool.QueryRow(ctx, sql, groupId, messageId).Scan(&status))
 	return status
 }
 
-func waitFor(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, groupId int64, messageId int64, want string, timeout time.Duration) {
+func waitFor(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, groupId int64, messageId int64, want string, timeout time.Duration) {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		if rowStatus(ctx, ds, topicId, groupId, messageId) == want {
+		if rowStatus(ctx, ds, streamId, groupId, messageId) == want {
 			return
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	die(fmt.Sprintf("message %d never reached status %q (last %q)", messageId, want, rowStatus(ctx, ds, topicId, groupId, messageId)))
+	die(fmt.Sprintf("message %d never reached status %q (last %q)", messageId, want, rowStatus(ctx, ds, streamId, groupId, messageId)))
 }
 
 func waitUntil(condition func() bool, timeout time.Duration, what string) {
@@ -238,19 +238,19 @@ func waitUntil(condition func() bool, timeout time.Duration, what string) {
 	die(fmt.Sprintf("timed out waiting for %s", what))
 }
 
-func waitForGone(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, groupId int64, messageId int64, timeout time.Duration) {
+func waitForGone(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, groupId int64, messageId int64, timeout time.Duration) {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		if rowStatus(ctx, ds, topicId, groupId, messageId) == "" {
+		if rowStatus(ctx, ds, streamId, groupId, messageId) == "" {
 			return
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	die(fmt.Sprintf("message %d's row never went away (last %q)", messageId, rowStatus(ctx, ds, topicId, groupId, messageId)))
+	die(fmt.Sprintf("message %d's row never went away (last %q)", messageId, rowStatus(ctx, ds, streamId, groupId, messageId)))
 }
 
-func assertLogStatus(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, groupId int64, messageId int64, attempt int, want string) {
-	sql := fmt.Sprintf(`SELECT COALESCE(MAX(status), '') FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2 AND attempt = $3`, ds.Schema, topic.DeliveryLogTable(topicId))
+func assertLogStatus(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, groupId int64, messageId int64, attempt int, want string) {
+	sql := fmt.Sprintf(`SELECT COALESCE(MAX(status), '') FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2 AND attempt = $3`, ds.Schema, stream.DeliveryLogTable(streamId))
 	var status string
 	must(ds.Pool.QueryRow(ctx, sql, groupId, messageId, attempt).Scan(&status))
 	if status != want {
@@ -259,20 +259,20 @@ func assertLogStatus(ctx context.Context, ds *iDatastore.PostgresDatastore, topi
 }
 
 // deferredLogRows counts 'deferred' delivery_log rows for the key's messages.
-func deferredLogRows(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, groupId int64, key string) int {
+func deferredLogRows(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, groupId int64, key string) int {
 	sql := fmt.Sprintf(`
 		SELECT COUNT(*)
 		FROM %[1]s.%[2]s l JOIN %[1]s.%[3]s m ON m.id = l.message_id
 		WHERE l.consumer_group_id = $1 AND m.message_key = $2 AND l.status = 'deferred'
-	`, ds.Schema, topic.DeliveryLogTable(topicId), topic.MessageLogTable(topicId))
+	`, ds.Schema, stream.DeliveryLogTable(streamId), stream.MessageLogTable(streamId))
 	var count int
 	must(ds.Pool.QueryRow(ctx, sql, groupId, key).Scan(&count))
 	return count
 }
 
-func groupIdOf(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64) int64 {
+func groupIdOf(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) int64 {
 	var id int64
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT id FROM %s.consumer_group_config WHERE topic_id = $1 AND name = $2`, ds.Schema), topicId, group).Scan(&id))
+	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT id FROM %s.consumer_group_config WHERE stream_id = $1 AND name = $2`, ds.Schema), streamId, group).Scan(&id))
 	return id
 }
 

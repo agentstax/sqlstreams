@@ -5,10 +5,10 @@ import (
 	"errors"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/alert"
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/produce"
+	"github.com/agentstax/sqlstreams/pkg/alert"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/produce"
 )
 
 // Record serializes classification and production on the owner's alert head.
@@ -36,7 +36,7 @@ func (c *AlertController) Record(ctx context.Context, name string, owner *common
 	var published *alert.Alert
 	err = datastore.InTransaction(ctx, c.ds, func(ctx context.Context, tx datastore.Tx) error {
 		var err error
-		head, err = c.heads.LockHead[alert.Alert](ctx, tx, c.alerts.Topic.Id, messageKey)
+		head, err = c.heads.LockHead[alert.Alert](ctx, tx, c.alerts.Stream.Id, messageKey)
 		if err != nil {
 			return err
 		}

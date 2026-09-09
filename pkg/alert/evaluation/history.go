@@ -4,8 +4,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/alert"
-	"github.com/agentstax/vulkan/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/alert"
+	"github.com/agentstax/sqlstreams/pkg/common"
 )
 
 // EvaluateHistory applies pending to condition results ordered by CreatedAt/id

@@ -3,7 +3,7 @@ package controller
 import (
 	"context"
 
-	"github.com/agentstax/vulkan/pkg/metric"
+	"github.com/agentstax/sqlstreams/pkg/metric"
 )
 
 // ScheduleSnapshots is every schedule row's current schedule health.

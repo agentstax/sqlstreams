@@ -1,7 +1,7 @@
 <script lang="ts">
 	type Props = {
 		title: string;
-		// null = a thread with no VK code
+		// null = a thread with no SS code
 		code: string | null;
 		solved: boolean;
 		editHref: string;

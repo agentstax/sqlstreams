@@ -1,18 +1,18 @@
 # Contributing
 
-Setup is in [DEVELOPING.md](DEVELOPING.md). Vulkan is
+Setup is in [DEVELOPING.md](DEVELOPING.md). SQLStreams is
 pre-v1, so the public API can change between releases.
 
 ## Bugs
 
-Open an issue with the Vulkan and Postgres versions and the error or log
+Open an issue with the SQLStreams and Postgres versions and the error or log
 line.
 
 ## Changes
 
 Open an issue before writing code, using the
-[Bug](https://github.com/agentstax/vulkan/issues/new?template=bug.yml) or
-[Feature](https://github.com/agentstax/vulkan/issues/new?template=feature.yml)
+[Bug](https://github.com/agentstax/sqlstreams/issues/new?template=bug.yml) or
+[Feature](https://github.com/agentstax/sqlstreams/issues/new?template=feature.yml)
 form. The maintainer reads it within a week or two, asks for anything
 missing, and labels it. Ideally, do not start coding work until the label lands:
 
@@ -25,7 +25,7 @@ missing, and labels it. Ideally, do not start coding work until the label lands:
 
 ### Fixing a bug
 
-1. Open a [bug issue](https://github.com/agentstax/vulkan/issues/new?template=bug.yml).
+1. Open a [bug issue](https://github.com/agentstax/sqlstreams/issues/new?template=bug.yml).
 2. Wait for `accepted`.
 3. Open a pull request with a test that fails before the fix.
 
@@ -34,7 +34,7 @@ missing, and labels it. Ideally, do not start coding work until the label lands:
 1. Search [.docs/DECISIONS.md](.docs/DECISIONS.md) and the rejected line in
    [.docs/DECISION_MAP.md](.docs/DECISION_MAP.md). Rejected ideas need new
    evidence to be reconsidered.
-2. Open a [feature issue](https://github.com/agentstax/vulkan/issues/new?template=feature.yml)
+2. Open a [feature issue](https://github.com/agentstax/sqlstreams/issues/new?template=feature.yml)
    describing the problem, not a solution.
 3. Wait for `accepted`.
 4. The maintainer writes the decision record.

@@ -1,7 +1,7 @@
 // Vendored from github.com/robfig/cron/v3 v3.0.1 (MIT -- see LICENSE in this directory).
 // Package clause renamed cron -> robfig for the vendor boundary; everything in
 // this directory is upstream code, everything in pkg/cron proper is ours.
-// Diff from upstream: default schedule location time.Local -> time.UTC (Vulkan schedules are UTC unless the spec carries TZ=).
+// Diff from upstream: default schedule location time.Local -> time.UTC (SQLStreams schedules are UTC unless the spec carries TZ=).
 
 package robfig
 

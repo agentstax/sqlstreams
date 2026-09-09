@@ -10,8 +10,8 @@ bug, a downstream API that returns 404 for a deleted resource. The question that
 separates production-grade messaging from toys is: **where do those
 messages go, and how do you get them back?**
 
-In Vulkan, after a message exhausts its retries for a group — or the
-handler returns `vulkan.Terminal(err)`, which says no retry
+In SQLStreams, after a message exhausts its retries for a group — or the
+handler returns `sqlstreams.Terminal(err)`, which says no retry
 will help — its delivery row flips to `dead` — attempt count and final error on the
 row, the payload still in the message log beside it, per consumer
 group. Nothing expires behind your back (dead rows live until the
@@ -19,7 +19,7 @@ retention drop that removes their log rows), and no separate
 dead-letter queue needs provisioning per consumer.
 
 `last_error` is the handler's own error text, verbatim, plus the panic
-value and stack when the handler panicked. Vulkan never writes the payload
+value and stack when the handler panicked. SQLStreams never writes the payload
 into it and never logs it: the dead-letter log line names the message id
 and stops. The one way a payload ends up in `last_error` is a handler that
 formats it into its error, so name the id in the error and leave the
@@ -27,16 +27,16 @@ document in the message log.
 
 ## Triage with the tools you already have
 
-Each topic's tables are named by its id — resolve it once
-(`SELECT id FROM vulkan.topic_config WHERE name = '...'`; say it returned `1`):
+Each stream's tables are named by its id — resolve it once
+(`SELECT id FROM sqlstreams.stream_config WHERE name = '...'`; say it returned `1`):
 
 ```sql
 -- What's dying, and why? Group by error to find the pattern.
 SELECT d.last_error, count(*),
        min(m.created_at) AS first_seen, max(m.created_at) AS last_seen
-FROM vulkan.exception_queue_1 d
-JOIN vulkan.message_log_1 m ON m.id = d.message_id
-JOIN vulkan.consumer_group_config g ON g.id = d.consumer_group_id
+FROM sqlstreams.exception_queue_1 d
+JOIN sqlstreams.message_log_1 m ON m.id = d.message_id
+JOIN sqlstreams.consumer_group_config g ON g.id = d.consumer_group_id
 WHERE g.name = 'fraud-screening' AND d.status = 'dead'
 GROUP BY 1 ORDER BY 2 DESC;
 ```
@@ -45,9 +45,9 @@ GROUP BY 1 ORDER BY 2 DESC;
 -- Inspect one casualty in full, with its per-attempt history.
 SELECT m.payload, d.attempts, d.last_error,
        l.attempt, l.status, l.error, l.attempted_at
-FROM vulkan.exception_queue_1 d
-JOIN vulkan.message_log_1 m ON m.id = d.message_id
-LEFT JOIN vulkan.delivery_log_1 l ON (l.consumer_group_id, l.message_id) = (d.consumer_group_id, d.message_id)
+FROM sqlstreams.exception_queue_1 d
+JOIN sqlstreams.message_log_1 m ON m.id = d.message_id
+LEFT JOIN sqlstreams.delivery_log_1 l ON (l.consumer_group_id, l.message_id) = (d.consumer_group_id, d.message_id)
 WHERE d.status = 'dead'
 ORDER BY d.updated_at DESC, l.attempt;
 ```
@@ -61,8 +61,8 @@ instead of paging through an opaque console one message at a time.
 
 
 1. **Watch.** The dead count per group ships as a metric
-   (`vulkan.consumer.exceptions.dead`, via `vulkan metric list` or the
-   Prometheus endpoint on `vulkan manager run --metrics-address`) — or
+   (`sqlstreams.consumer.exceptions.dead`, via `sqlstreams metric list` or the
+   Prometheus endpoint on `sqlstreams manager run --metrics-address`) — or
    it's a `count(*)` threshold on the query above. Wire it into the
    alerting you already have.
 
@@ -77,9 +77,9 @@ instead of paging through an opaque console one message at a time.
    The proposed shape: reset a group's dead rows to `ready` with a
    fresh attempt budget — all of them, or a subset filtered by error
    text — as a library verb and a CLI command. Today no such verb
-   exists, and hand-editing Vulkan's tables is not a supported path.
+   exists, and hand-editing SQLStreams's tables is not a supported path.
    Dead rows keep their full record while they wait; the messages they
-   point at are retained per the topic's retention policy. The
+   point at are retained per the stream's retention policy. The
    cursor-side sibling — rewinding an existing group — is proposed on
    [the replay guide](/guides/replay/).
    </ThreadAside>
@@ -94,7 +94,7 @@ failed deliveries back off and dead-letter individually, and a `dead`
 row doesn't hold back the group's committed cursor. This is the
 per-message failure state that log-only systems can't express: in
 Kafka, a poison message at offset N means choosing between stalling the
-partition at N or skipping data. In Vulkan it means one row in `dead`
+partition at N or skipping data. In SQLStreams it means one row in `dead`
 and an otherwise unremarkable Tuesday.
 
 </ThreadAside>

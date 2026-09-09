@@ -6,20 +6,20 @@ description: One client over your pool, a handle per resource named from it, ver
 import ThreadAside from '../../../components/thread-aside/thread-aside.svelte';
 
 One client wraps the pool and holds the ambient config. Every resource is
-named from it as a handle, `client.Topic[OrderPlaced]("orders")`,
-`client.Topic[OrderPlaced]("orders").Consumer("billing")`, and the verbs
+named from it as a handle, `client.Stream[OrderPlaced]("orders")`,
+`client.Stream[OrderPlaced]("orders").Consumer("billing")`, and the verbs
 live on the thing they act on. Every type a program spells lives in
-`github.com/agentstax/vulkan/pkg/vulkan`; the per-handle lookup tables are
+`github.com/agentstax/sqlstreams/pkg/sqlstreams`; the per-handle lookup tables are
 the [Reference board](/boards/reference/).
 
 ## Two grammars
 
-The client selects the noun: `Topic[T](name)`, `Scheduler(name)`,
-`System()`, `Manager()`. A topic handle selects its own: `Consumer(name)`,
+The client selects the noun: `Stream[T](name)`, `Scheduler(name)`,
+`System()`, `Manager()`. A stream handle selects its own: `Consumer(name)`,
 `Producer()`, `Key(messageKey)`. A handle uses the bare verb,
 `orders.Register`, `orders.Destroy`, `nightly.Suspend`: it already knows
-what it is, and `orders.DestroyTopic` says topic twice. A plural method
-reads the materialized collection: `Topics`, `Schedulers`, `Consumers`.
+what it is, and `orders.DestroyStream` says stream twice. A plural method
+reads the materialized collection: `Streams`, `Schedulers`, `Consumers`.
 The act verbs on typed instances, `Consume`, `Produce`, `Schedule`, follow
 the same split.
 
@@ -38,28 +38,28 @@ verb is one round trip.
 
 ## The type argument
 
-The topic carries the message type and everything under it inherits it.
-`client.Topic[OrderPlaced]("orders")` is spelled once, and the group's
+The stream carries the message type and everything under it inherits it.
+`client.Stream[OrderPlaced]("orders")` is spelled once, and the group's
 `Register`, the producer's `Register`, and the key reads take no type of
 their own. Go cannot infer a type from a string, so the argument is always
 written, and a wrong type on a consumer becomes impossible to spell: the
-handler's parameter type is the topic's.
+handler's parameter type is the stream's.
 
 The admin verbs never look at it. `Register`, `Destroy`, `Migrate`,
-`Rename`, `Health`, and `Metrics` run the same for any type, so a topic
+`Rename`, `Health`, and `Metrics` run the same for any type, so a stream
 holding two schema versions is two handles on the same rows:
-`Topic[OrderPlacedV1]` reads V1 payloads, `Topic[OrderPlacedV2]` reads V2,
-and either one destroys the topic.
+`Stream[OrderPlacedV1]` reads V1 payloads, `Stream[OrderPlacedV2]` reads V2,
+and either one destroys the stream.
 
 A caller that does not know the type, the CLI and any admin-only script,
-uses `vulkan.RawPayload`: the stored JSON bytes as they are, declaring
+uses `sqlstreams.RawPayload`: the stored JSON bytes as they are, declaring
 version `0`. It works on every admin and key read. A consumer cannot
 register with it and a produce with it is refused, so no row is ever
 stored or read at version 0.
 
 ```go
 // an operator script -- no message type in scope
-orders := client.Topic[vulkan.RawPayload]("orders")
+orders := client.Stream[sqlstreams.RawPayload]("orders")
 health, err := orders.Health(ctx)
 head, err := orders.Key("order-42").CompactionHead(ctx) // head.Message is the raw JSON
 ```
@@ -69,11 +69,11 @@ payload value, and Go infers the type from that argument.
 
 ## What a declaration does
 
-Newest wins, every time. `Register` on a topic, a consumer group, a
+Newest wins, every time. `Register` on a stream, a consumer group, a
 schedule, or the system writes the declaration it was handed; a differing
 one overwrites the stored document and logs the change as `old -> new`
-([VK0061](/errors/VK0061/) for a topic, [VK0059](/errors/VK0059/) for a
-group, [VK0062](/errors/VK0062/) for a schedule), and an identical one
+([SS0061](/errors/SS0061/) for a stream, [SS0059](/errors/SS0059/) for a
+group, [SS0062](/errors/SS0062/) for a schedule), and an identical one
 writes nothing. A declaration is the whole document: fields left unset mean
 the library default, there is no field-level patch, and `nil` declares the
 empty document. `Start` and `Bindings` keep their own rules: read once at
@@ -81,7 +81,7 @@ creation, and install / wait.
 
 That is right for a rolling deploy and wrong for two services that both
 think they own `charge-cards`: they overwrite each other forever, and the
-tell is the same VK0059 line on every restart of either one. One declaring
+tell is the same SS0059 line on every restart of either one. One declaring
 service per resource is a convention, not a constraint.
 
 <ThreadAside label="PROPOSED" title="Reading the outcome back">
@@ -102,8 +102,8 @@ with nothing new, and none of the three quietly does more than the others.
 ## Names
 
 The suffix says what a value does. A handle is the lazy identity plus
-client (`TopicHandle`, `ConsumerHandle`, `KeyHandle`, `SchedulerHandle`);
-the bare noun is the materialized value returned by `Get` (`Topic`,
+client (`StreamHandle`, `ConsumerHandle`, `KeyHandle`, `SchedulerHandle`);
+the bare noun is the materialized value returned by `Get` (`Stream`,
 `Consumer`, `Schedule`). `StoredMessage[T]`, `Alert`, and `Measurement`
 follow the same rule: values, not handles. The rest of the grammar follows
 the value's role: `Config` for declarations, `Options` and `Item` for
@@ -111,34 +111,34 @@ command inputs, `Result` for command outputs, `Snapshot` for point-in-time
 observability, `Status` for current state, `Summary` for an aggregate
 projection, `Health` for a verdict, `Instance` for running process state.
 A projection includes its subject when the bare role would be vague:
-`ScheduleConsumerGroupSummary`, `TopicVersionHealth`. `Data` and `Info` are
+`ScheduleConsumerGroupSummary`, `StreamVersionHealth`. `Data` and `Info` are
 not roles, so neither is a public suffix.
 
 ## The supported API
 
-`pkg/vulkan` is the supported public entry point: its exported names and
+`pkg/sqlstreams` is the supported public entry point: its exported names and
 every exported field and method reachable through its types, aliases,
 parameters, and results. Before v1 this surface still changes as the API
 settles. Other packages remain importable for advanced use, without a
-stability commitment; `vulkan.RetryPolicy` aliases a type declared in
+stability commitment; `sqlstreams.RetryPolicy` aliases a type declared in
 `pkg/common`, its methods are part of the supported surface, and calling
 `common.NewDefaultRetryPolicy` through a direct import is advanced usage.
 Third-party types such as `pgxpool.Pool` keep their upstream contracts.
 
-`vulkan` is a large package: every config, options, error, and read-model
+`sqlstreams` is a large package: every config, options, error, and read-model
 a user can name. That is the point of it, and also the cost.
 
 ## Testing your code
 
 The library returns concrete `ProducerInstance[T]`, `ConsumerInstance[T]`,
 and `SchedulerInstance[T]` values. A package that needs a fake declares
-the small interface it consumes beside its own code; Vulkan does not ship
+the small interface it consumes beside its own code; SQLStreams does not ship
 a second, partial definition of those instances. The client stays concrete
 for integration tests.
 
 <ThreadAside label="PROPOSED" title="A test helper">
-`vulkantest.NewClient(t)` stands the real library up in a schema it drops
-at cleanup, so a handler test runs against Postgres and nothing fake. The
-spec is the [vulkantest reference](/reference/vulkantest/). Not built.
+`sqlstreamstest.NewClient(t)` stands the real library up in a schema it drops
+at cleanup, so a handler test runs against Postgres and nothing fake. Not
+built; a reference page lands with the package.
 
 </ThreadAside>

@@ -3,7 +3,7 @@ package controller
 import (
 	"fmt"
 
-	"github.com/agentstax/vulkan/pkg/worker"
+	"github.com/agentstax/sqlstreams/pkg/worker"
 )
 
 // WorkerConfig is RegisterWorker's spec -- every field is optional.

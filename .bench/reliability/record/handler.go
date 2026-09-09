@@ -14,7 +14,7 @@ const (
 type HandlerRecord struct {
 	At        time.Time      `json:"at"`
 	Consumer  string         `json:"consumer"`
-	Topic     string         `json:"topic"`
+	Stream    string         `json:"stream"`
 	Group     string         `json:"group"`
 	MessageId int64          `json:"message_id"`
 	Key       string         `json:"key"`

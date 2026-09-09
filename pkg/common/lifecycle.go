@@ -7,7 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/agentstax/vulkan/pkg/common/logging"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
 )
 
 // LifecycleContext returns the application-lifetime context to pass to the

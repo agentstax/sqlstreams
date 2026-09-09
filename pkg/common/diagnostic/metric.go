@@ -10,23 +10,23 @@ type MetricScope string
 
 const (
 	MetricScopeSystem          MetricScope = "system"           // one series per installation
-	MetricScopeTopic           MetricScope = "topic"            // one series per topic
+	MetricScopeStream          MetricScope = "stream"           // one series per stream
 	MetricScopeConsumerGroup   MetricScope = "consumer_group"   // one series per consumer group
 	MetricScopeConsumerSession MetricScope = "consumer_session" // one series per Consume call
 	MetricScopeExporter        MetricScope = "exporter"         // one series per export collection, not stored
 )
 
-// Validate rejects a scope outside Vulkan's built-in metric scopes.
+// Validate rejects a scope outside SQLStreams's built-in metric scopes.
 func (s MetricScope) Validate() error {
 	switch s {
-	case MetricScopeSystem, MetricScopeTopic, MetricScopeConsumerGroup, MetricScopeConsumerSession, MetricScopeExporter:
+	case MetricScopeSystem, MetricScopeStream, MetricScopeConsumerGroup, MetricScopeConsumerSession, MetricScopeExporter:
 		return nil
 	default:
-		return fmt.Errorf("scope must be a Vulkan metric scope, got %q", s)
+		return fmt.Errorf("scope must be a SQLStreams metric scope, got %q", s)
 	}
 }
 
-// DiagnosticMetric is a declared Vulkan-owned metric: the identity and
+// DiagnosticMetric is a declared SQLStreams-owned metric: the identity and
 // metadata every producer and rendering surface shares.
 type DiagnosticMetric struct {
 	Code          string
@@ -102,7 +102,7 @@ func Metrics() []*DiagnosticMetric {
 }
 
 // GetMetric returns the declaration behind a metric name; comma-ok absence
-// for names the registry does not know (user metrics on the same topic).
+// for names the registry does not know (user metrics on the same stream).
 // The registry fills once at init and stays small, so a scan serves.
 func GetMetric(name string) (*DiagnosticMetric, bool) {
 	registryLock.Lock()

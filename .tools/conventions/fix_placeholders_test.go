@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/agentstax/vulkan/pkg/common/diagnostic"
+	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
 )
 
 // A fix is one string for every raise site of its code, so a placeholder only
@@ -152,7 +152,7 @@ func literalNames(pairs []ast.Expr) []string {
 	return names
 }
 
-// declaredErrorVariables maps each `var ErrX = diagnostic.NewDiagnosticError("VKnnnn"` to
+// declaredErrorVariables maps each `var ErrX = diagnostic.NewDiagnosticError("SSnnnn"` to
 // its code. The registry knows the codes but not the variable name a raise
 // site spells.
 func declaredErrorVariables(t *testing.T) map[string]string {

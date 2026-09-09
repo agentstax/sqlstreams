@@ -3,8 +3,8 @@ package base
 import (
 	"errors"
 
-	"github.com/agentstax/vulkan/pkg/common/diagnostic"
-	"github.com/agentstax/vulkan/pkg/consume"
+	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/agentstax/sqlstreams/pkg/consume"
 )
 
 // HandlerOutcome is what a consumerFunc's returned error asks for.

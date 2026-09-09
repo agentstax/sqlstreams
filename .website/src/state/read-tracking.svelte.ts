@@ -6,7 +6,7 @@
 // amber -- it is all new.
 import { nowIso } from '../helpers/now-iso';
 
-const visitsKey = 'vulkan-board:visits';
+const visitsKey = 'sqlstreams-board:visits';
 
 // the log is bounded: at the cap the oldest page views fall off the front,
 // so a scope not visited within the last 200 page views reads as unread

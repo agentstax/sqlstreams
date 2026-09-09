@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	"github.com/agentstax/vulkan/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
 )
 
 type ExporterConfig struct {
-	// Schema selects the Vulkan installation. Default: "vulkan".
+	// Schema selects the SQLStreams installation. Default: "sqlstreams".
 	Schema string
 
 	// CollectTimeout bounds each collection's Postgres reads.

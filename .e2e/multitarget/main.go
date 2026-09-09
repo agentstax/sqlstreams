@@ -1,6 +1,6 @@
 package main
 
-// multi-target transactional enqueue e2e test: does vulkan.InTransaction +
+// multi-target transactional enqueue e2e test: does sqlstreams.InTransaction +
 // Producer.ProduceInTx actually deliver the atomicity/isolation
 // guarantees the design promises?
 //
@@ -28,19 +28,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 	"os"
 	"time"
 	"uuid"
 
-	"github.com/agentstax/vulkan/e2e/common"
-	"github.com/agentstax/vulkan/pkg/common/diagnostic"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/e2e/common"
+	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-var fn = func(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
+var fn = func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 	return common.NewWork(30, "admin@example.com")
 }
 
@@ -80,11 +80,11 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
@@ -104,15 +104,15 @@ func run() (err error) {
 	return nil
 }
 
-func atomicPublishScenario(ctx context.Context, client *vulkan.Client, ds *iDatastore.PostgresDatastore) {
+func atomicPublishScenario(ctx context.Context, client *sqlstreams.Client, ds *iDatastore.PostgresDatastore) {
 	step("atomic publish: two targets in one InTransaction closure both land together")
 
-	topicA, wpA, cleanupA := newTarget(ctx, client, "a", 1000)
+	streamA, wpA, cleanupA := newTarget(ctx, client, "a", 1000)
 	defer cleanupA()
-	topicB, wpB, cleanupB := newTarget(ctx, client, "b", 1000)
+	streamB, wpB, cleanupB := newTarget(ctx, client, "b", 1000)
 	defer cleanupB()
 
-	err := client.InTransaction(ctx, func(ctx context.Context, tx vulkan.Tx) error {
+	err := client.InTransaction(ctx, func(ctx context.Context, tx sqlstreams.Tx) error {
 		if _, err := wpA.ProduceInTx(ctx, tx, work(), nil); err != nil {
 			return err
 		}
@@ -121,25 +121,25 @@ func atomicPublishScenario(ctx context.Context, client *vulkan.Client, ds *iData
 	})
 	must(err)
 
-	assertMessageLogCount(ctx, ds, topicA.Id, 1)
-	assertMessageLogCount(ctx, ds, topicB.Id, 1)
+	assertMessageLogCount(ctx, ds, streamA.Id, 1)
+	assertMessageLogCount(ctx, ds, streamB.Id, 1)
 	fmt.Println("  ✓ both targets committed together")
 }
 
-func rollbackOnFailureScenario(ctx context.Context, client *vulkan.Client, ds *iDatastore.PostgresDatastore) {
+func rollbackOnFailureScenario(ctx context.Context, client *sqlstreams.Client, ds *iDatastore.PostgresDatastore) {
 	step("rollback on failure: second target's producerFunc erroring rolls back BOTH, not just itself")
 
-	topicA, wpA, cleanupA := newTarget(ctx, client, "a", 1000)
+	streamA, wpA, cleanupA := newTarget(ctx, client, "a", 1000)
 	defer cleanupA()
-	topicB, wpB, cleanupB := newTarget(ctx, client, "b", 1000)
+	streamB, wpB, cleanupB := newTarget(ctx, client, "b", 1000)
 	defer cleanupB()
 
 	wantErr := errors.New("second target refuses to publish")
-	err := client.InTransaction(ctx, func(ctx context.Context, tx vulkan.Tx) error {
+	err := client.InTransaction(ctx, func(ctx context.Context, tx sqlstreams.Tx) error {
 		if _, err := wpA.ProduceInTx(ctx, tx, work(), nil); err != nil {
 			return err
 		}
-		_, err := wpB.ProduceFuncInTx(ctx, tx, func(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
+		_, err := wpB.ProduceFuncInTx(ctx, tx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 			return nil, wantErr
 		}, nil)
 		return err
@@ -148,27 +148,27 @@ func rollbackOnFailureScenario(ctx context.Context, client *vulkan.Client, ds *i
 		die(fmt.Sprintf("InTransaction returned %v, want %v surfaced as-is", err, wantErr))
 	}
 
-	assertMessageLogCount(ctx, ds, topicA.Id, 0)
-	assertMessageLogCount(ctx, ds, topicB.Id, 0)
+	assertMessageLogCount(ctx, ds, streamA.Id, 0)
+	assertMessageLogCount(ctx, ds, streamB.Id, 0)
 	fmt.Println("  ✓ target A's insert never lands either -- one shared tx, not two independent publishes")
 }
 
-func partitionSelfHealIsolationScenario(ctx context.Context, client *vulkan.Client, ds *iDatastore.PostgresDatastore) {
+func partitionSelfHealIsolationScenario(ctx context.Context, client *sqlstreams.Client, ds *iDatastore.PostgresDatastore) {
 	step("partition self-heal isolation: B's internal retry must not touch A's work or rerun a side effect between them")
 
-	topicA, wpA, cleanupA := newTarget(ctx, client, "a", 1000)
+	streamA, wpA, cleanupA := newTarget(ctx, client, "a", 1000)
 	defer cleanupA()
 	// partitionSize=2 -- one seeded row fills partition_0 [0,2) exactly
 	// (BIGSERIAL starts at 1), so the NEXT id has nowhere to land yet.
-	topicB, wpB, cleanupB := newTarget(ctx, client, "b", 2)
+	streamB, wpB, cleanupB := newTarget(ctx, client, "b", 2)
 	defer cleanupB()
 
 	_, err := wpB.ProduceFunc(ctx, fn, nil)
 	must(err)
-	assertMessageLogCount(ctx, ds, topicB.Id, 1)
+	assertMessageLogCount(ctx, ds, streamB.Id, 1)
 
 	betweenCalls := 0
-	err = client.InTransaction(ctx, func(ctx context.Context, tx vulkan.Tx) error {
+	err = client.InTransaction(ctx, func(ctx context.Context, tx sqlstreams.Tx) error {
 		if _, err := wpA.ProduceInTx(ctx, tx, work(), nil); err != nil {
 			return err
 		}
@@ -181,23 +181,23 @@ func partitionSelfHealIsolationScenario(ctx context.Context, client *vulkan.Clie
 	if betweenCalls != 1 {
 		die(fmt.Sprintf("side effect between targets fired %d times, want exactly 1 -- B's self-heal retry must not rerun anything before it", betweenCalls))
 	}
-	assertMessageLogCount(ctx, ds, topicA.Id, 1)
-	assertMessageLogCount(ctx, ds, topicB.Id, 2) // 1 seeded + 1 self-healed into a fresh partition
+	assertMessageLogCount(ctx, ds, streamA.Id, 1)
+	assertMessageLogCount(ctx, ds, streamB.Id, 2) // 1 seeded + 1 self-healed into a fresh partition
 	fmt.Println("  ✓ A's insert survives untouched, the side effect between calls fired exactly once, B self-healed and landed")
 }
 
-func ambiguousCommitScenario(ctx context.Context, client *vulkan.Client, ds *iDatastore.PostgresDatastore) {
+func ambiguousCommitScenario(ctx context.Context, client *sqlstreams.Client, ds *iDatastore.PostgresDatastore) {
 	step("ambiguous commit: a Commit-time failure surfaces unclassified -- retrying is the caller's decision")
 
 	setupDeferredFKFixture(ctx, ds)
 	defer teardownDeferredFKFixture(ctx, ds)
 
-	topicA, wpA, cleanupA := newTarget(ctx, client, "a", 1000)
+	streamA, wpA, cleanupA := newTarget(ctx, client, "a", 1000)
 	defer cleanupA()
-	topicB, wpB, cleanupB := newTarget(ctx, client, "b", 1000)
+	streamB, wpB, cleanupB := newTarget(ctx, client, "b", 1000)
 	defer cleanupB()
 
-	err := client.InTransaction(ctx, func(ctx context.Context, tx vulkan.Tx) error {
+	err := client.InTransaction(ctx, func(ctx context.Context, tx sqlstreams.Tx) error {
 		if _, err := wpA.ProduceInTx(ctx, tx, work(), nil); err != nil {
 			return err
 		}
@@ -217,8 +217,8 @@ func ambiguousCommitScenario(ctx context.Context, client *vulkan.Client, ds *iDa
 		die("InTransaction wrapped the commit error in an diagnostic.DiagnosticError -- it must never classify, only surface as-is")
 	}
 
-	assertMessageLogCount(ctx, ds, topicA.Id, 0)
-	assertMessageLogCount(ctx, ds, topicB.Id, 0)
+	assertMessageLogCount(ctx, ds, streamA.Id, 0)
+	assertMessageLogCount(ctx, ds, streamB.Id, 0)
 
 	fmt.Println("  ✓ Commit-time failure surfaces as the raw driver error, unclassified")
 }
@@ -227,44 +227,44 @@ func ambiguousCommitScenario(ctx context.Context, client *vulkan.Client, ds *iDa
 // keys -- what a caller does after losing the commit confirmation. Auto-minted keys
 // resolve fresh per call, so THIS dedup guarantee belongs to caller keys
 // alone: without them a closure rerun double-publishes every target.
-func callerKeyRetryScenario(ctx context.Context, client *vulkan.Client, ds *iDatastore.PostgresDatastore) {
+func callerKeyRetryScenario(ctx context.Context, client *sqlstreams.Client, ds *iDatastore.PostgresDatastore) {
 	step("caller-key retry: rerunning the closure under the same keys dedups every target")
 
-	topicA, wpA, cleanupA := newTarget(ctx, client, "a", 1000)
+	streamA, wpA, cleanupA := newTarget(ctx, client, "a", 1000)
 	defer cleanupA()
-	topicB, wpB, cleanupB := newTarget(ctx, client, "b", 1000)
+	streamB, wpB, cleanupB := newTarget(ctx, client, "b", 1000)
 	defer cleanupB()
 
 	keyA := uuid.NewV7().String()
 	keyB := uuid.NewV7().String()
 
-	closure := func(ctx context.Context, tx vulkan.Tx) error {
-		if _, err := wpA.ProduceInTx(ctx, tx, work(), &vulkan.ProduceOptions{IdempotencyKey: keyA}); err != nil {
+	closure := func(ctx context.Context, tx sqlstreams.Tx) error {
+		if _, err := wpA.ProduceInTx(ctx, tx, work(), &sqlstreams.ProduceOptions{IdempotencyKey: keyA}); err != nil {
 			return err
 		}
-		_, err := wpB.ProduceInTx(ctx, tx, work(), &vulkan.ProduceOptions{IdempotencyKey: keyB})
+		_, err := wpB.ProduceInTx(ctx, tx, work(), &sqlstreams.ProduceOptions{IdempotencyKey: keyB})
 		return err
 	}
 
 	must(client.InTransaction(ctx, closure)) // the publish whose confirmation was "lost"
 	must(client.InTransaction(ctx, closure)) // the caller's retry
 
-	assertMessageLogCount(ctx, ds, topicA.Id, 1)
-	assertMessageLogCount(ctx, ds, topicB.Id, 1)
+	assertMessageLogCount(ctx, ds, streamA.Id, 1)
+	assertMessageLogCount(ctx, ds, streamB.Id, 1)
 	fmt.Println("  ✓ both targets landed exactly once across two full closure runs")
 }
 
 // ---- fixtures ----
 
-func newTarget(ctx context.Context, client *vulkan.Client, label string, partitionSize int64) (*vulkan.Topic, *vulkan.ProducerInstance[common.Work], func()) {
+func newTarget(ctx context.Context, client *sqlstreams.Client, label string, partitionSize int64) (*sqlstreams.Stream, *sqlstreams.ProducerInstance[common.Work], func()) {
 	name := fmt.Sprintf("multitarget.%s.%d", label, time.Now().UnixNano())
-	tp, err := client.Topic[vulkan.RawPayload](name).Register(ctx, &vulkan.TopicConfig{PartitionSize: partitionSize})
+	tp, err := client.Stream[sqlstreams.RawPayload](name).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: partitionSize})
 	must(err)
 
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 	return tp, wpInstance, func() {
-		must(client.Topic[vulkan.RawPayload](name).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}
 }
 
@@ -295,11 +295,11 @@ func exec(ctx context.Context, ds *iDatastore.PostgresDatastore, sql string) err
 
 // ---- helpers ----
 
-func assertMessageLogCount(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, want int) {
+func assertMessageLogCount(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, want int) {
 	var count int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s;`, ds.Schema, topic.MessageLogTable(topicId))).Scan(&count))
+	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s;`, ds.Schema, stream.MessageLogTable(streamId))).Scan(&count))
 	if count != want {
-		die(fmt.Sprintf("%s.%s has %d rows, want %d", ds.Schema, topic.MessageLogTable(topicId), count, want))
+		die(fmt.Sprintf("%s.%s has %d rows, want %d", ds.Schema, stream.MessageLogTable(streamId), count, want))
 	}
 }
 

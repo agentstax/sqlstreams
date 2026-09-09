@@ -14,16 +14,16 @@ const (
 	OwnerAny OwnerKind = ""
 
 	OwnerSystem        OwnerKind = "system"         // SystemId only
-	OwnerTopic         OwnerKind = "topic"          // SystemId and TopicId
+	OwnerStream        OwnerKind = "stream"         // SystemId and StreamId
 	OwnerConsumerGroup OwnerKind = "consumer_group" // all three ids
 )
 
 func (k OwnerKind) Validate() error {
 	switch k {
-	case OwnerSystem, OwnerTopic, OwnerConsumerGroup:
+	case OwnerSystem, OwnerStream, OwnerConsumerGroup:
 		return nil
 	default:
-		return fmt.Errorf("must be one of %q, %q, %q, got %q", OwnerSystem, OwnerTopic, OwnerConsumerGroup, k)
+		return fmt.Errorf("must be one of %q, %q, %q, got %q", OwnerSystem, OwnerStream, OwnerConsumerGroup, k)
 	}
 }
 
@@ -31,9 +31,9 @@ func (k OwnerKind) Validate() error {
 // schedule, migration_log).
 type Owner struct {
 	SystemId        int64  `json:"system_id"`
-	TopicId         int64  `json:"topic_id"` // 0 for a system owner
-	ConsumerGroupId int64  `json:"group_id"` // 0 unless the owner is a consumer group
-	Name            string `json:"owner"`    // "system", the topic name, or the group name
+	StreamId        int64  `json:"stream_id"` // 0 for a system owner
+	ConsumerGroupId int64  `json:"group_id"`  // 0 unless the owner is a consumer group
+	Name            string `json:"owner"`     // "system", the stream name, or the group name
 }
 
 func NewSystemOwner(systemId int64) (*Owner, error) {
@@ -43,26 +43,26 @@ func NewSystemOwner(systemId int64) (*Owner, error) {
 	return &Owner{SystemId: systemId, Name: "system"}, nil
 }
 
-func NewTopicOwner(systemId int64, topicId int64, name string) (*Owner, error) {
+func NewStreamOwner(systemId int64, streamId int64, name string) (*Owner, error) {
 	if systemId <= 0 {
 		return nil, fmt.Errorf("systemId must be > 0, got %d", systemId)
 	}
-	if topicId <= 0 {
-		return nil, fmt.Errorf("topicId must be > 0, got %d", topicId)
+	if streamId <= 0 {
+		return nil, fmt.Errorf("streamId must be > 0, got %d", streamId)
 	}
 	if name == "" {
 		return nil, errors.New("name is required")
 	}
 
-	return &Owner{SystemId: systemId, TopicId: topicId, Name: name}, nil
+	return &Owner{SystemId: systemId, StreamId: streamId, Name: name}, nil
 }
 
-func NewConsumerGroupOwner(systemId int64, topicId int64, consumerGroupId int64, name string) (*Owner, error) {
+func NewConsumerGroupOwner(systemId int64, streamId int64, consumerGroupId int64, name string) (*Owner, error) {
 	if systemId <= 0 {
 		return nil, fmt.Errorf("systemId must be > 0, got %d", systemId)
 	}
-	if topicId <= 0 {
-		return nil, fmt.Errorf("topicId must be > 0, got %d", topicId)
+	if streamId <= 0 {
+		return nil, fmt.Errorf("streamId must be > 0, got %d", streamId)
 	}
 	if consumerGroupId <= 0 {
 		return nil, fmt.Errorf("consumerGroupId must be > 0, got %d", consumerGroupId)
@@ -71,7 +71,7 @@ func NewConsumerGroupOwner(systemId int64, topicId int64, consumerGroupId int64,
 		return nil, errors.New("name is required")
 	}
 
-	return &Owner{SystemId: systemId, TopicId: topicId, ConsumerGroupId: consumerGroupId, Name: name}, nil
+	return &Owner{SystemId: systemId, StreamId: streamId, ConsumerGroupId: consumerGroupId, Name: name}, nil
 }
 
 // Kind reads the owner's kind off its ids: the deepest set id wins.
@@ -79,8 +79,8 @@ func (o Owner) Kind() OwnerKind {
 	switch {
 	case o.ConsumerGroupId > 0:
 		return OwnerConsumerGroup
-	case o.TopicId > 0:
-		return OwnerTopic
+	case o.StreamId > 0:
+		return OwnerStream
 	default:
 		return OwnerSystem
 	}

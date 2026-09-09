@@ -5,12 +5,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/migrate"
-	"github.com/agentstax/vulkan/pkg/migrate/controller/datastore"
-	systemMigrations "github.com/agentstax/vulkan/pkg/system/migrations"
-	topicMigrations "github.com/agentstax/vulkan/pkg/topic/migrations"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/migrate"
+	"github.com/agentstax/sqlstreams/pkg/migrate/controller/datastore"
+	streamMigrations "github.com/agentstax/sqlstreams/pkg/stream/migrations"
+	systemMigrations "github.com/agentstax/sqlstreams/pkg/system/migrations"
 )
 
 // AssertSystemSchemaSupported gates startup for a system-owned caller against
@@ -27,34 +27,34 @@ func (c *Controller) AssertSystemSchemaSupported(ctx context.Context, systemId i
 	return assertVersionSupported(common.OwnerSystem, state, systemMigrations.Version())
 }
 
-// AssertTopicSchemaSupported gates startup for a topic- or group-owned
-// caller against both the shared system tables and the topic's own tables.
-func (c *Controller) AssertTopicSchemaSupported(ctx context.Context, systemId int64, topicId int64) error {
+// AssertStreamSchemaSupported gates startup for a stream- or group-owned
+// caller against both the shared system tables and the stream's own tables.
+func (c *Controller) AssertStreamSchemaSupported(ctx context.Context, systemId int64, streamId int64) error {
 	if err := c.AssertSystemSchemaSupported(ctx, systemId); err != nil {
 		return err
 	}
-	if topicId <= 0 {
-		return fmt.Errorf("topicId must be > 0, got %d", topicId)
+	if streamId <= 0 {
+		return fmt.Errorf("streamId must be > 0, got %d", streamId)
 	}
 
-	state, err := c.datastore.TopicSchemaState(ctx, topicId)
+	state, err := c.datastore.StreamSchemaState(ctx, streamId)
 	if err != nil {
 		return err // ErrNotRegistered, or a real db error
 	}
-	return assertVersionSupported(common.OwnerTopic, state, topicMigrations.Version())
+	return assertVersionSupported(common.OwnerStream, state, streamMigrations.Version())
 }
 
-// AssertTopicSchemaSupportedInTx gates a topic-owned caller through tx, so
+// AssertStreamSchemaSupportedInTx gates a stream-owned caller through tx, so
 // schema compatibility and the caller's following work share one transaction.
-func (c *Controller) AssertTopicSchemaSupportedInTx(ctx context.Context, tx iDatastore.Tx, systemId int64, topicId int64) error {
+func (c *Controller) AssertStreamSchemaSupportedInTx(ctx context.Context, tx iDatastore.Tx, systemId int64, streamId int64) error {
 	if tx == nil {
 		return errors.New("tx must not be nil")
 	}
 	if systemId <= 0 {
 		return fmt.Errorf("systemId must be > 0, got %d", systemId)
 	}
-	if topicId <= 0 {
-		return fmt.Errorf("topicId must be > 0, got %d", topicId)
+	if streamId <= 0 {
+		return fmt.Errorf("streamId must be > 0, got %d", streamId)
 	}
 
 	state, err := c.datastore.SystemSchemaStateInTx(ctx, tx, systemId)
@@ -65,11 +65,11 @@ func (c *Controller) AssertTopicSchemaSupportedInTx(ctx context.Context, tx iDat
 		return err
 	}
 
-	state, err = c.datastore.TopicSchemaStateInTx(ctx, tx, topicId)
+	state, err = c.datastore.StreamSchemaStateInTx(ctx, tx, streamId)
 	if err != nil {
 		return err
 	}
-	return assertVersionSupported(common.OwnerTopic, state, topicMigrations.Version())
+	return assertVersionSupported(common.OwnerStream, state, streamMigrations.Version())
 }
 
 // ***************

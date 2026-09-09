@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/agentstax/vulkan/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common"
 )
 
 // SystemVersion reads the system's current schema version from migration_log.
@@ -20,13 +20,13 @@ func (c *Controller) SystemVersion(ctx context.Context, systemId int64) (int64, 
 	return state.Version, nil
 }
 
-// TopicVersion reads a topic's current schema version from migration_log.
+// StreamVersion reads a stream's current schema version from migration_log.
 // Returns ErrNotRegistered if there is no baseline record.
-func (c *Controller) TopicVersion(ctx context.Context, topicId int64) (int64, error) {
-	if topicId <= 0 {
-		return 0, fmt.Errorf("topicId must be > 0, got %d", topicId)
+func (c *Controller) StreamVersion(ctx context.Context, streamId int64) (int64, error) {
+	if streamId <= 0 {
+		return 0, fmt.Errorf("streamId must be > 0, got %d", streamId)
 	}
-	state, err := c.datastore.TopicSchemaState(ctx, topicId)
+	state, err := c.datastore.StreamSchemaState(ctx, streamId)
 	if err != nil {
 		return 0, err
 	}

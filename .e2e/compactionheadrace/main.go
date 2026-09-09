@@ -13,7 +13,7 @@ package main
 // transaction's UPSERT happened to commit last.
 //
 // Part 2 -- the O(1) rerun. compactionscale proved the old NOT EXISTS
-// scan grows linearly with a topic's history (no early termination for a
+// scan grows linearly with a stream's history (no early termination for a
 // never-superseded key). Same checkpoints, same never-superseded row, but
 // EXPLAIN ANALYZEs the NEW compaction_head lookup instead: touched partitions
 // must stay flat at every checkpoint, because the lookup no longer scans
@@ -23,7 +23,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 	"os"
 	"regexp"
 	"strconv"
@@ -31,9 +31,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/agentstax/vulkan/e2e/common"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/e2e/common"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -72,7 +72,7 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
@@ -90,36 +90,36 @@ func concurrentRaceScenario(ctx context.Context, pool *pgxpool.Pool) {
 	step("concurrent same-key publishes converge to the true max id")
 
 	const n = 50
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	topicName := fmt.Sprintf("phase8c.compactionheadrace.race.%d", time.Now().UnixNano())
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{PartitionSize: 1000})
+	streamName := fmt.Sprintf("phase8c.compactionheadrace.race.%d", time.Now().UnixNano())
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: 1000})
 	must(err)
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 
 	var wg sync.WaitGroup
 	for range n {
 		wg.Go(func() {
-			_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
+			_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 				return common.NewWork(30, "admin@example.com")
-			}, &vulkan.ProduceOptions{MessageKey: "hot-key", Compaction: &vulkan.CompactionOptions{Enable: true}})
+			}, &sqlstreams.ProduceOptions{MessageKey: "hot-key", Compaction: &sqlstreams.CompactionOptions{Enable: true}})
 			must(err)
 		})
 	}
 	wg.Wait()
 
 	var trueMax, compactionHeadValue int64
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT MAX(id) FROM %s.%s WHERE message_key='hot-key';`, ds.Schema, topic.MessageLogTable(tp.Id))).Scan(&trueMax))
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT message_id FROM %s.%s WHERE compaction_key='hot-key';`, ds.Schema, topic.CompactionHeadTable(tp.Id))).Scan(&compactionHeadValue))
+	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT MAX(id) FROM %s.%s WHERE message_key='hot-key';`, ds.Schema, stream.MessageLogTable(tp.Id))).Scan(&trueMax))
+	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT message_id FROM %s.%s WHERE compaction_key='hot-key';`, ds.Schema, stream.CompactionHeadTable(tp.Id))).Scan(&compactionHeadValue))
 
 	assertInt64(fmt.Sprintf("compaction_head converged to the true max id across %d concurrent publishes", n), compactionHeadValue, trueMax)
 }
@@ -129,17 +129,17 @@ func concurrentRaceScenario(ctx context.Context, pool *pgxpool.Pool) {
 func scaleCurveScenario(ctx context.Context, pool *pgxpool.Pool) {
 	step("O(1) rerun: the same never-superseded row, re-measured against compaction_head as history grows")
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	topicName := fmt.Sprintf("phase8c.compactionheadrace.scale.%d", time.Now().UnixNano())
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{PartitionSize: scalePartitionSize})
+	streamName := fmt.Sprintf("phase8c.compactionheadrace.scale.%d", time.Now().UnixNano())
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: scalePartitionSize})
 	must(err)
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	insertStaleRow(ctx, ds, tp.Id)
@@ -178,21 +178,21 @@ func scaleCurveScenario(ctx context.Context, pool *pgxpool.Pool) {
 // insertStaleRow bypasses the write path (like compactionscale's bulk
 // seeding, this cares about query cost at scale, not seeding realism) so
 // its own compaction_head row is set directly alongside it.
-func insertStaleRow(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64) {
-	_, err := ds.Pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (payload, schema_version, message_key, compaction_rank) VALUES ('{}'::jsonb, 1, 'stale', 0);`, ds.Schema, topic.MessageLogTable(topicId)))
+func insertStaleRow(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) {
+	_, err := ds.Pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (payload, schema_version, message_key, compaction_rank) VALUES ('{}'::jsonb, 1, 'stale', 0);`, ds.Schema, stream.MessageLogTable(streamId)))
 	must(err)
-	_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (compaction_key, message_id, schema_version, compaction_rank) VALUES ('stale', 1, 1, 0);`, ds.Schema, topic.CompactionHeadTable(topicId)))
+	_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (compaction_key, message_id, schema_version, compaction_rank) VALUES ('stale', 1, 1, 0);`, ds.Schema, stream.CompactionHeadTable(streamId)))
 	must(err)
 }
 
 // createPartitions issues every CREATE TABLE ... PARTITION OF statement for
 // [from, to) as ONE multi-statement Exec -- a network round trip per
 // partition would dominate the e2e test's own runtime at these checkpoint sizes.
-func createPartitions(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId, from, to int64) {
+func createPartitions(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId, from, to int64) {
 	if to <= from {
 		return
 	}
-	logName := topic.MessageLogTable(topicId)
+	logName := stream.MessageLogTable(streamId)
 	logTable := fmt.Sprintf("%s.%s", ds.Schema, logName)
 	var sql strings.Builder
 	for n := from; n < to; n++ {
@@ -205,16 +205,16 @@ func createPartitions(ctx context.Context, ds *iDatastore.PostgresDatastore, top
 
 // bulkInsertFiller adds `count` unkeyed rows in one set-based INSERT --
 // unkeyed traffic never touches compaction_head, so it's free filler for
-// growing the topic's row count/tail position without affecting what's
+// growing the stream's row count/tail position without affecting what's
 // being measured.
-func bulkInsertFiller(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId, count int64) {
+func bulkInsertFiller(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId, count int64) {
 	if count <= 0 {
 		return
 	}
 	sql := fmt.Sprintf(`
 		INSERT INTO %s.%s (payload, schema_version, message_key)
 		SELECT '{}'::jsonb, 1, NULL FROM generate_series(1, $1);
-	`, ds.Schema, topic.MessageLogTable(topicId))
+	`, ds.Schema, stream.MessageLogTable(streamId))
 	_, err := ds.Pool.Exec(ctx, sql, count)
 	must(err)
 }
@@ -222,8 +222,8 @@ func bulkInsertFiller(ctx context.Context, ds *iDatastore.PostgresDatastore, top
 // explainCompactionHeadLookup EXPLAIN ANALYZEs the production predicate --
 // counting only message_log partitions the Append node ACTUALLY EXECUTED
 // against (mentions alone don't mean touched, see compactionwidth).
-func explainCompactionHeadLookup(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64) (int, float64) {
-	logName := topic.MessageLogTable(topicId)
+func explainCompactionHeadLookup(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) (int, float64) {
+	logName := stream.MessageLogTable(streamId)
 	logTable := fmt.Sprintf("%s.%s", ds.Schema, logName)
 	sql := fmt.Sprintf(`
 		EXPLAIN (ANALYZE, COSTS OFF) SELECT 1 FROM %s m
@@ -233,7 +233,7 @@ func explainCompactionHeadLookup(ctx context.Context, ds *iDatastore.PostgresDat
 				OR m.id = (SELECT message_id FROM %s.%s
 					WHERE compaction_key = m.message_key)
 			);
-	`, logTable, ds.Schema, topic.CompactionHeadTable(topicId))
+	`, logTable, ds.Schema, stream.CompactionHeadTable(streamId))
 
 	rows, err := ds.Pool.Query(ctx, sql)
 	must(err)

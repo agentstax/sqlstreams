@@ -3,7 +3,7 @@ package migrations
 import (
 	"testing"
 
-	"github.com/agentstax/vulkan/pkg/migrate"
+	"github.com/agentstax/sqlstreams/pkg/migrate"
 )
 
 // The real registry must always be valid, so an out-of-order or gapped step

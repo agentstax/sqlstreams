@@ -1,20 +1,20 @@
 ---
 title: Architecture
-description: Application processes run Vulkan against Postgres; shared tables describe resources and each topic owns a table family.
+description: Application processes run SQLStreams against Postgres; shared tables describe resources and each stream owns a table family.
 ---
 
-Vulkan runs inside your Go processes against Postgres. Producers write
+SQLStreams runs inside your Go processes against Postgres. Producers write
 messages, consumers claim and handle them, and a system manager runs
 maintenance. Consumers run that manager by default; a deployment that
 only produces needs a [standalone manager](/reference/manager/).
 
 ## The flow of one message
 
-For `orders.created` (topic id `1`), the `email-receipts` group (id `7`)
+For `orders.created` (stream id `1`), the `email-receipts` group (id `7`)
 handles message 101:
 
 1. **Produce:** the application inserts the message into
-   `vulkan.message_log_1`. With `ProduceFunc`, the business write runs
+   `sqlstreams.message_log_1`. With `ProduceFunc`, the business write runs
    in the same transaction. Commit makes both visible together.
 2. **Claim:** a consumer advances group 7's `claimed` cursor over a
    range containing 101 and takes a range lease. The transaction commits
@@ -22,7 +22,7 @@ handles message 101:
    determine which messages reach the handler.
 3. **Resolve:** a first delivery that succeeds normally writes no
    exception row. An error, requested delay, or key wait records state
-   in `vulkan.exception_queue_1`. The cursor advancer moves `committed`
+   in `sqlstreams.exception_queue_1`. The cursor advancer moves `committed`
    past resolved ranges; exception delivery continues independently.
 4. **Recover:** if the process crashes before resolving its range,
    another consumer can reclaim the range after lease expiry. Message
@@ -33,35 +33,35 @@ handles message 101:
 
 ## Two kinds of table
 
-Shared tables describe resources and maintenance. Every topic also owns
-physical tables named with its id, so topic `1` uses `message_log_1`,
+Shared tables describe resources and maintenance. Every stream also owns
+physical tables named with its id, so stream `1` uses `message_log_1`,
 `exception_queue_1`, and the rest of that family.
 
 | Scope | Tables | Purpose |
 | --- | --- | --- |
-| Shared | `system_config`, `topic_config`, `consumer_group_config` | resource declarations |
+| Shared | `system_config`, `stream_config`, `consumer_group_config` | resource declarations |
 | Shared | `worker_config`, `worker_instance`, `schedule_config`, `schedule_cursor` | maintenance and schedule state |
-| Topic | `message_log_1` | retained payloads, versions, routing keys, and message keys |
-| Topic | `consumer_group_cursor_1`, `claim_lease_1` | group progress and range claims |
-| Topic | `exception_queue_1`, `delivery_log_1` | retries, delays, key waits, and attempt history |
-| Topic | `binding_config_1` | group routing patterns |
-| Topic | `message_key_lease_1`, `compaction_head_1`, `idempotency_key_1` | per-key concurrency, current compacted values, and produce deduplication |
+| Stream | `message_log_1` | retained payloads, versions, routing keys, and message keys |
+| Stream | `consumer_group_cursor_1`, `claim_lease_1` | group progress and range claims |
+| Stream | `exception_queue_1`, `delivery_log_1` | retries, delays, key waits, and attempt history |
+| Stream | `binding_config_1` | group routing patterns |
+| Stream | `message_key_lease_1`, `compaction_head_1`, `idempotency_key_1` | per-key concurrency, current compacted values, and produce deduplication |
 
 [Table Design](/concepts/table-design/) lists the full family, declaration
-history, and relationships. A per-topic table carries no `topic_id`
+history, and relationships. A per-stream table carries no `stream_id`
 column because its name supplies the scope.
 
-The first topic registration creates the shared tables if absent, then
-the topic's family. It validates the topic name and config before
+The first stream registration creates the shared tables if absent, then
+the stream's family. It validates the stream name and config before
 creating resources. A later database failure can still leave partial
 registration progress. `System().Register` explicitly declares system
-configuration; `vulkan migrate init` creates the shared baseline from
+configuration; `sqlstreams migrate init` creates the shared baseline from
 the CLI.
 
 Separate table families isolate retention decisions: a lagging group on
-one topic cannot prevent a different topic's partitions from expiring.
+one stream cannot prevent a different stream's partitions from expiring.
 They also separate table and index churn, while still sharing database
-CPU, memory, and I/O. Destroying a topic drops its family of tables.
+CPU, memory, and I/O. Destroying a stream drops its family of tables.
 
 ## The maintenance fleet
 
@@ -73,7 +73,7 @@ process carries that responsibility.
 
 | Worker | Maintains |
 | --- | --- |
-| `topic_janitor` | expired partitions, idempotency keys, and message-key leases |
+| `stream_janitor` | expired partitions, idempotency keys, and message-key leases |
 | `cursor_advancer` | committed cursors behind resolved ranges |
 | `consumer_group_janitor` | superseded binding declarations |
 | `schedule_producer` | requests for due schedules |

@@ -1,0 +1,29 @@
+# the saturation ladder over 1 streams: the same total rate stepped up per rung until a guard gives, two groups on every stream
+
+[input]
+stream       orders-1         DeliveryLogMode all
+consumers    fraud-scoring    handler fail rate 0, 3 retries then dead, batch 100
+consumers    analytics        handler fail rate 0, 3 retries then dead, batch 100
+producer     batch concurrency 16 per stream
+duration     8m
+
+[shape]
+rung-2000:     steady 2000/s 2m
+rung-4000:     steady 4000/s 2m
+rung-8000:     steady 8000/s 2m
+rung-16000:    steady 16000/s 2m
+
+at 0m    consumers 2
+
+[expect]
+lost                  0
+unexpected            0
+recovered             report
+undelivered           0
+duplicates            report
+unbucketed            0
+reclaims              report
+dead                  0
+schedule_kept         report
+backlog_bounded       report
+generator_headroom    report

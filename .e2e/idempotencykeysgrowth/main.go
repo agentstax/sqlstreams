@@ -8,8 +8,8 @@ package main
 //
 // Two scenarios:
 //   - Accumulation & relative overhead: publish with no sweep running,
-//     snapshot idempotency_key_<id>'s size (a per-topic table, so no
-//     cross-topic baseline subtraction needed) against this topic's own
+//     snapshot idempotency_key_<id>'s size (a per-stream table, so no
+//     cross-stream baseline subtraction needed) against this stream's own
 //     message_log size at the same checkpoints -- puts "how much extra
 //     storage" in concrete, relative terms instead of raw bytes.
 //   - Sweep keep-up: sustained concurrent publishing WHILE the sweep runs
@@ -20,21 +20,21 @@ package main
 //     count published; confirms that bound holds, and that a final pass
 //     past ttl drains it to zero.
 //
-// Registers its own topics (destroyed on exit), self-seeded, self-verifying.
+// Registers its own streams (destroyed on exit), self-seeded, self-verifying.
 
 import (
 	"context"
 	"fmt"
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 	"os"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/agentstax/vulkan/e2e/common"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	janitordatastore "github.com/agentstax/vulkan/pkg/topic/janitor/controller/datastore"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/e2e/common"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	janitordatastore "github.com/agentstax/sqlstreams/pkg/stream/janitor/controller/datastore"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -69,7 +69,7 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", &vulkan.PostgresConnectionConfig{
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", &sqlstreams.PostgresConnectionConfig{
 		MaxConns: 50, // headroom above the keep-up scenario's 30 concurrent publishers + sweeper
 	})
 	must(err)
@@ -90,23 +90,23 @@ func run() (err error) {
 func accumulationScenario(ctx context.Context, pool *pgxpool.Pool) {
 	step("accumulation: idempotency_key_<id> size vs. message_log size, no sweep running")
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	topicName := fmt.Sprintf("phase9.idempotencykeysgrowth.accum.%d", time.Now().UnixNano())
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{PartitionSize: largePartitionSize, IdempotencyKeyTTL: time.Hour})
+	streamName := fmt.Sprintf("phase9.idempotencykeysgrowth.accum.%d", time.Now().UnixNano())
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: largePartitionSize, IdempotencyKeyTTL: time.Hour})
 	must(err)
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 
-	idkTable := fmt.Sprintf("%s.%s", ds.Schema, topic.IdempotencyKeyTable(tp.Id))
+	idkTable := fmt.Sprintf("%s.%s", ds.Schema, stream.IdempotencyKeyTable(tp.Id))
 
 	checkpoints := []int{500, 2000, 5000}
 	published := 0
@@ -117,7 +117,7 @@ func accumulationScenario(ctx context.Context, pool *pgxpool.Pool) {
 		idkSize := tableByteSize(ctx, ds, idkTable)
 		// message_log_<id> is a partitioned parent with no storage of its own --
 		// its data lives in message_log_<id>_0 (largePartitionSize never rolls).
-		logSize := tableByteSize(ctx, ds, fmt.Sprintf("%s.%s_0", ds.Schema, topic.MessageLogTable(tp.Id)))
+		logSize := tableByteSize(ctx, ds, fmt.Sprintf("%s.%s_0", ds.Schema, stream.MessageLogTable(tp.Id)))
 		idkRows := tableRowCount(ctx, ds, idkTable)
 
 		fmt.Printf("  %6d msgs: idempotency_key_%d=%-8s (%6d rows)  message_log=%8s  overhead=%.1f%%\n",
@@ -139,25 +139,25 @@ func sweepKeepUpScenario(ctx context.Context, pool *pgxpool.Pool) {
 	const duration = 3 * time.Second
 	const publishers = 30
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	topicName := fmt.Sprintf("phase9.idempotencykeysgrowth.keepup.%d", time.Now().UnixNano())
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{PartitionSize: largePartitionSize, IdempotencyKeyTTL: ttl})
+	streamName := fmt.Sprintf("phase9.idempotencykeysgrowth.keepup.%d", time.Now().UnixNano())
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: largePartitionSize, IdempotencyKeyTTL: ttl})
 	must(err)
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 	janitorDatastore, err := janitordatastore.NewJanitorDatastore(ds, ds.Logger)
 	must(err)
 
-	idkTable := fmt.Sprintf("%s.%s", ds.Schema, topic.IdempotencyKeyTable(tp.Id))
+	idkTable := fmt.Sprintf("%s.%s", ds.Schema, stream.IdempotencyKeyTable(tp.Id))
 
 	stop := make(chan struct{})
 	var published atomic.Int64
@@ -171,7 +171,7 @@ func sweepKeepUpScenario(ctx context.Context, pool *pgxpool.Pool) {
 				case <-stop:
 					return
 				default:
-					_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
+					_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 						return common.NewWork(30, "admin@example.com")
 					}, nil)
 					must(err)
@@ -243,7 +243,7 @@ func sweepKeepUpScenario(ctx context.Context, pool *pgxpool.Pool) {
 
 // ---- helpers ----
 
-func publishConcurrent(ctx context.Context, wpInstance *vulkan.ProducerInstance[common.Work], n, goroutines int) {
+func publishConcurrent(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[common.Work], n, goroutines int) {
 	perGoroutine := n / goroutines
 	remainder := n % goroutines
 
@@ -255,7 +255,7 @@ func publishConcurrent(ctx context.Context, wpInstance *vulkan.ProducerInstance[
 		}
 		wg.Go(func() {
 			for range count {
-				_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
+				_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 					return common.NewWork(30, "admin@example.com")
 				}, nil)
 				must(err)

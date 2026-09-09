@@ -3,17 +3,17 @@ package scenarios
 import (
 	"time"
 
-	"github.com/agentstax/vulkan/.bench/reliability/scenario"
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/.bench/reliability/scenario"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 )
 
 var Quiet = &scenario.Scenario{
 	Name:     "quiet",
 	Summary:  "the hour-long quiet run: constant load, fixed consumers, no chaos, nothing may move",
 	Duration: 60 * time.Minute,
-	Topics: []scenario.TopicDeclaration{{
+	Streams: []scenario.StreamDeclaration{{
 		Name:            "orders",
-		DeliveryLogMode: topic.DeliveryLogModeAll,
+		DeliveryLogMode: stream.DeliveryLogModeAll,
 		Groups:          []scenario.GroupDeclaration{{Name: "fraud-scoring", HandlerFailRate: 0, MaxRetries: 3}},
 	}},
 	Producer: []scenario.ProducerPhase{

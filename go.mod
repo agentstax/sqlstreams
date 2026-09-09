@@ -1,4 +1,4 @@
-module github.com/agentstax/vulkan
+module github.com/agentstax/sqlstreams
 
 go 1.27.0
 

@@ -1,4 +1,4 @@
-# Release pipeline for the CLI: builds cmd/vulkan on every v* tag, publishes
+# Release pipeline for the CLI: builds cmd/sqlstreams on every v* tag, publishes
 # the archives to a GitHub Release, then the Homebrew cask when its token is
 # present. The Chocolatey step is skipped by the workflow until its API key
 # exists (skip_publish is a plain bool here, so it cannot gate on the env).
@@ -7,16 +7,16 @@
 #   goreleaser release --snapshot --clean --skip=publish
 version: 2
 
-project_name: vulkan
+project_name: sqlstreams
 dist: .dist
 
 builds:
-  - id: vulkan
+  - id: sqlstreams
     # The nested module resolves the root library through go.work, which is
     # gitignored; the workflow generates it before goreleaser runs.
-    dir: cmd/vulkan
+    dir: cmd/sqlstreams
     main: .
-    binary: vulkan
+    binary: sqlstreams
     env:
       - CGO_ENABLED=0
     goos:
@@ -33,9 +33,9 @@ builds:
     mod_timestamp: "{{ .CommitTimestamp }}"
 
 archives:
-  - id: vulkan
+  - id: sqlstreams
     ids:
-      - vulkan
+      - sqlstreams
     formats:
       - tar.gz
     format_overrides:
@@ -45,7 +45,7 @@ archives:
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     files:
       - LICENSE
-      - cmd/vulkan/README.md
+      - cmd/sqlstreams/README.md
 
 checksum:
   name_template: checksums.txt
@@ -56,19 +56,19 @@ changelog:
 release:
   github:
     owner: agentstax
-    name: vulkan
+    name: sqlstreams
   prerelease: auto
 
 # Homebrew applies the quarantine attribute to cask downloads, so the
 # post-install hook strips it until the binary is notarized.
 homebrew_casks:
-  - name: vulkan
+  - name: sqlstreams
     ids:
-      - vulkan
+      - sqlstreams
     binaries:
-      - vulkan
+      - sqlstreams
     homepage: https://vulkan-5ss.pages.dev
-    description: CLI for vulkan, the Postgres-backed message log
+    description: CLI for sqlstreams, the Postgres-backed message log
     license: Apache-2.0
     repository:
       owner: agentstax
@@ -76,33 +76,33 @@ homebrew_casks:
       branch: main
       token: '{{ envOrDefault "HOMEBREW_TAP_TOKEN" "" }}'
     skip_upload: '{{ if isEnvSet "HOMEBREW_TAP_TOKEN" }}false{{ else }}true{{ end }}'
-    commit_msg_template: "vulkan {{ .Tag }}"
+    commit_msg_template: "sqlstreams {{ .Tag }}"
     hooks:
       post:
         install: |
           if OS.mac?
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/vulkan"]
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/sqlstreams"]
           end
 
 chocolateys:
-  - name: vulkan
+  - name: sqlstreams
     ids:
-      - vulkan
-    package_source_url: https://github.com/agentstax/vulkan
+      - sqlstreams
+    package_source_url: https://github.com/agentstax/sqlstreams
     owners: agentstax
-    title: vulkan
+    title: sqlstreams
     authors: agentstax
     project_url: https://vulkan-5ss.pages.dev
-    license_url: https://github.com/agentstax/vulkan/blob/main/LICENSE
+    license_url: https://github.com/agentstax/sqlstreams/blob/main/LICENSE
     require_license_acceptance: false
-    project_source_url: https://github.com/agentstax/vulkan
+    project_source_url: https://github.com/agentstax/sqlstreams
     docs_url: https://vulkan-5ss.pages.dev
-    bug_tracker_url: https://github.com/agentstax/vulkan/issues
-    tags: "vulkan postgres messaging cli"
-    summary: CLI for vulkan, the Postgres-backed message log
+    bug_tracker_url: https://github.com/agentstax/sqlstreams/issues
+    tags: "sqlstreams postgres messaging cli"
+    summary: CLI for sqlstreams, the Postgres-backed message log
     description: |
       {{ .ProjectName }} installer package.
-      CLI for vulkan, the Postgres-backed message log.
-    release_notes: "https://github.com/agentstax/vulkan/releases/tag/{{ .Tag }}"
+      CLI for sqlstreams, the Postgres-backed message log.
+    release_notes: "https://github.com/agentstax/sqlstreams/releases/tag/{{ .Tag }}"
     api_key: '{{ envOrDefault "CHOCOLATEY_API_KEY" "" }}'
     source_repo: "https://push.chocolatey.org/"

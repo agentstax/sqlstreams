@@ -7,9 +7,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/diagnostic"
-	"github.com/agentstax/vulkan/pkg/metric"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/agentstax/sqlstreams/pkg/metric"
 	"github.com/prometheus/otlptranslator"
 )
 
@@ -75,7 +75,7 @@ func validateMetricFamily(family []*common.StoredMessage[metric.Measurement]) er
 	return nil
 }
 
-// translateExportName returns the translated name unless it is reserved for Vulkan or exporter metadata.
+// translateExportName returns the translated name unless it is reserved for SQLStreams or exporter metadata.
 func translateExportName(name string, kind metric.MetricKind, unit metric.MetricUnit) (string, error) {
 	metricNamer := otlptranslator.NewMetricNamer("", otlptranslator.UnderscoreEscapingWithSuffixes)
 	metricType := otlptranslator.MetricType(otlptranslator.MetricTypeGauge)
@@ -91,12 +91,12 @@ func translateExportName(name string, kind metric.MetricKind, unit metric.Metric
 	switch {
 	case name == metric.MetricOTelSourceReadSuccess.Name || name == metric.MetricOTelMeasurementsRejected.Name:
 		return "", errors.New("exporter health cannot be supplied by retained measurements")
-	case translated == "vulkan_otel_source_read_success" || translated == "vulkan_otel_measurements_rejected":
+	case translated == "sqlstreams_otel_source_read_success" || translated == "sqlstreams_otel_measurements_rejected":
 		return "", errors.New("translated metric name is reserved for exporter health")
 	case translated == otlptranslator.TargetInfoMetricName || strings.HasPrefix(translated, "otel_scope_"):
 		return "", errors.New("translated metric name is reserved for exporter metadata")
-	case !builtIn && strings.HasPrefix(translated, "vulkan_"):
-		return "", errors.New("custom metric name enters the Vulkan namespace")
+	case !builtIn && strings.HasPrefix(translated, "sqlstreams_"):
+		return "", errors.New("custom metric name enters the SQLStreams namespace")
 	default:
 		return translated, nil
 	}

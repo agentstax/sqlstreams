@@ -60,8 +60,8 @@
 				onVisit={() => {}}
 			/>
 			<StickyRow
-				title="Why Vulkan"
-				href="/why-vulkan/"
+				title="Why SQLStreams"
+				href="/why-sqlstreams/"
 				updated={false}
 				lastUpdatedDate="2026-08-22"
 				onVisit={() => {}}

@@ -1,22 +1,22 @@
 ---
 title: Metrics
-description: The metrics handles on the system, a topic, and a consumer group — Definitions, Snapshot, Latest, History, the built-in selectors, Metric, and producing your own measurements.
+description: The metrics handles on the system, a stream, and a consumer group — Definitions, Snapshot, Latest, History, the built-in selectors, Metric, and producing your own measurements.
 ---
 
 `.Metrics()` on the [system](/reference/system/), a
-[topic](/reference/topic/), or a [consumer](/reference/consumer/) handle
+[stream](/reference/stream/), or a [consumer](/reference/consumer/) handle
 returns that scope's metrics handle: no I/O, no failure. Metrics split live
 state from collected history. `Snapshot(ctx)` asks the source tables what
 is true now; `Latest(ctx)` and `History(ctx, limit)` read observations
 already written to `__system.metrics`.
 
 ```go
-groupMetrics := client.Topic[PaymentRequestedV1]("payments.requested").Consumer("charge-cards").Metrics()
-live, err := groupMetrics.Snapshot(ctx) // *vulkan.ConsumerGroupSnapshot, the source tables now
+groupMetrics := client.Stream[PaymentRequestedV1]("payments.requested").Consumer("charge-cards").Metrics()
+live, err := groupMetrics.Snapshot(ctx) // *sqlstreams.ConsumerGroupSnapshot, the source tables now
 if err != nil {
 	return err
 }
-collected, err := groupMetrics.CursorBacklog().Latest(ctx) // *vulkan.Measurement, newest retained
+collected, err := groupMetrics.CursorBacklog().Latest(ctx) // *sqlstreams.Measurement, newest retained
 if err != nil {
 	return err
 }
@@ -29,8 +29,8 @@ On every scope:
 
 | verb | returns | notes |
 | --- | --- | --- |
-| `Definitions()` | `[]MetricDefinition` | the built-ins Vulkan can produce for the scope, ordered by VK code; in-memory, never Postgres |
-| a built-in selector | `*MetricHandle` | no I/O; the topic and group names on the resource handle supply its attributes |
+| `Definitions()` | `[]MetricDefinition` | the built-ins SQLStreams can produce for the scope, ordered by SS code; in-memory, never Postgres |
+| a built-in selector | `*MetricHandle` | no I/O; the stream and group names on the resource handle supply its attributes |
 
 On the system handle:
 
@@ -41,11 +41,11 @@ On the system handle:
 | `Producer()` | `*MetricProducerHandle` | its `Register(ctx, cfg)` returns a `MetricProducerInstance` for your own measurements |
 | `Consumer(name)` | `*ConsumerHandle[Measurement]` | a consumer group on `__system.metrics`; `Bindings` takes metric names or patterns such as `billing.*` |
 
-On a topic or group handle:
+On a stream or group handle:
 
 | verb | returns | notes |
 | --- | --- | --- |
-| `Snapshot(ctx)` | `*TopicSnapshot`, `*ConsumerGroupSnapshot` | live, and the existence check: `ErrTopicNotFound`, `ErrConsumerNotFound` |
+| `Snapshot(ctx)` | `*StreamSnapshot`, `*ConsumerGroupSnapshot` | live, and the existence check: `ErrStreamNotFound`, `ErrConsumerNotFound` |
 
 On a `MetricHandle`:
 
@@ -69,15 +69,15 @@ systemMetrics.ActiveAlerts()
 systemMetrics.ResolvedAlerts()
 
 // one built-in check; the alert name becomes the series' `alert` attribute
-systemMetrics.CheckTopicsEvaluated("partition_count")
-systemMetrics.CheckTopicsFailed("partition_count")
+systemMetrics.CheckStreamsEvaluated("partition_count")
+systemMetrics.CheckStreamsFailed("partition_count")
 systemMetrics.CheckPublishedAlerts("partition_count")
 systemMetrics.CheckResolvedAlerts("partition_count")
 
-// topic level
-topicMetrics.Compacted()
-topicMetrics.Partitions()
-topicMetrics.UnclaimedWorkers()
+// stream level
+streamMetrics.Compacted()
+streamMetrics.Partitions()
+streamMetrics.UnclaimedWorkers()
 
 // consumer-group levels
 groupMetrics.CursorHead()
@@ -105,9 +105,9 @@ attributes are fixed:
 | scope | required attributes |
 | --- | --- |
 | `MetricScopeSystem` | none, except alert-check series require `alert` |
-| `MetricScopeTopic` | `topic` |
-| `MetricScopeConsumerGroup` | `topic`, `group` |
-| `MetricScopeConsumerSession` | `topic`, `group`, `version`, `session` |
+| `MetricScopeStream` | `stream` |
+| `MetricScopeConsumerGroup` | `stream`, `group` |
+| `MetricScopeConsumerSession` | `stream`, `group`, `version`, `session` |
 | `MetricScopeExporter` | none; collection-local OTel health, never stored |
 
 Built-in observations come from the manager's metrics collector, every 30
@@ -130,8 +130,8 @@ producer, err := client.System().Metrics().Producer().Register(ctx, nil)
 if err != nil {
 	return err
 }
-measurement, err := vulkan.NewMeasurement(
-	"billing.queue_depth", vulkan.MetricKindGauge, 7, "",
+measurement, err := sqlstreams.NewMeasurement(
+	"billing.queue_depth", sqlstreams.MetricKindGauge, 7, "",
 	map[string]string{"region": "us-east"}, time.Now(),
 )
 if err != nil {
@@ -144,7 +144,7 @@ if _, err := producer.Produce(ctx, measurement); err != nil {
 
 The producer derives the routing key from the metric name and the message
 key from the name plus attributes; compaction keeps the newest value per
-series. Names starting with `vulkan.` are reserved and rejected. A user
+series. Names starting with `sqlstreams.` are reserved and rejected. A user
 series appears in `Latest` and never in `Definitions`.
 
 ## Gotchas
@@ -152,7 +152,7 @@ series appears in `Latest` and never in `Definitions`.
 - `Measurement.Metadata` is optional JSON attached to the observation. Latest,
   History, metrics consumers, and CLI JSON expose it. It does not change the
   series key or become OTel labels. Built-in partition measurements carry
-  compaction status; topic unclaimed-worker measurements carry the named workers.
+  compaction status; stream unclaimed-worker measurements carry the named workers.
 
 - `Latest` means newest retained, not fresh. The collector writes backlog
   `27` at 10:03, work finishes, and at 10:07 `Snapshot` says `19` while
@@ -160,7 +160,7 @@ series appears in `Latest` and never in `Definitions`.
   freshness requirement compares `At` to its own threshold; the library
   never turns an old collected value into live state.
 - A collected read proves nothing about the resource: a series can outlive
-  its topic, and a new group can exist before the collector reaches it.
+  its stream, and a new group can exist before the collector reaches it.
   `Snapshot` is the existence check.
 - Consuming `__system.metrics` is not a guarantee of every intermediate
   value: compaction applies there too.

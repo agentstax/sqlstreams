@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/agentstax/vulkan/.bench/reliability/record"
+	"github.com/agentstax/sqlstreams/.bench/reliability/record"
 )
 
 // ReadPhases returns the run_phase rows in time order.

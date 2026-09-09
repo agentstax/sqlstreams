@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Full sweep for the compaction hot-key serialization benchmark.
-# Assumes vulkan-bench-pg is up (container.sh start). Appends one JSON line
+# Assumes sqlstreams-bench-pg is up (container.sh start). Appends one JSON line
 # per cell to results/cells.jsonl.
 #
 # Matrix:

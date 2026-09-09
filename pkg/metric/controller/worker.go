@@ -3,7 +3,7 @@ package controller
 import (
 	"context"
 
-	"github.com/agentstax/vulkan/pkg/metric"
+	"github.com/agentstax/sqlstreams/pkg/metric"
 )
 
 // WorkerSnapshots is every worker row's current claim state.

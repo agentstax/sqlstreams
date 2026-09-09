@@ -12,7 +12,7 @@
 // reprocessed set collapses to just the in-flight-at-crash messages.
 //
 // The log id is the payload "id" field, which the seed sets equal to the
-// topic's message_log row id (TRUNCATE ... RESTART IDENTITY), so app log and DB align.
+// stream's message_log row id (TRUNCATE ... RESTART IDENTITY), so app log and DB align.
 package main
 
 import (
@@ -26,8 +26,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/agentstax/vulkan/e2e/common"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/e2e/common"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 func main() {
@@ -43,7 +43,7 @@ func run() error {
 	logPtr := flag.String("log", "/tmp/crash_processed.log", "append each processed id here (the app's record)")
 	maxConnsPtr := flag.Int("maxconns", 20, "pgxpool max connections")
 	groupPtr := flag.String("group", "phase3_5.crash", "consumer group name")
-	topicPtr := flag.String("topic", "learning.v1", "topic to drain (must already have a seeded backlog, e.g. via `just produce`)")
+	streamPtr := flag.String("stream", "learning.v1", "stream to drain (must already have a seeded backlog, e.g. via `just produce`)")
 	flag.Parse()
 
 	conc := *concurrencyPtr
@@ -63,30 +63,30 @@ func run() error {
 	defer stop()
 	time.AfterFunc(180*time.Second, stop) // watchdog
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", &vulkan.PostgresConnectionConfig{MaxConns: *maxConnsPtr})
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", &sqlstreams.PostgresConnectionConfig{MaxConns: *maxConnsPtr})
 	if err != nil {
 		return err
 	}
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	if err != nil {
 		return err
 	}
 
-	t, err := client.Topic[vulkan.RawPayload](*topicPtr).Get(ctx)
+	t, err := client.Stream[sqlstreams.RawPayload](*streamPtr).Get(ctx)
 	if err != nil {
 		return err
 	}
 	if t == nil {
-		return fmt.Errorf("topic %q is not registered -- `just produce` declares it\n", *topicPtr)
+		return fmt.Errorf("stream %q is not registered -- `just produce` declares it\n", *streamPtr)
 	}
 
 	// Short lease (= Timeout+QueueMargin+RecordMargin = 4s) so in-flight rows
 	// reclaim quickly after the crash. High MaxRetries so reprocessing never
 	// dead-letters — we want pure at-least-once redelivery, not the DLQ path.
-	wcInstance, err := client.Topic[common.Work](t.Name).Consumer(*groupPtr).Register(ctx, &vulkan.ConsumerConfig{
-		Message: &vulkan.MessageOptions{Timeout: 2 * time.Second, Retry: &vulkan.RetryPolicy{MaxRetries: 100}},
+	wcInstance, err := client.Stream[common.Work](t.Name).Consumer(*groupPtr).Register(ctx, &sqlstreams.ConsumerConfig{
+		Message: &sqlstreams.MessageOptions{Timeout: 2 * time.Second, Retry: &sqlstreams.RetryPolicy{MaxRetries: 100}},
 	})
 
 	if err != nil {
@@ -108,7 +108,7 @@ func run() error {
 			stop()
 		}
 		return nil
-	}, &vulkan.ConsumeOptions{
+	}, &sqlstreams.ConsumeOptions{
 		BatchLimit:         100,
 		QueueSize:          100 + conc,
 		MessageConcurrency: conc,

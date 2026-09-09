@@ -1,6 +1,6 @@
 package otel
 
-// Package otel exports retained Vulkan measurements through an external
+// Package otel exports retained SQLStreams measurements through an external
 // OpenTelemetry SDK producer. Exporter serves that producer through Prometheus.
 
 import (
@@ -9,16 +9,16 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	"github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/metric"
-	metricscontroller "github.com/agentstax/vulkan/pkg/metric/controller"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/metric"
+	metricscontroller "github.com/agentstax/sqlstreams/pkg/metric/controller"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 )
 
-const meterScopeName = "github.com/agentstax/vulkan/otel"
+const meterScopeName = "github.com/agentstax/sqlstreams/otel"
 
 // Metrics is an external SDK producer of the newest retained measurements.
 // Attach it to a reader with sdkmetric.WithProducer; no registration pass is needed.

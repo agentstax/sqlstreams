@@ -7,20 +7,20 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	"github.com/agentstax/vulkan/pkg/consume"
-	"github.com/agentstax/vulkan/pkg/consume/base/controller"
-	metricsproducer "github.com/agentstax/vulkan/pkg/metric/producer"
-	"github.com/agentstax/vulkan/pkg/topic"
-	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	"github.com/agentstax/sqlstreams/pkg/consume"
+	"github.com/agentstax/sqlstreams/pkg/consume/base/controller"
+	metricsproducer "github.com/agentstax/sqlstreams/pkg/metric/producer"
+	"github.com/agentstax/sqlstreams/pkg/stream"
+	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
 )
 
 // BaseConsumer is built fresh per claimed life, so a respawned runner never
 // shares state with a predecessor still draining.
 type BaseConsumer[Message common.Versioned] struct {
 	Owner         *common.Owner
-	Topic         *topic.Topic
+	Stream        *stream.Stream
 	SchemaVersion int
 	Config        *BaseConsumerConfig
 	Logger        logging.Logger
@@ -31,17 +31,17 @@ type BaseConsumer[Message common.Versioned] struct {
 	consumerFunc func(ctx context.Context, message *Message) error
 }
 
-// resolvedTopic comes from BaseProvisioner.GetTopic. cfg may be nil or
+// resolvedStream comes from BaseProvisioner.GetStream. cfg may be nil or
 // sparse.
-func NewBaseConsumer[Message common.Versioned](baseProvisioner *BaseProvisioner[Message], owner *common.Owner, resolvedTopic *topic.Topic, cfg *BaseConsumerConfig) (*BaseConsumer[Message], error) {
+func NewBaseConsumer[Message common.Versioned](baseProvisioner *BaseProvisioner[Message], owner *common.Owner, resolvedStream *stream.Stream, cfg *BaseConsumerConfig) (*BaseConsumer[Message], error) {
 	if baseProvisioner == nil {
 		return nil, errors.New("provisioner base must not be nil")
 	}
 	if owner == nil {
 		return nil, errors.New("owner must not be nil")
 	}
-	if resolvedTopic == nil {
-		return nil, errors.New("topic must not be nil")
+	if resolvedStream == nil {
+		return nil, errors.New("stream must not be nil")
 	}
 	if cfg == nil {
 		cfg = &BaseConsumerConfig{}
@@ -53,7 +53,7 @@ func NewBaseConsumer[Message common.Versioned](baseProvisioner *BaseProvisioner[
 
 	return &BaseConsumer[Message]{
 		Owner:         owner,
-		Topic:         resolvedTopic,
+		Stream:        resolvedStream,
 		SchemaVersion: baseProvisioner.schemaVersion,
 		Config:        cfg,
 		Logger:        baseProvisioner.Logger,
@@ -99,14 +99,14 @@ func (b *BaseConsumer[Message]) CallSafely(ctx context.Context, payload *Message
 	// consumerFunc got Timeout to notice ctx and return; past Timeout + grace it
 	// is written off and its goroutine is left running, unreachable
 	case <-time.After(timeout + b.Config.TimeoutGrace):
-		b.Metrics.RecordAbandoned(b.Topic.Id, b.Owner.Name, messageId, attempt)
+		b.Metrics.RecordAbandoned(b.Stream.Id, b.Owner.Name, messageId, attempt)
 
 		// done is buffered(1) and nothing else reads it past this point, so this
 		// receive fires exactly when the abandoned goroutine finally returns.
 		// Started after Add, so Remove can never precede it.
 		go func() {
 			<-done
-			b.Metrics.RecordCleared(b.Topic.Id, b.Owner.Name, messageId, attempt)
+			b.Metrics.RecordCleared(b.Stream.Id, b.Owner.Name, messageId, attempt)
 		}()
 
 		// never include the message itself -- it may hold sensitive values
@@ -122,5 +122,5 @@ func (b *BaseConsumer[Message]) warnSlowDispatch(ctx context.Context, start time
 	if b.Config.SlowDispatchThreshold <= 0 || duration <= b.Config.SlowDispatchThreshold {
 		return
 	}
-	b.Logger.WarnContext(ctx, consume.EventSlowDispatch.Message(), "code", consume.EventSlowDispatch.GetCode(), "group", b.Owner.Name, "topic_id", b.Topic.Id, "message_id", messageId, "attempt", attempt, "duration", duration, "threshold", b.Config.SlowDispatchThreshold)
+	b.Logger.WarnContext(ctx, consume.EventSlowDispatch.Message(), "code", consume.EventSlowDispatch.GetCode(), "group", b.Owner.Name, "stream_id", b.Stream.Id, "message_id", messageId, "attempt", attempt, "duration", duration, "threshold", b.Config.SlowDispatchThreshold)
 }

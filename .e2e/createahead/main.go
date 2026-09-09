@@ -13,16 +13,16 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 	"os"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/agentstax/vulkan/e2e/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/e2e/common"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -61,7 +61,7 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
@@ -125,7 +125,7 @@ func inTxScenario(ctx context.Context, pool *pgxpool.Pool) {
 	for range triggerPublishes - 1 {
 		publish(ctx, wpInstance)
 	}
-	must(client.InTransaction(ctx, func(ctx context.Context, tx vulkan.Tx) error {
+	must(client.InTransaction(ctx, func(ctx context.Context, tx sqlstreams.Tx) error {
 		work, err := common.NewWork(30, "admin@example.com")
 		if err != nil {
 			return err
@@ -143,35 +143,35 @@ func inTxScenario(ctx context.Context, pool *pgxpool.Pool) {
 
 // ---- helpers ----
 
-func register(ctx context.Context, pool *pgxpool.Pool, scenario string) (*vulkan.Client, *vulkan.Topic, *vulkan.ProducerInstance[common.Work], *WarnCounter, func()) {
+func register(ctx context.Context, pool *pgxpool.Pool, scenario string) (*sqlstreams.Client, *sqlstreams.Stream, *sqlstreams.ProducerInstance[common.Work], *WarnCounter, func()) {
 	warns, err := NewWarnCounter(logging.NewDefaultLogger(os.Stdout))
 	must(err)
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true, Logger: warns})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true, Logger: warns})
 	must(err)
 
-	topicName := fmt.Sprintf("createahead.%s.%d", scenario, time.Now().UnixNano())
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{PartitionSize: partitionSize})
+	streamName := fmt.Sprintf("createahead.%s.%d", scenario, time.Now().UnixNano())
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: partitionSize})
 	must(err)
 
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 
 	cleanup := func() {
-		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}
 	return client, tp, wpInstance, warns, cleanup
 }
 
-func workFunc(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
+func workFunc(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 	return common.NewWork(30, "admin@example.com")
 }
 
-func publish(ctx context.Context, wpInstance *vulkan.ProducerInstance[common.Work]) {
+func publish(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[common.Work]) {
 	_, err := wpInstance.ProduceFunc(ctx, workFunc, nil)
 	must(err)
 }
 
-func publishConcurrent(ctx context.Context, wpInstance *vulkan.ProducerInstance[common.Work], workers int, perWorker int) {
+func publishConcurrent(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[common.Work], workers int, perWorker int) {
 	var wg sync.WaitGroup
 	for range workers {
 		wg.Add(1)
@@ -188,11 +188,11 @@ func publishConcurrent(ctx context.Context, wpInstance *vulkan.ProducerInstance[
 	wg.Wait()
 }
 
-// waitForPartition polls for message_log_<topicId>_<n> -- the creation is a
+// waitForPartition polls for message_log_<streamId>_<n> -- the creation is a
 // detached goroutine, so "before the boundary" is proven by seeing the table
 // while publishes are still below it.
-func waitForPartition(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, n int64) {
-	table := fmt.Sprintf("%s.%s", ds.Schema, topic.MessageLogPartitionTable(topicId, n))
+func waitForPartition(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, n int64) {
+	table := fmt.Sprintf("%s.%s", ds.Schema, stream.MessageLogPartitionTable(streamId, n))
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
 		if regclassExists(ctx, ds, table) {
@@ -207,7 +207,7 @@ func waitForPartition(ctx context.Context, ds *iDatastore.PostgresDatastore, top
 // assertCreateAheadWon: no heal warn, no drop warn, ids contiguous (a heal
 // burns the boundary id on its rolled-back insert), and only partition 1 was
 // created ahead.
-func assertCreateAheadWon(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64, warns *WarnCounter) {
+func assertCreateAheadWon(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, warns *WarnCounter) {
 	assertInt("zero boundary-heal warns", warns.HealWarns.Load(), 0)
 	assertInt("zero create-ahead drop warns", warns.DropWarns.Load(), 0)
 
@@ -215,13 +215,13 @@ func assertCreateAheadWon(ctx context.Context, ds *iDatastore.PostgresDatastore,
 	var maxId int64
 	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`
 		SELECT count(*), COALESCE(max(id), 0) FROM %s.%s;
-	`, ds.Schema, topic.MessageLogTable(topicId))).Scan(&count, &maxId))
+	`, ds.Schema, stream.MessageLogTable(streamId))).Scan(&count, &maxId))
 	assertInt("every publish landed", count, totalPublishes)
 	assertInt("ids contiguous -- no id burned at the boundary", maxId, totalPublishes)
 
 	// a trigger creates the partition after the trigger id's own, so 105 ids
 	// reach partition 1 only; partition 3 would be a runaway chain.
-	if regclassExists(ctx, ds, fmt.Sprintf("%s.%s_3", ds.Schema, topic.MessageLogTable(topicId))) {
+	if regclassExists(ctx, ds, fmt.Sprintf("%s.%s_3", ds.Schema, stream.MessageLogTable(streamId))) {
 		die("partition 3 exists -- create-ahead ran away past the trigger's reach")
 	}
 	fmt.Println("  ✓ no runaway creation past the triggers' reach")
@@ -257,9 +257,9 @@ func (w *WarnCounter) InfoContext(ctx context.Context, msg string, args ...any) 
 }
 
 // counted by attribute shape, never message text: both partition warns carry
-// topic_id; only the create-ahead one carries an error value.
+// stream_id; only the create-ahead one carries an error value.
 func (w *WarnCounter) WarnContext(ctx context.Context, msg string, args ...any) {
-	if hasArgKey(args, "topic_id") {
+	if hasArgKey(args, "stream_id") {
 		if hasArgKey(args, "error") {
 			w.DropWarns.Add(1)
 		} else {

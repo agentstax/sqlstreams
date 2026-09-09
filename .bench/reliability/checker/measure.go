@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/.bench/reliability/checker/datastore"
-	"github.com/agentstax/vulkan/.bench/reliability/record"
-	"github.com/agentstax/vulkan/.bench/reliability/scenario"
+	"github.com/agentstax/sqlstreams/.bench/reliability/checker/datastore"
+	"github.com/agentstax/sqlstreams/.bench/reliability/record"
+	"github.com/agentstax/sqlstreams/.bench/reliability/scenario"
 )
 
 // scheduleTolerance is how far behind its scheduled instant a produce may
@@ -46,7 +46,7 @@ type ServerSummary struct {
 }
 
 // PhaseSummary is one producer phase measured: the total rate it achieved
-// against the total it declared across topics, the latency of the produces
+// against the total it declared across streams, the latency of the produces
 // it scheduled, and the three guards read over its own window -- so a
 // stepped ladder reads its sustainable rung off the phase rows even when
 // the run-level guards are declared report.
@@ -153,7 +153,7 @@ func (c *Checker) countScheduleSlips(ctx context.Context, phases []record.PhaseR
 
 // countDivergingPhases is the backlog_bounded check: producer phases in
 // which any group's backlog slope exceeds backlogSlopeFraction of the
-// phase's per-topic rate.
+// phase's per-stream rate.
 func (c *Checker) countDivergingPhases(ctx context.Context, targets []datastore.Target, phases []record.PhaseRecord) (datastore.Measurement, error) {
 	measured := datastore.Measurement{ExampleOf: examplePhase, Examples: []string{}}
 	for _, phase := range c.declared.Producer {
@@ -162,14 +162,14 @@ func (c *Checker) countDivergingPhases(ctx context.Context, targets []datastore.
 			return datastore.Measurement{}, err
 		}
 		for _, target := range targets {
-			slope, err := c.ds.ReadBacklogSlope(ctx, from, to, target.Topic, target.Group)
+			slope, err := c.ds.ReadBacklogSlope(ctx, from, to, target.Stream, target.Group)
 			if err != nil {
 				return datastore.Measurement{}, err
 			}
 			if slope > backlogSlopeFraction*float64(phase.Rate) {
 				measured.Count++
 				if len(measured.Examples) < exampleLimit {
-					measured.Examples = append(measured.Examples, fmt.Sprintf("%s %s/%s +%.1f/s", phase.Name, target.Topic, target.Group, slope))
+					measured.Examples = append(measured.Examples, fmt.Sprintf("%s %s/%s +%.1f/s", phase.Name, target.Stream, target.Group, slope))
 				}
 			}
 		}
@@ -189,7 +189,7 @@ func (c *Checker) countHeadroomBreaches(ctx context.Context, phases []record.Pha
 }
 
 func (c *Checker) measurePhase(ctx context.Context, targets []datastore.Target, phase scenario.ProducerPhase, from time.Time, to time.Time) (PhaseSummary, error) {
-	measured := PhaseSummary{Name: phase.Name, DeclaredRate: phase.Rate * len(c.declared.Topics)}
+	measured := PhaseSummary{Name: phase.Name, DeclaredRate: phase.Rate * len(c.declared.Streams)}
 	var err error
 	measured.Produce, err = c.ds.ReadProduceLatency(ctx, from, to)
 	if err != nil {
@@ -198,7 +198,7 @@ func (c *Checker) measurePhase(ctx context.Context, targets []datastore.Target, 
 	measured.AchievedRate = float64(measured.Produce.Count) / to.Sub(from).Seconds()
 
 	for _, target := range targets {
-		slope, err := c.ds.ReadBacklogSlope(ctx, from, to, target.Topic, target.Group)
+		slope, err := c.ds.ReadBacklogSlope(ctx, from, to, target.Stream, target.Group)
 		if err != nil {
 			return PhaseSummary{}, err
 		}
@@ -261,7 +261,7 @@ func runWindow(phases []record.PhaseRecord, declared []scenario.ProducerPhase) (
 }
 
 // phaseWindow is [started, ended) of one producer phase from its run_phase
-// rows: the earliest start and latest end across the topics' rows. A phase
+// rows: the earliest start and latest end across the streams' rows. A phase
 // missing either row was cut short, and the run cannot be measured.
 func phaseWindow(phases []record.PhaseRecord, phase scenario.ProducerPhase) (time.Time, time.Time, error) {
 	var started, ended time.Time

@@ -28,5 +28,5 @@ export type ScopeExport = {
 
 export type Export = {
 	system: ScopeExport;
-	topic: ScopeExport;
+	stream: ScopeExport;
 };

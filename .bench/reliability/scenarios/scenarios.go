@@ -6,10 +6,10 @@ package scenarios
 import (
 	"strings"
 
-	"github.com/agentstax/vulkan/.bench/reliability/scenario"
+	"github.com/agentstax/sqlstreams/.bench/reliability/scenario"
 )
 
-var All = []*scenario.Scenario{Quiet, Dev, Multitopic1, Multitopic4, Multitopic16, Throughput}
+var All = []*scenario.Scenario{Quiet, Dev, Multistream1, Multistream4, Multistream16, Throughput}
 
 func ByName(name string) (*scenario.Scenario, bool) {
 	for _, declared := range All {

@@ -7,10 +7,10 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/produce"
-	"github.com/agentstax/vulkan/pkg/produce/controller/datastore"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/produce"
+	"github.com/agentstax/sqlstreams/pkg/produce/controller/datastore"
 )
 
 // idempotencyKeyNamespace is the UUIDv5 namespace a non-UUID IdempotencyKey
@@ -37,9 +37,9 @@ func NewAppend[Message common.Versioned](payload *Message, options produce.Produ
 // AppendMessage appends one message in its own transaction, returning once it
 // is durably committed: produceFunc runs inside it and returns the payload to
 // store.
-func (c *ProduceController) AppendMessage[Message common.Versioned](ctx context.Context, topicId int64, partitionSize int64, produceFunc produce.ProducerFunc[Message], options produce.ProduceOptions) (*Appended[Message], error) {
-	if topicId <= 0 {
-		return nil, fmt.Errorf("topicId must be > 0, got %d", topicId)
+func (c *ProduceController) AppendMessage[Message common.Versioned](ctx context.Context, streamId int64, partitionSize int64, produceFunc produce.ProducerFunc[Message], options produce.ProduceOptions) (*Appended[Message], error) {
+	if streamId <= 0 {
+		return nil, fmt.Errorf("streamId must be > 0, got %d", streamId)
 	}
 	if produceFunc == nil {
 		return nil, errors.New("produceFunc must not be nil")
@@ -50,7 +50,7 @@ func (c *ProduceController) AppendMessage[Message common.Versioned](ctx context.
 
 	idempotencyKey := resolveIdempotencyKey(options.IdempotencyKey)
 
-	appended, err := c.datastore.AppendMessage(ctx, topicId, partitionSize, produceFunc, toAppend[Message](idempotencyKey, nil, options))
+	appended, err := c.datastore.AppendMessage(ctx, streamId, partitionSize, produceFunc, toAppend[Message](idempotencyKey, nil, options))
 	if err != nil || appended == nil {
 		return nil, err
 	}
@@ -59,12 +59,12 @@ func (c *ProduceController) AppendMessage[Message common.Versioned](ctx context.
 
 // AppendMessageInTx appends produceFunc's message inside a transaction the
 // caller owns -- it commits or rolls back with everything else in tx.
-func (c *ProduceController) AppendMessageInTx[Message common.Versioned](ctx context.Context, tx iDatastore.Tx, topicId int64, partitionSize int64, produceFunc produce.ProducerFunc[Message], options produce.ProduceOptions) (*Appended[Message], error) {
+func (c *ProduceController) AppendMessageInTx[Message common.Versioned](ctx context.Context, tx iDatastore.Tx, streamId int64, partitionSize int64, produceFunc produce.ProducerFunc[Message], options produce.ProduceOptions) (*Appended[Message], error) {
 	if tx == nil {
 		return nil, errors.New("tx must not be nil")
 	}
-	if topicId <= 0 {
-		return nil, fmt.Errorf("topicId must be > 0, got %d", topicId)
+	if streamId <= 0 {
+		return nil, fmt.Errorf("streamId must be > 0, got %d", streamId)
 	}
 	if produceFunc == nil {
 		return nil, errors.New("produceFunc must not be nil")
@@ -75,7 +75,7 @@ func (c *ProduceController) AppendMessageInTx[Message common.Versioned](ctx cont
 
 	idempotencyKey := resolveIdempotencyKey(options.IdempotencyKey)
 
-	appended, err := c.datastore.AppendMessageInTx(ctx, tx, topicId, partitionSize, produceFunc, toAppend[Message](idempotencyKey, nil, options))
+	appended, err := c.datastore.AppendMessageInTx(ctx, tx, streamId, partitionSize, produceFunc, toAppend[Message](idempotencyKey, nil, options))
 	if err != nil || appended == nil {
 		return nil, err
 	}
@@ -84,9 +84,9 @@ func (c *ProduceController) AppendMessageInTx[Message common.Versioned](ctx cont
 
 // AppendMessageBatch commits every append in one transaction. failedIdx is
 // the FIRST failure in pipeline order, -1 when the failure carries no index.
-func (c *ProduceController) AppendMessageBatch[Message common.Versioned](ctx context.Context, topicId int64, partitionSize int64, attemptTimeout time.Duration, appends []*Append[Message]) ([]Appended[Message], int, error) {
-	if topicId <= 0 {
-		return nil, -1, fmt.Errorf("topicId must be > 0, got %d", topicId)
+func (c *ProduceController) AppendMessageBatch[Message common.Versioned](ctx context.Context, streamId int64, partitionSize int64, attemptTimeout time.Duration, appends []*Append[Message]) ([]Appended[Message], int, error) {
+	if streamId <= 0 {
+		return nil, -1, fmt.Errorf("streamId must be > 0, got %d", streamId)
 	}
 	if len(appends) == 0 {
 		return nil, -1, errors.New("appends must not be empty")
@@ -106,7 +106,7 @@ func (c *ProduceController) AppendMessageBatch[Message common.Versioned](ctx con
 		datastoreAppends = append(datastoreAppends, toAppend(resolved, item.Payload, item.Options))
 	}
 
-	datastoreAppended, failedIdx, err := c.datastore.AppendMessageBatch(ctx, topicId, partitionSize, attemptTimeout, datastoreAppends)
+	datastoreAppended, failedIdx, err := c.datastore.AppendMessageBatch(ctx, streamId, partitionSize, attemptTimeout, datastoreAppends)
 	if err != nil {
 		return nil, failedIdx, err
 	}

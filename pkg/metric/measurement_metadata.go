@@ -3,7 +3,7 @@ package metric
 import (
 	"errors"
 
-	"github.com/agentstax/vulkan/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common"
 )
 
 // PartitionMeasurementMetadata records applicability alongside the partition count.

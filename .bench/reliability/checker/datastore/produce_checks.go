@@ -16,10 +16,10 @@ func (d *CheckerDatastore) CountLost(ctx context.Context, target Target) (Measur
 			count(*),
 			COALESCE((array_agg(p.key ORDER BY p.message_id))[1:%[3]d], ARRAY[]::text[])
 		FROM %[1]s p
-		WHERE p.topic = $1 AND p.kind = 'committed'
+		WHERE p.stream = $1 AND p.kind = 'committed'
 			AND NOT EXISTS (SELECT 1 FROM %[2]s m WHERE m.id = p.message_id);
 	`, produceRecord, target.messageLog(), exampleLimit)
-	return d.measure(ctx, exampleKey, lostSql, target.Topic)
+	return d.measure(ctx, exampleKey, lostSql, target.Stream)
 }
 
 // Unexpected: message rows whose key the records never committed and never
@@ -38,10 +38,10 @@ func (d *CheckerDatastore) CountUnexpected(ctx context.Context, target Target) (
 		FROM messages m
 		WHERE NOT EXISTS (
 			SELECT 1 FROM %[1]s p
-			WHERE p.topic = $1 AND p.key = m.key AND p.kind IN ('committed', 'unknown')
+			WHERE p.stream = $1 AND p.key = m.key AND p.kind IN ('committed', 'unknown')
 		);
 	`, produceRecord, target.messageLog(), exampleLimit)
-	return d.measure(ctx, exampleMessageId, unexpectedSql, target.Topic)
+	return d.measure(ctx, exampleMessageId, unexpectedSql, target.Stream)
 }
 
 // Recovered: produces whose reply was lost but whose row is there.
@@ -56,8 +56,8 @@ func (d *CheckerDatastore) CountRecovered(ctx context.Context, target Target) (M
 			count(*),
 			COALESCE((array_agg(p.key ORDER BY p.sequence))[1:%[3]d], ARRAY[]::text[])
 		FROM %[1]s p
-		WHERE p.topic = $1 AND p.kind = 'unknown'
+		WHERE p.stream = $1 AND p.kind = 'unknown'
 			AND EXISTS (SELECT 1 FROM messages m WHERE m.key = p.key);
 	`, produceRecord, target.messageLog(), exampleLimit)
-	return d.measure(ctx, exampleKey, recoveredSql, target.Topic)
+	return d.measure(ctx, exampleKey, recoveredSql, target.Stream)
 }

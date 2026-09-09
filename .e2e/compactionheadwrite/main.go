@@ -17,19 +17,19 @@ package main
 //     n_dead_tup/n_tup_upd on compaction_head before and after the burst shows
 //     what that does to table bloat, separate from the latency question.
 //
-// Registers its own topics (destroyed on exit), self-seeded, self-verifying.
+// Registers its own streams (destroyed on exit), self-seeded, self-verifying.
 
 import (
 	"context"
 	"fmt"
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 	"os"
 	"sync"
 	"time"
 
-	"github.com/agentstax/vulkan/e2e/common"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/e2e/common"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -64,7 +64,7 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", &vulkan.PostgresConnectionConfig{
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", &sqlstreams.PostgresConnectionConfig{
 		MaxConns: 60, // headroom above the hot-key scenario's 50 concurrent goroutines
 	})
 	must(err)
@@ -85,17 +85,17 @@ func fixedCostScenario(ctx context.Context, pool *pgxpool.Pool) {
 	step("fixed cost: sequential publishes, no contention -- unkeyed vs. fresh-key INSERT vs. same-key UPDATE")
 
 	const n = 500
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 
-	topicName := fmt.Sprintf("phase8c.compactionheadwrite.fixed.%d", time.Now().UnixNano())
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{PartitionSize: largePartitionSize})
+	streamName := fmt.Sprintf("phase8c.compactionheadwrite.fixed.%d", time.Now().UnixNano())
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: largePartitionSize})
 	must(err)
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 
 	unkeyedMs := timeSequential(ctx, wpInstance, n, func(i int) string { return "" })
@@ -116,30 +116,30 @@ func hotKeyContentionScenario(ctx context.Context, pool *pgxpool.Pool) {
 	const goroutines = 50
 	const perGoroutine = 20
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	manyKeysMs, manyKeysTopic := timeConcurrent(ctx, pool, "manykeys", goroutines, perGoroutine, func(g, i int) string {
+	manyKeysMs, manyKeysStream := timeConcurrent(ctx, pool, "manykeys", goroutines, perGoroutine, func(g, i int) string {
 		return fmt.Sprintf("key-%d", g) // each goroutine owns a distinct key -- no cross-goroutine contention
 	})
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](manyKeysTopic).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](manyKeysStream).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
-	oneKeyMs, oneKeyTopic := timeConcurrent(ctx, pool, "onekey", goroutines, perGoroutine, func(g, i int) string {
+	oneKeyMs, oneKeyStream := timeConcurrent(ctx, pool, "onekey", goroutines, perGoroutine, func(g, i int) string {
 		return "hot-key" // every goroutine hammers the SAME row
 	})
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](oneKeyTopic).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](oneKeyStream).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	time.Sleep(1 * time.Second) // let PG's stats collector flush before reading it
-	// the one-hot-key topic's compaction_head table saw only the burst, so
+	// the one-hot-key stream's compaction_head table saw only the burst, so
 	// its absolute stats are the burst's numbers
-	stats := dumpTableStats(ctx, ds, compactionHeadTable(ctx, ds, oneKeyTopic))
+	stats := dumpTableStats(ctx, ds, compactionHeadTable(ctx, ds, oneKeyStream))
 
 	total := goroutines * perGoroutine
 	fmt.Printf("  %-28s %10.3fms total  %8.4fms/op (%d ops, %d goroutines)\n", "many distinct keys", manyKeysMs, manyKeysMs/float64(total), total, goroutines)
@@ -156,15 +156,15 @@ func hotKeyContentionScenario(ctx context.Context, pool *pgxpool.Pool) {
 
 // timeSequential runs n single-threaded publishes, keyFn(i) chosen per call,
 // returning total elapsed time in milliseconds.
-func timeSequential(ctx context.Context, wpInstance *vulkan.ProducerInstance[common.Work], n int, keyFn func(i int) string) float64 {
+func timeSequential(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[common.Work], n int, keyFn func(i int) string) float64 {
 	start := time.Now()
 	for i := range n {
-		opts := &vulkan.ProduceOptions{}
+		opts := &sqlstreams.ProduceOptions{}
 		if key := keyFn(i); key != "" {
 			opts.MessageKey = key
-			opts.Compaction = &vulkan.CompactionOptions{Enable: true}
+			opts.Compaction = &sqlstreams.CompactionOptions{Enable: true}
 		}
-		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
+		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 			return common.NewWork(30, "admin@example.com")
 		}, opts)
 		must(err)
@@ -172,18 +172,18 @@ func timeSequential(ctx context.Context, wpInstance *vulkan.ProducerInstance[com
 	return float64(time.Since(start).Microseconds()) / 1000.0
 }
 
-// timeConcurrent registers its own topic, fires goroutines*perGoroutine
+// timeConcurrent registers its own stream, fires goroutines*perGoroutine
 // publishes across `goroutines` concurrent workers, and returns total
-// elapsed time plus the topic name (caller destroys it once done reading it).
+// elapsed time plus the stream name (caller destroys it once done reading it).
 func timeConcurrent(ctx context.Context, pool *pgxpool.Pool, label string, goroutines, perGoroutine int, keyFn func(g, i int) string) (float64, string) {
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 
 	name := fmt.Sprintf("phase8c.compactionheadwrite.%s.%d", label, time.Now().UnixNano())
-	tp, err := client.Topic[vulkan.RawPayload](name).Register(ctx, &vulkan.TopicConfig{PartitionSize: largePartitionSize})
+	tp, err := client.Stream[sqlstreams.RawPayload](name).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: largePartitionSize})
 	must(err)
 
-	wpInstance, err := client.Topic[common.Work](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 
 	start := time.Now()
@@ -191,9 +191,9 @@ func timeConcurrent(ctx context.Context, pool *pgxpool.Pool, label string, gorou
 	for g := range goroutines {
 		wg.Go(func() {
 			for i := range perGoroutine {
-				_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*common.Work, error) {
+				_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 					return common.NewWork(30, "admin@example.com")
-				}, &vulkan.ProduceOptions{MessageKey: keyFn(g, i), Compaction: &vulkan.CompactionOptions{Enable: true}})
+				}, &sqlstreams.ProduceOptions{MessageKey: keyFn(g, i), Compaction: &sqlstreams.CompactionOptions{Enable: true}})
 				must(err)
 			}
 		})
@@ -210,13 +210,13 @@ type tableStats struct {
 	tupUpd  int64
 }
 
-// compactionHeadTable resolves a topic's compaction_head_<id> table name from
+// compactionHeadTable resolves a stream's compaction_head_<id> table name from
 // the catalog.
 // the name comes back bare: its one reader matches pg_stat_user_tables.relname
-func compactionHeadTable(ctx context.Context, ds *iDatastore.PostgresDatastore, topicName string) string {
+func compactionHeadTable(ctx context.Context, ds *iDatastore.PostgresDatastore, streamName string) string {
 	var id int64
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT id FROM %s.topic_config WHERE name = $1;`, ds.Schema), topicName).Scan(&id))
-	return topic.CompactionHeadTable(id)
+	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT id FROM %s.stream_config WHERE name = $1;`, ds.Schema), streamName).Scan(&id))
+	return stream.CompactionHeadTable(id)
 }
 
 func dumpTableStats(ctx context.Context, ds *iDatastore.PostgresDatastore, table string) tableStats {

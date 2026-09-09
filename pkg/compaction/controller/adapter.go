@@ -3,8 +3,8 @@ package controller
 import (
 	"encoding/json"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/compaction/controller/datastore"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/compaction/controller/datastore"
 )
 
 func toStoredMessage[Message common.Versioned](data *datastore.MessageLogRow) (*common.StoredMessage[Message], error) {

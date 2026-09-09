@@ -10,7 +10,7 @@ Run commands from the repo root unless noted.
 ```sh
 cp .env.example .env
 go work init
-go work use . ./cmd/vulkan ./otel ./.e2e ./.examples ./.bench ./.tools
+go work use . ./cmd/sqlstreams ./otel ./.e2e ./.examples ./.bench ./.tools
 ```
 
 Skip `go work init` if you already have a workspace. `.env` and `go.work`
@@ -35,7 +35,7 @@ pgAdmin: <http://localhost:5050>, using the credentials in `.env`.
 Run the CLI against your checkout:
 
 ```sh
-go run ./cmd/vulkan topic list
+go run ./cmd/sqlstreams stream list
 ```
 
 Stop the database with `docker compose -f .tools/database/docker-compose.yaml down`.
@@ -49,10 +49,10 @@ Inside the module you changed:
 go fmt ./...
 go build ./...
 go vet ./...
-go test -race ./pkg/vulkan
+go test -race ./pkg/sqlstreams
 ```
 
-Replace `./pkg/vulkan` with the packages you touched. Nested modules have
+Replace `./pkg/sqlstreams` with the packages you touched. Nested modules have
 their own `go.mod`; root `./...` does not include them.
 
 Before opening a pull request:

@@ -7,30 +7,30 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/concurrency"
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	"github.com/agentstax/vulkan/pkg/consume"
-	consumecontroller "github.com/agentstax/vulkan/pkg/consume/controller"
-	"github.com/agentstax/vulkan/pkg/datastore"
-	metricsproducer "github.com/agentstax/vulkan/pkg/metric/producer"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common/concurrency"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	"github.com/agentstax/sqlstreams/pkg/consume"
+	consumecontroller "github.com/agentstax/sqlstreams/pkg/consume/controller"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
+	metricsproducer "github.com/agentstax/sqlstreams/pkg/metric/producer"
 	"golang.org/x/sync/errgroup"
 )
 
 // ConsumerInstance is a registered consumer group: Consume runs its manager,
 // which spawns and heals every worker in the group's chain.
 type ConsumerInstance[Message common.Versioned] struct {
-	Owner  *common.Owner   // the group's identity: topic id, group id, and name
+	Owner  *common.Owner   // the group's identity: stream id, group id, and name
 	Config *ConsumerConfig // the declaration Register resolved -- what the group means
 	Logger logging.Logger  // bound to the group; every worker in the chain logs through it
 
-	ds           *datastore.PostgresDatastore
-	metrics      *metricsproducer.MetricProducer
-	consumers    *consumecontroller.ConsumeController
-	topicName    string
-	topicVersion int
-	declaredAt   time.Time
-	permit       *concurrency.Permit // held for the length of a Consume call
+	ds            *datastore.PostgresDatastore
+	metrics       *metricsproducer.MetricProducer
+	consumers     *consumecontroller.ConsumeController
+	streamName    string
+	streamVersion int
+	declaredAt    time.Time
+	permit        *concurrency.Permit // held for the length of a Consume call
 }
 
 // cfg arrives already resolved by Register, the only caller, so there is
@@ -38,7 +38,7 @@ type ConsumerInstance[Message common.Versioned] struct {
 // per-instance pipeline over the datastore's logger.
 // declaredAt is Register's declaration time; Consume re-attempts the
 // Config.Bindings declaration under it.
-func newConsumerInstance[Message common.Versioned](owner *common.Owner, ds *datastore.PostgresDatastore, metrics *metricsproducer.MetricProducer, consumers *consumecontroller.ConsumeController, topicName string, topicVersion int, declaredAt time.Time, cfg *ConsumerConfig, logger logging.Logger) (*ConsumerInstance[Message], error) {
+func newConsumerInstance[Message common.Versioned](owner *common.Owner, ds *datastore.PostgresDatastore, metrics *metricsproducer.MetricProducer, consumers *consumecontroller.ConsumeController, streamName string, streamVersion int, declaredAt time.Time, cfg *ConsumerConfig, logger logging.Logger) (*ConsumerInstance[Message], error) {
 	if owner == nil {
 		return nil, errors.New("owner must not be nil")
 	}
@@ -51,8 +51,8 @@ func newConsumerInstance[Message common.Versioned](owner *common.Owner, ds *data
 	if consumers == nil {
 		return nil, errors.New("consumers must not be nil")
 	}
-	if topicName == "" {
-		return nil, errors.New("topicName must not be empty")
+	if streamName == "" {
+		return nil, errors.New("streamName must not be empty")
 	}
 	if declaredAt.IsZero() {
 		return nil, errors.New("declaredAt is required")
@@ -70,16 +70,16 @@ func newConsumerInstance[Message common.Versioned](owner *common.Owner, ds *data
 	}
 
 	return &ConsumerInstance[Message]{
-		Owner:        owner,
-		Config:       cfg,
-		Logger:       logger,
-		ds:           ds,
-		metrics:      metrics,
-		consumers:    consumers,
-		topicName:    topicName,
-		topicVersion: topicVersion,
-		declaredAt:   declaredAt,
-		permit:       permit,
+		Owner:         owner,
+		Config:        cfg,
+		Logger:        logger,
+		ds:            ds,
+		metrics:       metrics,
+		consumers:     consumers,
+		streamName:    streamName,
+		streamVersion: streamVersion,
+		declaredAt:    declaredAt,
+		permit:        permit,
 	}, nil
 }
 
@@ -122,7 +122,7 @@ func (i *ConsumerInstance[Message]) Consume(ctx context.Context, consumerFunc Co
 
 	release, ok := i.permit.Acquire()
 	if !ok {
-		return common.ErrAlreadyConsuming.With("group", i.Owner.Name, "topic_id", i.Owner.TopicId)
+		return common.ErrAlreadyConsuming.With("group", i.Owner.Name, "stream_id", i.Owner.StreamId)
 	}
 	defer release()
 
@@ -145,13 +145,13 @@ func (i *ConsumerInstance[Message]) Consume(ctx context.Context, consumerFunc Co
 	session := uuid.NewV7()
 	i.metrics.ResetCounters()
 
-	i.Logger.InfoContext(ctx, "consumer starting", "group", i.Owner.Name, "topic_id", i.Owner.TopicId, "vulkan_version", common.BuildVersion(), "message_timeout", i.Config.Message.Timeout, "shutdown_timeout", shutdownTimeout, "batch_limit", resolved.BatchLimit, "queue_size", resolved.QueueSize, "message_concurrency", resolved.MessageConcurrency, "claim_poll_rate", resolved.ClaimPollRate, "queue_margin", resolved.QueueMargin, "message_max_timeout", i.Config.MessageMax.Timeout, "timeout_grace", resolved.TimeoutGrace, "record_margin", resolved.RecordMargin)
+	i.Logger.InfoContext(ctx, "consumer starting", "group", i.Owner.Name, "stream_id", i.Owner.StreamId, "sqlstreams_version", common.BuildVersion(), "message_timeout", i.Config.Message.Timeout, "shutdown_timeout", shutdownTimeout, "batch_limit", resolved.BatchLimit, "queue_size", resolved.QueueSize, "message_concurrency", resolved.MessageConcurrency, "claim_poll_rate", resolved.ClaimPollRate, "queue_margin", resolved.QueueMargin, "message_max_timeout", i.Config.MessageMax.Timeout, "timeout_grace", resolved.TimeoutGrace, "record_margin", resolved.RecordMargin)
 	started := time.Now()
 
 	group, runCtx := errgroup.WithContext(ctx)
 
 	group.Go(func() error {
-		return i.metrics.Run(runCtx, i.Owner.Name, i.topicName, i.topicVersion, session.String())
+		return i.metrics.Run(runCtx, i.Owner.Name, i.streamName, i.streamVersion, session.String())
 	})
 	group.Go(func() error {
 		return runner.Run(runCtx)
@@ -172,7 +172,7 @@ func (i *ConsumerInstance[Message]) logStopped(ctx context.Context, started time
 	i.Logger.InfoContext(ctx, consume.EventConsumerStopped.Message(),
 		"code", consume.EventConsumerStopped.GetCode(),
 		"group", i.Owner.Name,
-		"topic_id", i.Owner.TopicId,
+		"stream_id", i.Owner.StreamId,
 		"duration", time.Since(started),
 		"claimed_count", counters.Claimed,
 		"success_count", counters.Success,
@@ -184,7 +184,7 @@ func (i *ConsumerInstance[Message]) logStopped(ctx context.Context, started time
 		"quarantined_count", counters.Quarantined,
 		"abandoned_count", counters.Abandoned,
 		"lease_lost_count", counters.LeaseLost,
-		"help", "metrics explained: vulkan explain "+consume.EventConsumerStopped.GetCode())
+		"help", "metrics explained: sqlstreams explain "+consume.EventConsumerStopped.GetCode())
 }
 
 // declareBindings retries the declaration until it is installed or joined.
@@ -192,7 +192,7 @@ func (i *ConsumerInstance[Message]) declareBindings(ctx context.Context, binding
 	for attempt := 1; ; attempt++ {
 		// Register's outcome is not trusted -- another declarer may have
 		// replaced the set while this instance had no live heartbeat
-		outcome, err := i.consumers.DeclareBindings(ctx, i.Owner.TopicId, i.Owner.ConsumerGroupId, i.Config.Bindings, i.declaredAt)
+		outcome, err := i.consumers.DeclareBindings(ctx, i.Owner.StreamId, i.Owner.ConsumerGroupId, i.Config.Bindings, i.declaredAt)
 		if err != nil {
 			return err
 		}

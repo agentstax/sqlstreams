@@ -3,14 +3,14 @@ package scenarios
 import (
 	"time"
 
-	"github.com/agentstax/vulkan/.bench/reliability/scenario"
+	"github.com/agentstax/sqlstreams/.bench/reliability/scenario"
 )
 
 var Dev = &scenario.Scenario{
 	Name:     "dev",
 	Summary:  "the quiet run at one minute, for a laptop",
 	Duration: time.Minute,
-	Topics:   Quiet.Topics,
+	Streams:  Quiet.Streams,
 	Producer: []scenario.ProducerPhase{
 		{Name: "hold", Rate: 200, Duration: time.Minute},
 	},

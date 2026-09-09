@@ -7,20 +7,20 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	"github.com/agentstax/vulkan/pkg/produce"
-	"github.com/agentstax/vulkan/pkg/produce/controller"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	"github.com/agentstax/sqlstreams/pkg/produce"
+	"github.com/agentstax/sqlstreams/pkg/produce/controller"
 )
 
-// Batcher groups concurrent payload-only produces for one topic into shared
+// Batcher groups concurrent payload-only produces for one stream into shared
 // transactions, amortizing the per-commit fsync in the database.
 type Batcher[Message common.Versioned] struct {
 	Config *BatcherConfig
 	Logger logging.Logger
 
 	controller    *controller.ProduceController
-	topicId       int64
+	streamId      int64
 	partitionSize int64
 
 	queue workQueue[batchOperation[Message]]
@@ -28,12 +28,12 @@ type Batcher[Message common.Versioned] struct {
 
 // cfg may be nil or sparse. logger is the owning
 // producer instance's.
-func NewBatcher[Message common.Versioned](produceController *controller.ProduceController, topicId int64, partitionSize int64, cfg *BatcherConfig, logger logging.Logger) (*Batcher[Message], error) {
+func NewBatcher[Message common.Versioned](produceController *controller.ProduceController, streamId int64, partitionSize int64, cfg *BatcherConfig, logger logging.Logger) (*Batcher[Message], error) {
 	if produceController == nil {
 		return nil, errors.New("controller must not be nil")
 	}
-	if topicId <= 0 {
-		return nil, fmt.Errorf("topicId must be > 0, got %d", topicId)
+	if streamId <= 0 {
+		return nil, fmt.Errorf("streamId must be > 0, got %d", streamId)
 	}
 	if cfg == nil {
 		cfg = &BatcherConfig{}
@@ -50,7 +50,7 @@ func NewBatcher[Message common.Versioned](produceController *controller.ProduceC
 		Config:        cfg,
 		Logger:        logger,
 		controller:    produceController,
-		topicId:       topicId,
+		streamId:      streamId,
 		partitionSize: partitionSize,
 	}, nil
 }
@@ -60,7 +60,7 @@ func (b *Batcher[Message]) Produce(ctx context.Context, message *Message, option
 	// already cancelled -> fail BEFORE enqueue. This is the graceful shutdown path:
 	// a cancelled producer refuses new work while enqueued work resolves.
 	if err := ctx.Err(); err != nil {
-		return nil, fmt.Errorf("produce rejected before enqueue for topic %d, nothing was published: %w", b.topicId, err)
+		return nil, fmt.Errorf("produce rejected before enqueue for stream %d, nothing was published: %w", b.streamId, err)
 	}
 
 	// always minted fresh -- fresh V7 keys cannot collide inside the shared txn
@@ -79,7 +79,7 @@ func (b *Batcher[Message]) Produce(ctx context.Context, message *Message, option
 	case <-ctx.Done():
 		// exit early with no shutdownGrace
 		if b.Config.ShutdownGrace < 0 {
-			return nil, fmt.Errorf("produce abandoned for topic %d, batch outcome ambiguous (ShutdownGrace < 0): %w", b.topicId, ctx.Err())
+			return nil, fmt.Errorf("produce abandoned for stream %d, batch outcome ambiguous (ShutdownGrace < 0): %w", b.streamId, ctx.Err())
 		}
 
 		// enqueued work cannot be recalled -- wait up to the grace for the
@@ -90,11 +90,11 @@ func (b *Batcher[Message]) Produce(ctx context.Context, message *Message, option
 		select {
 		case <-operation.response.done:
 			// ideally this completes -> graceful shutdown
-			b.Logger.DebugContext(ctx, "cancelled produce resolved within shutdown grace", "topic_id", b.topicId)
+			b.Logger.DebugContext(ctx, "cancelled produce resolved within shutdown grace", "stream_id", b.streamId)
 		case <-grace.C:
 			// if shutdownGrace times out -> exit early
 			// work commit status is ambiguous and should be retried if possible when supplying external idempotency key
-			return nil, fmt.Errorf("produce abandoned after ShutdownGrace (%s) for topic %d, batch outcome ambiguous: %w", b.Config.ShutdownGrace, b.topicId, ctx.Err())
+			return nil, fmt.Errorf("produce abandoned after ShutdownGrace (%s) for stream %d, batch outcome ambiguous: %w", b.Config.ShutdownGrace, b.streamId, ctx.Err())
 		}
 	}
 

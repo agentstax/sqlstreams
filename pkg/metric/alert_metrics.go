@@ -1,10 +1,10 @@
 package metric
 
-import "github.com/agentstax/vulkan/pkg/common/diagnostic"
+import "github.com/agentstax/sqlstreams/pkg/common/diagnostic"
 
 var MetricActiveAlerts = diagnostic.NewDiagnosticMetric(
-	"VK0073",
-	"vulkan.alert.state.active_alerts",
+	"SS0073",
+	"sqlstreams.alert.state.active_alerts",
 	string(MetricKindGauge),
 	string(MetricUnitCount("alert")),
 	"retained alert heads whose status is active",
@@ -12,37 +12,37 @@ var MetricActiveAlerts = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricResolvedAlerts = diagnostic.NewDiagnosticMetric(
-	"VK0074",
-	"vulkan.alert.state.resolved_alerts",
+	"SS0074",
+	"sqlstreams.alert.state.resolved_alerts",
 	string(MetricKindGauge),
 	string(MetricUnitCount("alert")),
 	"retained alert heads whose status is resolved",
 	diagnostic.MetricScopeSystem,
 )
 
-var MetricCheckTopicsEvaluated = diagnostic.NewDiagnosticMetric(
-	"VK0075",
-	"vulkan.alert.check.topics_evaluated",
+var MetricCheckStreamsEvaluated = diagnostic.NewDiagnosticMetric(
+	"SS0075",
+	"sqlstreams.alert.check.streams_evaluated",
 	string(MetricKindGauge),
-	string(MetricUnitCount("topic")),
-	"topics the alert check evaluated",
+	string(MetricUnitCount("stream")),
+	"streams the alert check evaluated",
 	diagnostic.MetricScopeSystem,
 	"alert",
 )
 
-var MetricCheckTopicsFailed = diagnostic.NewDiagnosticMetric(
-	"VK0076",
-	"vulkan.alert.check.topics_failed",
+var MetricCheckStreamsFailed = diagnostic.NewDiagnosticMetric(
+	"SS0076",
+	"sqlstreams.alert.check.streams_failed",
 	string(MetricKindGauge),
-	string(MetricUnitCount("topic")),
-	"topics whose alert evaluation or result production did not complete",
+	string(MetricUnitCount("stream")),
+	"streams whose alert evaluation or result production did not complete",
 	diagnostic.MetricScopeSystem,
 	"alert",
 )
 
 var MetricCheckPublishedAlerts = diagnostic.NewDiagnosticMetric(
-	"VK0077",
-	"vulkan.alert.check.published_alerts",
+	"SS0077",
+	"sqlstreams.alert.check.published_alerts",
 	string(MetricKindGauge),
 	string(MetricUnitCount("alert")),
 	"alerts the check changed to active",
@@ -51,8 +51,8 @@ var MetricCheckPublishedAlerts = diagnostic.NewDiagnosticMetric(
 )
 
 var MetricCheckResolvedAlerts = diagnostic.NewDiagnosticMetric(
-	"VK0078",
-	"vulkan.alert.check.resolved_alerts",
+	"SS0078",
+	"sqlstreams.alert.check.resolved_alerts",
 	string(MetricKindGauge),
 	string(MetricUnitCount("alert")),
 	"alerts the check changed to resolved",

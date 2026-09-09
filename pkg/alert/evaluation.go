@@ -35,7 +35,7 @@ type AlertEvaluationSnapshot struct {
 	PendingDuration time.Duration `json:"pending_duration"`
 	// MaximumGap is the resolved sample-gap limit; zero for collector progress.
 	MaximumGap time.Duration `json:"maximum_gap"`
-	// MaximumAge is the resolved completion-age limit; zero for topic alerts.
+	// MaximumAge is the resolved completion-age limit; zero for stream alerts.
 	MaximumAge time.Duration `json:"maximum_age"`
 	// DisablePending reports whether the evaluation permits immediate activation.
 	DisablePending bool `json:"disable_pending"`

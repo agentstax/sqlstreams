@@ -3,9 +3,9 @@ package controller
 import (
 	"errors"
 
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	"github.com/agentstax/vulkan/pkg/consume/janitor/controller/datastore"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	"github.com/agentstax/sqlstreams/pkg/consume/janitor/controller/datastore"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
 )
 
 // JanitorController is the consumer group janitor kind's only path to

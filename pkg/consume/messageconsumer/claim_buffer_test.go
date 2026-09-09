@@ -6,8 +6,8 @@ import (
 	"testing"
 	"uuid"
 
-	"github.com/agentstax/vulkan/pkg/common/concurrency"
-	"github.com/agentstax/vulkan/pkg/consume/messageconsumer/controller"
+	"github.com/agentstax/sqlstreams/pkg/common/concurrency"
+	"github.com/agentstax/sqlstreams/pkg/consume/messageconsumer/controller"
 )
 
 func TestStaleRangeHasOneWarningWinner(t *testing.T) {

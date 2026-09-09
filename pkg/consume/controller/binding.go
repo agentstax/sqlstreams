@@ -8,18 +8,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/consume"
-	"github.com/agentstax/vulkan/pkg/consume/controller/datastore"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/consume"
+	"github.com/agentstax/sqlstreams/pkg/consume/controller/datastore"
 )
 
 // DeclareBindings states the group's full binding set -- no patterns = the
-// whole topic, '*' in a pattern matches any run of characters.
+// whole stream, '*' in a pattern matches any run of characters.
 // declaredAt is when the declarer first stated the set, fixed across its
 // retries; callers retry on BindingWaiting.
-func (c *ConsumeController) DeclareBindings(ctx context.Context, topicId int64, groupId int64, patterns []string, declaredAt time.Time) (consume.BindingOutcome, error) {
-	if topicId <= 0 {
-		return "", fmt.Errorf("topicId must be > 0, got %d", topicId)
+func (c *ConsumeController) DeclareBindings(ctx context.Context, streamId int64, groupId int64, patterns []string, declaredAt time.Time) (consume.BindingOutcome, error) {
+	if streamId <= 0 {
+		return "", fmt.Errorf("streamId must be > 0, got %d", streamId)
 	}
 	if groupId <= 0 {
 		return "", fmt.Errorf("groupId must be > 0, got %d", groupId)
@@ -32,20 +32,20 @@ func (c *ConsumeController) DeclareBindings(ctx context.Context, topicId int64, 
 	}
 
 	declared := normalizePatterns(patterns)
-	return c.datastore.DeclareBindings(ctx, topicId, groupId, declared, common.ProcessIdentity, declaredAt)
+	return c.datastore.DeclareBindings(ctx, streamId, groupId, declared, common.ProcessIdentity, declaredAt)
 }
 
 // GetBinding returns the group's effective declaration -- its
 // newest installed row -- or nil when the group never installed a set.
-func (c *ConsumeController) GetBinding(ctx context.Context, topicId int64, groupId int64) (*consume.Binding, error) {
-	if topicId <= 0 {
-		return nil, fmt.Errorf("topicId must be > 0, got %d", topicId)
+func (c *ConsumeController) GetBinding(ctx context.Context, streamId int64, groupId int64) (*consume.Binding, error) {
+	if streamId <= 0 {
+		return nil, fmt.Errorf("streamId must be > 0, got %d", streamId)
 	}
 	if groupId <= 0 {
 		return nil, fmt.Errorf("groupId must be > 0, got %d", groupId)
 	}
 
-	data, err := c.datastore.ListGroupBindingConfigLog(ctx, topicId, groupId)
+	data, err := c.datastore.ListGroupBindingConfigLog(ctx, streamId, groupId)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +57,7 @@ func (c *ConsumeController) GetBinding(ctx context.Context, topicId int64, group
 }
 
 // ListBindings returns every group's effective declaration followed by
-// its still-waiting declarers, ordered by topic then group.
+// its still-waiting declarers, ordered by stream then group.
 func (c *ConsumeController) ListBindings(ctx context.Context) ([]*consume.Binding, error) {
 	data, err := c.datastore.ListBindingConfigLog(ctx)
 	if err != nil {
@@ -136,7 +136,7 @@ func declarerInstalledAfter(waiting *datastore.BindingConfigLogRow, rows []datas
 }
 
 func compareBindings(left *consume.Binding, right *consume.Binding) int {
-	if c := strings.Compare(left.TopicName, right.TopicName); c != 0 {
+	if c := strings.Compare(left.StreamName, right.StreamName); c != 0 {
 		return c
 	}
 	return strings.Compare(left.ConsumerGroupName, right.ConsumerGroupName)

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/datastore"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/datastore"
 )
 
 // SystemOwner resolves the singleton system row to its owner, read on the
@@ -30,7 +30,7 @@ func (d *MigrateDatastore) systemOwner(ctx context.Context) (*common.Owner, erro
 func SystemOwner(ctx context.Context, q datastore.Querier, schema string) (*common.Owner, error) {
 	var id int64
 	sql := fmt.Sprintf(`
-		-- vulkan: migrate.SystemOwner
+		-- sqlstreams: migrate.SystemOwner
 		SELECT id FROM %[1]s.system_config;
 	`, schema)
 	if err := q.QueryRow(ctx, sql).Scan(&id); err != nil {

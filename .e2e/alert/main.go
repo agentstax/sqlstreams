@@ -13,9 +13,9 @@
 //  3. executor -- the real partition_count worker: a threshold-1 run
 //     publishes active heads + WARN edges, a second run inside the repeat
 //     interval publishes nothing, foreign and bindingless groups on the
-//     schedules topic receive nothing
+//     schedules stream receive nothing
 //  4. isolation -- one owner's corrupted head fails its Record while every
-//     other topic still resolves; fixing the head lets the retry resolve it
+//     other stream still resolves; fixing the head lets the retry resolve it
 package main
 
 import (
@@ -26,23 +26,23 @@ import (
 	"sync"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/alert"
-	"github.com/agentstax/vulkan/pkg/alert/compactionreadcost"
-	alertcontroller "github.com/agentstax/vulkan/pkg/alert/controller"
-	"github.com/agentstax/vulkan/pkg/alert/partitioncount"
-	"github.com/agentstax/vulkan/pkg/alert/workerliveness"
-	"github.com/agentstax/vulkan/pkg/common"
-	compactioncontroller "github.com/agentstax/vulkan/pkg/compaction/controller"
-	"github.com/agentstax/vulkan/pkg/consume"
-	consumecontroller "github.com/agentstax/vulkan/pkg/consume/controller"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	iMetrics "github.com/agentstax/vulkan/pkg/metric"
-	"github.com/agentstax/vulkan/pkg/producer"
-	"github.com/agentstax/vulkan/pkg/schedule"
-	"github.com/agentstax/vulkan/pkg/topic"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
-	"github.com/agentstax/vulkan/pkg/worker"
-	workercontroller "github.com/agentstax/vulkan/pkg/worker/controller"
+	"github.com/agentstax/sqlstreams/pkg/alert"
+	"github.com/agentstax/sqlstreams/pkg/alert/compactionreadcost"
+	alertcontroller "github.com/agentstax/sqlstreams/pkg/alert/controller"
+	"github.com/agentstax/sqlstreams/pkg/alert/partitioncount"
+	"github.com/agentstax/sqlstreams/pkg/alert/workerliveness"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	compactioncontroller "github.com/agentstax/sqlstreams/pkg/compaction/controller"
+	"github.com/agentstax/sqlstreams/pkg/consume"
+	consumecontroller "github.com/agentstax/sqlstreams/pkg/consume/controller"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	iMetrics "github.com/agentstax/sqlstreams/pkg/metric"
+	"github.com/agentstax/sqlstreams/pkg/producer"
+	"github.com/agentstax/sqlstreams/pkg/schedule"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	"github.com/agentstax/sqlstreams/pkg/stream"
+	"github.com/agentstax/sqlstreams/pkg/worker"
+	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -51,8 +51,8 @@ const (
 	classifyRepeat = 2 * time.Second
 )
 
-// testMessage is the e2e test topic's payload -- its one write creates the
-// topic's first partition, so threshold 1 can trip on it.
+// testMessage is the e2e test stream's payload -- its one write creates the
+// stream's first partition, so threshold 1 can trip on it.
 type testMessage struct {
 	Value string
 }
@@ -61,16 +61,16 @@ func (testMessage) SchemaVersion() int { return 1 }
 
 var (
 	ds     *iDatastore.PostgresDatastore
-	client *vulkan.Client
+	client *sqlstreams.Client
 
-	schedulesTopic *topic.Topic
-	alertsTopic    *topic.Topic
-	prefix         string
+	schedulesStream *stream.Stream
+	alertsStream    *stream.Stream
+	prefix          string
 
 	partitionCountGroup int64
 	groupOwner          *common.Owner
-	testTopic           *topic.Topic
-	testTopicOwner      *common.Owner
+	testStream          *stream.Stream
+	testStreamOwner     *common.Owner
 	executorCapture     *captureLogger
 )
 
@@ -103,22 +103,22 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err = vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err = sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err = iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 	must(client.System().Register(ctx, nil))
 
-	schedulesTopic, err = client.Topic[vulkan.RawPayload](schedule.ScheduleTopicName).Get(ctx)
+	schedulesStream, err = client.Stream[sqlstreams.RawPayload](schedule.ScheduleStreamName).Get(ctx)
 	must(err)
-	alertsTopic, err = client.Topic[vulkan.RawPayload](alert.AlertTopicName).Get(ctx)
+	alertsStream, err = client.Stream[sqlstreams.RawPayload](alert.AlertStreamName).Get(ctx)
 	must(err)
-	if schedulesTopic == nil || alertsTopic == nil {
-		die("RegisterSystem must create the schedules and alerts topics")
+	if schedulesStream == nil || alertsStream == nil {
+		die("RegisterSystem must create the schedules and alerts streams")
 	}
 
 	prefix = fmt.Sprintf("alert.%d", time.Now().UnixNano())
@@ -171,7 +171,7 @@ func seedingSection(ctx context.Context) {
 	for _, jobName := range []string{partitioncount.JobName, compactionreadcost.JobName} {
 		declared := false
 		for _, declaration := range declarations {
-			if declaration.ConsumerGroupName == jobName && declaration.TopicName == schedule.ScheduleTopicName &&
+			if declaration.ConsumerGroupName == jobName && declaration.StreamName == schedule.ScheduleStreamName &&
 				declaration.Status == consume.BindingInstalled &&
 				len(declaration.Patterns) == 1 && declaration.Patterns[0] == jobName {
 				declared = true
@@ -183,9 +183,9 @@ func seedingSection(ctx context.Context) {
 	}
 
 	partitionCountGroup = scalarInt64(ctx,
-		fmt.Sprintf(`SELECT id FROM %s.consumer_group_config WHERE topic_id = $1 AND name = $2;`, ds.Schema),
-		schedulesTopic.Id, partitioncount.JobName)
-	groupOwner, err = common.NewConsumerGroupOwner(schedulesTopic.SystemId, schedulesTopic.Id, partitionCountGroup, partitioncount.JobName)
+		fmt.Sprintf(`SELECT id FROM %s.consumer_group_config WHERE stream_id = $1 AND name = $2;`, ds.Schema),
+		schedulesStream.Id, partitioncount.JobName)
+	groupOwner, err = common.NewConsumerGroupOwner(schedulesStream.SystemId, schedulesStream.Id, partitionCountGroup, partitioncount.JobName)
 	must(err)
 	workers, err := workercontroller.NewWorkerController(ds, ds.Logger)
 	must(err)
@@ -222,7 +222,7 @@ func seedingSection(ctx context.Context) {
 // declareThreshold re-declares the partition_count alert at threshold, through
 // the same call a user changing it would make.
 func declareThreshold(ctx context.Context, threshold int64) {
-	must(client.System().Register(ctx, &vulkan.SystemConfig{
+	must(client.System().Register(ctx, &sqlstreams.SystemConfig{
 		PartitionCountAlert: &alert.PartitionCountAlertConfig{Threshold: threshold, DisablePending: true},
 		MetricCollector:     &iMetrics.MetricCollectorWorkerConfig{PollRate: 100 * time.Millisecond},
 	}))
@@ -232,16 +232,16 @@ func classifySection(ctx context.Context) {
 	step("classify: edge WARN, quiet hold, repeat republish, silent severity change, resolve INFO")
 
 	var err error
-	testTopic, err = client.Topic[vulkan.RawPayload](prefix+".topic").Register(ctx, nil)
+	testStream, err = client.Stream[sqlstreams.RawPayload](prefix+".stream").Register(ctx, nil)
 	must(err)
-	testTopicOwner, err = common.NewTopicOwner(testTopic.SystemId, testTopic.Id, testTopic.Name)
+	testStreamOwner, err = common.NewStreamOwner(testStream.SystemId, testStream.Id, testStream.Name)
 	must(err)
 
 	// the alert controller takes the producer package's instance, not the
 	// client's wrapper
 	alertProducer, err := producer.NewProducer(ds)
 	must(err)
-	instance, err := alertProducer.Register[alert.Alert](ctx, alert.AlertTopicName, nil)
+	instance, err := alertProducer.Register[alert.Alert](ctx, alert.AlertStreamName, nil)
 	must(err)
 	heads, err := compactioncontroller.NewCompactionController(ds, ds.Logger)
 	must(err)
@@ -249,9 +249,9 @@ func classifySection(ctx context.Context) {
 	alerts, err := alertcontroller.NewAlertController(ctx, instance, ds, heads, classifyRepeat, capture)
 	must(err)
 
-	key, err := alert.MessageKey(testCheckName, testTopicOwner)
+	key, err := alert.MessageKey(testCheckName, testStreamOwner)
 	must(err)
-	found, err := alert.NewAlert(testCheckName, testTopicOwner, alert.AlertStatusActive, alert.AlertSeverityWarn, "testcheck condition holds", time.Now(), nil)
+	found, err := alert.NewAlert(testCheckName, testStreamOwner, alert.AlertStatusActive, alert.AlertSeverityWarn, "testcheck condition holds", time.Now(), nil)
 	must(err)
 
 	record := func(found *alert.Alert, want alert.RecordOutcome, arm string) {
@@ -261,7 +261,7 @@ func classifySection(ctx context.Context) {
 		}
 		evaluation, err := alert.NewAlertEvaluationSnapshot(state, found, nil)
 		must(err)
-		outcome, err := alerts.Record(ctx, testCheckName, testTopicOwner, evaluation)
+		outcome, err := alerts.Record(ctx, testCheckName, testStreamOwner, evaluation)
 		must(err)
 		if outcome != want {
 			die(fmt.Sprintf("%s: want outcome %q, got %q", arm, want, outcome))
@@ -276,7 +276,7 @@ func classifySection(ctx context.Context) {
 	if got := headStatus(ctx, key); got != string(alert.AlertStatusActive) {
 		die(fmt.Sprintf("active edge: want head status active, got %q", got))
 	}
-	if got := capture.count("warn", testCheckName, testTopic.Name); got != 1 {
+	if got := capture.count("warn", testCheckName, testStream.Name); got != 1 {
 		die(fmt.Sprintf("active edge: want 1 WARN, got %d", got))
 	}
 	fmt.Println("  ✓ active edge published the head and WARNed once")
@@ -300,7 +300,7 @@ func classifySection(ctx context.Context) {
 	if got := headId(ctx, key); got == firstHead {
 		die("repeat: the republish must move the head to the fresh row")
 	}
-	if got := capture.count("warn", testCheckName, testTopic.Name); got != 1 {
+	if got := capture.count("warn", testCheckName, testStream.Name); got != 1 {
 		die(fmt.Sprintf("repeat: the republish must be silent, got %d WARNs", got))
 	}
 	fmt.Println("  ✓ repeat republish refreshed the head silently")
@@ -308,12 +308,12 @@ func classifySection(ctx context.Context) {
 	// severity change: publishes immediately (still inside the interval),
 	// silently -- the head's stored severity is doctored by direct SQL,
 	// bypassing the controller
-	exec(ctx, fmt.Sprintf(`UPDATE %s.%s SET payload = jsonb_set(payload, '{severity}', '"e2e-critical"') WHERE id = $1;`, ds.Schema, topic.MessageLogTable(alertsTopic.Id)), headId(ctx, key))
+	exec(ctx, fmt.Sprintf(`UPDATE %s.%s SET payload = jsonb_set(payload, '{severity}', '"e2e-critical"') WHERE id = $1;`, ds.Schema, stream.MessageLogTable(alertsStream.Id)), headId(ctx, key))
 	record(found, alert.RecordOutcomeActive, "severity change")
 	if got := alertMessageCount(ctx, key); got != 3 {
 		die(fmt.Sprintf("severity change: want an immediate republish, got %d messages", got))
 	}
-	if got := capture.count("warn", testCheckName, testTopic.Name); got != 1 {
+	if got := capture.count("warn", testCheckName, testStream.Name); got != 1 {
 		die(fmt.Sprintf("severity change: the republish must be silent, got %d WARNs", got))
 	}
 	fmt.Println("  ✓ severity change republished immediately and silently")
@@ -326,7 +326,7 @@ func classifySection(ctx context.Context) {
 	if got := headStatus(ctx, key); got != string(alert.AlertStatusResolved) {
 		die(fmt.Sprintf("resolve edge: want head status resolved, got %q", got))
 	}
-	if got := capture.count("info", testCheckName, testTopic.Name); got != 1 {
+	if got := capture.count("info", testCheckName, testStream.Name); got != 1 {
 		die(fmt.Sprintf("resolve edge: want 1 INFO, got %d", got))
 	}
 
@@ -362,7 +362,7 @@ func classifySection(ctx context.Context) {
 		for range 16 {
 			routines.Go(func() error {
 				<-start
-				outcome, err := concurrentAlerts.Record(ctx, testCheckName, testTopicOwner, evaluation)
+				outcome, err := concurrentAlerts.Record(ctx, testCheckName, testStreamOwner, evaluation)
 				if err != nil {
 					return err
 				}
@@ -385,23 +385,23 @@ func classifySection(ctx context.Context) {
 			die(fmt.Sprintf("%s: want %d transitions, got %d", test.name, test.count, changed))
 		}
 	}
-	if capture.count("warn", testCheckName, testTopic.Name) != 2 || capture.count("info", testCheckName, testTopic.Name) != 2 {
+	if capture.count("warn", testCheckName, testStream.Name) != 2 || capture.count("info", testCheckName, testStream.Name) != 2 {
 		die("concurrent checks must log each committed transition once")
 	}
 	fmt.Println("  ✓ concurrent checks recorded and logged each transition once")
 
-	unencodable, err := alert.NewAlert(testCheckName, testTopicOwner, alert.AlertStatusActive, alert.AlertSeverityWarn, "testcheck condition holds", time.Now(), &alert.AlertOptions{
+	unencodable, err := alert.NewAlert(testCheckName, testStreamOwner, alert.AlertStatusActive, alert.AlertSeverityWarn, "testcheck condition holds", time.Now(), &alert.AlertOptions{
 		Data: map[string]any{"unencodable": make(chan struct{})},
 	})
 	must(err)
 	before := alertMessageCount(ctx, key)
 	evaluation, err := alert.NewAlertEvaluationSnapshot(alert.AlertEvaluationStateActive, unencodable, nil)
 	must(err)
-	outcome, err := concurrentAlerts.Record(ctx, testCheckName, testTopicOwner, evaluation)
+	outcome, err := concurrentAlerts.Record(ctx, testCheckName, testStreamOwner, evaluation)
 	if err == nil || outcome != "" || alertMessageCount(ctx, key) != before || headStatus(ctx, key) != string(alert.AlertStatusResolved) {
 		die("a rejected alert write must leave the resolved head and history unchanged")
 	}
-	if capture.count("warn", testCheckName, testTopic.Name) != 2 || capture.count("info", testCheckName, testTopic.Name) != 2 {
+	if capture.count("warn", testCheckName, testStream.Name) != 2 || capture.count("info", testCheckName, testStream.Name) != 2 {
 		die("a rolled-back alert must not log a transition")
 	}
 	fmt.Println("  ✓ rejected alert write left no transition or log")
@@ -410,8 +410,8 @@ func classifySection(ctx context.Context) {
 func executorSection(ctx context.Context) {
 	step("executor: threshold-1 run alerts, repeat-interval run is quiet, foreign groups untouched")
 
-	// one write gives the e2e test topic its first partition
-	testInstance, err := client.Topic[testMessage](testTopic.Name).Producer().Register(ctx, nil)
+	// one write gives the e2e test stream its first partition
+	testInstance, err := client.Stream[testMessage](testStream.Name).Producer().Register(ctx, nil)
 	must(err)
 	_, err = testInstance.Produce(ctx, &testMessage{Value: "seed"}, nil)
 	must(err)
@@ -437,7 +437,7 @@ func executorSection(ctx context.Context) {
 	must(err)
 	declared := false
 	for _, declaration := range declarations {
-		if declaration.ConsumerGroupName == partitioncount.JobName && declaration.TopicName == schedule.ScheduleTopicName &&
+		if declaration.ConsumerGroupName == partitioncount.JobName && declaration.StreamName == schedule.ScheduleStreamName &&
 			declaration.Status == consume.BindingInstalled &&
 			len(declaration.Patterns) == 1 && declaration.Patterns[0] == partitioncount.JobName {
 			declared = true
@@ -448,28 +448,28 @@ func executorSection(ctx context.Context) {
 	}
 	fmt.Println("  ✓ the executor declared exactly its job name")
 
-	testKey := partitionCountKey(testTopicOwner)
-	schedulesOwner, err := common.NewTopicOwner(schedulesTopic.SystemId, schedulesTopic.Id, schedulesTopic.Name)
+	testKey := partitionCountKey(testStreamOwner)
+	schedulesOwner, err := common.NewStreamOwner(schedulesStream.SystemId, schedulesStream.Id, schedulesStream.Name)
 	must(err)
 	schedulesKey := partitionCountKey(schedulesOwner)
 	if got := headStatus(ctx, testKey); got != string(alert.AlertStatusActive) {
-		die(fmt.Sprintf("threshold-1 run: want the e2e test topic's head active, got %q", got))
+		die(fmt.Sprintf("threshold-1 run: want the e2e test stream's head active, got %q", got))
 	}
 	if got := headStatus(ctx, schedulesKey); got != string(alert.AlertStatusActive) {
-		die(fmt.Sprintf("threshold-1 run: want the schedules topic's head active, got %q", got))
+		die(fmt.Sprintf("threshold-1 run: want the schedules stream's head active, got %q", got))
 	}
-	if got := executorCapture.count("warn", alert.AlertPartitionCount.Name, testTopic.Name); got != 1 {
-		die(fmt.Sprintf("threshold-1 run: want 1 WARN edge for the e2e test topic, got %d", got))
+	if got := executorCapture.count("warn", alert.AlertPartitionCount.Name, testStream.Name); got != 1 {
+		die(fmt.Sprintf("threshold-1 run: want 1 WARN edge for the e2e test stream, got %d", got))
 	}
 	fmt.Println("  ✓ threshold-1 run published active heads with WARN edges")
 
 	summary := readCheckSummary(ctx)
-	if summary[iMetrics.MetricCheckTopicsEvaluated.Name] < 2 ||
-		summary[iMetrics.MetricCheckTopicsFailed.Name] != 0 ||
-		summary[iMetrics.MetricCheckPublishedAlerts.Name] != summary[iMetrics.MetricCheckTopicsEvaluated.Name] {
-		die(fmt.Sprintf("threshold-1 run: want every evaluated topic published and none failed, got %v", summary))
+	if summary[iMetrics.MetricCheckStreamsEvaluated.Name] < 2 ||
+		summary[iMetrics.MetricCheckStreamsFailed.Name] != 0 ||
+		summary[iMetrics.MetricCheckPublishedAlerts.Name] != summary[iMetrics.MetricCheckStreamsEvaluated.Name] {
+		die(fmt.Sprintf("threshold-1 run: want every evaluated stream published and none failed, got %v", summary))
 	}
-	fmt.Println("  ✓ check summary: every evaluated topic published, none failed")
+	fmt.Println("  ✓ check summary: every evaluated stream published, none failed")
 
 	// inside the system's 4h repeat interval the same finding publishes nothing
 	published := alertMessageCount(ctx, testKey)
@@ -482,14 +482,14 @@ func executorSection(ctx context.Context) {
 	if got := alertMessageCount(ctx, testKey); got != published {
 		die(fmt.Sprintf("repeat-interval run: want no republish, got %d messages after %d", got, published))
 	}
-	if got := executorCapture.count("warn", alert.AlertPartitionCount.Name, testTopic.Name); got != 1 {
+	if got := executorCapture.count("warn", alert.AlertPartitionCount.Name, testStream.Name); got != 1 {
 		die(fmt.Sprintf("repeat-interval run: want no new WARN, got %d", got))
 	}
 	fmt.Println("  ✓ a second run inside the repeat interval published nothing")
 
 	summary = readCheckSummary(ctx)
 	if summary[iMetrics.MetricCheckPublishedAlerts.Name] != 0 ||
-		summary[iMetrics.MetricCheckTopicsFailed.Name] != 0 {
+		summary[iMetrics.MetricCheckStreamsFailed.Name] != 0 {
 		die(fmt.Sprintf("repeat-interval run: want a quiet summary, got %v", summary))
 	}
 	fmt.Println("  ✓ check summary: the quiet run counted zero publishes")
@@ -501,12 +501,12 @@ func executorSection(ctx context.Context) {
 	thirdRun, err := client.Scheduler(partitioncount.JobName).Run(ctx, nil)
 	must(err)
 	waitDelivered(ctx, thirdRun.Id, "success")
-	if got := scalarInt64(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND message_id = %d;`, ds.Schema, topic.DeliveryLogTable(schedulesTopic.Id), partitionCountGroup, readCostRun.Id)); got != 0 {
+	if got := scalarInt64(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND message_id = %d;`, ds.Schema, stream.DeliveryLogTable(schedulesStream.Id), partitionCountGroup, readCostRun.Id)); got != 0 {
 		die(fmt.Sprintf("the executor must not claim another job's request, got %d delivery rows", got))
 	}
 	for _, foreignGroup := range []int64{otherGroup, bindinglessGroup} {
-		claimed := scalarInt64(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d;`, ds.Schema, topic.ExceptionQueueTable(schedulesTopic.Id), foreignGroup))
-		logged := scalarInt64(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d;`, ds.Schema, topic.DeliveryLogTable(schedulesTopic.Id), foreignGroup))
+		claimed := scalarInt64(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d;`, ds.Schema, stream.ExceptionQueueTable(schedulesStream.Id), foreignGroup))
+		logged := scalarInt64(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d;`, ds.Schema, stream.DeliveryLogTable(schedulesStream.Id), foreignGroup))
 		if claimed != 0 || logged != 0 {
 			die(fmt.Sprintf("group %d must be untouched by alert runs, got %d claims %d log rows", foreignGroup, claimed, logged))
 		}
@@ -515,61 +515,61 @@ func executorSection(ctx context.Context) {
 }
 
 func isolationSection(ctx context.Context) {
-	step("isolation: a corrupted head fails its topic's Record, the others still resolve")
+	step("isolation: a corrupted head fails its stream's Record, the others still resolve")
 
-	testKey := partitionCountKey(testTopicOwner)
-	schedulesOwner, err := common.NewTopicOwner(schedulesTopic.SystemId, schedulesTopic.Id, schedulesTopic.Name)
+	testKey := partitionCountKey(testStreamOwner)
+	schedulesOwner, err := common.NewStreamOwner(schedulesStream.SystemId, schedulesStream.Id, schedulesStream.Name)
 	must(err)
 	schedulesKey := partitionCountKey(schedulesOwner)
 
 	// the head row stays, but its payload no longer unmarshals into an Alert
 	corruptedHead := headId(ctx, testKey)
-	saved := scalarString(ctx, fmt.Sprintf(`SELECT payload::text FROM %s.%s WHERE id = $1;`, ds.Schema, topic.MessageLogTable(alertsTopic.Id)), corruptedHead)
-	exec(ctx, fmt.Sprintf(`UPDATE %s.%s SET payload = '"corrupt"'::jsonb WHERE id = $1;`, ds.Schema, topic.MessageLogTable(alertsTopic.Id)), corruptedHead)
+	saved := scalarString(ctx, fmt.Sprintf(`SELECT payload::text FROM %s.%s WHERE id = $1;`, ds.Schema, stream.MessageLogTable(alertsStream.Id)), corruptedHead)
+	exec(ctx, fmt.Sprintf(`UPDATE %s.%s SET payload = '"corrupt"'::jsonb WHERE id = $1;`, ds.Schema, stream.MessageLogTable(alertsStream.Id)), corruptedHead)
 
 	declareThreshold(ctx, 0)
 	resolveRun, err := client.Scheduler(partitioncount.JobName).Run(ctx, nil)
 	must(err)
 
 	// the attempt fails on the corrupted owner -- but the same attempt
-	// already resolved every healthy topic
+	// already resolved every healthy stream
 	waitDelivered(ctx, resolveRun.Id, "failure")
 	if observations := partitionObservations(ctx); len(observations) == 0 || observations[0].Message.Value != 1 {
 		die("healthy partition evidence must survive failed alert recording")
 	}
 	if got := headStatus(ctx, schedulesKey); got != string(alert.AlertStatusResolved) {
-		die(fmt.Sprintf("isolation: healthy topics must resolve beside the failure, got %q", got))
+		die(fmt.Sprintf("isolation: healthy streams must resolve beside the failure, got %q", got))
 	}
-	if got := executorCapture.count("info", alert.AlertPartitionCount.Name, schedulesTopic.Name); got != 1 {
-		die(fmt.Sprintf("isolation: want 1 resolve INFO for the healthy topic, got %d", got))
+	if got := executorCapture.count("info", alert.AlertPartitionCount.Name, schedulesStream.Name); got != 1 {
+		die(fmt.Sprintf("isolation: want 1 resolve INFO for the healthy stream, got %d", got))
 	}
 	if got := headId(ctx, testKey); got != corruptedHead {
 		die("isolation: the corrupted owner's head must not move")
 	}
-	fmt.Println("  ✓ healthy topics resolved in the same attempt the corrupted owner failed")
+	fmt.Println("  ✓ healthy streams resolved in the same attempt the corrupted owner failed")
 
 	// resolved is left unasserted here: an automatic retry may already have
 	// overwritten the summary, and only its failed/published counts repeat
 	summary := readCheckSummary(ctx)
-	if summary[iMetrics.MetricCheckTopicsFailed.Name] != 1 ||
+	if summary[iMetrics.MetricCheckStreamsFailed.Name] != 1 ||
 		summary[iMetrics.MetricCheckPublishedAlerts.Name] != 0 {
 		die(fmt.Sprintf("isolation: the failed run must still produce its summary, got %v", summary))
 	}
-	fmt.Println("  ✓ check summary went out on the failed run: exactly 1 topic failed")
+	fmt.Println("  ✓ check summary went out on the failed run: exactly 1 stream failed")
 
 	// fixing the head lets the request's retry resolve the last owner
-	exec(ctx, fmt.Sprintf(`UPDATE %s.%s SET payload = $1::jsonb WHERE id = $2;`, ds.Schema, topic.MessageLogTable(alertsTopic.Id)), saved, corruptedHead)
+	exec(ctx, fmt.Sprintf(`UPDATE %s.%s SET payload = $1::jsonb WHERE id = $2;`, ds.Schema, stream.MessageLogTable(alertsStream.Id)), saved, corruptedHead)
 	waitDelivered(ctx, resolveRun.Id, "success")
 	if got := headStatus(ctx, testKey); got != string(alert.AlertStatusResolved) {
 		die(fmt.Sprintf("isolation: want the fixed owner resolved on retry, got %q", got))
 	}
-	if got := executorCapture.count("info", alert.AlertPartitionCount.Name, testTopic.Name); got != 1 {
+	if got := executorCapture.count("info", alert.AlertPartitionCount.Name, testStream.Name); got != 1 {
 		die(fmt.Sprintf("isolation: want 1 resolve INFO for the fixed owner, got %d", got))
 	}
-	fmt.Println("  ✓ retry resolved the fixed owner; healthy topics resolved exactly once")
+	fmt.Println("  ✓ retry resolved the fixed owner; healthy streams resolved exactly once")
 
 	summary = readCheckSummary(ctx)
-	if summary[iMetrics.MetricCheckTopicsFailed.Name] != 0 ||
+	if summary[iMetrics.MetricCheckStreamsFailed.Name] != 0 ||
 		summary[iMetrics.MetricCheckResolvedAlerts.Name] != 1 {
 		die(fmt.Sprintf("isolation retry: want 0 failed and only the fixed owner resolved, got %v", summary))
 	}
@@ -601,12 +601,12 @@ func waitForCollector(ctx context.Context) {
 }
 
 func partitionObservations(ctx context.Context) []*common.StoredMessage[iMetrics.Measurement] {
-	metricTopic, err := client.Topic[iMetrics.Measurement](iMetrics.MetricTopicName).Get(ctx)
+	metricStream, err := client.Stream[iMetrics.Measurement](iMetrics.MetricStreamName).Get(ctx)
 	must(err)
 	heads, err := compactioncontroller.NewCompactionController(ds, ds.Logger)
 	must(err)
-	key := iMetrics.MeasurementKey(iMetrics.MetricTopicPartitions.Name, map[string]string{"topic": testTopic.Name})
-	observations, err := heads.ListKeyMessages[iMetrics.Measurement](ctx, metricTopic.Id, key, 100)
+	key := iMetrics.MeasurementKey(iMetrics.MetricStreamPartitions.Name, map[string]string{"stream": testStream.Name})
+	observations, err := heads.ListKeyMessages[iMetrics.Measurement](ctx, metricStream.Id, key, 100)
 	must(err)
 	for _, observation := range observations {
 		if observation.CompactionRank != 0 || observation.CreatedAt.IsZero() {
@@ -654,14 +654,14 @@ func startExecutor(ctx context.Context) func() {
 	}
 }
 
-// registerGroup creates a consumer group on the schedules topic, bound to
+// registerGroup creates a consumer group on the schedules stream, bound to
 // the given job names (none = bindingless), and returns its id.
 func registerGroup(ctx context.Context, name string, bindings ...string) int64 {
 	controller, err := consumecontroller.NewConsumeController(ds, ds.Logger)
 	must(err)
-	group, err := controller.RegisterGroup(ctx, schedulesTopic.Id, name, consume.Beginning())
+	group, err := controller.RegisterGroup(ctx, schedulesStream.Id, name, consume.Beginning())
 	must(err)
-	_, err = controller.DeclareBindings(ctx, schedulesTopic.Id, group.Id, bindings, time.Now())
+	_, err = controller.DeclareBindings(ctx, schedulesStream.Id, group.Id, bindings, time.Now())
 	must(err)
 	return group.Id
 }
@@ -672,19 +672,19 @@ func cleanup() {
 	must(client.Scheduler(partitioncount.JobName).Unsuspend(ctx))
 	must(client.Scheduler(compactionreadcost.JobName).Unsuspend(ctx))
 
-	testKey := partitionCountKey(testTopicOwner)
-	checkKey, err := alert.MessageKey(testCheckName, testTopicOwner)
+	testKey := partitionCountKey(testStreamOwner)
+	checkKey, err := alert.MessageKey(testCheckName, testStreamOwner)
 	must(err)
 	keys := []string{testKey, checkKey}
-	exec(ctx, fmt.Sprintf(`DELETE FROM %s.%s WHERE compaction_key = ANY($1);`, ds.Schema, topic.CompactionHeadTable(alertsTopic.Id)), keys)
-	exec(ctx, fmt.Sprintf(`DELETE FROM %s.%s WHERE message_key = ANY($1);`, ds.Schema, topic.MessageLogTable(alertsTopic.Id)), keys)
+	exec(ctx, fmt.Sprintf(`DELETE FROM %s.%s WHERE compaction_key = ANY($1);`, ds.Schema, stream.CompactionHeadTable(alertsStream.Id)), keys)
+	exec(ctx, fmt.Sprintf(`DELETE FROM %s.%s WHERE message_key = ANY($1);`, ds.Schema, stream.MessageLogTable(alertsStream.Id)), keys)
 
-	must(client.Topic[testMessage](testTopic.Name).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+	must(client.Stream[testMessage](testStream.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 
 	for _, sql := range []string{
-		fmt.Sprintf(`DELETE FROM %s.%s WHERE consumer_group_id IN (SELECT id FROM %s.consumer_group_config WHERE name LIKE '%s.%%');`, ds.Schema, topic.ExceptionQueueTable(schedulesTopic.Id), ds.Schema, prefix),
-		fmt.Sprintf(`DELETE FROM %s.%s WHERE consumer_group_id IN (SELECT id FROM %s.consumer_group_config WHERE name LIKE '%s.%%');`, ds.Schema, topic.DeliveryLogTable(schedulesTopic.Id), ds.Schema, prefix),
-		fmt.Sprintf(`DELETE FROM %s.%s WHERE consumer_group_id IN (SELECT id FROM %s.consumer_group_config WHERE name LIKE '%s.%%');`, ds.Schema, topic.ClaimLeaseTable(schedulesTopic.Id), ds.Schema, prefix),
+		fmt.Sprintf(`DELETE FROM %s.%s WHERE consumer_group_id IN (SELECT id FROM %s.consumer_group_config WHERE name LIKE '%s.%%');`, ds.Schema, stream.ExceptionQueueTable(schedulesStream.Id), ds.Schema, prefix),
+		fmt.Sprintf(`DELETE FROM %s.%s WHERE consumer_group_id IN (SELECT id FROM %s.consumer_group_config WHERE name LIKE '%s.%%');`, ds.Schema, stream.DeliveryLogTable(schedulesStream.Id), ds.Schema, prefix),
+		fmt.Sprintf(`DELETE FROM %s.%s WHERE consumer_group_id IN (SELECT id FROM %s.consumer_group_config WHERE name LIKE '%s.%%');`, ds.Schema, stream.ClaimLeaseTable(schedulesStream.Id), ds.Schema, prefix),
 		fmt.Sprintf(`DELETE FROM %s.consumer_group_config WHERE name LIKE '%s.%%';`, ds.Schema, prefix),
 	} {
 		exec(ctx, sql)
@@ -754,7 +754,7 @@ func (c *captureLogger) count(level string, alertName string, ownerName string) 
 // --- assertion helpers ---
 
 // readCheckSummary returns the partition_count check summary heads by metric
-// name -- the latest run's counts, read the same way `vulkan metric list`
+// name -- the latest run's counts, read the same way `sqlstreams metric list`
 // reads them.
 func readCheckSummary(ctx context.Context) map[string]float64 {
 	measurements, err := client.System().Metrics().Latest(ctx)
@@ -766,8 +766,8 @@ func readCheckSummary(ctx context.Context) map[string]float64 {
 	}
 	summary := make(map[string]float64, 4)
 	for _, name := range []string{
-		iMetrics.MetricCheckTopicsEvaluated.Name,
-		iMetrics.MetricCheckTopicsFailed.Name,
+		iMetrics.MetricCheckStreamsEvaluated.Name,
+		iMetrics.MetricCheckStreamsFailed.Name,
 		iMetrics.MetricCheckPublishedAlerts.Name,
 		iMetrics.MetricCheckResolvedAlerts.Name,
 	} {
@@ -787,11 +787,11 @@ func partitionCountKey(owner *common.Owner) string {
 }
 
 func alertMessageCount(ctx context.Context, messageKey string) int64 {
-	return scalarInt64(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE message_key = $1;`, ds.Schema, topic.MessageLogTable(alertsTopic.Id)), messageKey)
+	return scalarInt64(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE message_key = $1;`, ds.Schema, stream.MessageLogTable(alertsStream.Id)), messageKey)
 }
 
 func headId(ctx context.Context, messageKey string) int64 {
-	return scalarInt64(ctx, fmt.Sprintf(`SELECT message_id FROM %s.%s WHERE compaction_key = $1;`, ds.Schema, topic.CompactionHeadTable(alertsTopic.Id)),
+	return scalarInt64(ctx, fmt.Sprintf(`SELECT message_id FROM %s.%s WHERE compaction_key = $1;`, ds.Schema, stream.CompactionHeadTable(alertsStream.Id)),
 		messageKey)
 }
 
@@ -802,7 +802,7 @@ func headStatus(ctx context.Context, messageKey string) string {
 		FROM %s.%s h
 		JOIN %s.%s m ON m.id = h.message_id
 		WHERE h.compaction_key = $1;
-	`, ds.Schema, topic.CompactionHeadTable(alertsTopic.Id), ds.Schema, topic.MessageLogTable(alertsTopic.Id))
+	`, ds.Schema, stream.CompactionHeadTable(alertsStream.Id), ds.Schema, stream.MessageLogTable(alertsStream.Id))
 	var status *string
 	err := ds.Pool.QueryRow(ctx, sql, messageKey).Scan(&status)
 	must(err)
@@ -815,7 +815,7 @@ func headStatus(ctx context.Context, messageKey string) string {
 // waitDelivered returns once the partition_count group's delivery log holds
 // the request at the given status.
 func waitDelivered(ctx context.Context, messageId int64, status string) {
-	waitForCount(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND message_id = %d AND status = '%s';`, ds.Schema, topic.DeliveryLogTable(schedulesTopic.Id), partitionCountGroup, messageId, status), 1)
+	waitForCount(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND message_id = %d AND status = '%s';`, ds.Schema, stream.DeliveryLogTable(schedulesStream.Id), partitionCountGroup, messageId, status), 1)
 }
 
 func waitForCount(ctx context.Context, sql string, want int64) {

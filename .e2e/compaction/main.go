@@ -2,7 +2,7 @@ package main
 
 // Log compaction e2e test: latest-per-key filtering at claim time.
 //
-// Registers its own topic (destroyed on exit), self-seeds, fully
+// Registers its own stream (destroyed on exit), self-seeds, fully
 // self-contained -- no dependency on external state.
 //
 // Confirms, in order:
@@ -32,14 +32,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/consume"
-	consumecontroller "github.com/agentstax/vulkan/pkg/consume/controller"
-	cursoradvancerdatastore "github.com/agentstax/vulkan/pkg/consume/cursoradvancer/controller/datastore"
-	deliveryconsumercontroller "github.com/agentstax/vulkan/pkg/consume/deliveryconsumer/controller"
-	messageconsumercontroller "github.com/agentstax/vulkan/pkg/consume/messageconsumer/controller"
-	iDatastore "github.com/agentstax/vulkan/pkg/datastore"
-	"github.com/agentstax/vulkan/pkg/topic"
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	"github.com/agentstax/sqlstreams/pkg/consume"
+	consumecontroller "github.com/agentstax/sqlstreams/pkg/consume/controller"
+	cursoradvancerdatastore "github.com/agentstax/sqlstreams/pkg/consume/cursoradvancer/controller/datastore"
+	deliveryconsumercontroller "github.com/agentstax/sqlstreams/pkg/consume/deliveryconsumer/controller"
+	messageconsumercontroller "github.com/agentstax/sqlstreams/pkg/consume/messageconsumer/controller"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 )
 
 const (
@@ -90,20 +90,20 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
 	must(err)
 
-	topicName := fmt.Sprintf("phase8c.compaction.%d", time.Now().UnixNano())
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{})
+	streamName := fmt.Sprintf("phase8c.compaction.%d", time.Now().UnixNano())
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{})
 	must(err)
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
@@ -114,7 +114,7 @@ func run() (err error) {
 	must(err)
 	cursorAdvancerDatastore, err := cursoradvancerdatastore.NewCursorAdvancerDatastore(ds, ds.Logger)
 	must(err)
-	wpInstance, err := client.Topic[KeyedRecord](tp.Name).Producer().Register(ctx, nil)
+	wpInstance, err := client.Stream[KeyedRecord](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 	cursorGroupID = mustGroupID(cd.RegisterGroup(ctx, tp.Id, cursorGroup, consume.Beginning()))
 
@@ -130,7 +130,7 @@ func run() (err error) {
 	publish(ctx, wpInstance, "user:2", 1, false) // id 5
 	publish(ctx, wpInstance, "user:2", 2, false) // id 6 <- latest for user:2
 
-	claim, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, cursorGroupID, 1, 10, maxRangeReclaims, lease, topic.DeliveryLogModeFailures)
+	claim, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, cursorGroupID, 1, 10, maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
 	must(err)
 	if claim == nil {
 		die("expected a fresh claim, got nil (no work?)")
@@ -139,25 +139,25 @@ func run() (err error) {
 	assertIDs("only the latest version of each key, plus the unkeyed row, come back", ids(claim.Messages), []int64{3, 4, 6})
 	assertInt("all 6 rows still physically exist -- compaction filters, never deletes", rowCount(ctx, ds, tp.Id), 6)
 
-	must(messageConsumers.Commit(ctx, tp.Id, cursorGroupID, claim.Lease.Token, nil, 5*time.Second, topic.DeliveryLogModeFailures))
+	must(messageConsumers.Commit(ctx, tp.Id, cursorGroupID, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 	committed := advance(ctx, cursorAdvancerDatastore, tp.Id)
 	assertInt("committed advances over the whole range regardless of compaction", committed, 6)
 
 	// ===== a delivered version isn't retroactively unsent once superseded (ids 7-8) =====
 	step("user:3 v1 delivered, THEN v2 is published and delivered on its own later read")
 	publish(ctx, wpInstance, "user:3", 1, false) // id 7
-	claim, err = messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, cursorGroupID, 1, 1, maxRangeReclaims, lease, topic.DeliveryLogModeFailures)
+	claim, err = messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, cursorGroupID, 1, 1, maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
 	must(err)
 	assertIDs("user:3 v1 delivered -- it's the only version so far", ids(claim.Messages), []int64{7})
-	must(messageConsumers.Commit(ctx, tp.Id, cursorGroupID, claim.Lease.Token, nil, 5*time.Second, topic.DeliveryLogModeFailures))
+	must(messageConsumers.Commit(ctx, tp.Id, cursorGroupID, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 	committed = advance(ctx, cursorAdvancerDatastore, tp.Id)
 	assertInt("committed", committed, 7)
 
 	publish(ctx, wpInstance, "user:3", 2, false) // id 8, published AFTER v1 already delivered+committed
-	claim, err = messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, cursorGroupID, 1, 1, maxRangeReclaims, lease, topic.DeliveryLogModeFailures)
+	claim, err = messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, cursorGroupID, 1, 1, maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
 	must(err)
 	assertIDs("user:3 v2 delivered on its own read -- v1's earlier delivery is untouched", ids(claim.Messages), []int64{8})
-	must(messageConsumers.Commit(ctx, tp.Id, cursorGroupID, claim.Lease.Token, nil, 5*time.Second, topic.DeliveryLogModeFailures))
+	must(messageConsumers.Commit(ctx, tp.Id, cursorGroupID, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 	committed = advance(ctx, cursorAdvancerDatastore, tp.Id)
 	assertInt("committed only ever moves forward", committed, 8)
 	assertTrue("v1 (id 7) is still physically present -- compaction never rewrites history", rowExists(ctx, ds, tp.Id, 7))
@@ -165,7 +165,7 @@ func run() (err error) {
 	// ===== the crash/reclaim race (ids 9-10) =====
 	step("WORKER 1 claims user:4 v1, then crashes before Commit")
 	publish(ctx, wpInstance, "user:4", 1, false) // id 9
-	claim1, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, cursorGroupID, 1, 1, maxRangeReclaims, lease, topic.DeliveryLogModeFailures)
+	claim1, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, cursorGroupID, 1, 1, maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
 	must(err)
 	if claim1 == nil {
 		die("expected a fresh claim, got nil")
@@ -181,7 +181,7 @@ func run() (err error) {
 	time.Sleep(lease + 500*time.Millisecond)
 
 	step("WORKER 2 polls: reclaims the exact expired range -- v1 is now superseded")
-	claim2, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, cursorGroupID, 1, 1, maxRangeReclaims, lease, topic.DeliveryLogModeFailures)
+	claim2, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, cursorGroupID, 1, 1, maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
 	must(err)
 	if claim2 == nil {
 		die("expected a reclaim, got nil")
@@ -194,28 +194,28 @@ func run() (err error) {
 	assertIDs("v1 is superseded -- the reclaimed read returns NOTHING for this range, by design", ids(claim2.Messages), []int64{})
 	fmt.Println("  -> the accepted tradeoff: at-least-once is a per-KEY guarantee (the current latest")
 	fmt.Println("     value eventually arrives), not a per-message one -- v1 owed nothing further")
-	fmt.Println("     once v2 superseded it, exactly like Kafka's own compacted-topic contract")
+	fmt.Println("     once v2 superseded it, exactly like Kafka's own compacted-stream contract")
 
-	must(messageConsumers.Commit(ctx, tp.Id, cursorGroupID, claim2.Lease.Token, nil, 5*time.Second, topic.DeliveryLogModeFailures))
+	must(messageConsumers.Commit(ctx, tp.Id, cursorGroupID, claim2.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 	committed = advance(ctx, cursorAdvancerDatastore, tp.Id)
 	assertInt("committed moves past the (empty) reclaimed range", committed, 9)
 
 	step("v2 still gets its own, independent delivery -- the obligation carried forward")
-	claim3, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, cursorGroupID, 1, 1, maxRangeReclaims, lease, topic.DeliveryLogModeFailures)
+	claim3, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, cursorGroupID, 1, 1, maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
 	must(err)
 	assertIDs("user:4 v2 delivered", ids(claim3.Messages), []int64{10})
-	must(messageConsumers.Commit(ctx, tp.Id, cursorGroupID, claim3.Lease.Token, nil, 5*time.Second, topic.DeliveryLogModeFailures))
+	must(messageConsumers.Commit(ctx, tp.Id, cursorGroupID, claim3.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 	committed = advance(ctx, cursorAdvancerDatastore, tp.Id)
 	assertInt("committed", committed, 10)
 
 	// ===== tombstones are a pure app convention (ids 11-12) =====
 	step("a message marked deleted in its OWN payload is delivered normally on both paths")
 	publish(ctx, wpInstance, "user:5", 1, true) // id 11, CURSOR path
-	claim, err = messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, cursorGroupID, 1, 1, maxRangeReclaims, lease, topic.DeliveryLogModeFailures)
+	claim, err = messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, cursorGroupID, 1, 1, maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
 	must(err)
 	assertIDs("CURSOR path delivers the deleted-marked message like any other", ids(claim.Messages), []int64{11})
 	assertTrue("payload's own Deleted field survives -- the query never special-cases it", decode(claim.Messages[0].Payload).Deleted)
-	must(messageConsumers.Commit(ctx, tp.Id, cursorGroupID, claim.Lease.Token, nil, 5*time.Second, topic.DeliveryLogModeFailures))
+	must(messageConsumers.Commit(ctx, tp.Id, cursorGroupID, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 	committed = advance(ctx, cursorAdvancerDatastore, tp.Id)
 	assertInt("committed", committed, 11)
 
@@ -251,20 +251,20 @@ func run() (err error) {
 
 // ---- helpers ----
 
-func publish(ctx context.Context, wpInstance *vulkan.ProducerInstance[KeyedRecord], key string, version int, deleted bool) {
-	opts := &vulkan.ProduceOptions{}
+func publish(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[KeyedRecord], key string, version int, deleted bool) {
+	opts := &sqlstreams.ProduceOptions{}
 	if key != "" {
 		opts.MessageKey = key
-		opts.Compaction = &vulkan.CompactionOptions{Enable: true}
+		opts.Compaction = &sqlstreams.CompactionOptions{Enable: true}
 	}
-	_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx vulkan.Tx) (*KeyedRecord, error) {
+	_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*KeyedRecord, error) {
 		return &KeyedRecord{Key: key, Version: version, Deleted: deleted}, nil
 	}, opts)
 	must(err)
 }
 
-func advance(ctx context.Context, cursorAdvancerDatastore *cursoradvancerdatastore.CursorAdvancerDatastore, topicId int64) int64 {
-	c, err := cursorAdvancerDatastore.AdvanceCommitted(ctx, topicId, cursorGroupID)
+func advance(ctx context.Context, cursorAdvancerDatastore *cursoradvancerdatastore.CursorAdvancerDatastore, streamId int64) int64 {
+	c, err := cursorAdvancerDatastore.AdvanceCommitted(ctx, streamId, cursorGroupID)
 	must(err)
 	return c
 }
@@ -279,8 +279,8 @@ func decode(payload json.RawMessage) KeyedRecord {
 // over an id range that only contains unkeyed rows, then checks the plan for
 // the compaction_head lookup being marked never executed -- proof the OR's left
 // disjunct (compaction_rank IS NULL) short-circuited it for every row.
-func explainNoCompactionSubplan(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId, low, high int64) {
-	logTable := fmt.Sprintf("%s.%s", ds.Schema, topic.MessageLogTable(topicId))
+func explainNoCompactionSubplan(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId, low, high int64) {
+	logTable := fmt.Sprintf("%s.%s", ds.Schema, stream.MessageLogTable(streamId))
 	sql := fmt.Sprintf(`
 		EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF) SELECT m.id, m.payload, m.created_at FROM %s m
 		WHERE m.id > $1
@@ -295,7 +295,7 @@ func explainNoCompactionSubplan(ctx context.Context, ds *iDatastore.PostgresData
 					WHERE compaction_key = m.message_key)
 			)
 		ORDER BY m.id;
-	`, logTable, ds.Schema, topic.BindingConfigTable(topicId), ds.Schema, topic.BindingConfigTable(topicId), ds.Schema, topic.CompactionHeadTable(topicId))
+	`, logTable, ds.Schema, stream.BindingConfigTable(streamId), ds.Schema, stream.BindingConfigTable(streamId), ds.Schema, stream.CompactionHeadTable(streamId))
 
 	rows, err := ds.Pool.Query(ctx, sql, low, high, cursorGroupID)
 	must(err)
@@ -316,12 +316,12 @@ func explainNoCompactionSubplan(ctx context.Context, ds *iDatastore.PostgresData
 	assertTrue("the compaction_head lookup never executed against unkeyed-only rows", matched)
 }
 
-func rowCount(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId int64) int64 {
-	return scalar(ctx, ds, fmt.Sprintf(`SELECT count(*) FROM %s.%s`, ds.Schema, topic.MessageLogTable(topicId)))
+func rowCount(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) int64 {
+	return scalar(ctx, ds, fmt.Sprintf(`SELECT count(*) FROM %s.%s`, ds.Schema, stream.MessageLogTable(streamId)))
 }
 
-func rowExists(ctx context.Context, ds *iDatastore.PostgresDatastore, topicId, id int64) bool {
-	return scalar(ctx, ds, fmt.Sprintf(`SELECT count(*) FROM %s.%s WHERE id=$1`, ds.Schema, topic.MessageLogTable(topicId)), id) == 1
+func rowExists(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId, id int64) bool {
+	return scalar(ctx, ds, fmt.Sprintf(`SELECT count(*) FROM %s.%s WHERE id=$1`, ds.Schema, stream.MessageLogTable(streamId)), id) == 1
 }
 
 func scalar(ctx context.Context, ds *iDatastore.PostgresDatastore, q string, args ...any) int64 {

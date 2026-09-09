@@ -6,7 +6,7 @@
 		title: 'Board/ProduceMessage',
 		component: ProduceMessage,
 		args: {
-			topic: 'orders',
+			stream: 'orders',
 			text: 'expedite shipping',
 			errorMessage: null,
 			disabled: false,

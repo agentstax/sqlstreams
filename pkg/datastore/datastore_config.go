@@ -5,18 +5,18 @@ import (
 	"os"
 	"regexp"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/logging"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
 )
 
-const DefaultSchema = "vulkan"
+const DefaultSchema = "sqlstreams"
 
 // schemaName is the identifier Postgres accepts unquoted and lowercased
 var schemaNamePattern = regexp.MustCompile(`^[a-z_][a-z0-9_]*$`)
 
 type PostgresDatastoreConfig struct {
 	// Schema - the Postgres namespace holding every table.
-	// Default: "vulkan".
+	// Default: "sqlstreams".
 	Schema string
 
 	// Logger - your own *slog.Logger or anything satisfying logging.Logger.

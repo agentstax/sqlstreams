@@ -62,9 +62,9 @@ func (d *CheckerDatastore) ReadEndToEndLatency(ctx context.Context, from time.Ti
 		FROM (
 			SELECT EXTRACT(EPOCH FROM (min(h.at) - p.scheduled_at))::double precision AS latency_seconds
 			FROM %[1]s p
-			JOIN %[2]s h ON h.topic = p.topic AND h.message_id = p.message_id AND h.outcome = 'success'
+			JOIN %[2]s h ON h.stream = p.stream AND h.message_id = p.message_id AND h.outcome = 'success'
 			WHERE p.kind = 'committed' AND p.scheduled_at >= $1 AND p.scheduled_at < $2
-			GROUP BY p.topic, h."group", p.message_id, p.scheduled_at
+			GROUP BY p.stream, h."group", p.message_id, p.scheduled_at
 		) AS latencies;
 	`, produceRecord, handlerRecord)
 	return d.readLatency(ctx, latencySql, from, to)

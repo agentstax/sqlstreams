@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common"
 )
 
 // DueScheduleRow is the locked row snapshot one producing transaction works
@@ -13,7 +13,7 @@ type DueScheduleRow struct {
 	Id              int64                    `db:"id"`
 	Name            string                   `db:"name"`
 	Expression      string                   `db:"expression"`
-	TopicName       string                   `db:"topic_name"`
+	StreamName      string                   `db:"stream_name"`
 	Concurrency     common.ConcurrencyPolicy `db:"concurrency"`
 	Timeout         time.Duration            `db:"timeout_ns"`
 	Payload         json.RawMessage          `db:"payload"`

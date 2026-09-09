@@ -6,19 +6,19 @@ import (
 	"errors"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/alert"
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/common/diagnostic"
-	"github.com/agentstax/vulkan/pkg/common/logging"
-	compactioncontroller "github.com/agentstax/vulkan/pkg/compaction/controller"
-	"github.com/agentstax/vulkan/pkg/metric"
-	metricscontroller "github.com/agentstax/vulkan/pkg/metric/controller"
-	"github.com/agentstax/vulkan/pkg/produce"
-	"github.com/agentstax/vulkan/pkg/producer"
-	"github.com/agentstax/vulkan/pkg/topic"
-	topiccontroller "github.com/agentstax/vulkan/pkg/topic/controller"
-	"github.com/agentstax/vulkan/pkg/worker"
-	"github.com/agentstax/vulkan/pkg/worker/controller"
+	"github.com/agentstax/sqlstreams/pkg/alert"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	compactioncontroller "github.com/agentstax/sqlstreams/pkg/compaction/controller"
+	"github.com/agentstax/sqlstreams/pkg/metric"
+	metricscontroller "github.com/agentstax/sqlstreams/pkg/metric/controller"
+	"github.com/agentstax/sqlstreams/pkg/produce"
+	"github.com/agentstax/sqlstreams/pkg/producer"
+	"github.com/agentstax/sqlstreams/pkg/stream"
+	streamcontroller "github.com/agentstax/sqlstreams/pkg/stream/controller"
+	"github.com/agentstax/sqlstreams/pkg/worker"
+	"github.com/agentstax/sqlstreams/pkg/worker/controller"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -31,7 +31,7 @@ type MetricCollectorInstance struct {
 
 	runner           *controller.InstanceTickRunner
 	metrics          *metricscontroller.MetricController
-	topics           *topiccontroller.TopicController
+	streams          *streamcontroller.StreamController
 	alertHeads       *compactioncontroller.CompactionController
 	metadata         *metricCollectorMetadata
 	producerInstance *producer.ProducerInstance[metric.Measurement]
@@ -64,7 +64,7 @@ func newMetricCollectorInstance(collector *MetricCollectorProvisioner, owner *co
 		Logger:           logger,
 		runner:           runner,
 		metrics:          collector.metrics,
-		topics:           collector.topics,
+		streams:          collector.streams,
 		alertHeads:       collector.alertHeads,
 		metadata:         metadata,
 		producerInstance: producerInstance,
@@ -74,7 +74,7 @@ func newMetricCollectorInstance(collector *MetricCollectorProvisioner, owner *co
 // Run collects until ctx cancels; a requested stop returns nil. The claimed
 // instance releases on the way out however Run exits.
 func (i *MetricCollectorInstance) Run(ctx context.Context) error {
-	i.Logger.InfoContext(ctx, "metrics collector starting", "vulkan_version", common.BuildVersion(), "rate", i.metadata.PollRate)
+	i.Logger.InfoContext(ctx, "metrics collector starting", "sqlstreams_version", common.BuildVersion(), "rate", i.metadata.PollRate)
 
 	err := i.runner.Run(ctx, i.collect)
 	if err == nil {
@@ -100,11 +100,11 @@ func (i *MetricCollectorInstance) collect(ctx context.Context) error {
 	if err := i.collectAlerts(ctx); err != nil {
 		return err
 	}
-	if err := i.collectTopics(ctx, workers); err != nil {
+	if err := i.collectStreams(ctx, workers); err != nil {
 		return err
 	}
 
-	// Completion follows every collection write, including concurrent topic work.
+	// Completion follows every collection write, including concurrent stream work.
 	at := time.Now()
 	measurement, err := metric.NewBuiltInMeasurement(metric.MetricCollectorCompletedTimestamp, float64(at.Unix()), nil, at)
 	if err != nil {
@@ -198,11 +198,11 @@ func (i *MetricCollectorInstance) collectSchedules(ctx context.Context) error {
 }
 
 func (i *MetricCollectorInstance) collectAlerts(ctx context.Context) error {
-	alertsTopic, err := i.topics.Get(ctx, alert.AlertTopicName)
+	alertsStream, err := i.streams.Get(ctx, alert.AlertStreamName)
 	if err != nil {
 		return err
 	}
-	heads, err := i.alertHeads.ListHeads[alert.Alert](ctx, alertsTopic.Id)
+	heads, err := i.alertHeads.ListHeads[alert.Alert](ctx, alertsStream.Id)
 	if err != nil {
 		return err
 	}
@@ -233,27 +233,27 @@ func (i *MetricCollectorInstance) collectAlerts(ctx context.Context) error {
 	return i.produceMeasurement(ctx, measurement)
 }
 
-func (i *MetricCollectorInstance) collectTopics(ctx context.Context, workers []metric.WorkerSnapshot) error {
-	topics, err := i.topics.List(ctx)
+func (i *MetricCollectorInstance) collectStreams(ctx context.Context, workers []metric.WorkerSnapshot) error {
+	streams, err := i.streams.List(ctx)
 	if err != nil {
 		return err
 	}
 
 	group, groupCtx := errgroup.WithContext(ctx)
-	group.SetLimit(i.Config.TopicConcurrency)
+	group.SetLimit(i.Config.StreamConcurrency)
 
-	for _, current := range topics {
+	for _, current := range streams {
 		group.Go(func() error {
-			topicWorkers := filterWorkersByTopic(workers, current.Id)
-			return i.collectTopic(groupCtx, current, topicWorkers)
+			streamWorkers := filterWorkersByStream(workers, current.Id)
+			return i.collectStream(groupCtx, current, streamWorkers)
 		})
 	}
 	return group.Wait()
 }
 
-func (i *MetricCollectorInstance) collectTopic(ctx context.Context, current *topic.Topic, workers []metric.WorkerSnapshot) error {
-	// Read the topic state and consumer-group measurements.
-	snapshot, err := i.metrics.TopicSnapshot(ctx, current.Id)
+func (i *MetricCollectorInstance) collectStream(ctx context.Context, current *stream.Stream, workers []metric.WorkerSnapshot) error {
+	// Read the stream state and consumer-group measurements.
+	snapshot, err := i.metrics.StreamSnapshot(ctx, current.Id)
 	if err != nil {
 		return err
 	}
@@ -266,8 +266,8 @@ func (i *MetricCollectorInstance) collectTopic(ctx context.Context, current *top
 		return err
 	}
 
-	measurement, err := metric.NewBuiltInMeasurement(metric.MetricTopicPartitions, float64(snapshot.Partitions), map[string]string{
-		"topic": current.Name,
+	measurement, err := metric.NewBuiltInMeasurement(metric.MetricStreamPartitions, float64(snapshot.Partitions), map[string]string{
+		"stream": current.Name,
 	}, at)
 	if err != nil {
 		return err
@@ -299,8 +299,8 @@ func (i *MetricCollectorInstance) collectTopic(ctx context.Context, current *top
 		return err
 	}
 
-	measurement, err = metric.NewBuiltInMeasurement(metric.MetricTopicUnclaimedWorkers, float64(len(unclaimedWorkers)), map[string]string{
-		"topic": current.Name,
+	measurement, err = metric.NewBuiltInMeasurement(metric.MetricStreamUnclaimedWorkers, float64(len(unclaimedWorkers)), map[string]string{
+		"stream": current.Name,
 	}, at)
 	if err != nil {
 		return err
@@ -317,7 +317,7 @@ func (i *MetricCollectorInstance) collectTopic(ctx context.Context, current *top
 
 	// Do not collect __system.metrics' own message traffic:
 	// those writes would change what they measure.
-	if current.Name == metric.MetricTopicName {
+	if current.Name == metric.MetricStreamName {
 		return nil
 	}
 
@@ -327,8 +327,8 @@ func (i *MetricCollectorInstance) collectTopic(ctx context.Context, current *top
 		compacted = 1
 	}
 
-	measurement, err = metric.NewBuiltInMeasurement(metric.MetricTopicCompacted, compacted, map[string]string{
-		"topic": current.Name,
+	measurement, err = metric.NewBuiltInMeasurement(metric.MetricStreamCompacted, compacted, map[string]string{
+		"stream": current.Name,
 	}, at)
 	if err != nil {
 		return err
@@ -341,8 +341,8 @@ func (i *MetricCollectorInstance) collectTopic(ctx context.Context, current *top
 	// Record each consumer group's cursor, exception, and lease measurements.
 	for _, group := range snapshot.Groups {
 		attributes := map[string]string{
-			"group": group.ConsumerGroup,
-			"topic": current.Name,
+			"group":  group.ConsumerGroup,
+			"stream": current.Name,
 		}
 		if err := i.collectConsumerGroup(ctx, &group, attributes, at); err != nil {
 			return err
@@ -406,12 +406,12 @@ func (i *MetricCollectorInstance) produceMeasurement(ctx context.Context, measur
 // *** HELPERS ***
 // ***************
 
-func filterWorkersByTopic(workers []metric.WorkerSnapshot, topicId int64) []metric.WorkerSnapshot {
-	topicWorkers := make([]metric.WorkerSnapshot, 0)
+func filterWorkersByStream(workers []metric.WorkerSnapshot, streamId int64) []metric.WorkerSnapshot {
+	streamWorkers := make([]metric.WorkerSnapshot, 0)
 	for _, snapshot := range workers {
-		if snapshot.Owner.TopicId == topicId {
-			topicWorkers = append(topicWorkers, snapshot)
+		if snapshot.Owner.StreamId == streamId {
+			streamWorkers = append(streamWorkers, snapshot)
 		}
 	}
-	return topicWorkers
+	return streamWorkers
 }

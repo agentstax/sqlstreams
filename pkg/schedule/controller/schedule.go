@@ -6,14 +6,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/vulkan/pkg/common"
-	"github.com/agentstax/vulkan/pkg/schedule"
+	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/schedule"
 )
 
 // Register resolves name to its schedule, creating it under
 // systemId if it doesn't exist; the newest declaration wins. The payload is
 // stored marshaled with Message's schema version; every produce carries both.
-func (c *ScheduleController) Register[Message common.Versioned](ctx context.Context, systemId int64, name string, cron string, topicId int64, payload *Message, timeout time.Duration, concurrency common.ConcurrencyPolicy, metadata any) (*schedule.Schedule, error) {
+func (c *ScheduleController) Register[Message common.Versioned](ctx context.Context, systemId int64, name string, cron string, streamId int64, payload *Message, timeout time.Duration, concurrency common.ConcurrencyPolicy, metadata any) (*schedule.Schedule, error) {
 	if systemId <= 0 {
 		return nil, fmt.Errorf("systemId must be > 0, got %d", systemId)
 	}
@@ -23,8 +23,8 @@ func (c *ScheduleController) Register[Message common.Versioned](ctx context.Cont
 	if cron == "" {
 		return nil, errors.New("cron is required")
 	}
-	if topicId <= 0 {
-		return nil, fmt.Errorf("topicId must be > 0, got %d", topicId)
+	if streamId <= 0 {
+		return nil, fmt.Errorf("streamId must be > 0, got %d", streamId)
 	}
 	if payload == nil {
 		return nil, errors.New("payload must not be nil")
@@ -43,7 +43,7 @@ func (c *ScheduleController) Register[Message common.Versioned](ctx context.Cont
 		return nil, fmt.Errorf("timeout %v exceeds cron %q's min rate %v", timeout, cron, expression.MinRate())
 	}
 
-	registered, err := c.datastore.Register(ctx, systemId, topicId, name, expression, concurrency, timeout, payload, common.SchemaVersionOf[Message](), metadata)
+	registered, err := c.datastore.Register(ctx, systemId, streamId, name, expression, concurrency, timeout, payload, common.SchemaVersionOf[Message](), metadata)
 	if err != nil {
 		return nil, err
 	}
@@ -109,12 +109,12 @@ func (c *ScheduleController) Delete(ctx context.Context, name string) error {
 	return c.datastore.Delete(ctx, name)
 }
 
-// ListMessages is the schedule's messages on its target topic, one
+// ListMessages is the schedule's messages on its target stream, one
 // ScheduleMessageStatus per (message, consumer group that receives it), newest
-// message first. Messages older than the topic's retention window are gone.
-func (c *ScheduleController) ListMessages(ctx context.Context, topicId int64, name string, limit int) ([]*schedule.ScheduleMessageStatus, error) {
-	if topicId <= 0 {
-		return nil, fmt.Errorf("topicId must be > 0, got %d", topicId)
+// message first. Messages older than the stream's retention window are gone.
+func (c *ScheduleController) ListMessages(ctx context.Context, streamId int64, name string, limit int) ([]*schedule.ScheduleMessageStatus, error) {
+	if streamId <= 0 {
+		return nil, fmt.Errorf("streamId must be > 0, got %d", streamId)
 	}
 	if name == "" {
 		return nil, errors.New("name is required")
@@ -123,7 +123,7 @@ func (c *ScheduleController) ListMessages(ctx context.Context, topicId int64, na
 		return nil, fmt.Errorf("limit must be > 0, got %d", limit)
 	}
 
-	listed, err := c.datastore.ListMessages(ctx, topicId, name, limit)
+	listed, err := c.datastore.ListMessages(ctx, streamId, name, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -136,16 +136,16 @@ func (c *ScheduleController) ListMessages(ctx context.Context, topicId int64, na
 }
 
 // Status is one ScheduleConsumerGroupSummary per consumer group that receives the
-// schedule's messages. Counts cover the topic's retention window.
-func (c *ScheduleController) Status(ctx context.Context, topicId int64, name string) ([]*schedule.ScheduleConsumerGroupSummary, error) {
-	if topicId <= 0 {
-		return nil, fmt.Errorf("topicId must be > 0, got %d", topicId)
+// schedule's messages. Counts cover the stream's retention window.
+func (c *ScheduleController) Status(ctx context.Context, streamId int64, name string) ([]*schedule.ScheduleConsumerGroupSummary, error) {
+	if streamId <= 0 {
+		return nil, fmt.Errorf("streamId must be > 0, got %d", streamId)
 	}
 	if name == "" {
 		return nil, errors.New("name is required")
 	}
 
-	listed, err := c.datastore.Status(ctx, topicId, name)
+	listed, err := c.datastore.Status(ctx, streamId, name)
 	if err != nil {
 		return nil, err
 	}

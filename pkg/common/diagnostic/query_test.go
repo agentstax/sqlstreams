@@ -9,7 +9,7 @@ import (
 const deliverySql = `SELECT
 	status,
 	attempts
-FROM exception_queue_{topic_id}
+FROM exception_queue_{stream_id}
 WHERE consumer_group_id = {group_id}
 	AND message_id = {message_id};`
 
@@ -56,9 +56,9 @@ func TestNewQueryPanicsOnStructuralMistakes(t *testing.T) {
 // A JSONB literal is written '{"key": 1}', so its braces must not read as a
 // placeholder the reader is asked to fill in.
 func TestQueryPlaceholdersSkipsJsonbLiterals(t *testing.T) {
-	query := NewDiagnosticQuery("messages carrying the key", `SELECT id FROM message_log_{topic_id} WHERE payload @> '{"tenant": 1}'`)
-	if got := query.Placeholders(); !slices.Equal(got, []string{"topic_id"}) {
-		t.Errorf("placeholders = %v, want [topic_id]", got)
+	query := NewDiagnosticQuery("messages carrying the key", `SELECT id FROM message_log_{stream_id} WHERE payload @> '{"tenant": 1}'`)
+	if got := query.Placeholders(); !slices.Equal(got, []string{"stream_id"}) {
+		t.Errorf("placeholders = %v, want [stream_id]", got)
 	}
 }
 
@@ -67,8 +67,8 @@ func TestQueryPlaceholders(t *testing.T) {
 		sql  string
 		want []string
 	}{
-		"in first-appearance order": {deliverySql, []string{"topic_id", "group_id", "message_id"}},
-		"each listed once":          {"{topic_id} {group_id} {topic_id}", []string{"topic_id", "group_id"}},
+		"in first-appearance order": {deliverySql, []string{"stream_id", "group_id", "message_id"}},
+		"each listed once":          {"{stream_id} {group_id} {stream_id}", []string{"stream_id", "group_id"}},
 		"none to substitute":        {"SELECT migration_version FROM migration_log", []string{}},
 	}
 	for name, one := range cases {
@@ -83,10 +83,10 @@ func TestQueryPlaceholders(t *testing.T) {
 
 func TestConstructorsOwnDiagnosticQueries(t *testing.T) {
 	query := NewDiagnosticQuery("the delivery row", deliverySql)
-	declared := NewDiagnosticError("VK9001", RecoveryPermanent, "a condition with state to look at", "do the thing", query)
-	event := NewDiagnosticEvent("VK9002", "a thing happened", "", query)
+	declared := NewDiagnosticError("SS9001", RecoveryPermanent, "a condition with state to look at", "do the thing", query)
+	event := NewDiagnosticEvent("SS9002", "a thing happened", "", query)
 	query.Sql = "changed constructor input"
-	raised := declared.With("topic", "orders").Wrap(nil)
+	raised := declared.With("stream", "orders").Wrap(nil)
 	for _, queries := range [][]DiagnosticQuery{declared.Queries(), event.Queries(), raised.Queries()} {
 		if len(queries) != 1 || queries[0].Sql != strings.TrimSpace(deliverySql) {
 			t.Fatalf("constructor did not copy its queries: %v", queries)
@@ -100,7 +100,7 @@ func TestConstructorsOwnDiagnosticQueries(t *testing.T) {
 	}
 	registered := false
 	for _, listed := range Errors() {
-		if listed.GetCode() == "VK9001" {
+		if listed.GetCode() == "SS9001" {
 			registered = len(listed.Queries()) == 1
 		}
 	}
@@ -111,8 +111,8 @@ func TestConstructorsOwnDiagnosticQueries(t *testing.T) {
 
 func TestConstructorsRejectNilDiagnosticQueries(t *testing.T) {
 	for name, declare := range map[string]func(){
-		"error": func() { NewDiagnosticError("VK9003", RecoveryPermanent, "a condition", "", nil) },
-		"event": func() { NewDiagnosticEvent("VK9004", "a condition", "", nil) },
+		"error": func() { NewDiagnosticError("SS9003", RecoveryPermanent, "a condition", "", nil) },
+		"event": func() { NewDiagnosticEvent("SS9004", "a condition", "", nil) },
 	} {
 		t.Run(name, func(t *testing.T) {
 			defer func() {

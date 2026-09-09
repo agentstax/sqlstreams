@@ -4,19 +4,19 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/agentstax/vulkan/pkg/common"
+	"github.com/agentstax/sqlstreams/pkg/common"
 )
 
-// ScheduleTopicName is __system.schedules -- the target topic of the system-owned
+// ScheduleStreamName is __system.schedules -- the target stream of the system-owned
 // schedules (the built-in alert checks); user schedules target their own.
-const ScheduleTopicName = common.SystemTopicPrefix + "schedules"
+const ScheduleStreamName = common.SystemStreamPrefix + "schedules"
 
 // IdempotencyKey is the deterministic idempotency key for one (schedule, scheduled
 // time): the same JobRequest replayed after an ambiguous commit dedupes,
 // everything else lands. UUIDv7 layout -- the scheduled time's unix ms in the
 // 48 time bits (the idempotency index wants time-ordered keys), the schedule id
 // VERBATIM across the payload bits. NO hash: the idempotency table is shared
-// per-topic, and a same-ms hash collision would silently swallow another
+// per-stream, and a same-ms hash collision would silently swallow another
 // schedule's request.
 func IdempotencyKey(scheduledAt time.Time, scheduleId int64) uuid.UUID {
 	var k uuid.UUID

@@ -53,12 +53,12 @@ export function fillText(text: string, values: Map<string, string>): FilledSegme
 // ***************
 
 // Three shapes carry a value, tried in order:
-//   text handler / CLI block   topic=orders  topic="orders"
-//   JSON                       "topic": "orders"
-//   the Error() one-liner      topic "orders", version 3
+//   text handler / CLI block   stream=orders  stream="orders"
+//   JSON                       "stream": "orders"
+//   the Error() one-liner      stream "orders", version 3
 //
 // The one-liner pattern is the strict one: a problem line repeats attribute
-// names, so `topic not found` must not read "not" as the topic. Only a quoted
+// names, so `stream not found` must not read "not" as the stream. Only a quoted
 // string or a digit-leading value counts, which is what the one-liner renders.
 function attributeValue(line: string, name: string): string | null {
 	if (!attributeName.test(name)) {

@@ -94,7 +94,7 @@ export function filledSql(sql: string, values: Map<string, string>): string {
 // *** HELPERS ***
 // ***************
 
-// A value position reads `'{topic}'`.
+// A value position reads `'{stream}'`.
 function isQuotedPosition(segments: SqlSegment[], index: number): boolean {
 	const before = segments[index - 1];
 	const after = segments[index + 1];

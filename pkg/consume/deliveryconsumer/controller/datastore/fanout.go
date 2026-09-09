@@ -5,24 +5,24 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/agentstax/vulkan/pkg/topic"
+	"github.com/agentstax/sqlstreams/pkg/stream"
 	"github.com/jackc/pgx/v5"
 )
 
 // FanOut materializes one delivery row per message this group is bound to
 // receive. Scans only above the group's mark (cursor.committed), so
 // steady-state cost is O(new messages) per tick, not O(whole log).
-func (d *DeliveryConsumerGroupDatastore) FanOut(ctx context.Context, topicId int64, groupId int64, schemaVersion int64, limit int) error {
+func (d *DeliveryConsumerGroupDatastore) FanOut(ctx context.Context, streamId int64, groupId int64, schemaVersion int64, limit int) error {
 	return d.DatastoreRetry.Wrap(ctx, func() error {
-		return d.fanOut(ctx, topicId, groupId, schemaVersion, limit)
+		return d.fanOut(ctx, streamId, groupId, schemaVersion, limit)
 	})
 }
 
-func (d *DeliveryConsumerGroupDatastore) fanOut(ctx context.Context, topicId int64, groupId int64, schemaVersion int64, limit int) error {
+func (d *DeliveryConsumerGroupDatastore) fanOut(ctx context.Context, streamId int64, groupId int64, schemaVersion int64, limit int) error {
 	// take the (head, xmax) pair the scan statement's gate below proves
 	// against.
 	snapshotSql := fmt.Sprintf(`
-		-- vulkan: deliveryconsumer.fanOut
+		-- sqlstreams: deliveryconsumer.fanOut
 		SELECT
 			(SELECT COALESCE(MAX(id), 0) FROM %[1]s.%[2]s) AS head,
 			pg_snapshot_xmax(pg_current_snapshot())::text AS xmax,
@@ -30,13 +30,13 @@ func (d *DeliveryConsumerGroupDatastore) fanOut(ctx context.Context, topicId int
 			c.pending_head
 		FROM %[1]s.%[3]s c
 		WHERE c.consumer_group_id = $1;
-	`, d.Datastore.Schema, topic.MessageLogTable(topicId), topic.ConsumerGroupCursorTable(topicId))
+	`, d.Datastore.Schema, stream.MessageLogTable(streamId), stream.ConsumerGroupCursorTable(streamId))
 
 	var snapshotHead, committed, pendingHead int64
 	var snapshotXmax string
 	if err := d.Datastore.Pool.QueryRow(ctx, snapshotSql, groupId).Scan(&snapshotHead, &snapshotXmax, &committed, &pendingHead); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return fmt.Errorf("no cursor for group %d on topic %d -- was Register called?", groupId, topicId)
+			return fmt.Errorf("no cursor for group %d on stream %d -- was Register called?", groupId, streamId)
 		}
 		return err
 	}
@@ -48,7 +48,7 @@ func (d *DeliveryConsumerGroupDatastore) fanOut(ctx context.Context, topicId int
 	}
 
 	scanSql := fmt.Sprintf(`
-		-- vulkan: deliveryconsumer.fanOut
+		-- sqlstreams: deliveryconsumer.fanOut
 		WITH old_values AS (
 			SELECT committed, pending_head, pending_xmax
 			FROM %[1]s.%[4]s                                             -- [4] = consumer_group_cursor table
@@ -165,7 +165,7 @@ func (d *DeliveryConsumerGroupDatastore) fanOut(ctx context.Context, topicId int
 			pending_xmax = GREATEST(c.pending_xmax, $4::xid8) -- also skips the initial NULL
 		FROM mark
 		WHERE c.consumer_group_id = $1;
-	`, d.Datastore.Schema, topic.ExceptionQueueTable(topicId), topic.MessageLogTable(topicId), topic.ConsumerGroupCursorTable(topicId), topic.BindingConfigTable(topicId), topic.CompactionHeadTable(topicId))
+	`, d.Datastore.Schema, stream.ExceptionQueueTable(streamId), stream.MessageLogTable(streamId), stream.ConsumerGroupCursorTable(streamId), stream.BindingConfigTable(streamId), stream.CompactionHeadTable(streamId))
 
 	tag, err := d.Datastore.Pool.Exec(ctx, scanSql, groupId, limit, snapshotHead, snapshotXmax, schemaVersion)
 	if err != nil {
@@ -173,7 +173,7 @@ func (d *DeliveryConsumerGroupDatastore) fanOut(ctx context.Context, topicId int
 	}
 	if tag.RowsAffected() == 0 {
 		// cursor row deleted between the two statements
-		return fmt.Errorf("no cursor for group %d on topic %d -- was Register called?", groupId, topicId)
+		return fmt.Errorf("no cursor for group %d on stream %d -- was Register called?", groupId, streamId)
 	}
 
 	return nil

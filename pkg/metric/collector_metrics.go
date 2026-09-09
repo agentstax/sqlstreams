@@ -1,10 +1,10 @@
 package metric
 
-import "github.com/agentstax/vulkan/pkg/common/diagnostic"
+import "github.com/agentstax/sqlstreams/pkg/common/diagnostic"
 
 var MetricCollectorCompletedTimestamp = diagnostic.NewDiagnosticMetric(
-	"VK0100",
-	"vulkan.metrics.collector.completed_timestamp",
+	"SS0100",
+	"sqlstreams.metrics.collector.completed_timestamp",
 	string(MetricKindGauge),
 	"s",
 	"Unix timestamp of the last completed metrics collection pass",

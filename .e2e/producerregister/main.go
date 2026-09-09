@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"os"
 
-	vulkan "github.com/agentstax/vulkan/pkg/vulkan"
+	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
 type Message struct {
@@ -52,24 +52,24 @@ func run() (err error) {
 	}()
 	ctx := context.Background()
 
-	pool, err := vulkan.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
 	must(err)
 	defer pool.Close()
 
-	client, err := vulkan.NewClient(ctx, pool, &vulkan.ClientConfig{AllowDestroy: true})
+	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
 	must(err)
 
-	const topicName = "test.producerregister"
-	_ = client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}) // clean slate from any crashed prior run
-	tp, err := client.Topic[vulkan.RawPayload](topicName).Register(ctx, &vulkan.TopicConfig{})
+	const streamName = "test.producerregister"
+	_ = client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}) // clean slate from any crashed prior run
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{})
 	must(err)
 	defer func() {
-		must(client.Topic[vulkan.RawPayload](topicName).Destroy(ctx, &vulkan.DestroyOptions{Force: true}))
+		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	// ===== Register on Background =====
 	step("Register(context.Background()) -- a build step, no lifetime to enforce")
-	instance, err := client.Topic[Message](tp.Name).Producer().Register(ctx, nil)
+	instance, err := client.Stream[Message](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 	produced, err := instance.Produce(ctx, &Message{Data: "registered"}, nil)
 	must(err)
@@ -90,7 +90,7 @@ func run() (err error) {
 
 	// ===== Register many times =====
 	step("Register again -- an independent instance from the same factory")
-	sibling, err := client.Topic[Message](tp.Name).Producer().Register(ctx, nil)
+	sibling, err := client.Stream[Message](tp.Name).Producer().Register(ctx, nil)
 	must(err)
 	_, err = sibling.Produce(ctx, &Message{Data: "sibling"}, nil)
 	must(err)

@@ -10,7 +10,7 @@
 
 <Story
 	name="Static fix"
-	args={{ fix: 'pass DestroyOptions.Force to destroy them with the topic', placeholders: [] }}
+	args={{ fix: 'pass DestroyOptions.Force to destroy them with the stream', placeholders: [] }}
 />
 
 <Story
@@ -21,7 +21,7 @@
 	}}
 />
 
-<!-- VK0013: the identifier's quotes belong to the fix, the value goes in raw -->
+<!-- SS0013: the identifier's quotes belong to the fix, the value goes in raw -->
 <Story
 	name="Quoted identifier"
 	args={{
