@@ -545,12 +545,23 @@ declareStreamOwner, declareConsumerGroupOwner).
 No tests for guards, GetWorker, DeclareWorker's gate, RegisterInstance,
 AssertSchemaSupported, ErrWorkerDeclarationInterrupted.
 
-### The consume promise list (approved 2026-09-09; none written yet)
+### The consume promise list (approved 2026-09-09; all 18 written 2026-09-10)
 
+All 18 were written under a benchmark hold (no Docker): compiled and vetted
+only, never run. First step on resume:
+`cd .tests && go test -race -count=1 -v ./integration/consume/`.
 One test file per datastore under `.tests/integration/consume/`; the three
-claim-fence tests in claim_test.go stay. deliveryconsumer is archived: no
-tests. Setup helpers to add: produce rows into message_log, insert an
-exception row at a chosen status/time, claim a range for a lease token.
+claim-fence tests in claim_test.go stay (rewritten to the controller-based
+setup). deliveryconsumer is archived: no tests. Files: commit_test.go
+(1-3), exception_test.go (4-10), key_lease_test.go (11-13), group_test.go
+(14-16), committed_test.go (17), binding_log_test.go (18). setup_test.go:
+newMessageConsumerDatastore(t) (groups, consumer) plus one-call datastore
+builders (exception, metric, cursor advancer, key lease, consume, janitor),
+produceMessages, produceKeyedMessages, insertException,
+insertKeyedException, claimRange, registerConsumer, declareLiveInstance,
+holdTransaction. Verify goes through library verbs where one exists
+(metric snapshot, exception Claim, AdvanceCommitted, ListGroupBindingConfigLog);
+direct SQL only for delivery_log, binding_config, settled_head.
 
 messageconsumer (commit_test.go)
 1. Commit with a stale token -> ErrLeaseLost, no exception rows written
@@ -611,8 +622,8 @@ the other session's janitor benchmark saturating the machine.
   `.bench/reliability` measure_test use `DatabaseURL(t)`.
 - Those janitor tests belong under `.tests/integration/stream` by the rule; not moved
   (another session's in-flight work).
-- Run worker 2-12 once Docker is free; then consume, stream, schedule,
-  alert, metric promise lists.
+- Worker 1-12 ran green 2026-09-10. Run consume 1-18 once Docker is free;
+  then stream (janitor tests move), schedule, alert, metric promise lists.
 - Shape rule added to CONVENTIONS Part 5 (Test shape): tables hold values
   only; a set of verbs is straight-line calls and checks; no funcs in rows,
   no closures, no t.Run around one verb.

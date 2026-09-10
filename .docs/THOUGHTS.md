@@ -35,6 +35,12 @@ roadmap later item for review code for interesting design decisions to write art
   - unit tests are dead (few small mistakes with llm, id vs name)
   - regression tests from debug sessions
 - A new world and the case of low dependencies
+- the rot within (VPs and middle managers), fuck em those shady ass mf
+- When to use kafka vs sqlstreams
+  - kafka is far more efficient
+- The difference between Opus 4.6 and Fable 5.1 is both HUGE and miniscule
+  - its ability to one shot things and solve for inputs and outputs
+  - but its effect on day to day maintaining and extending code is minimal
 
 # Review
 
