@@ -1,8 +1,6 @@
 # Architecture
 
-A map of the code. How SQLStreams behaves at runtime is on the doc site
-under Concepts / Architecture. The rules are in
-[CONVENTIONS.md](CONVENTIONS.md).
+High level overview of how SQLStreams works.
 
 ## Overview
 
@@ -29,7 +27,10 @@ flowchart LR
     M -- maintain --> S
 ```
 
-## Where to start reading
+> [!NOTE]
+> System Manager is normally embedded within a running consumer and uses a poor man's leader election for singleton efficiency.
+
+## Where to start reading the code
 
 - Client: [pkg/sqlstreams/client.go](pkg/sqlstreams/client.go).
 - Producer: [pkg/producer/producer_instance.go](pkg/producer/producer_instance.go).

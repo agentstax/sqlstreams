@@ -1,6 +1,6 @@
 # Developing
 
-Make sure to look through these: [ARCHITECTURE.md](ARCHITECTURE.md), [CONVENTIONS.md](CONVENTIONS.md), [CONTRIBUTING.md](CONTRIBUTING.md).
+Make sure to look through [ARCHITECTURE.md](ARCHITECTURE.md), [CONVENTIONS.md](CONVENTIONS.md), [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Setup
 

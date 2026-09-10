@@ -49,7 +49,7 @@ I'd love to use Kafka for my [billion dollar, AI powered TODO app](https://githu
 
 - It's actually a log, not a queue 🤓, and it does [N msgs/s](.bench/) on my laptop 😎.
 - You get consumer groups, replay, retention and compaction without running a traditional broker.
-- Dead letters are `WHERE status = 'dead'`. There’s no admin UI. Just write some SQL.
+- Retries are automatic. Dead letters are `WHERE status = 'dead'`. There’s no admin UI. Just write some SQL.
 - Every error has a code, and `sqlstreams explain <code>` will hand you the fix because I don't like thinking either.
 
 ## Usage
