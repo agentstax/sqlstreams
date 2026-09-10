@@ -177,3 +177,45 @@ func TestPartialSweepGraceDoesNotDelayWholePartitionDrop(t *testing.T) {
 		t.Fatalf("DropExpiredPartitions(%s within row grace) dropped %v, want true", partition, dropped)
 	}
 }
+
+// invariant (no orphans): a row sweep deletes the swept messages'
+// exception_queue and delivery_log rows and the compaction_head rows of the
+// swept compacted messages, and keeps a head pointing at an unswept message.
+func TestRowSweepDeletesTheSweptMessagesRows(t *testing.T) {
+	// setup
+	janitor, orders := newPartitionedJanitor(t)
+	ctx := t.Context()
+	messages := janitor.Datastore.Schema + "." + stream.MessageLogTable(orders.Id)
+	seedMessages(t, janitor, orders, 8)
+	insertDeliveryRows(t, janitor, orders, 1)
+	insertDeliveryRows(t, janitor, orders, 2)
+	insertDeliveryRows(t, janitor, orders, 5)
+	if _, err := janitor.Datastore.Pool.Exec(ctx, "UPDATE "+messages+" SET message_key = 'order-' || id::text, compaction_rank = 0 WHERE id IN (1, 2, 5)"); err != nil {
+		t.Fatal(err)
+	}
+	ageMessages(t, janitor, orders, 1, 3)
+
+	// test
+	err := janitor.SweepExpiredPartitions(ctx, orders.Id, orders.PartitionSize, time.Hour, 0, true, 10, stream.DeliveryLogModeFailures)
+
+	// verify
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ids []int64
+	if err := janitor.Datastore.Pool.QueryRow(ctx, "SELECT array_agg(id ORDER BY id) FROM "+messages).Scan(&ids); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(ids, []int64{4, 5, 6, 7, 8}) {
+		t.Fatalf("messages after SweepExpiredPartitions(ttl 1h) = %v, want the aged 1 to 3 swept [4 5 6 7 8]", ids)
+	}
+	if ids := listMessageIds(t, janitor, stream.ExceptionQueueTable(orders.Id)); !slices.Equal(ids, []int64{5}) {
+		t.Errorf("exception_queue message ids after the sweep = %v, want [5]", ids)
+	}
+	if ids := listMessageIds(t, janitor, stream.DeliveryLogTable(orders.Id)); !slices.Equal(ids, []int64{5}) {
+		t.Errorf("delivery_log message ids after the sweep = %v, want [5]", ids)
+	}
+	if ids := listMessageIds(t, janitor, stream.CompactionHeadTable(orders.Id)); !slices.Equal(ids, []int64{5}) {
+		t.Errorf("compaction_head message ids after the sweep = %v, want the unswept message's head alone [5]", ids)
+	}
+}
