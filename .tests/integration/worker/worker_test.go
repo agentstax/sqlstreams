@@ -103,10 +103,10 @@ func TestConcurrentFirstDeclarationsLeaveOneRow(t *testing.T) {
 	}
 }
 
-// behavior: ListWorkers follows the owner chain downward -- the system sees
-// every row, a stream sees its own and its groups', a group sees only its
-// own -- and never a sibling's; a row's owner columns resolve through the
-// joins.
+// behavior: ListWorkers is what a manager on an owner must run -- every row
+// on the owner's chain upward: a group's own, its stream's, and the system's;
+// a stream's own and the system's; never a sibling's or a child's. The system
+// owner reaches every row. A row's owner columns resolve through the joins.
 func TestListWorkersFollowsTheOwnerChain(t *testing.T) {
 	// setup
 	workers, system := newWorkerDatastore(t)
@@ -132,16 +132,16 @@ func TestListWorkersFollowsTheOwnerChain(t *testing.T) {
 	if got := workerIds(bySystem); !reflect.DeepEqual(got, []int64{systemWorker, ordersWorker, billingWorker, shipmentsWorker}) {
 		t.Errorf("ListWorkers(system) = %v, want every row %v", got, []int64{systemWorker, ordersWorker, billingWorker, shipmentsWorker})
 	}
-	if got := workerIds(byOrders); !reflect.DeepEqual(got, []int64{ordersWorker, billingWorker}) {
-		t.Errorf("ListWorkers(orders) = %v, want its own and its group's %v", got, []int64{ordersWorker, billingWorker})
+	if got := workerIds(byOrders); !reflect.DeepEqual(got, []int64{systemWorker, ordersWorker}) {
+		t.Errorf("ListWorkers(orders) = %v, want the system's and its own %v", got, []int64{systemWorker, ordersWorker})
 	}
-	if got := workerIds(byShipments); !reflect.DeepEqual(got, []int64{shipmentsWorker}) {
-		t.Errorf("ListWorkers(shipments) = %v, want only its own %v", got, []int64{shipmentsWorker})
+	if got := workerIds(byShipments); !reflect.DeepEqual(got, []int64{systemWorker, shipmentsWorker}) {
+		t.Errorf("ListWorkers(shipments) = %v, want the system's and its own %v", got, []int64{systemWorker, shipmentsWorker})
 	}
-	if got := workerIds(byBilling); !reflect.DeepEqual(got, []int64{billingWorker}) {
-		t.Fatalf("ListWorkers(billing) = %v, want only its own %v", got, []int64{billingWorker})
+	if got := workerIds(byBilling); !reflect.DeepEqual(got, []int64{systemWorker, ordersWorker, billingWorker}) {
+		t.Fatalf("ListWorkers(billing) = %v, want the system's, its stream's, and its own %v", got, []int64{systemWorker, ordersWorker, billingWorker})
 	}
-	row := byBilling[0]
+	row := workerRow(t, byBilling, billingWorker)
 	if row.OwnerSystemId != system.SystemId || row.OwnerStreamId != orders.StreamId || row.StreamName != "orders" || row.ConsumerGroup != "billing" {
 		t.Errorf("group-owned row's owner columns = (system %d, stream %d %q, group %q), want (%d, %d \"orders\", \"billing\")", row.OwnerSystemId, row.OwnerStreamId, row.StreamName, row.ConsumerGroup, system.SystemId, orders.StreamId)
 	}
@@ -150,6 +150,18 @@ func TestListWorkersFollowsTheOwnerChain(t *testing.T) {
 // ***************
 // *** HELPERS ***
 // ***************
+
+// workerRow is the listed row with the given id.
+func workerRow(t testing.TB, rows []datastore.ListWorkersRow, id int64) datastore.ListWorkersRow {
+	t.Helper()
+	for _, row := range rows {
+		if row.Id == id {
+			return row
+		}
+	}
+	t.Fatalf("worker %d is not in the listed rows %v", id, workerIds(rows))
+	return datastore.ListWorkersRow{}
+}
 
 // workerIds is the rows' ids in ascending order.
 func workerIds(rows []datastore.ListWorkersRow) []int64 {

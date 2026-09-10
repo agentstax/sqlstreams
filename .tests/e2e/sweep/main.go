@@ -110,7 +110,7 @@ func run() (err error) {
 	assertInt("fresh rows untouched by drop", countInRange(ctx, ds, tp.Id, freshLow, freshHigh), 3)
 
 	step("SweepExpiredPartitions -- deletes exactly the expired prefix")
-	must(janitorDatastore.SweepExpiredPartitions(ctx, tp.Id, partitionSize, ttl, true, batchSize, tp.DeliveryLogMode))
+	must(janitorDatastore.SweepExpiredPartitions(ctx, tp.Id, partitionSize, ttl, 0, true, batchSize, tp.DeliveryLogMode))
 	assertInt("old rows swept", countInRange(ctx, ds, tp.Id, oldLow, oldHigh), 0)
 	assertInt("fresh rows survive -- not yet past ttl", countInRange(ctx, ds, tp.Id, freshLow, freshHigh), 3)
 	assertInt("partition 0 itself survives -- sweep deletes rows, not partitions", partitionCount(ctx, ds, tp.Id), 1)

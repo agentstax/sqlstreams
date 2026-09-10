@@ -321,7 +321,7 @@ func scenarioRetentionSweepBatch(ctx context.Context, pool *pgxpool.Pool) {
 	assertDeliveryLogCount(ctx, ds, tp.Id, groupId, dormantId, 1)
 	assertDeliveryLogCount(ctx, ds, tp.Id, groupId, aliveId, 1)
 
-	must(janitorDatastore.SweepExpiredPartitions(ctx, tp.Id, partitionSize, ttl, true, 1000, tp.DeliveryLogMode))
+	must(janitorDatastore.SweepExpiredPartitions(ctx, tp.Id, partitionSize, ttl, 0, true, 1000, tp.DeliveryLogMode))
 
 	assertDeliveryLogCount(ctx, ds, tp.Id, groupId, dormantId, 0)
 	assertDeliveryLogCount(ctx, ds, tp.Id, groupId, aliveId, 1)

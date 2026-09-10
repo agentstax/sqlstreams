@@ -494,3 +494,5 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 - 0736 2026-09-09 accepted (pre-v1) — Integration tests live in a nested .tests module over testcontainers
 
 - 0737 2026-09-09 accepted (pre-v1) — Examples are a visible root and both test trees live in the .tests module
+
+- 0738 2026-09-09 accepted (pre-v1) — Partial message sweeps have a bounded grace period
