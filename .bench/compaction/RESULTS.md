@@ -20,7 +20,7 @@ sweep.sh; container: container.sh.
 
 Every cell raised ZERO deadlocks (pg_stat_database.deadlocks, asserted by
 the driver) — the batcher-sort absence claim held at bench scale, matching
-.e2e/compactiondeadlock.
+.tests/e2e/compactiondeadlock.
 
 ## Cardinality curve — 3 producers, sync=on
 

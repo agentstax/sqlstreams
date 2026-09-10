@@ -471,131 +471,86 @@ One shape per kind, and the sameness is enforced rather than reviewed:
 - The doc page for `sqlstreamstest` shows the one pattern, and the
   library's own tests are its examples.
 
-## 9. Session state, 2026-09-09 (read this first when resuming)
+## 9. Session state, 2026-09-09 evening (read this first when resuming)
 
-Everything below is in the working tree, uncommitted; the user commits.
-The project was renamed to SQLStreams mid-session by another session
-[0725]: module `github.com/agentstax/sqlstreams`, `pkg/sqlstreams`,
-`pkg/stream`, `pkg/sqlstreamstest`, `SQLSTREAMS_TEST_DATABASE_URL`.
-Records 0730/0731 keep the older `vulkantest` spelling as history.
+Everything before this section is research and the first attempt. The
+first attempt was thrown out: the user judged the test code unstructured,
+audited every `_test.go` under pkg/ and otel/, and kept 17 files (listed
+below); the other 41 were deleted with `git rm` and the survivors were
+rewritten. Then the approach changed again to what is now the rule.
 
-Landed:
+### The rule now (CONVENTIONS Part 5, record 0736)
 
-- Rules: CONVENTIONS Part 5 "How code is tested" (Part 6 is now
-  "Outside the library"); AGENTS Verification (source .env so database
-  tests run; lowest kind wins; a failing test is never edited to pass in
-  the same change without saying so); records 0730, 0731; DECISION_MAP
-  tests line; the ROADMAP Now item "Test suite: kinds, sqlstreamstest,
-  TEST.md transcription, e2e conversion" with a Done sub-bullet and two
-  Pending sub-bullets.
-- `pkg/sqlstreamstest`: `NewDatastore(t, cfg)`, `NewClient(t, ds, cfg)`,
-  `DatabaseURL(t)`, `WaitFor(t, condition)`, `NewCountingLogger()`. One
-  pool per test binary (MaxConns 8, `application_name`
-  `sqlstreamstest_<pid>`), schema `test_<binary>_<pid>_<n>` dropped at
-  cleanup. `NewCountingLogger()` returns no error, a deliberate deviation
-  from the `New<Struct>` rule; the user accepted it.
-- Tests on the fixture: `claim_test.go` (external package, real
-  registration), `pkg/sqlstreams/client_test.go` (+ `export_test.go`),
-  worker `instance_log_test.go`, CLI `conn_test.go`, reliability
-  `measure_test.go`. New: `pkg/sqlstreams/producer_test.go` (5),
-  `pkg/sqlstreams/consumer_test.go` (10), SQLSTATE tables in
-  `pkg/common/retry_datastore_test.go` (34 codes).
-- `just verify` runs `-race -count=1 -shuffle=on` in root, cmd/sqlstreams,
-  otel; CI exports the one variable (Postgres service already existed);
-  `.env.example` and DEVELOPING.md say how to run database tests.
-- `.docs/TEST.md` deleted (`git rm`, so the deletion is staged).
-- Library fix found by the tests: `SystemManager.Run` returned
-  `context canceled` when the cancel landed during its startup owner
-  read; now a cancel there is a requested stop (nil), matching Consume.
-- The site page `/reference/vulkantest/` was written, then deleted by the
-  user ("not a valid user document"); CONVENTIONS Part 5's fixture
-  section is the spec. The api-shape aside says "Not built; a reference
-  page lands with the package".
+- Unit tests beside the code: no I/O, no clock. `go test ./...` from root.
+- Integration tests under `.tests/`, a nested dev-only module over
+  testcontainers (postgres:18, one container per test binary, one schema
+  per test). `SQLSTREAMS_TEST_DATABASE_URL` replaces the container when set.
+  `just test-integration`; `just verify` includes it.
+- The subject of an integration test is a domain's datastore driven through
+  its verbs. Controllers, assemblers, and the client get none (user's call).
+- Every test body: `// setup`, `// test`, `// verify` sections. Goroutines
+  only where the named invariant is concurrency. Expiry by UPDATE, never a
+  wait. Setup through real registration verbs.
+- One directory per domain root (`.tests/worker`, `.tests/consume`), each
+  with `setup_test.go` holding that domain's helpers; `.tests/postgres` is
+  the only Docker seam and the only reader of the env var.
 
-Verified at the end of the session: root suite 392 tests pass under race
-and shuffle across 82 packages with the variable set; lifecycle tests pass
-three times in a row; conventions checks pass; gofmt and vet clean.
+### What exists
 
-Open notes:
+- `.tests/go.mod` (no require for the root module -- `go mod tidy` writes a
+  pseudo-version line every time; strip it), `.tests/postgres/postgres.go`
+  (`Start(t) *datastore.PostgresDatastore`), `.tests/worker/{setup,instance}_test.go`,
+  `.tests/consume/{setup,claim}_test.go` (claim_test moved from pkg via git mv).
+- Records: 0736 accepted; 0730 and 0731 flipped to superseded. Ledger, map,
+  ROADMAP item (rewritten), AGENTS verification, justfile, CI updated.
+- go.work has `./.tests` (go.work is gitignored; CI's `go work init` line
+  has it too).
+- Surviving root unit tests, all rewritten to Part 5 shape and committed by
+  the other session: retry_datastore (synctest), retry_policy, diagnostic
+  error + placeholder, schedule expression, robfig (vendored, untouched),
+  otel validation, alert history, partitioncount evaluate, pool DSN,
+  migrate Validate, both registry tests.
 
-- `TestClaimWaitsForProducerBeyondSnapshotXmax` checks a premise any other
-  package's write can break while packages run in parallel against one
-  server. Passed in every parallel run so far; if it flakes, `-p 1` on the
-  root module in `verify` is the cheap fix.
-- Every fresh-schema stream registration logs WARN "could not run
-  register-time alert pass ... alert evidence is insufficient". Library
-  noise on fresh schemas, not a test problem; worth a separate look.
-- Dev Postgres: `set -a; source ./.env; set +a; docker compose -f
-  .tools/database/docker-compose.yaml up -d postgres`; the test URL is the
-  `.env.example` value.
+### The worker promise list (approved; #1 landed)
 
-Next step: the e2e conversion pass. Every single-process `.e2e/` program
-becomes a database test before the item closes (fork B); `.e2e/common`
-gains `Must`/`Die`/`Assert` and the pool from the env var; the pending
-`.e2e/signal` program and the `DropExpiredPartitions` double-drop test are
-listed in the ROADMAP item. Then the `(checked)` candidates in
-`.tools/conventions`, each sabotaged before trusted. At close-out this
-file is deleted.
+1. concurrent claims at target 1 yield one instance -- DONE
+   `.tests/worker/instance_test.go` (errgroup, 16 claimants)
+2. claim: target 0 declines, -1 always claims, missing row declines, expired
+   instance no longer counts
+3. renew/record/release return ErrInstanceLost for wrong token, expired,
+   released, and write nothing
+4. release then claim at target 1 succeeds at once
+5. claim and renew cannot commit without their worker_instance_log row
+   (CHECK (false) NOT VALID on the log table)
+6. failure count increments and returns; success resets
+7. SweepExpiredInstances removes only expired rows, returns the count
+8. GetInstanceHistory window: expired-before-window out, live in, renewal is
+   its own snapshot (ListInstanceSnapshots at the datastore)
+9. SweepExpiredInstanceLogs retains by lease expiry plus ttl, not record age
+10. RegisterWorker: redeclare writes metadata + one log row; unchanged writes
+    no log row; target_instances kept (suspension survives restart)
+11. two concurrent first declarations both nil, one row
+12. ListWorkers by owner chain: system all, stream own + groups, group own
+    only, never a sibling's; owners resolve from join columns
+No tests for guards, GetWorker, DeclareWorker's gate, RegisterInstance,
+AssertSchemaSupported, ErrWorkerDeclarationInterrupted.
 
-## Sources
+### Timing facts (quiet machine)
 
-- Go release notes 1.24 to 1.27, `testing`, `testing/synctest` docs and
-  the Go blog posts on synctest and testing time:
-  https://go.dev/doc/go1.25 https://pkg.go.dev/testing/synctest
-  https://go.dev/blog/synctest https://go.dev/blog/testing-time
-- Google Go style guide, decisions and best practices (assertion
-  libraries, got-before-want, test helpers, real transports):
-  https://google.github.io/styleguide/go/decisions
-  https://google.github.io/styleguide/go/best-practices
-  https://go.dev/wiki/TestComments https://go.dev/wiki/TableDrivenTests
-- Software Engineering at Google, ch. 11 to 14 (sizes, behaviors not
-  methods, DAMP, fakes over mocks, why larger tests exist):
-  https://abseil.io/resources/swe-book/html/ch11.html
-  https://abseil.io/resources/swe-book/html/ch12.html
-  https://abseil.io/resources/swe-book/html/ch13.html
-  https://abseil.io/resources/swe-book/html/ch14.html
-- Google Testing Blog: change-detector tests, test behavior not
-  implementation, exercise service call contracts, don't overuse mocks,
-  DAMP: https://testing.googleblog.com/2015/01/testing-on-toilet-change-detector-tests.html
-  https://testing.googleblog.com/2013/08/testing-on-toilet-test-behavior-not.html
-- Kent Beck, test desiderata: https://testdesiderata.com/
-- Fowler, practical test pyramid:
-  https://martinfowler.com/articles/practical-test-pyramid.html
-- Spotify honeycomb:
-  https://engineering.atspotify.com/2018/01/testing-of-microservices/
-- River testing docs and internals (TestSchema, TestSignal,
-  TimeGenerator, goleak in TestMain, CI matrix):
-  https://riverqueue.com/docs/testing https://github.com/riverqueue/river
-- pgx contributing and CI (env-var skips, `pg_terminate_backend` in its
-  own tests, no-race lane): https://github.com/jackc/pgx
-- Isolation measurements: Storj (container vs database vs schema per
-  test) https://storj.dev/blog/go-integration-tests-with-postgres ;
-  pgtestdb https://github.com/peterldowns/pgtestdb ; Stapelberg
-  ephemeral clusters https://michael.stapelberg.ch/posts/2024-11-19-testing-with-go-and-postgresql-ephemeral-dbs/
-- NATS `checkFor` poller and Jepsen 2.12.1:
-  https://github.com/nats-io/nats-server https://jepsen.io/analyses/nats-2.12.1
-- Jepsen queue checker vocabulary:
-  https://jepsen-io.github.io/jepsen/jepsen.tests.kafka.html
-- Kafka ducktape validator and replication/transaction chaos tests:
-  https://github.com/apache/kafka/blob/trunk/tests/kafkatest/tests/produce_consume_validate.py
-- RabbitMQ quorum queue property suite:
-  https://github.com/rabbitmq/rabbitmq-server/blob/main/deps/rabbit/test/rabbit_fifo_prop_SUITE.erl
-- WarpStream and Aiven under Antithesis (Postgres in the loop):
-  https://www.warpstream.com/blog/deterministic-simulation-testing-for-our-entire-saas
-  https://aiven.io/blog/deterministic-simulation-testing-in-diskless-apache-kafka
-- Go DST limits: https://www.polarsignals.com/blog/posts/2024/05/28/mostly-dst-in-go
-  https://github.com/jellevandenhooff/gosim
-- TigerBeetle VOPR and Jepsen:
-  https://github.com/tigerbeetle/tigerbeetle/blob/main/docs/internals/vopr.md
-  https://jepsen.io/analyses/tigerbeetle-0.16.11
-- Agent-era testing: Beck on agents deleting tests
-  https://newsletter.pragmaticengineer.com/p/tdd-ai-agents-and-coding-with-kent ;
-  Böckeler, TDD in the agent loop
-  https://martinfowler.com/articles/exploring-gen-ai/tdd-in-the-agent-loop.html ;
-  Thoughtworks Radar on mutation testing
-  https://www.thoughtworks.com/radar/techniques/mutation-testing ;
-  Anthropic property-based testing research
-  https://www.anthropic.com/research/property-based-testing ;
-  Claude Code best practices https://code.claude.com/docs/en/best-practices
-- Mutation tools for Go: https://github.com/go-gremlins/gremlins
-- Toxiproxy: https://github.com/Shopify/toxiproxy
+Container start 2.5s per binary; race link ~5s per binary; tests <1s.
+Binaries already run in parallel. Reuse-by-name tried and rejected (breaks
+isolation, reaper removes it anyway). Later timings were contaminated by
+the other session's janitor benchmark saturating the machine.
+
+### Pending, not started
+
+- `pkg/sqlstreamstest` deletion blocked: the other session's untracked
+  janitor tests (`sweep_test.go`, `idempotency_key_test.go`) and
+  `.bench/scratchnative` import it; `cmd/sqlstreams` conn_test and
+  `.bench/reliability` measure_test use `DatabaseURL(t)`.
+- Those janitor tests belong under `.tests/stream` by the rule; not moved
+  (another session's in-flight work).
+- Worker promises 2-12, then consume, stream, schedule, alert, metric.
+- `.env` still lacks `SQLSTREAMS_TEST_DATABASE_URL`; not needed for .tests
+  (Docker), only for the override.
+- Nothing committed by this session.

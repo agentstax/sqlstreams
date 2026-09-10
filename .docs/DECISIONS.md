@@ -472,7 +472,7 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 - 0717 2026-09-08 accepted (pre-v1) — The OpenTelemetry integration module is otel
 - 0718 2026-09-08 superseded (pre-v1) — End-to-end labs and runnable examples have separate roots
 - 0719 2026-09-08 accepted (pre-v1) — Programs under .e2e are e2e tests
-- 0720 2026-09-08 accepted (pre-v1) — End-to-end tests and runnable examples have separate hidden roots
+- 0720 2026-09-08 superseded by 0737 (pre-v1) — End-to-end tests and runnable examples have separate hidden roots
 - 0721 2026-09-08 superseded by 0722 (pre-v1) — Repository-only roots are hidden
 - 0722 2026-09-08 superseded by 0723 (pre-v1) — Repository support and build-output roots are hidden
 - 0723 2026-09-08 accepted (pre-v1) — Repository support, build-output, and benchmark roots are hidden
@@ -492,3 +492,5 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 - 0735 2026-09-09 accepted (pre-v1) — Idempotency expiry uses timestamp order
 
 - 0736 2026-09-09 accepted (pre-v1) — Integration tests live in a nested .tests module over testcontainers
+
+- 0737 2026-09-09 accepted (pre-v1) — Examples are a visible root and both test trees live in the .tests module

@@ -1044,10 +1044,10 @@ Every test is exactly one of three kinds, named by footprint:
   `time.Sleep`, no goroutine blocked on a timer outside a
   `testing/synctest` bubble -- and runs under `go test ./...` from the
   root with nothing installed.
-- An **integration test** lives under `.tests/`, a dev-only module, and
-  runs against a real Postgres that the test binary starts in Docker.
-  `just test-integration` runs them all.
-- An **e2e test** is a program under `.e2e/`, and exists only because an
+- An **integration test** lives under `.tests/integration/`, in the
+  dev-only `.tests` module, and runs against a real Postgres that the
+  test binary starts in Docker. `just test-integration` runs them all.
+- An **e2e test** is a program under `.tests/e2e/`, and exists only because an
   integration test cannot observe the behavior: a second process, a
   signal, a killed backend, or a controlled Postgres server.
 
@@ -1110,8 +1110,8 @@ One shape for both kinds, the same in every module.
   A narrative repeats test and verify, never setup.
 - `testing` from the standard library and nothing else in a unit test:
   no assertion library, mock generator, clock library, or leak checker,
-  in any module. `.tests/` adds testcontainers and `x/sync`, and nothing
-  else.
+  in any module. `.tests/integration/` adds testcontainers and `x/sync`,
+  and nothing else.
 - A failure line reads got-before-want and names the verb and its
   input: `Verb(%v) = %v, want %v`. Structs compare with
   `reflect.DeepEqual` and print with `%+v`. Errors branch with
@@ -1141,44 +1141,47 @@ One shape for both kinds, the same in every module.
 
 ## The .tests module
 
-`.tests/` is a nested dev-only module (`github.com/agentstax/sqlstreams/.tests`),
-resolved through the repo-root `go.work` like `.e2e/`, never tagged or
-published. It reaches the library's exported surface only.
+`.tests/` is the one nested dev-only test module
+(`github.com/agentstax/sqlstreams/.tests`), resolved through the
+repo-root `go.work` like `examples/` and `.bench/`, never tagged or
+published. It reaches the library's exported surface only and holds two
+trees: `integration/` for integration tests and `e2e/` for e2e programs.
 
-- `.tests/postgres` is the one Docker seam. `postgres.Start(t)` returns a
-  `*datastore.PostgresDatastore` over a fresh schema, dropped when the
-  test ends, in a Postgres container the test binary starts on first
-  use; the reaper removes the container when the process exits.
+- `.tests/integration/postgres` is the one Docker seam. `postgres.Start(t)`
+  returns a `*datastore.PostgresDatastore` over a fresh schema, dropped
+  when the test ends, in a Postgres container the test binary starts on
+  first use; the reaper removes the container when the process exits.
   `SQLSTREAMS_TEST_DATABASE_URL`, when set, names a server to use instead
-  of a container, and `.tests/postgres` is its only reader.
-- One directory per domain root, mirroring `pkg/<root>`
-  (`.tests/worker`, `.tests/consume`, `.tests/stream`), package named for
-  the root, holding only `_test.go` files: one `setup_test.go` with that
-  domain's setup helpers (`newWorkerDatastore(t)`, `declareWorker(t, ...)`)
-  and one test file per subject. No helper is shared across domains
-  beyond `postgres.Start`.
-- The module holds test files and the seam, declares no codes, and owns
-  no SQL beyond the schema create and drop.
+  of a container, and `.tests/integration/postgres` is its only reader.
+- One directory per domain root under `integration/`, mirroring
+  `pkg/<root>` (`.tests/integration/worker`, `.tests/integration/consume`),
+  package named for the root, holding only `_test.go` files: one
+  `setup_test.go` with that domain's setup helpers (`newWorkerDatastore(t)`,
+  `declareWorker(t, ...)`) and one test file per subject. No helper is
+  shared across domains beyond `postgres.Start`.
+- The module holds test files, the seam, and the e2e programs; it declares
+  no codes and owns no SQL beyond the schema create and drop.
 
 ## Running tests
 
 - `go test ./...` from the root runs every unit test and needs nothing
   installed. Per change, the test cache stays on.
-- `just test-integration` runs `.tests/` with `-race -count=1`; it needs
-  Docker, or `SQLSTREAMS_TEST_DATABASE_URL` naming a disposable server.
+- `just test-integration` runs `.tests/integration/` with
+  `-race -count=1`; it needs Docker, or `SQLSTREAMS_TEST_DATABASE_URL`
+  naming a disposable server.
 - `just verify` runs `go test -race -count=1 -shuffle=on` in every
-  module that has tests, `.tests/` included.
+  module that has tests, `.tests/integration/` included.
 - `-race` is on everywhere; a test whose memory makes that impossible
   moves to a no-race lane by name.
 
 ## E2E tests
 
-- End-to-end tests and their support programs live under `.e2e/`, in
-  their own dev-only module. The root Justfile exposes the tests as
-  `*-e2e` recipes.
+- End-to-end tests and their support programs live under `.tests/e2e/`,
+  in the `.tests` module. The root Justfile exposes the tests as `*-e2e`
+  recipes.
 - Every program is `run() error` recovering one private failure value
   and exiting 1; `must`, `die`, `assert`, and the pool from
-  `SQLSTREAMS_TEST_DATABASE_URL` come from `.e2e/common`, never a private
+  `SQLSTREAMS_TEST_DATABASE_URL` come from `.tests/e2e/common`, never a private
   copy.
 - A new single-process scenario is an integration test, not an e2e
   program.
@@ -1193,7 +1196,7 @@ published. It reaches the library's exported surface only.
 
 ## Playground examples
 
-- Runnable user examples live under `.examples/`, in their own dev-only module.
+- Runnable user examples live under `examples/`, in their own dev-only module.
 - Create each stream handle once and reuse it for registration and operations.
 - Handles use domain names (`uploads`, `transcoder`); registered instances use
   activity names (`producer`, `consumer`, `scheduler`). Qualify instance names

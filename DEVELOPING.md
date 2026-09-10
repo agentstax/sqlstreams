@@ -10,7 +10,7 @@ Run commands from the repo root unless noted.
 ```sh
 cp .env.example .env
 go work init
-go work use . ./cmd/sqlstreams ./otel ./.e2e ./.examples ./.bench ./.tools
+go work use . ./cmd/sqlstreams ./otel ./examples ./.bench ./.tools ./.tests
 ```
 
 Skip `go work init` if you already have a workspace. `.env` and `go.work`
@@ -25,11 +25,11 @@ set -a
 source ./.env
 set +a
 docker compose -f .tools/database/docker-compose.yaml up -d --wait
-go run ./.examples/01-produce-only
-go run ./.examples/02-consume-only
+go run ./examples/01-produce-only
+go run ./examples/02-consume-only
 ```
 
-The consumer runs until Ctrl-C. More programs: [`.examples/`](.examples/README.md).
+The consumer runs until Ctrl-C. More programs: [`examples/`](examples/README.md).
 pgAdmin: <http://localhost:5050>, using the credentials in `.env`.
 
 Run the CLI against your checkout:

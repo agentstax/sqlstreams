@@ -45,8 +45,8 @@ The root module is the library. Nested modules with their own `go.mod`:
 | --- | --- |
 | `cmd/sqlstreams` | CLI |
 | `otel` | metrics exporter |
-| `.e2e` | end-to-end tests and their support commands |
-| `.examples` | runnable user examples |
+| `.tests` | integration tests (`integration/`) and end-to-end tests with their support commands (`e2e/`) |
+| `examples` | runnable user examples |
 | `.bench` | benchmarks and the reliability lab |
 | `.tools` | convention tests, compatibility checks, doc-site exports |
 

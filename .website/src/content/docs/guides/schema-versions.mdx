@@ -80,7 +80,7 @@ group bound to the old type consumes each key's current head and
 re-produces it as the new type at `CompactionRank -1`. Being v2, the
 copy beats the v1 head it was made from; being rank -1, it loses to any
 live rank-0 v2 write for the same key, in either arrival order.
-`.e2e/schemaevolution` runs that end to end, including
+`.tests/e2e/schemaevolution` runs that end to end, including
 a crash mid-drain.
 
 Retirement is a query, not a guess. `client.Stream[sqlstreams.RawPayload]("orders.placed").Health` lists

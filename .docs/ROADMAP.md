@@ -49,11 +49,13 @@ the item is removed.
 
 - **Test suite: unit/integration split, `.tests` module, e2e conversion**
   (14c) -- rules in CONVENTIONS Part 5, settled in [0736] (superseding
-  [0730] [0731]). Unit tests beside the code; integration tests under
-  `.tests/`, one directory per domain root, over testcontainers; the
+  [0730] [0731]; tree settled in [0737]). Unit tests beside the code;
+  integration tests under `.tests/integration/`, one directory per domain
+  root, over testcontainers; e2e programs under `.tests/e2e/`; the
   subject of an integration test is a domain's datastore. Working one
   domain at a time from an approved promise list: worker first (12
-  promises listed 2026-09-09; #1 landed as `.tests/worker/instance_test.go`),
+  promises listed 2026-09-09; #1 landed as
+  `.tests/integration/worker/instance_test.go`),
   then consume (`claim_test.go` moves), stream (the janitor sweep and
   idempotency tests move), schedule, alert, metric. `TEST_EXPLORATION.md`
   at root holds the research and is deleted at close-out.
@@ -64,9 +66,10 @@ the item is removed.
     before trusted: no `_test.go` under `pkg/` imports pgx or opens a
     connection; no `time.Sleep` in a `_test.go` outside a `synctest`
     bubble; no `CREATE TABLE` text in a `_test.go`; `SQLSTREAMS_TEST_*`
-    read only by `.tests/postgres` and `.e2e/common`; no e2e program
+    read only by `.tests/integration/postgres` and `.tests/e2e/common`;
+    no e2e program
     declaring its own `must`.
-  - Pending e2e program `.e2e/signal`, the four cases with no home yet: a
+  - Pending e2e program `.tests/e2e/signal`, the four cases with no home yet: a
     producer under SIGKILL leaves no prepared transaction or ungranted
     lock; a producer under SIGTERM through `LifecycleContext` exits 0 with
     the in-flight message committed; a consumer under SIGTERM exits 0

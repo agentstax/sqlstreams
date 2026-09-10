@@ -48,7 +48,7 @@ I'd love to use Kafka for my [billion dollar, AI powered TODO app](https://githu
 **SQLStreams is a pure SQL library that uses Postgres as its broker.**
 
 - It's actually a log, not a queue 🤓, and it does [N msgs/s](.bench/) on my laptop 😎.
-- You get consumer groups, replay, retention and compaction without running a single broker.
+- You get consumer groups, replay, retention and compaction without running a traditional broker.
 - Dead letters are `WHERE status = 'dead'`. There’s no admin UI. Just write some SQL.
 - Every error has a code, and `sqlstreams explain <code>` will hand you the fix because I don't like thinking either.
 
@@ -72,7 +72,7 @@ type VideoUploaded struct {
 func (VideoUploaded) SchemaVersion() int { return 1 } // increment on breaking changes
 ```
 
-[Produce](.examples/01-produce-only/)
+[Produce](examples/01-produce-only/)
 
 ```go
 ctx, stop := sqlstreams.LifecycleContext(nil)
@@ -88,7 +88,7 @@ producer, _ := uploads.Producer().Register(ctx, nil)
 producer.Produce(ctx, &VideoUploaded{VideoId: "video-42"}, nil)
 ```
 
-[Consume](.examples/02-consume-only/)
+[Consume](examples/02-consume-only/)
 
 ```go
 transcoder := uploads.Consumer("transcoder")
@@ -99,14 +99,14 @@ consumer.Consume(ctx, func(ctx context.Context, video *VideoUploaded) error {
 }, nil)
 ```
 
-[Metrics](.examples/11-metrics-read/)
+[Metrics](examples/11-metrics-read/)
 
 ```go
 snapshot, _ := transcoder.Metrics().Snapshot(ctx)
 fmt.Println("backlog", snapshot.Cursor.Backlog, "dead", snapshot.Exceptions.Dead)
 ```
 
-[Consume built-in alerts](.examples/12-alert-consumer/)
+[Consume built-in alerts](examples/12-alert-consumer/)
 
 ```go
 alerts := client.Stream[sqlstreams.Alert](sqlstreams.AlertStreamName)
@@ -118,7 +118,7 @@ alertConsumer.Consume(ctx, func(ctx context.Context, alert *sqlstreams.Alert) er
 }, nil)
 ```
 
-Retries, dead letters, transactional produce, idempotent produce, keyed ordering, schedules, compaction and the rest are in [`.examples/`](.examples/).
+Retries, dead letters, transactional produce, idempotent produce, keyed ordering, schedules, compaction and the rest are in [`examples/`](examples/).
 
 ### CLI
 

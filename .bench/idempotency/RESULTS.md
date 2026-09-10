@@ -112,7 +112,7 @@ overhead.
 ## Follow-up: in-library batched Produce (acceptance e2e test)
 
 The library-side answer to conclusion 6 — measured through the real public
-API once batching landed, via `.e2e/producerbatch`
+API once batching landed, via `.tests/e2e/producerbatch`
 (`just producer-batch-e2e`), while `SkipIdempotency` still existed as the
 comparison floor. Environment differs from the container above: the dev
 postgres:17 under Docker Desktop on macOS (fsync=on, synchronous_commit=on,

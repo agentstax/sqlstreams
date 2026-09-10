@@ -15,7 +15,7 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/agentstax/sqlstreams/e2e/common"
+	"github.com/agentstax/sqlstreams/.tests/e2e/common"
 	"github.com/agentstax/sqlstreams/pkg/consume"
 	consumecontroller "github.com/agentstax/sqlstreams/pkg/consume/controller"
 	messageconsumerdatastore "github.com/agentstax/sqlstreams/pkg/consume/messageconsumer/controller/datastore"

@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  # The integration tests in .tests/ start their own Postgres through
+  # The integration tests in .tests/integration/ start their own Postgres through
   # testcontainers on the runner's Docker daemon; no service is declared.
   verify:
     runs-on: ubuntu-latest
@@ -25,7 +25,7 @@ jobs:
       - uses: extractions/setup-just@v3
 
       # go.work is gitignored; the nested modules resolve the root library through it.
-      - run: go work init . ./.e2e ./.examples ./.bench ./cmd/sqlstreams ./otel ./.tools ./.tests
+      - run: go work init . ./examples ./.bench ./cmd/sqlstreams ./otel ./.tools ./.tests
 
       # The justfile sets dotenv-required for the compose recipes; verify
       # reads nothing from it.

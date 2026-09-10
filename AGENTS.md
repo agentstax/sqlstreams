@@ -79,14 +79,15 @@ Doc site:
 
 - Per change: foreground targeted checks only -- build, `go test -race` on
   touched packages, `just test-integration` (or `go test` in the touched
-  `.tests/` directory, which needs Docker) when a datastore or its tests
+  `.tests/integration/` directory, which needs Docker) when a datastore or its tests
   changed, directly affected e2e tests. `just verify` is the whole-repo
   check (root plus every nested module plus .tools/ and .tests/); per
   change, build and test the touched module only. Use
   `go fmt ./...`, not the system gofmt, which may predate the go.mod
   toolchain.
 - A new test is the lowest kind that can observe the behavior (CONVENTIONS
-  Part 5: unit beside the code, integration under `.tests/`, e2e); a
+  Part 5: unit beside the code, integration under `.tests/integration/`,
+  e2e under `.tests/e2e/`); a
   single-process scenario is never a new e2e program, and a test that
   touches Postgres is never a `_test.go` beside the code. A test names the behavior or invariant it pins, or it is
   not written.

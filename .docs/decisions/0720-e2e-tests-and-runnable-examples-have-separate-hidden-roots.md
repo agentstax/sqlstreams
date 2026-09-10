@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded
 date: 2026-09-08
 phase: pre-v1
 ---
@@ -26,3 +26,5 @@ verification command include both modules independently.
 
 This supersedes [0718]. Paths beginning `.example/` become `.examples/`.
 Decision [0719]'s e2e terminology and recipe naming remain unchanged.
+
+Superseded by [0737].
