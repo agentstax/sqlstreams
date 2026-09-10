@@ -5,6 +5,20 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-09 — Partial message sweeps have a bounded grace period [0738]
+
+Per-stream janitor metadata accepts partial_sweep_grace_period (nanoseconds,
+zero by default). The indexed oldest-row check defers partial cleanup until
+TTL plus grace, then drains the expired prefix using the original TTL.
+Whole-partition drops and consumer-progress protection remain unchanged.
+Startup logs expose the setting; debug logs identify deferred partitions
+and their oldest-row age. No new metric collection or schema change.
+
+Validation: native PostgreSQL integration race tests cover deferral,
+multi-batch draining, sparse partitions, consumer protection, zero grace,
+and whole-partition drops. Targeted janitor race tests, builds, vet and
+formatting passed. Throughput with bounded grace has not yet been measured.
+
 ## 2026-09-09 — Idempotency expiry uses timestamp order [0735]
 
 Idempotency cleanup now orders expired candidates by created_at, using its

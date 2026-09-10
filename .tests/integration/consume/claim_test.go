@@ -1,11 +1,9 @@
 package consume
 
 import (
-	"context"
 	"testing"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/consume/messageconsumer/controller/datastore"
 	"github.com/agentstax/sqlstreams/pkg/stream"
 )
 
@@ -15,29 +13,29 @@ import (
 // newer transaction is open.
 func TestEmptyClaimPersistsPendingObservation(t *testing.T) {
 	// setup
-	test := newClaimTest(t)
+	groups, consumer := newMessageConsumerDatastore(t)
+	produceMessages(t, groups, consumer, 2)
+	pool := groups.Datastore.Pool
+	cursor := groups.Datastore.Schema + "." + stream.ConsumerGroupCursorTable(consumer.StreamId)
 	ctx := t.Context()
-	if _, err := test.pool.Exec(ctx, "INSERT INTO "+test.messages+" (schema_version, payload) VALUES (1, '{}'), (1, '{}')"); err != nil {
-		t.Fatal(err)
-	}
-	older := holdTransaction(t, test.pool)
-	if _, err := test.pool.Exec(ctx, "SELECT pg_current_xact_id()"); err != nil {
+	older := holdTransaction(t, pool)
+	if _, err := pool.Exec(ctx, "SELECT pg_current_xact_id()"); err != nil {
 		t.Fatal(err)
 	}
 
 	// test
-	claimed, err := test.claim(ctx)
+	claimed, err := groups.ClaimMessagesWithCursor(ctx, consumer.StreamId, consumer.Id, 1, 100, 3, time.Minute, stream.DeliveryLogModeFailures)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// verify
 	if claimed != nil {
-		t.Fatalf("claim() with an older transaction open = %+v, want nil", claimed)
+		t.Fatalf("ClaimMessagesWithCursor with an older transaction open = %+v, want nil", claimed)
 	}
 	var head int64
 	var recorded bool
-	if err := test.pool.QueryRow(ctx, "SELECT pending_head, pending_xid IS NOT NULL FROM "+test.cursor+" WHERE consumer_group_id = $1", test.groupId).Scan(&head, &recorded); err != nil {
+	if err := pool.QueryRow(ctx, "SELECT pending_head, pending_xid IS NOT NULL FROM "+cursor+" WHERE consumer_group_id = $1", consumer.Id).Scan(&head, &recorded); err != nil {
 		t.Fatal(err)
 	}
 	if head != 2 || !recorded {
@@ -48,18 +46,18 @@ func TestEmptyClaimPersistsPendingObservation(t *testing.T) {
 	if err := older.Commit(ctx); err != nil {
 		t.Fatal(err)
 	}
-	holdTransaction(t, test.pool)
-	if _, err := test.pool.Exec(ctx, "SELECT pg_current_xact_id()"); err != nil {
+	holdTransaction(t, pool)
+	if _, err := pool.Exec(ctx, "SELECT pg_current_xact_id()"); err != nil {
 		t.Fatal(err)
 	}
-	claimed, err = test.claim(ctx)
+	claimed, err = groups.ClaimMessagesWithCursor(ctx, consumer.StreamId, consumer.Id, 1, 100, 3, time.Minute, stream.DeliveryLogModeFailures)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// verify
 	if claimed == nil || len(claimed.Messages) != 2 || claimed.Lease.Low != 0 || claimed.Lease.High != 2 {
-		t.Fatalf("claim() after the older transaction committed = %+v, want both messages in lease (0, 2]", claimed)
+		t.Fatalf("ClaimMessagesWithCursor after the older transaction committed = %+v, want both messages in lease (0, 2]", claimed)
 	}
 }
 
@@ -69,14 +67,16 @@ func TestEmptyClaimPersistsPendingObservation(t *testing.T) {
 func TestClaimWaitsForProducerBeyondSnapshotXmax(t *testing.T) {
 	// setup: both producers own transaction ids before allocating message
 	// ids, as the idempotency write requires; their allocation orders differ
-	test := newClaimTest(t)
+	groups, consumer := newMessageConsumerDatastore(t)
+	pool := groups.Datastore.Pool
+	messages := groups.Datastore.Schema + "." + stream.MessageLogTable(consumer.StreamId)
 	ctx := t.Context()
-	older := holdTransaction(t, test.pool)
-	newer := holdTransaction(t, test.pool)
-	if _, err := newer.Exec(ctx, "INSERT INTO "+test.messages+" (schema_version, payload) VALUES (1, '{}')"); err != nil {
+	older := holdTransaction(t, pool)
+	newer := holdTransaction(t, pool)
+	if _, err := newer.Exec(ctx, "INSERT INTO "+messages+" (schema_version, payload) VALUES (1, '{}')"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := older.Exec(ctx, "INSERT INTO "+test.messages+" (schema_version, payload) VALUES (1, '{}')"); err != nil {
+	if _, err := older.Exec(ctx, "INSERT INTO "+messages+" (schema_version, payload) VALUES (1, '{}')"); err != nil {
 		t.Fatal(err)
 	}
 	if err := older.Commit(ctx); err != nil {
@@ -91,28 +91,28 @@ func TestClaimWaitsForProducerBeyondSnapshotXmax(t *testing.T) {
 	}
 
 	// test
-	claimed, err := test.claim(ctx)
+	claimed, err := groups.ClaimMessagesWithCursor(ctx, consumer.StreamId, consumer.Id, 1, 100, 3, time.Minute, stream.DeliveryLogModeFailures)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// verify
 	if claimed != nil {
-		t.Fatalf("claim() with message 1 uncommitted = lease (%d, %d] over %+v, want nil", claimed.Lease.Low, claimed.Lease.High, claimed.Messages)
+		t.Fatalf("ClaimMessagesWithCursor with message 1 uncommitted = lease (%d, %d] over %+v, want nil", claimed.Lease.Low, claimed.Lease.High, claimed.Messages)
 	}
 
 	// test: the newer producer commits
 	if err := newer.Commit(ctx); err != nil {
 		t.Fatal(err)
 	}
-	claimed, err = test.claim(ctx)
+	claimed, err = groups.ClaimMessagesWithCursor(ctx, consumer.StreamId, consumer.Id, 1, 100, 3, time.Minute, stream.DeliveryLogModeFailures)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// verify
 	if claimed == nil || len(claimed.Messages) != 2 || claimed.Messages[0].Id != 1 || claimed.Messages[1].Id != 2 {
-		t.Fatalf("claim() after both commits = %+v, want messages 1 and 2 in order", claimed)
+		t.Fatalf("ClaimMessagesWithCursor after both commits = %+v, want messages 1 and 2 in order", claimed)
 	}
 }
 
@@ -120,30 +120,27 @@ func TestClaimWaitsForProducerBeyondSnapshotXmax(t *testing.T) {
 // idle fleet does not advance the cluster toward xid wraparound.
 func TestCaughtUpClaimsDoNotAllocateTransactionIds(t *testing.T) {
 	// setup
-	test := newClaimTest(t)
+	groups, consumer := newMessageConsumerDatastore(t)
+	pool := groups.Datastore.Pool
 	ctx := t.Context()
 	var before, after int64
-	if err := test.pool.QueryRow(ctx, "SELECT pg_current_xact_id()::text::bigint").Scan(&before); err != nil {
+	if err := pool.QueryRow(ctx, "SELECT pg_current_xact_id()::text::bigint").Scan(&before); err != nil {
 		t.Fatal(err)
 	}
 
 	// test
 	for range 3 {
-		claimed, err := test.claim(ctx)
+		claimed, err := groups.ClaimMessagesWithCursor(ctx, consumer.StreamId, consumer.Id, 1, 100, 3, time.Minute, stream.DeliveryLogModeFailures)
 		if err != nil || claimed != nil {
-			t.Fatalf("claim() on a caught-up group = %+v, %v; want nil, nil", claimed, err)
+			t.Fatalf("ClaimMessagesWithCursor on a caught-up group = %+v, %v; want nil, nil", claimed, err)
 		}
 	}
 
 	// verify: the read of before allocated the one id between the two reads
-	if err := test.pool.QueryRow(ctx, "SELECT pg_current_xact_id()::text::bigint").Scan(&after); err != nil {
+	if err := pool.QueryRow(ctx, "SELECT pg_current_xact_id()::text::bigint").Scan(&after); err != nil {
 		t.Fatal(err)
 	}
 	if after != before+1 {
 		t.Fatalf("transaction ids allocated by three caught-up claims = %d, want 0", after-before-1)
 	}
-}
-
-func (c *claimTest) claim(ctx context.Context) (*datastore.ClaimedRange, error) {
-	return c.groups.ClaimMessagesWithCursor(ctx, c.streamId, c.groupId, 1, 100, 3, time.Minute, stream.DeliveryLogModeFailures)
 }

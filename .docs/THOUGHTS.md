@@ -2,11 +2,6 @@
 
 # Docs
 
-tree:
-  .examples -> examples (more visible to people peeking at repo)
-  .e2e -> .tests/e2e
-  .tests -> .tests/integration
-
 website user icon for me needs to change (maybe my shipt profile pic)
 
 roadmap later item for review code for interesting design decisions to write articles on (big or small things)
@@ -18,7 +13,8 @@ roadmap later item for review code for interesting design decisions to write art
 - Decision tracking and index
 - Code quality is even MORE important now
   - bad code and patterns snowball, just as good code and patterns do
-  - stray unused code of patterns dilutes context 
+  - stray unused code of patterns dilutes context
+  - skimmable code (ie readable) is more important than ever
 - AI Native projects
   - faster but lose context
   - you can learn but its worse and must be disciplined? (does learning even matter)
@@ -55,3 +51,5 @@ review of most important website docs
 # Other
 
 Another automated review for broken links and inconsistent references
+
+Need new github org name "getstweamy"?

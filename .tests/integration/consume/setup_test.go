@@ -3,56 +3,49 @@ package consume
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/agentstax/sqlstreams/.tests/integration/postgres"
+	"github.com/agentstax/sqlstreams/pkg/consume"
+	consumecontroller "github.com/agentstax/sqlstreams/pkg/consume/controller"
+	cursordatastore "github.com/agentstax/sqlstreams/pkg/consume/cursoradvancer/controller/datastore"
+	exceptiondatastore "github.com/agentstax/sqlstreams/pkg/consume/exceptionconsumer/controller/datastore"
 	"github.com/agentstax/sqlstreams/pkg/consume/messageconsumer/controller/datastore"
-	"github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	metricdatastore "github.com/agentstax/sqlstreams/pkg/metric/controller/datastore"
 	"github.com/agentstax/sqlstreams/pkg/stream"
+	streamcontroller "github.com/agentstax/sqlstreams/pkg/stream/controller"
+	systemcontroller "github.com/agentstax/sqlstreams/pkg/system/controller"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type claimTestMessage struct {
-	Id string `json:"id"`
-}
-
-func (claimTestMessage) SchemaVersion() int { return 1 }
-
-// claimTest is one registered stream and consumer group, with the qualified
-// table names the tests read and write directly.
-type claimTest struct {
-	groups   *datastore.MessageConsumerGroupDatastore
-	pool     *pgxpool.Pool
-	streamId int64
-	groupId  int64
-	messages string
-	cursor   string
-}
-
-// newClaimTest registers a system, a stream, and a consumer group through
-// the client, so the tables are the registry's own and the group's cursor
-// starts before any message.
-func newClaimTest(t testing.TB) *claimTest {
+// newMessageConsumerDatastore registers a system, a stream, and a consumer
+// group whose cursor starts before any message, and returns the message
+// consumer datastore with the group.
+func newMessageConsumerDatastore(t testing.TB) (*datastore.MessageConsumerGroupDatastore, *consume.Consumer) {
 	t.Helper()
-	ctx := t.Context()
 	ds := postgres.Start(t)
-	client, err := sqlstreams.NewClient(ctx, ds.Pool, &sqlstreams.ClientConfig{Schema: ds.Schema})
+	systems, err := systemcontroller.NewSystemController(ds, ds.Logger)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := client.System().Register(ctx, nil); err != nil {
-		t.Fatal(err)
-	}
-	claims := client.Stream[claimTestMessage]("claims")
-	registered, err := claims.Register(ctx, nil)
+	system, err := systems.Register(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
-	readers := claims.Consumer("readers")
-	if _, err := readers.Register(ctx, nil); err != nil {
+	streams, err := streamcontroller.NewStreamController(ds, ds.Logger)
+	if err != nil {
 		t.Fatal(err)
 	}
-	group, err := readers.Get(ctx)
+	registered, err := streams.Register(t.Context(), system.Id, "claims", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	consumers, err := consumecontroller.NewConsumeController(ds, ds.Logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	consumer, err := consumers.RegisterGroup(t.Context(), registered.Id, "readers", consume.CursorPosition{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,14 +53,63 @@ func newClaimTest(t testing.TB) *claimTest {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &claimTest{
-		groups:   groups,
-		pool:     ds.Pool,
-		streamId: registered.Id,
-		groupId:  group.Id,
-		messages: ds.Schema + "." + stream.MessageLogTable(registered.Id),
-		cursor:   ds.Schema + "." + stream.ConsumerGroupCursorTable(registered.Id),
+	return groups, consumer
+}
+
+// newExceptionConsumerDatastore is the exception consumer datastore over the
+// same schema.
+func newExceptionConsumerDatastore(t testing.TB, groups *datastore.MessageConsumerGroupDatastore) *exceptiondatastore.ExceptionConsumerGroupDatastore {
+	t.Helper()
+	exceptions, err := exceptiondatastore.NewExceptionConsumerGroupDatastore(groups.Datastore, groups.Datastore.Logger)
+	if err != nil {
+		t.Fatal(err)
 	}
+	return exceptions
+}
+
+// newCursorAdvancerDatastore is the cursor advancer datastore over the same
+// schema.
+func newCursorAdvancerDatastore(t testing.TB, groups *datastore.MessageConsumerGroupDatastore) *cursordatastore.CursorAdvancerDatastore {
+	t.Helper()
+	cursors, err := cursordatastore.NewCursorAdvancerDatastore(groups.Datastore, groups.Datastore.Logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return cursors
+}
+
+// newMetricDatastore is the metric datastore over the same schema.
+func newMetricDatastore(t testing.TB, groups *datastore.MessageConsumerGroupDatastore) *metricdatastore.MetricDatastore {
+	t.Helper()
+	metrics, err := metricdatastore.NewMetricsDatastore(groups.Datastore, groups.Datastore.Logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return metrics
+}
+
+// produceMessages appends count messages to the stream's log.
+func produceMessages(t testing.TB, groups *datastore.MessageConsumerGroupDatastore, consumer *consume.Consumer, count int) {
+	t.Helper()
+	messages := groups.Datastore.Schema + "." + stream.MessageLogTable(consumer.StreamId)
+	for range count {
+		if _, err := groups.Datastore.Pool.Exec(t.Context(), "INSERT INTO "+messages+" (schema_version, payload) VALUES (1, '{}')"); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+// claimRange claims the group's next range and returns it with its lease.
+func claimRange(t testing.TB, groups *datastore.MessageConsumerGroupDatastore, consumer *consume.Consumer) *datastore.ClaimedRange {
+	t.Helper()
+	claimed, err := groups.ClaimMessagesWithCursor(t.Context(), consumer.StreamId, consumer.Id, 1, 100, 3, time.Minute, stream.DeliveryLogModeFailures)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if claimed == nil {
+		t.Fatal("ClaimMessagesWithCursor declined during setup, want a range")
+	}
+	return claimed
 }
 
 // holdTransaction opens a transaction that owns a transaction id and stays

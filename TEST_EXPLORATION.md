@@ -539,10 +539,62 @@ declareStreamOwner, declareConsumerGroupOwner).
 10. RegisterWorker: redeclare writes metadata + one log row; unchanged writes
     no log row; target_instances kept (suspension survives restart)
 11. two concurrent first declarations both nil, one row
-12. ListWorkers by owner chain: system all, stream own + groups, group own
-    only, never a sibling's; owners resolve from join columns
+12. ListWorkers by owner chain UPWARD (what a manager on the owner runs):
+    group sees own + stream's + system's, stream sees own + system's, system
+    sees all, never a sibling's or a child's; owners resolve from join columns
 No tests for guards, GetWorker, DeclareWorker's gate, RegisterInstance,
 AssertSchemaSupported, ErrWorkerDeclarationInterrupted.
+
+### The consume promise list (approved 2026-09-09; none written yet)
+
+One test file per datastore under `.tests/integration/consume/`; the three
+claim-fence tests in claim_test.go stay. deliveryconsumer is archived: no
+tests. Setup helpers to add: produce rows into message_log, insert an
+exception row at a chosen status/time, claim a range for a lease token.
+
+messageconsumer (commit_test.go)
+1. Commit with a stale token -> ErrLeaseLost, no exception rows written
+2. Commit writes one exception row per outcome kind (status, delays,
+   can_run_after), none for success/superseded, log row at attempt 0 --
+   values table
+3. PartialCommit narrows low to lastProcessed; token, high, expiry kept
+exceptionconsumer (exception_test.go)
+4. Claim eligibility by status: ready past can_run_after, inflight past
+   lease expiry, deferred always; ready-early, live inflight, done, dead,
+   superseded never -- values table
+5. Claim skips a key under an unexpired key lease, and an ordered row with
+   an earlier unresolved same-key row
+6. Claiming an expired inflight row writes one 'expired' delivery_log row
+   at the pre-claim attempt
+7. Every Record verb with a stale lease token -> ErrLeaseLost, no log row
+8. RecordSuccess deletes; RecordFailure -> ready with backoff, lease
+   cleared; RecordTerminal -> dead
+9. RecordDelayed / RecordSuperseded / RecordDeferred leave attempts-delays
+   unchanged; log row at the claim's attempt
+10. Kill deads only expired inflight rows at/over budget, returns count; a
+    live inflight row at budget survives
+base key lease (key_lease_test.go)
+11. one live lease per (group, key): second claimant busy, own token
+    re-takes, expired taken over, Release with stale token false and row kept
+12. compacted claim not at head -> superseded, no lease row left
+13. ordered claim declines while an earlier same-key message above the
+    cursor is outside the caller's own range
+consume groups (group_test.go)
+14. RegisterGroup idempotent, existing cursor never moved; Head placement
+    sets claimed = committed = settled_head = MAX(id)
+15. DeclareBindings outcomes: first installs rows; same set joins, writes
+    nothing; different set with live instance waits (log row only, bindings
+    kept); without live instance installs
+16. DeleteGroup removes the group's claim_lease, message_key_lease,
+    exception_queue, delivery_log rows; a sibling group's survive
+cursoradvancer (committed_test.go)
+17. AdvanceCommitted = LEAST(min lease low, min unresolved exception - 1,
+    claimed); done/dead/superseded don't hold it; never moves backward
+janitor (binding_log_test.go)
+18. waiting-declaration sweep deletes old waiting rows except each
+    declarer's newest, never installed rows, at most batchSize per stream
+Dropped after audit: ForceReclaimRange, attempts-delays budget in Claim,
+RenewLease, ListGroupBindingConfigLog newest-per, all deliveryconsumer.
 
 ### Timing facts (quiet machine)
 
