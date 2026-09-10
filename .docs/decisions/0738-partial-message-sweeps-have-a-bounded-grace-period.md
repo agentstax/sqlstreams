@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded
 date: 2026-09-09
 phase: "pre-v1"
 ---
@@ -34,3 +34,6 @@ retention bound because scheduling, failures, and consumer progress can delay
 cleanup further. The existing approximate ID/timestamp ordering remains.
 No schema migration and no change to key cleanup or DROP lock handling.
 The 30s example is not a benchmark-validated default; the default stays zero.
+
+Superseded by [0739](0739-partial-sweep-grace-applies-to-every-batch.md),
+which retains grace eligibility for every batch.

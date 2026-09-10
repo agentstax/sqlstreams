@@ -53,6 +53,7 @@ func (d *JanitorDatastore) sweepIdempotencyKeysBatch(ctx context.Context, stream
 		WHERE idempotency_key IN (
 			SELECT idempotency_key FROM %[1]s.%[3]s
 			WHERE created_at < $1
+			ORDER BY created_at ASC
 			LIMIT $2
 		);
 	`, d.Datastore.Schema, stream.IdempotencyKeyTable(streamId), stream.IdempotencyKeyTable(streamId))

@@ -495,4 +495,6 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 
 - 0737 2026-09-09 accepted (pre-v1) — Examples are a visible root and both test trees live in the .tests module
 
-- 0738 2026-09-09 accepted (pre-v1) — Partial message sweeps have a bounded grace period
+- 0738 2026-09-09 superseded (pre-v1) — Partial message sweeps have a bounded grace period
+
+- 0739 2026-09-09 accepted (pre-v1) — Partial sweep grace applies to every batch

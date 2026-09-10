@@ -7,9 +7,9 @@ import (
 	"time"
 )
 
-// Behavior: grace delays partial cleanup, then drains the expired prefix
-// across batches without deleting younger or uncommitted messages.
-func TestPartialSweepGraceDrainsExpiredPrefixAfterDeadline(t *testing.T) {
+// Invariant: row cleanup preserves every row within TTL plus grace, including
+// rows beside an overdue row, and still respects consumer progress.
+func TestPartialSweepPreservesRowsWithinGrace(t *testing.T) {
 	// setup
 	janitor, orders := newRetentionJanitor(t)
 	ctx := t.Context()
@@ -50,8 +50,25 @@ func TestPartialSweepGraceDrainsExpiredPrefixAfterDeadline(t *testing.T) {
 	if err := janitor.Datastore.Pool.QueryRow(ctx, "SELECT array_agg(id ORDER BY id) FROM "+messages).Scan(&ids); err != nil {
 		t.Fatal(err)
 	}
+	if !slices.Equal(ids, []int64{2, 3, 4, 5, 6}) {
+		t.Fatalf("SweepExpiredPartitions(rows within grace) retained %v, want [2 3 4 5 6]", ids)
+	}
+
+	// test
+	if _, err := janitor.Datastore.Pool.Exec(ctx, "UPDATE "+messages+" SET created_at=now()-interval '2 hours' WHERE id IN (2,3,4,5)"); err != nil {
+		t.Fatal(err)
+	}
+	err = janitor.SweepExpiredPartitions(ctx, orders.Id, orders.PartitionSize, time.Hour, 30*time.Minute, false, 2, stream.DeliveryLogModeOff)
+
+	// verify
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := janitor.Datastore.Pool.QueryRow(ctx, "SELECT array_agg(id ORDER BY id) FROM "+messages).Scan(&ids); err != nil {
+		t.Fatal(err)
+	}
 	if !slices.Equal(ids, []int64{5, 6}) {
-		t.Fatalf("SweepExpiredPartitions(overdue prefix, committed=4) retained %v, want [5 6]", ids)
+		t.Fatalf("SweepExpiredPartitions(overdue rows, committed=4) retained %v, want [5 6]", ids)
 	}
 
 	// test
@@ -72,28 +89,46 @@ func TestPartialSweepGraceDrainsExpiredPrefixAfterDeadline(t *testing.T) {
 	}
 }
 
-// Behavior: zero grace preserves immediate cleanup of the expired prefix.
-func TestZeroPartialSweepGracePreservesImmediateExpiry(t *testing.T) {
+// Invariant: zero-grace cleanup drains multiple batches through the committed
+// cursor, preserves young and uncommitted rows, and resumes as the cursor advances.
+func TestZeroPartialSweepGracePreservesUnexpiredAndUncommittedMessages(t *testing.T) {
 	// setup
 	janitor, orders := newRetentionJanitor(t)
+	ctx := t.Context()
 	messages := janitor.Datastore.Schema + "." + stream.MessageLogTable(orders.Id)
-	if _, err := janitor.Datastore.Pool.Exec(t.Context(), "INSERT INTO "+messages+" (id,schema_version,payload,created_at) VALUES (1,1,'{}',now()-interval '75 minutes'),(2,1,'{}',now())"); err != nil {
-		t.Fatal(err)
-	}
+	cursor := janitor.Datastore.Schema + "." + stream.ConsumerGroupCursorTable(orders.Id)
+	seedRetentionMessages(t, janitor, messages, cursor)
 
 	// test
-	err := janitor.SweepExpiredPartitions(t.Context(), orders.Id, orders.PartitionSize, time.Hour, 0, true, 2, stream.DeliveryLogModeOff)
+	err := janitor.SweepExpiredPartitions(ctx, orders.Id, orders.PartitionSize, time.Hour, 0, false, 2, stream.DeliveryLogModeOff)
 
 	// verify
 	if err != nil {
 		t.Fatal(err)
 	}
 	var ids []int64
-	if err := janitor.Datastore.Pool.QueryRow(t.Context(), "SELECT array_agg(id ORDER BY id) FROM "+messages).Scan(&ids); err != nil {
+	if err := janitor.Datastore.Pool.QueryRow(ctx, "SELECT array_agg(id ORDER BY id) FROM "+messages).Scan(&ids); err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(ids, []int64{2}) {
-		t.Fatalf("SweepExpiredPartitions(zero grace) retained %v, want [2]", ids)
+	if !slices.Equal(ids, []int64{4, 5, 6, 7, 8, 9, 10}) {
+		t.Fatalf("SweepExpiredPartitions(zero grace, committed=3, batch=2) retained %v, want [4 5 6 7 8 9 10]", ids)
+	}
+
+	// test
+	if _, err := janitor.Datastore.Pool.Exec(ctx, "UPDATE "+cursor+" SET committed=10"); err != nil {
+		t.Fatal(err)
+	}
+	err = janitor.SweepExpiredPartitions(ctx, orders.Id, orders.PartitionSize, time.Hour, 0, false, 2, stream.DeliveryLogModeOff)
+
+	// verify
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := janitor.Datastore.Pool.QueryRow(ctx, "SELECT array_agg(id ORDER BY id) FROM "+messages).Scan(&ids); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(ids, []int64{5, 6, 7, 8, 9, 10}) {
+		t.Fatalf("SweepExpiredPartitions(zero grace, committed=10) retained %v, want [5 6 7 8 9 10]", ids)
 	}
 }
 

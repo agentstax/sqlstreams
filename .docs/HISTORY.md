@@ -5,6 +5,14 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-09 — Partial sweep grace applies to every batch [0739]
+
+Removed the first-batch cutoff reset. Each batch now requires its oldest
+row to exceed TTL plus grace; an eligible batch keeps the normal TTL
+predicate. Native PostgreSQL race regressions cover stopping at the next
+batch within grace, eventual cleanup, and consumer protection. Targeted
+build, vet and formatting passed. No throughput rerun for this change.
+
 ## 2026-09-09 — Partial message sweeps have a bounded grace period [0738]
 
 Per-stream janitor metadata accepts partial_sweep_grace_period (nanoseconds,

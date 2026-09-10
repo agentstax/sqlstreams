@@ -2,6 +2,7 @@ package datastore
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"time"
@@ -12,14 +13,15 @@ import (
 
 // SweepExpiredPartitions drains the ttl-expired prefix of every surviving
 // partition -- covers the low-volume tail that never fills a partition wide
-// enough to earn a whole-partition drop.
-func (d *JanitorDatastore) SweepExpiredPartitions(ctx context.Context, streamId int64, partitionSize int64, ttl time.Duration, allowDropPastCommitted bool, batchSize int, deliveryLogMode stream.DeliveryLogMode) error {
+// enough to earn a whole-partition drop. Each batch requires its oldest row
+// to exceed ttl plus gracePeriod, then deletes rows using the ttl cutoff.
+func (d *JanitorDatastore) SweepExpiredPartitions(ctx context.Context, streamId int64, partitionSize int64, ttl time.Duration, gracePeriod time.Duration, allowDropPastCommitted bool, batchSize int, deliveryLogMode stream.DeliveryLogMode) error {
 	return d.DatastoreRetry.Wrap(ctx, func() error {
-		return d.sweepExpiredPartitions(ctx, streamId, partitionSize, ttl, allowDropPastCommitted, batchSize, deliveryLogMode)
+		return d.sweepExpiredPartitions(ctx, streamId, partitionSize, ttl, gracePeriod, allowDropPastCommitted, batchSize, deliveryLogMode)
 	})
 }
 
-func (d *JanitorDatastore) sweepExpiredPartitions(ctx context.Context, streamId int64, partitionSize int64, ttl time.Duration, allowDropPastCommitted bool, batchSize int, deliveryLogMode stream.DeliveryLogMode) error {
+func (d *JanitorDatastore) sweepExpiredPartitions(ctx context.Context, streamId int64, partitionSize int64, ttl time.Duration, gracePeriod time.Duration, allowDropPastCommitted bool, batchSize int, deliveryLogMode stream.DeliveryLogMode) error {
 	if ttl <= 0 {
 		return nil // retention disabled
 	}
@@ -29,17 +31,18 @@ func (d *JanitorDatastore) sweepExpiredPartitions(ctx context.Context, streamId 
 		return err
 	}
 
-	cutoff := time.Now().Add(-ttl)
+	cutoff := time.Now().Add(-ttl).Add(-gracePeriod)
 
 	// caps a full drain to break any potential infinite loops
 	maxBatches := int((partitionSize + int64(batchSize) - 1) / int64(batchSize))
 
 	for _, n := range partitions { // every partition, independently -- one backlog can't block the rest
 		for range maxBatches {
-			swept, err := d.sweepBatch(ctx, streamId, n, cutoff, allowDropPastCommitted, batchSize, deliveryLogMode)
+			swept, err := d.sweepBatch(ctx, streamId, n, cutoff, cutoff, allowDropPastCommitted, batchSize, deliveryLogMode)
 			if err != nil {
 				return err
 			}
+
 			if swept < batchSize {
 				break // ran out of expired rows (or hit the floor)
 			}
@@ -51,12 +54,36 @@ func (d *JanitorDatastore) sweepExpiredPartitions(ctx context.Context, streamId 
 
 // sweepBatch deletes up to batchSize expired rows from the front of partition n,
 // plus their orphaned delivery/delivery_log rows, in one transaction.
-func (d *JanitorDatastore) sweepBatch(ctx context.Context, streamId int64, n int64, cutoff time.Time, allowDropPastCommitted bool, batchSize int, deliveryLogMode stream.DeliveryLogMode) (int, error) {
+func (d *JanitorDatastore) sweepBatch(ctx context.Context, streamId int64, n int64, cutoff time.Time, eligibilityCutoff time.Time, allowDropPastCommitted bool, batchSize int, deliveryLogMode stream.DeliveryLogMode) (int, error) {
 	tx, err := d.Datastore.Pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return 0, err
 	}
 	defer tx.Rollback(ctx)
+
+	// Get latest message from partition for its timestamp which is
+	// approximately the latest timestamp in that partition and use
+	// that to determine if we should do seq delete or not.
+	oldestSql := fmt.Sprintf(`
+		-- sqlstreams: streamjanitor.sweepBatch
+		SELECT created_at FROM %[1]s.%[2]s
+		ORDER BY id ASC
+		LIMIT 1;
+	`, d.Datastore.Schema, stream.MessageLogPartitionTable(streamId, n))
+	var oldest time.Time
+	err = tx.QueryRow(ctx, oldestSql).Scan(&oldest)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	if !oldest.Before(eligibilityCutoff) {
+		if oldest.Before(cutoff) {
+			d.Logger.DebugContext(ctx, "partial sweep deferred within grace period", "stream_id", streamId, "partition", n, "deferred_count", 1, "duration", time.Since(oldest), "threshold", time.Since(eligibilityCutoff))
+		}
+		return 0, nil
+	}
 
 	var floor *int64
 	if !allowDropPastCommitted {

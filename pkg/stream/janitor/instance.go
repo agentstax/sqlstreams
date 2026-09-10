@@ -55,7 +55,7 @@ func newJanitorInstance(janitor *JanitorProvisioner, current *stream.Stream, cla
 // Run sweeps until ctx cancels; a requested stop returns nil. The claimed
 // instance releases on the way out however Run exits.
 func (i *JanitorInstance) Run(ctx context.Context) error {
-	i.Logger.InfoContext(ctx, "janitor starting", "sqlstreams_version", common.BuildVersion(), "rate", i.metadata.PollRate, "cleanup_timeout", i.Config.CleanupTimeout)
+	i.Logger.InfoContext(ctx, "janitor starting", "sqlstreams_version", common.BuildVersion(), "rate", i.metadata.PollRate, "cleanup_timeout", i.Config.CleanupTimeout, "sweep_batch_size", i.metadata.SweepBatchSize, "partial_sweep_grace_period", i.metadata.PartialSweepGracePeriod)
 
 	err := i.runner.Run(ctx, i.sweep)
 	if err == nil {
@@ -85,7 +85,7 @@ func (i *JanitorInstance) sweep(ctx context.Context) error {
 	}
 
 	partitionsCtx, cancelPartitions := context.WithTimeout(ctx, i.Config.CleanupTimeout)
-	err = i.controller.SweepExpiredPartitions(partitionsCtx, current.Id, current.PartitionSize, current.RetentionTTL, current.AllowDropPastCommitted, i.metadata.SweepBatchSize, current.DeliveryLogMode)
+	err = i.controller.SweepExpiredPartitions(partitionsCtx, current.Id, current.PartitionSize, current.RetentionTTL, i.metadata.PartialSweepGracePeriod, current.AllowDropPastCommitted, i.metadata.SweepBatchSize, current.DeliveryLogMode)
 	cancelPartitions()
 	if err != nil {
 		sweepErrors = append(sweepErrors, fmt.Errorf("sweep expired partitions: %w", err))

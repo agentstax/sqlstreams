@@ -54,3 +54,20 @@ func fillRetentionPartitions(t testing.TB, janitor *datastore.JanitorDatastore) 
 		}
 	}
 }
+
+func seedRetentionKeys(t testing.TB, janitor *datastore.JanitorDatastore, keys string) {
+	t.Helper()
+	if _, err := janitor.Datastore.Pool.Exec(t.Context(), "INSERT INTO "+keys+" (idempotency_key,created_at) VALUES ('00000000-0000-0000-0000-000000000001',now()),('ffffffff-ffff-ffff-ffff-ffffffffffff',now()-interval '3 hours'),('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',now()-interval '2 hours'),('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',now()-interval '2 hours')"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func seedRetentionMessages(t testing.TB, janitor *datastore.JanitorDatastore, messages string, cursor string) {
+	t.Helper()
+	if _, err := janitor.Datastore.Pool.Exec(t.Context(), "INSERT INTO "+messages+" (id,schema_version,payload,created_at) SELECT id,1,'{}',CASE WHEN id<=4 THEN now()-interval '2 hours' ELSE now() END FROM generate_series(1,10) id"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := janitor.Datastore.Pool.Exec(t.Context(), "UPDATE "+cursor+" SET committed=3"); err != nil {
+		t.Fatal(err)
+	}
+}
