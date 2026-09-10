@@ -53,9 +53,9 @@ the item is removed.
   integration tests under `.tests/integration/`, one directory per domain
   root, over testcontainers; e2e programs under `.tests/e2e/`; the
   subject of an integration test is a domain's datastore. Working one
-  domain at a time from an approved promise list: worker first (12
-  promises listed 2026-09-09; #1 landed as
-  `.tests/integration/worker/instance_test.go`),
+  domain at a time from an approved promise list: worker first (all 12
+  promises written 2026-09-09 in `.tests/integration/worker/`; #1 ran
+  green, #2-#12 compiled only, awaiting a Docker run),
   then consume (`claim_test.go` moves), stream (the janitor sweep and
   idempotency tests move), schedule, alert, metric. `TEST_EXPLORATION.md`
   at root holds the research and is deleted at close-out.

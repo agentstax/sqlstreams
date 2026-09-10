@@ -36,6 +36,8 @@ roadmap later item for review code for interesting design decisions to write art
   - should you start out with unit tests and increase token costs or wait till code is closer to finalization
   - what are valuable tests in the agent era
   - is testing validation logic valuable, setting up integration test that you don't understand?
+  - unit tests are dead (few small mistakes with llm, id vs name)
+  - regression tests from debug sessions
 - A new world and the case of low dependencies
 
 # Review

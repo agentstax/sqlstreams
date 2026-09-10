@@ -1122,9 +1122,15 @@ One shape for both kinds, the same in every module.
   under an `errgroup` whose `Wait` the test checks.
 - Goroutines appear only in a test whose named invariant is about
   concurrency. Every other test is sequential.
-- A closed set is table-driven under `t.Run` with a name per case,
-  never an index. A multi-step narrative (claim, hold a transaction,
-  claim again) is one sequential test with no table.
+- A closed set of VALUES (cron expressions, SQLSTATE codes) is
+  table-driven under `t.Run` with a name per case, never an index; a
+  table row holds inputs and expected outputs only. A set of VERBS is
+  straight-line code: one call per line in the test section, one check
+  per line in verify. A func in a table row, a closure wrapping a call,
+  or a `t.Run` around a single verb is machinery the reader must unwind
+  before trusting the test, and is never written. A multi-step narrative
+  (claim, hold a transaction, claim again) is one sequential test with
+  no table.
 - A test name is a sentence in the repo's nouns:
   `TestEmptyClaimPersistsPendingObservation`.
 - A helper takes `testing.TB`, calls `t.Helper()`, registers teardown

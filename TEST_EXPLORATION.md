@@ -491,16 +491,16 @@ rewritten. Then the approach changed again to what is now the rule.
 - Every test body: `// setup`, `// test`, `// verify` sections. Goroutines
   only where the named invariant is concurrency. Expiry by UPDATE, never a
   wait. Setup through real registration verbs.
-- One directory per domain root (`.tests/worker`, `.tests/consume`), each
-  with `setup_test.go` holding that domain's helpers; `.tests/postgres` is
+- One directory per domain root (`.tests/integration/worker`, `.tests/integration/consume`), each
+  with `setup_test.go` holding that domain's helpers; `.tests/integration/postgres` is
   the only Docker seam and the only reader of the env var.
 
 ### What exists
 
 - `.tests/go.mod` (no require for the root module -- `go mod tidy` writes a
-  pseudo-version line every time; strip it), `.tests/postgres/postgres.go`
-  (`Start(t) *datastore.PostgresDatastore`), `.tests/worker/{setup,instance}_test.go`,
-  `.tests/consume/{setup,claim}_test.go` (claim_test moved from pkg via git mv).
+  pseudo-version line every time; strip it), `.tests/integration/postgres/postgres.go`
+  (`Start(t) *datastore.PostgresDatastore`), `.tests/integration/worker/{setup,instance}_test.go`,
+  `.tests/integration/consume/{setup,claim}_test.go` (claim_test moved from pkg via git mv).
 - Records: 0736 accepted; 0730 and 0731 flipped to superseded. Ledger, map,
   ROADMAP item (rewritten), AGENTS verification, justfile, CI updated.
 - go.work has `./.tests` (go.work is gitignored; CI's `go work init` line
@@ -511,10 +511,19 @@ rewritten. Then the approach changed again to what is now the rule.
   otel validation, alert history, partitioncount evaluate, pool DSN,
   migrate Validate, both registry tests.
 
-### The worker promise list (approved; #1 landed)
+### The worker promise list (approved; all 12 written 2026-09-09)
 
-1. concurrent claims at target 1 yield one instance -- DONE
-   `.tests/worker/instance_test.go` (errgroup, 16 claimants)
+#1 ran green; #2-#12 were written under a benchmark hold (no Docker) and
+have only compiled and vetted. First step on resume:
+`cd .tests && go test -race -count=1 -v ./integration/worker/`. Watch #10's
+metadata DeepEqual (jsonb decodes to map[string]any) and #8's clock
+comparison. Files: instance_test.go (1-7), instance_log_test.go (8-9),
+worker_test.go (10-12), setup_test.go (helpers: newWorkerDatastore,
+declareWorker, claimInstance, expireInstance, rejectInstanceLogInserts,
+declareStreamOwner, declareConsumerGroupOwner).
+
+1. concurrent claims at target 1 yield one instance -- DONE, ran green
+   `.tests/integration/worker/instance_test.go` (errgroup, 16 claimants)
 2. claim: target 0 declines, -1 always claims, missing row declines, expired
    instance no longer counts
 3. renew/record/release return ErrInstanceLost for wrong token, expired,
@@ -548,9 +557,13 @@ the other session's janitor benchmark saturating the machine.
   janitor tests (`sweep_test.go`, `idempotency_key_test.go`) and
   `.bench/scratchnative` import it; `cmd/sqlstreams` conn_test and
   `.bench/reliability` measure_test use `DatabaseURL(t)`.
-- Those janitor tests belong under `.tests/stream` by the rule; not moved
+- Those janitor tests belong under `.tests/integration/stream` by the rule; not moved
   (another session's in-flight work).
-- Worker promises 2-12, then consume, stream, schedule, alert, metric.
+- Run worker 2-12 once Docker is free; then consume, stream, schedule,
+  alert, metric promise lists.
+- Shape rule added to CONVENTIONS Part 5 (Test shape): tables hold values
+  only; a set of verbs is straight-line calls and checks; no funcs in rows,
+  no closures, no t.Run around one verb.
 - `.env` still lacks `SQLSTREAMS_TEST_DATABASE_URL`; not needed for .tests
   (Docker), only for the override.
 - Nothing committed by this session.
