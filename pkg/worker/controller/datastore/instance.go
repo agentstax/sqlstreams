@@ -89,6 +89,25 @@ func (d *WorkerDatastore) renewInstance(ctx context.Context, instanceId int64, t
 	}
 	defer tx.Rollback(ctx)
 
+	readSql := fmt.Sprintf(`
+		-- sqlstreams: worker.renewInstance
+		SELECT worker_config.target_instances
+		FROM %[1]s.worker_config
+		JOIN %[1]s.worker_instance ON worker_instance.worker_id = worker_config.id
+		WHERE worker_instance.id = $1 AND worker_instance.token = $2;
+	`, d.Datastore.Schema)
+	var target int
+	err = tx.QueryRow(ctx, readSql, instanceId, toTokenData(token)).Scan(&target)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return worker.ErrInstanceLost
+	}
+	if err != nil {
+		return err
+	}
+	if target == 0 {
+		return worker.ErrWorkerSuspended
+	}
+
 	// an expired row may already be replaced -- renewing it past expiry
 	// would put live instances over target_instances
 	sql := fmt.Sprintf(`

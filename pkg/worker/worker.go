@@ -22,10 +22,10 @@ func (t InstanceTarget) Suspended() bool {
 }
 
 func (t InstanceTarget) Validate() error {
-	if t == NoInstanceTarget || t > 0 {
+	if t == NoInstanceTarget || t >= 0 {
 		return nil
 	}
-	return fmt.Errorf("must be %d or > 0, got %d", NoInstanceTarget, t)
+	return fmt.Errorf("must be %d or >= 0, got %d", NoInstanceTarget, t)
 }
 
 // Worker is one row of the worker_config table.

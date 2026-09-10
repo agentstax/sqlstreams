@@ -55,15 +55,27 @@ func (a *MessageAdmin) RegisterSystem(ctx context.Context, cfg *system.SystemCon
 	if err != nil {
 		return err
 	}
+
 	metricCollectorProvisioner, err := collector.NewMetricsCollectorProvisioner(a.ds, &collector.MetricCollectorConfig{
 		PollRate: cfg.MetricCollector.PollRate,
 	}, a.Logger)
 	if err != nil {
 		return err
 	}
+
 	registered, err := a.systemController.Register(ctx)
 	if err != nil {
 		return err
+	}
+
+	owner, err := common.NewSystemOwner(registered.Id)
+	if err != nil {
+		return err
+	}
+	for _, declarer := range a.systemDeclarers {
+		if err := declarer.Declare(ctx, owner); err != nil {
+			return err
+		}
 	}
 
 	// registerStream, not RegisterStream -- the latter guards the __system. prefix
@@ -87,10 +99,6 @@ func (a *MessageAdmin) RegisterSystem(ctx context.Context, cfg *system.SystemCon
 
 	// declared after the streams: the alert declarers resolve the schedules
 	// stream to create their consumer groups and worker rows
-	owner, err := common.NewSystemOwner(registered.Id)
-	if err != nil {
-		return err
-	}
 	if err := metricCollectorProvisioner.Declare(ctx, owner); err != nil {
 		return err
 	}

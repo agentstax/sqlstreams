@@ -9,13 +9,15 @@ import (
 func newStreamCmd(g *globalFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "stream",
-		Short: "Inspect, rename, and destroy streams",
+		Short: "Inspect, maintain, rename, and destroy streams",
 	}
 
 	cmd.AddCommand(newStreamListCmd(g))
 	cmd.AddCommand(newStreamGetCmd(g))
 	cmd.AddCommand(newStreamConfigCmd(g))
 	cmd.AddCommand(newStreamKeyCmd(g))
+	cmd.AddCommand(newStreamMaintenanceCmd(g, "janitor"))
+	cmd.AddCommand(newStreamMaintenanceCmd(g, "vacuum"))
 	cmd.AddCommand(newStreamRenameCmd(g))
 	cmd.AddCommand(newStreamDestroyCmd(g))
 

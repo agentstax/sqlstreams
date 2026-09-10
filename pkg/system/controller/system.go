@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
 	"github.com/agentstax/sqlstreams/pkg/system"
 )
 
@@ -15,15 +14,6 @@ func (c *SystemController) Register(ctx context.Context) (*system.System, error)
 		return nil, err
 	}
 
-	owner, err := common.NewSystemOwner(registered.Id)
-	if err != nil {
-		return nil, err
-	}
-	for _, declarer := range c.declarers {
-		if err := declarer.Declare(ctx, owner); err != nil {
-			return nil, err
-		}
-	}
 	return toSystem(registered), nil
 }
 

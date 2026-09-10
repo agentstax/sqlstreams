@@ -127,8 +127,8 @@ func run() (err error) {
 	siblingOwner, err := common.NewConsumerGroupOwner(streamA.SystemId, streamA.Id, sibling.Id, sibling.Name)
 	must(err)
 	for _, groupOwner := range []*common.Owner{owner, otherOwner, siblingOwner} {
-		must(workerController.RegisterWorker(ctx, "test_reader", groupOwner, nil))
-		must(workerController.RegisterWorker(ctx, "test_retry", groupOwner, nil))
+		must(workerController.RegisterWorker(ctx, "test_reader", groupOwner, 1, nil))
+		must(workerController.RegisterWorker(ctx, "test_retry", groupOwner, 1, nil))
 	}
 	listed, err := client.Stream[sqlstreams.RawPayload](streamA.Name).Consumer(group).Workers(ctx)
 	must(err)
@@ -306,7 +306,7 @@ func destroySection(ctx context.Context, pool *pgxpool.Pool, client *sqlstreams.
 	must(err)
 	groupOwner, err := common.NewConsumerGroupOwner(streamA.SystemId, streamA.Id, doomed.Id, doomedName)
 	must(err)
-	must(workers.RegisterWorker(ctx, "message_consumer", groupOwner, nil))
+	must(workers.RegisterWorker(ctx, "message_consumer", groupOwner, 1, nil))
 	row, err := workers.GetWorker(ctx, "message_consumer", groupOwner)
 	must(err)
 	claimed, err := workers.ClaimInstance(ctx, row.Id, 30*time.Second)

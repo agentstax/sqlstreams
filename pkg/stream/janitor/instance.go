@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/agentstax/sqlstreams/pkg/common"
 	"github.com/agentstax/sqlstreams/pkg/common/logging"
@@ -55,13 +56,13 @@ func newJanitorInstance(janitor *JanitorProvisioner, current *stream.Stream, cla
 // Run sweeps until ctx cancels; a requested stop returns nil. The claimed
 // instance releases on the way out however Run exits.
 func (i *JanitorInstance) Run(ctx context.Context) error {
-	i.Logger.InfoContext(ctx, "janitor starting", "sqlstreams_version", common.BuildVersion(), "rate", i.metadata.PollRate, "cleanup_timeout", i.Config.CleanupTimeout, "sweep_batch_size", i.metadata.SweepBatchSize, "partial_sweep_grace_period", i.metadata.PartialSweepGracePeriod)
+	started := time.Now()
+	defer func() {
+		i.Logger.InfoContext(ctx, "janitor stopped", "duration", time.Since(started))
+	}()
+	i.Logger.InfoContext(ctx, "janitor starting", "sqlstreams_version", common.BuildVersion(), "rate", i.metadata.PollRate, "cleanup_timeout", i.metadata.CleanupTimeout, "sweep_batch_size", i.metadata.SweepBatchSize, "partial_sweep_grace_period", i.metadata.PartialSweepGracePeriod)
 
-	err := i.runner.Run(ctx, i.sweep)
-	if err == nil {
-		i.Logger.InfoContext(ctx, "janitor stopped")
-	}
-	return err
+	return i.runner.Run(ctx, i.sweep)
 }
 
 // sweep is one janitor pass.
@@ -73,7 +74,7 @@ func (i *JanitorInstance) sweep(ctx context.Context) error {
 		return err
 	}
 
-	dropCtx, cancelDrop := context.WithTimeout(ctx, i.Config.CleanupTimeout)
+	dropCtx, cancelDrop := context.WithTimeout(ctx, i.metadata.CleanupTimeout)
 	err := i.controller.DropExpiredPartitions(dropCtx, current.Id, current.PartitionSize, current.RetentionTTL, current.AllowDropPastCommitted, current.DeliveryLogMode)
 	cancelDrop()
 	if err != nil {
@@ -84,7 +85,7 @@ func (i *JanitorInstance) sweep(ctx context.Context) error {
 		return errors.Join(append(sweepErrors, err)...)
 	}
 
-	partitionsCtx, cancelPartitions := context.WithTimeout(ctx, i.Config.CleanupTimeout)
+	partitionsCtx, cancelPartitions := context.WithTimeout(ctx, i.metadata.CleanupTimeout)
 	err = i.controller.SweepExpiredPartitions(partitionsCtx, current.Id, current.PartitionSize, current.RetentionTTL, i.metadata.PartialSweepGracePeriod, current.AllowDropPastCommitted, i.metadata.SweepBatchSize, current.DeliveryLogMode)
 	cancelPartitions()
 	if err != nil {
@@ -95,7 +96,7 @@ func (i *JanitorInstance) sweep(ctx context.Context) error {
 		return errors.Join(append(sweepErrors, err)...)
 	}
 
-	idempotencyKeysCtx, cancelIdempotencyKeys := context.WithTimeout(ctx, i.Config.CleanupTimeout)
+	idempotencyKeysCtx, cancelIdempotencyKeys := context.WithTimeout(ctx, i.metadata.CleanupTimeout)
 	err = i.controller.SweepExpiredIdempotencyKeys(idempotencyKeysCtx, current.Id, current.IdempotencyKeyTTL, i.metadata.SweepBatchSize)
 	cancelIdempotencyKeys()
 	if err != nil {
@@ -106,7 +107,7 @@ func (i *JanitorInstance) sweep(ctx context.Context) error {
 		return errors.Join(append(sweepErrors, err)...)
 	}
 
-	emptyCompactionHeadsCtx, cancelEmptyCompactionHeads := context.WithTimeout(ctx, i.Config.CleanupTimeout)
+	emptyCompactionHeadsCtx, cancelEmptyCompactionHeads := context.WithTimeout(ctx, i.metadata.CleanupTimeout)
 	err = i.controller.SweepExpiredEmptyCompactionHeads(emptyCompactionHeadsCtx, current.Id, current.EmptyCompactionHeadTTL, i.metadata.SweepBatchSize)
 	cancelEmptyCompactionHeads()
 	if err != nil {
@@ -117,7 +118,7 @@ func (i *JanitorInstance) sweep(ctx context.Context) error {
 		return errors.Join(append(sweepErrors, err)...)
 	}
 
-	keyLeasesCtx, cancelKeyLeases := context.WithTimeout(ctx, i.Config.CleanupTimeout)
+	keyLeasesCtx, cancelKeyLeases := context.WithTimeout(ctx, i.metadata.CleanupTimeout)
 	err = i.controller.SweepExpiredKeyLeases(keyLeasesCtx, current.Id, i.metadata.SweepBatchSize)
 	cancelKeyLeases()
 	if err != nil {

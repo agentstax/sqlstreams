@@ -39,6 +39,8 @@ if stream == nil {
 | `Producer()` | `*ProducerHandle[T]` | no I/O; [Producer](/reference/producer/) |
 | `Key(messageKey)` | `*KeyHandle[T]` | no I/O; [Message key](/reference/key/) |
 | `Metrics()` | `*StreamMetricsHandle` | no I/O; [Metrics](/reference/metrics/) |
+| `Janitor()` | `*MaintenanceHandle` | no I/O; retention cleanup; [Maintenance](/reference/maintenance/) |
+| `Vacuum()` | `*MaintenanceHandle` | no I/O; scheduled key-table vacuum; [Maintenance](/reference/maintenance/) |
 | `Alerts()` | `*StreamAlertsHandle` | no I/O; [Alerts](/reference/alerts/) |
 
 `Get` is the only comma-ok verb. Every other verb returns the not-found
@@ -58,6 +60,24 @@ answer can change.
 | `IdempotencyKeyTTL` | `24h` | how long a produce-retry claim survives; zero means the default, not forever |
 | `EmptyCompactionHeadTTL` | `1h` | how long a compaction-head row with no head may idle before the janitor sweeps it; zero means the default |
 | `DeliveryLogMode` | `DeliveryLogModeFailures` | which outcomes write to the per-attempt `delivery_log`: `DeliveryLogModeOff`, `DeliveryLogModeFailures`, `DeliveryLogModeAll` |
+| `Janitor` | `JanitorConfig` defaults | cleanup timing and limits; a new stream's janitor starts active |
+| `Vacuum` | `VacuumConfig` defaults | vacuum timing and timeout; a new stream's vacuum starts suspended |
+
+### JanitorConfig
+
+| field | default | what it decides |
+| --- | --- | --- |
+| `PollRate` | `5s` | delay between cleanup passes |
+| `SweepBatchSize` | `1000` | maximum rows deleted per transaction |
+| `CleanupTimeout` | `5s` | time allowed for each cleanup operation, including retries |
+| `PartialSweepGracePeriod` | `0` | extra retention before partial message sweeps; whole-partition drops keep the normal TTL |
+
+### VacuumConfig
+
+| field | default | what it decides |
+| --- | --- | --- |
+| `PollRate` | `2m` | delay after each completed request, with scheduling jitter |
+| `VacuumTimeout` | `1m` | time allowed for one request, including queries and retries |
 
 ### DestroyOptions
 
@@ -77,3 +97,6 @@ answer can change.
   them is supported.
 - `PartitionSize` cannot change after registration: a redeclaration with a
   different value returns `ErrStreamConfigMismatch`.
+- Maintenance settings apply to newly claimed instances. Registration preserves
+  suspension and instance targets. Use the [maintenance handles](/reference/maintenance/)
+  to change whether maintenance runs.

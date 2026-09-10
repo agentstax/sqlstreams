@@ -1298,6 +1298,20 @@
       "code": "SQL0105",
       "kind": "event",
       "message": "queued message has insufficient lease time -- range waits for reclaim; successful handlers in the range can repeat"
+    },
+    "SQL0106": {
+      "code": "SQL0106",
+      "kind": "error",
+      "problem": "worker not found",
+      "recovery": "permanent",
+      "fix": "register the owning resource before operating its worker"
+    },
+    "SQL0107": {
+      "code": "SQL0107",
+      "kind": "error",
+      "problem": "worker is suspended",
+      "recovery": "permanent",
+      "fix": "stop this execution; unsuspend the worker to allow a new claim"
     }
   }
 }

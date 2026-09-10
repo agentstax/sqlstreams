@@ -18,6 +18,7 @@ import (
 	migratecontroller "github.com/agentstax/sqlstreams/pkg/migrate/controller"
 	scheduleproducer "github.com/agentstax/sqlstreams/pkg/schedule/producer"
 	streamjanitor "github.com/agentstax/sqlstreams/pkg/stream/janitor"
+	"github.com/agentstax/sqlstreams/pkg/stream/vacuum"
 	"github.com/agentstax/sqlstreams/pkg/system"
 	"github.com/agentstax/sqlstreams/pkg/worker"
 	"github.com/agentstax/sqlstreams/pkg/worker/manager"
@@ -53,6 +54,11 @@ func NewSystemManager(ds *datastore.PostgresDatastore, cfg *SystemManagerConfig)
 	logger := logging.NewPipelineLogger(ds.Logger, &logging.PipelineLoggerConfig{Buffer: true, Suppress: true})
 
 	streamJanitorProvisioner, err := streamjanitor.NewJanitorProvisioner(ds, nil, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	streamVacuumProvisioner, err := vacuum.NewVacuumProvisioner(ds, nil, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -99,6 +105,7 @@ func NewSystemManager(ds *datastore.PostgresDatastore, cfg *SystemManagerConfig)
 
 	provisioners := []worker.Provisioner{
 		streamJanitorProvisioner,
+		streamVacuumProvisioner,
 		consumerGroupJanitorProvisioner,
 		scheduleProducerProvisioner,
 		metricCollectorProvisioner,

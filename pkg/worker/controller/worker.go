@@ -25,21 +25,23 @@ func (c *WorkerController) DeclareWorker(ctx context.Context, definition *worker
 		}
 	}
 
-	return c.RegisterWorker(ctx, definition.Name, owner, &WorkerConfig{
-		Metadata:        definition.Metadata,
-		TargetInstances: definition.TargetInstances,
+	return c.RegisterWorker(ctx, definition.Name, owner, definition.TargetInstances, &WorkerConfig{
+		Metadata: definition.Metadata,
 	})
 }
 
 // RegisterWorker creates the (name, owner) worker row, or writes cfg.Metadata
-// onto the existing one -- the newest declaration wins. cfg.TargetInstances
-// applies at creation only.
-func (c *WorkerController) RegisterWorker(ctx context.Context, name string, owner *common.Owner, cfg *WorkerConfig) error {
+// onto the existing one -- the newest declaration wins. initialTarget applies
+// at creation only: zero starts suspended; existing operational targets survive.
+func (c *WorkerController) RegisterWorker(ctx context.Context, name string, owner *common.Owner, initialTarget worker.InstanceTarget, cfg *WorkerConfig) error {
 	if name == "" {
 		return errors.New("name is required")
 	}
 	if owner == nil {
 		return errors.New("owner must not be nil")
+	}
+	if err := initialTarget.Validate(); err != nil {
+		return fmt.Errorf("initialTarget: %w", err)
 	}
 	if cfg == nil {
 		cfg = &WorkerConfig{}
@@ -49,7 +51,7 @@ func (c *WorkerController) RegisterWorker(ctx context.Context, name string, owne
 		return err
 	}
 
-	return c.datastore.RegisterWorker(ctx, name, owner, cfg.Metadata, int(cfg.TargetInstances), common.ProcessIdentity)
+	return c.datastore.RegisterWorker(ctx, name, owner, cfg.Metadata, int(initialTarget), common.ProcessIdentity)
 }
 
 // ListWorkers lists the worker rows owned anywhere on owner's chain -- a

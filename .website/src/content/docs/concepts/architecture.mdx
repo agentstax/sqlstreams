@@ -74,11 +74,35 @@ process carries that responsibility.
 | Worker | Maintains |
 | --- | --- |
 | `stream_janitor` | expired partitions, idempotency keys, and message-key leases |
+| `stream_vacuum` | optional vacuum and analyze of the stream's idempotency-key table; disabled by default |
 | `cursor_advancer` | committed cursors behind resolved ranges |
 | `consumer_group_janitor` | superseded binding declarations |
 | `schedule_producer` | requests for due schedules |
 | `metrics_collector` | snapshots of cursor, exception, and lease state |
 | `alert.*` checks | operator warnings on `__system.alerts` |
+
+### Stream maintenance
+
+Each stream declares a janitor and a vacuum worker. The janitor starts
+active; vacuum starts suspended. `StreamConfig.Janitor` and
+`StreamConfig.Vacuum` set their timing and limits. The stream's
+[maintenance handles](/reference/maintenance/) suspend and unsuspend them.
+Registration updates settings while preserving these operational choices.
+
+For example, unsuspending vacuum on `orders` permits a manager to claim
+one instance. Registering `orders` again leaves vacuum active. Suspending
+it prevents new claims; its next successful heartbeat cancels the running
+request, and the instance releases its claim after stopping.
+
+Vacuum runs `VACUUM (ANALYZE)` on the stream's idempotency-key table using
+one connection from its client's pool. The janitor deletes expired rows
+independently. Keep PostgreSQL autovacuum enabled; scheduled vacuum adds
+maintenance I/O and makes deleted space reusable within the table.
+
+The first vacuum request starts immediately after the instance is claimed.
+Subsequent requests wait `PollRate`, with 10% jitter, after completion.
+Failures use the existing worker backoff. Requests do not accumulate while
+a previous request is running.
 
 ## Costs and timing
 

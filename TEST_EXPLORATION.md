@@ -547,9 +547,8 @@ AssertSchemaSupported, ErrWorkerDeclarationInterrupted.
 
 ### The consume promise list (approved 2026-09-09; all 18 written 2026-09-10)
 
-All 18 were written under a benchmark hold (no Docker): compiled and vetted
-only, never run. First step on resume:
-`cd .tests && go test -race -count=1 -v ./integration/consume/`.
+All 18 ran green 2026-09-10 (22 tests with the three claim-fence tests
+and one extra split), after one setup fix in committed_test.go.
 One test file per datastore under `.tests/integration/consume/`; the three
 claim-fence tests in claim_test.go stay (rewritten to the controller-based
 setup). deliveryconsumer is archived: no tests. Files: commit_test.go
@@ -622,8 +621,16 @@ the other session's janitor benchmark saturating the machine.
   `.bench/reliability` measure_test use `DatabaseURL(t)`.
 - Those janitor tests belong under `.tests/integration/stream` by the rule; not moved
   (another session's in-flight work).
-- Worker 1-12 ran green 2026-09-10. Run consume 1-18 once Docker is free;
-  then stream (janitor tests move), schedule, alert, metric promise lists.
+- Worker and consume are green. Next domain: stream. The other session
+  already moved four janitor tests into `.tests/integration/stream/`
+  (idempotency sweep by creation time, partial sweep grace x2, partition
+  drop priority); the stream promise list covers what is left: partition
+  create-ahead, drop floor and the lagging cursor, rename, destroy and
+  table absence, idempotency key claim/commit, stream register
+  idempotency and conflicting config. Survey the stream datastores
+  (stream/controller/datastore, stream/janitor/controller/datastore) the
+  way consume was surveyed, propose the list, get approval, then one test
+  at a time. Then schedule, alert, metric.
 - Shape rule added to CONVENTIONS Part 5 (Test shape): tables hold values
   only; a set of verbs is straight-line calls and checks; no funcs in rows,
   no closures, no t.Run around one verb.

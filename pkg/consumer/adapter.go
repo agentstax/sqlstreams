@@ -3,7 +3,6 @@ package consumer
 import (
 	"github.com/agentstax/sqlstreams/pkg/consume/exceptionconsumer"
 	"github.com/agentstax/sqlstreams/pkg/consume/messageconsumer"
-	"github.com/agentstax/sqlstreams/pkg/worker"
 	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
 )
 
@@ -17,7 +16,6 @@ func toMessageConsumerWorkerConfig(declared *ConsumerConfig) *workercontroller.W
 			ExceptionInitialBackoff: declared.ExceptionInitialBackoff,
 			MaxRangeReclaims:        declared.MaxRangeReclaims,
 		},
-		TargetInstances: worker.NoInstanceTarget,
 	}
 }
 
@@ -68,6 +66,5 @@ func toExceptionConsumerWorkerConfig(declared *ConsumerConfig) *workercontroller
 			MessageMax:          declared.MessageMax,
 			ConcurrencyOverride: declared.ConcurrencyOverride,
 		},
-		TargetInstances: worker.NoInstanceTarget,
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/agentstax/sqlstreams/pkg/metric/collector"
 	scheduleproducer "github.com/agentstax/sqlstreams/pkg/schedule/producer"
 	streamjanitor "github.com/agentstax/sqlstreams/pkg/stream/janitor"
+	"github.com/agentstax/sqlstreams/pkg/stream/vacuum"
 	"github.com/agentstax/sqlstreams/pkg/worker"
 	"github.com/agentstax/sqlstreams/pkg/worker/manager"
 )
@@ -73,6 +74,11 @@ func (i *ConsumerInstance[Message]) newStreamProvisioners() ([]worker.Provisione
 		return nil, err
 	}
 
+	streamVacuumProvisioner, err := vacuum.NewVacuumProvisioner(i.ds, nil, i.Logger)
+	if err != nil {
+		return nil, err
+	}
+
 	consumerGroupJanitorProvisioner, err := consumejanitor.NewJanitorProvisioner(i.ds, nil, i.Logger)
 	if err != nil {
 		return nil, err
@@ -88,5 +94,5 @@ func (i *ConsumerInstance[Message]) newStreamProvisioners() ([]worker.Provisione
 		return nil, err
 	}
 
-	return []worker.Provisioner{scheduleProducerProvisioner, metricCollectorProvisioner, streamJanitorProvisioner, consumerGroupJanitorProvisioner}, nil
+	return []worker.Provisioner{scheduleProducerProvisioner, metricCollectorProvisioner, streamJanitorProvisioner, streamVacuumProvisioner, consumerGroupJanitorProvisioner}, nil
 }

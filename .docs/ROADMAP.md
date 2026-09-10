@@ -213,6 +213,28 @@ the item is removed.
 Pre-v1 — the 14b public-API pass, then measurement, evaluation, and
 documentation; the latter want a surface that has stopped moving.
 
+- **Consider successful maintenance-pass tracking** -- evaluate whether janitor
+  and vacuum status should expose the last completed pass separately from
+  claim liveness. Decide whether that visibility justifies extra database
+  writes, an index, and retained history; define retention and failure behavior
+  before choosing an implementation.
+
+- **Consider staggering the first maintenance pass** -- measure whether many
+  streams starting vacuum together cause a meaningful database load spike.
+  Compare immediate execution with a randomized initial delay, including the
+  cost of postponing cleanup. Add scheduling configuration only if warranted.
+
+- **Metric or alert for lagging dead-tuple reclamation** -- identify streams
+  whose deleted idempotency-key rows accumulate faster than vacuum reclaims
+  their space. Evaluate trends in estimated dead tuples, retained table/index
+  size, and vacuum progress/completions; distinguish expired rows awaiting
+  janitor deletion from deleted rows awaiting reclamation. Use a sustained
+  condition rather than one high count, and avoid attributing every backlog
+  to autovacuum without supporting evidence. The operator guidance should
+  explain when to enable the stream's scheduled vacuum worker and how to
+  verify that reclamation catches up. Reuse the existing metrics/alert
+  machinery; define sampling cost and alert thresholds when this is picked up.
+
 - **Reliability scenarios declare the janitor's TTLs** -- the quiet run
   registers `orders` with defaults, so every janitor sweep returns before
   touching a row: retention 0 disables drop and sweep, the 24h idempotency

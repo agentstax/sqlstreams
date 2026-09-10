@@ -1,34 +1,15 @@
 package controller
 
-import (
-	"fmt"
-
-	"github.com/agentstax/sqlstreams/pkg/worker"
-)
-
-// WorkerConfig is RegisterWorker's spec -- every field is optional.
 type WorkerConfig struct {
-	// Metadata - the worker's own config, stored as JSONB; each worker kind
-	// owns its shape.
+	// Metadata - the worker kind's config, stored as JSONB.
 	// Default: nil (stored as '{}').
 	Metadata any
-
-	// TargetInstances - how many live instances of the worker should run at
-	// once across every process. worker.NoInstanceTarget lifts the gate.
-	// Default: 1.
-	TargetInstances worker.InstanceTarget
 }
 
 func (c *WorkerConfig) WithDefaults() *WorkerConfig {
-	if c.TargetInstances == 0 {
-		c.TargetInstances = 1
-	}
 	return c
 }
 
 func (c *WorkerConfig) Validate() error {
-	if err := c.TargetInstances.Validate(); err != nil {
-		return fmt.Errorf("TargetInstances: %w", err)
-	}
 	return nil
 }

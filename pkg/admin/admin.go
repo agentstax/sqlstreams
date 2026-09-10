@@ -24,6 +24,7 @@ import (
 	"github.com/agentstax/sqlstreams/pkg/scheduler"
 	streamcontroller "github.com/agentstax/sqlstreams/pkg/stream/controller"
 	streamjanitor "github.com/agentstax/sqlstreams/pkg/stream/janitor"
+	"github.com/agentstax/sqlstreams/pkg/stream/vacuum"
 	systemcontroller "github.com/agentstax/sqlstreams/pkg/system/controller"
 	"github.com/agentstax/sqlstreams/pkg/worker"
 	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
@@ -44,6 +45,7 @@ type MessageAdmin struct {
 	metricController   *metricscontroller.MetricController
 	workerController   *workercontroller.WorkerController
 	migrateController  *migratecontroller.Controller
+	systemDeclarers    []worker.Declarer
 	alertDeclarers     []worker.Declarer
 	alertEvaluators    map[string]alert.Evaluator
 	allowDestroy       bool
@@ -68,6 +70,11 @@ func NewMessageAdmin(ds *datastore.PostgresDatastore, cfg *MessageAdminConfig) (
 		return nil, err
 	}
 
+	streamVacuumProvisioner, err := vacuum.NewVacuumProvisioner(ds, nil, ds.Logger)
+	if err != nil {
+		return nil, err
+	}
+
 	consumerGroupJanitorProvisioner, err := consumejanitor.NewJanitorProvisioner(ds, nil, ds.Logger)
 	if err != nil {
 		return nil, err
@@ -79,17 +86,17 @@ func NewMessageAdmin(ds *datastore.PostgresDatastore, cfg *MessageAdminConfig) (
 	}
 
 	// a declarer here, never run -- admin creates manager rows, it doesn't claim them
-	managerProvisioner, err := manager.NewManagerProvisioner(ds, 1, nil, ds.Logger, streamJanitorProvisioner, scheduleProducerProvisioner, metricCollectorProvisioner)
+	managerProvisioner, err := manager.NewManagerProvisioner(ds, 1, nil, ds.Logger, streamJanitorProvisioner, streamVacuumProvisioner, scheduleProducerProvisioner, metricCollectorProvisioner)
 	if err != nil {
 		return nil, err
 	}
 
-	systemController, err := systemcontroller.NewSystemController(ds, ds.Logger, scheduleProducerProvisioner, consumerGroupJanitorProvisioner, managerProvisioner)
+	systemController, err := systemcontroller.NewSystemController(ds, ds.Logger)
 	if err != nil {
 		return nil, err
 	}
 
-	streamController, err := streamcontroller.NewStreamController(ds, ds.Logger, streamJanitorProvisioner)
+	streamController, err := streamcontroller.NewStreamController(ds, ds.Logger)
 	if err != nil {
 		return nil, err
 	}
@@ -179,6 +186,7 @@ func NewMessageAdmin(ds *datastore.PostgresDatastore, cfg *MessageAdminConfig) (
 		metricController:   metricController,
 		workerController:   workerController,
 		migrateController:  migrateController,
+		systemDeclarers:    []worker.Declarer{scheduleProducerProvisioner, consumerGroupJanitorProvisioner, managerProvisioner},
 		alertDeclarers:     []worker.Declarer{partitionCountProvisioner, compactionReadCostProvisioner, workerLivenessProvisioner, collectorProgressProvisioner},
 		alertEvaluators: map[string]alert.Evaluator{
 			alert.AlertPartitionCount.Name:           partitionCountController,

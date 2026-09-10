@@ -48,4 +48,6 @@ var (
 	ErrStreamPartitionsRemain         = stream.ErrStreamPartitionsRemain
 	ErrInstanceLost                   = worker.ErrInstanceLost
 	ErrWorkerDeclarationInterrupted   = worker.ErrWorkerDeclarationInterrupted
+	ErrWorkerNotFound                 = worker.ErrWorkerNotFound
+	ErrWorkerSuspended                = worker.ErrWorkerSuspended
 )

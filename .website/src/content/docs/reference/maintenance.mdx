@@ -1,0 +1,95 @@
+---
+title: Maintenance
+description: Suspend, unsuspend, and inspect a stream's janitor or scheduled key-table vacuum.
+---
+
+`orders.Janitor()` and `orders.Vacuum()` select a stream's maintenance
+worker. Both return a `MaintenanceHandle` with the same operations. New
+streams start with janitor active and vacuum suspended.
+
+```go
+orders := client.Stream[sqlstreams.RawPayload]("orders")
+_, err := orders.Register(ctx, &sqlstreams.StreamConfig{
+    Janitor: &sqlstreams.JanitorConfig{
+        PollRate:       time.Second,
+        SweepBatchSize: 10_000,
+    },
+    Vacuum: &sqlstreams.VacuumConfig{
+        PollRate:      2 * time.Minute,
+        VacuumTimeout: time.Minute,
+    },
+})
+if err != nil {
+    return err
+}
+if err := orders.Vacuum().Unsuspend(ctx); err != nil {
+    return err
+}
+status, err := orders.Vacuum().Status(ctx)
+if err != nil {
+    return err
+}
+fmt.Println(status.Status, status.LiveInstances)
+```
+
+## Verbs
+
+| verb | returns | notes |
+| --- | --- | --- |
+| `Suspend(ctx)` | `error` | prevents new claims and requests running work to stop at its next successful heartbeat; does not wait for it to stop; `ErrStreamNotFound`, `ErrWorkerNotFound` |
+| `Unsuspend(ctx)` | `error` | permits one instance; a manager must be running to claim it; `ErrStreamNotFound`, `ErrWorkerNotFound` |
+| `Status(ctx)` | `*WorkerSnapshot` | current target, live claims, and consecutive failures; `ErrStreamNotFound`, `ErrWorkerNotFound` |
+
+Operations preserve the settings declared through
+[StreamConfig](/reference/stream/#config). Repeating a suspension or
+unsuspension leaves the same target. Registration preserves that target,
+so restarting an application does not undo an operator's choice.
+
+## CLI
+
+The CLI exposes the same three operations for both workers:
+
+```sh
+sqlstreams stream vacuum unsuspend orders
+sqlstreams stream vacuum status orders
+sqlstreams stream vacuum suspend orders
+
+sqlstreams stream janitor unsuspend orders
+sqlstreams stream janitor status orders
+sqlstreams stream janitor suspend orders
+```
+
+Add `--output json` for structured output. Status returns the worker snapshot;
+suspend and unsuspend return the stream, worker name, and applied suspension
+state. A successful suspend does not mean all work has stopped: check status
+until live instances reaches zero. Unsuspend permits one instance and requires
+a running manager to start it.
+
+## Status
+
+| status | meaning |
+| --- | --- |
+| `WorkerSuspended` | target is zero; live instances may still be stopping |
+| `WorkerUnclaimed` | target permits work but no instance holds a live claim |
+| `WorkerClaimed` | at least one instance holds a live claim and has no recorded failure streak |
+| `WorkerFailing` | a live instance has consecutive failures; inspect worker logs for the cause |
+
+For example, after suspending `orders` vacuum, status can report
+`WorkerSuspended` with `LiveInstances: 1`. The worker checks suspension at
+its next successful heartbeat, normally within 15 seconds. It cancels its
+work and releases the claim; status then reports `LiveInstances: 0`.
+
+## Gotchas
+
+- Declare settings during application registration. Call `Unsuspend` when
+  enabling vacuum for a stream; putting it in every startup path would
+  undo an operator's suspension.
+- Settings apply to newly claimed instances. To apply changed settings to
+  running maintenance, suspend it, wait for `LiveInstances` to reach zero,
+  register the settings, then unsuspend it.
+- Vacuum uses one pool connection per running request and adds database
+  I/O. Keep autovacuum enabled. The database role must have permission to
+  vacuum the stream's key table.
+- If no manager is running, unsuspension succeeds but status stays
+  `WorkerUnclaimed`. Consumers and schedulers normally run the shared
+  manager alongside their work; see [Manager](/reference/manager/).

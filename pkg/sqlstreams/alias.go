@@ -63,6 +63,8 @@ type (
 	MessageMeta                     = consume.MessageMeta
 
 	StreamConfig    = stream.StreamConfig
+	JanitorConfig   = stream.JanitorConfig
+	VacuumConfig    = stream.VacuumConfig
 	Stream          = stream.Stream
 	DeliveryLogMode = stream.DeliveryLogMode
 
@@ -89,6 +91,8 @@ type (
 	MetricCollectorWorkerConfig        = metric.MetricCollectorWorkerConfig
 
 	StreamSnapshot                = metric.StreamSnapshot
+	WorkerSnapshot                = metric.WorkerSnapshot
+	WorkerStatus                  = metric.WorkerStatus
 	ConsumerGroupSnapshot         = metric.ConsumerGroupSnapshot
 	StreamSchemaVersionSnapshot   = metric.StreamSchemaVersionSnapshot
 	ConsumerGroupSchemaVersionLag = metric.ConsumerGroupSchemaVersionLag
@@ -149,6 +153,11 @@ const (
 	ScheduleMessageSuperseded = schedule.ScheduleMessageSuperseded
 
 	NoInstanceTarget = worker.NoInstanceTarget
+
+	WorkerSuspended = metric.WorkerSuspended
+	WorkerClaimed   = metric.WorkerClaimed
+	WorkerFailing   = metric.WorkerFailing
+	WorkerUnclaimed = metric.WorkerUnclaimed
 
 	MetricKindCounter          = metric.MetricKindCounter
 	MetricKindGauge            = metric.MetricKindGauge

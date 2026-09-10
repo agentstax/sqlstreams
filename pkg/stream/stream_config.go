@@ -65,6 +65,14 @@ type StreamConfig struct {
 	// DeliveryLogModeAll when successes must be auditable per message
 	// each success txn then also writes its 'success' row.
 	DeliveryLogMode DeliveryLogMode
+
+	// Janitor - retention cleanup settings.
+	// Default: its own defaults.
+	Janitor *JanitorConfig
+
+	// Vacuum - key-table vacuum settings. New streams start with vacuum suspended.
+	// Default: its own defaults.
+	Vacuum *VacuumConfig
 }
 
 func (c *StreamConfig) WithDefaults() *StreamConfig {
@@ -80,6 +88,14 @@ func (c *StreamConfig) WithDefaults() *StreamConfig {
 	if c.DeliveryLogMode == "" {
 		c.DeliveryLogMode = DeliveryLogModeFailures
 	}
+	if c.Janitor == nil {
+		c.Janitor = &JanitorConfig{}
+	}
+	c.Janitor.WithDefaults()
+	if c.Vacuum == nil {
+		c.Vacuum = &VacuumConfig{}
+	}
+	c.Vacuum.WithDefaults()
 	return c
 }
 
@@ -99,6 +115,12 @@ func (c *StreamConfig) Validate() error {
 	}
 	if err := validateDeliveryLogMode(c.DeliveryLogMode); err != nil {
 		return err
+	}
+	if err := c.Janitor.Validate(); err != nil {
+		return fmt.Errorf("Janitor: %w", err)
+	}
+	if err := c.Vacuum.Validate(); err != nil {
+		return fmt.Errorf("Vacuum: %w", err)
 	}
 	return nil
 }

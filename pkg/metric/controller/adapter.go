@@ -36,7 +36,7 @@ func toWorkerSnapshot(data datastore.WorkerSnapshotRow) (metric.WorkerSnapshot, 
 	snapshot := metric.WorkerSnapshot{
 		Owner:           owner,
 		Name:            data.Name,
-		Status:          classifyWorker(data.TargetInstances, data.LiveInstances),
+		Status:          classifyWorker(data.TargetInstances, data.LiveInstances, data.MaxAttempts),
 		TargetInstances: data.TargetInstances,
 		LiveInstances:   data.LiveInstances,
 		Attempts:        data.MaxAttempts,
@@ -47,10 +47,12 @@ func toWorkerSnapshot(data datastore.WorkerSnapshotRow) (metric.WorkerSnapshot, 
 	return snapshot, nil
 }
 
-func classifyWorker(targetInstances int, liveInstances int) metric.WorkerStatus {
+func classifyWorker(targetInstances int, liveInstances int, attempts int) metric.WorkerStatus {
 	switch {
 	case targetInstances == 0:
 		return metric.WorkerSuspended
+	case liveInstances > 0 && attempts > 0:
+		return metric.WorkerFailing
 	case liveInstances > 0:
 		return metric.WorkerClaimed
 	default:

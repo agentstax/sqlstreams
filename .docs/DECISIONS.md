@@ -498,3 +498,13 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 - 0738 2026-09-09 superseded (pre-v1) — Partial message sweeps have a bounded grace period
 
 - 0739 2026-09-09 accepted (pre-v1) — Partial sweep grace applies to every batch
+
+- 0740 2026-09-10 superseded (pre-v1) — Scheduled key vacuum is opt-in
+
+- 0741 2026-09-10 superseded (pre-v1) — Vacuum settings follow stream declarations
+
+- 0742 2026-09-10 superseded (pre-v1) — Maintenance settings and operations are separate
+
+- 0743 2026-09-10 accepted (pre-v1) — Maintenance completion tracking and startup delay are deferred
+
+- 0744 2026-09-10 accepted (pre-v1) — Controllers keep dependencies and registration owns declarations

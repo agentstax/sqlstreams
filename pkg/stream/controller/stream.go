@@ -93,15 +93,6 @@ func (c *StreamController) Register(ctx context.Context, systemId int64, name st
 		return nil, err
 	}
 
-	owner, err := common.NewStreamOwner(registered.SystemId, registered.Id, registered.Name)
-	if err != nil {
-		return nil, err
-	}
-	for _, declarer := range c.declarers {
-		if err := declarer.Declare(ctx, owner); err != nil {
-			return nil, err
-		}
-	}
 	return toStream(registered)
 }
 

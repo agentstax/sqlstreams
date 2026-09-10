@@ -9,7 +9,9 @@ import (
 	"github.com/agentstax/sqlstreams/pkg/common"
 	"github.com/agentstax/sqlstreams/pkg/migrate"
 	"github.com/agentstax/sqlstreams/pkg/stream"
+	"github.com/agentstax/sqlstreams/pkg/stream/janitor"
 	streamMigrations "github.com/agentstax/sqlstreams/pkg/stream/migrations"
+	"github.com/agentstax/sqlstreams/pkg/stream/vacuum"
 )
 
 // GetStream resolves a stream by name. Returns (nil, nil), not an error,
@@ -83,7 +85,47 @@ func (a *MessageAdmin) registerStream(ctx context.Context, name string, cfg *str
 		return nil, migrate.ErrNotRegistered.With("stream", name)
 	}
 
-	return a.streamController.Register(ctx, sys.Id, name, cfg)
+	if cfg == nil {
+		cfg = &stream.StreamConfig{}
+	}
+	cfg.WithDefaults()
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+
+	janitorProvisioner, err := janitor.NewJanitorProvisioner(a.ds, &janitor.JanitorConfig{
+		PollRate:                cfg.Janitor.PollRate,
+		SweepBatchSize:          cfg.Janitor.SweepBatchSize,
+		PartialSweepGracePeriod: cfg.Janitor.PartialSweepGracePeriod,
+		CleanupTimeout:          cfg.Janitor.CleanupTimeout,
+	}, a.Logger)
+	if err != nil {
+		return nil, err
+	}
+	vacuumProvisioner, err := vacuum.NewVacuumProvisioner(a.ds, &vacuum.VacuumConfig{
+		PollRate:      cfg.Vacuum.PollRate,
+		VacuumTimeout: cfg.Vacuum.VacuumTimeout,
+	}, a.Logger)
+	if err != nil {
+		return nil, err
+	}
+
+	registered, err := a.streamController.Register(ctx, sys.Id, name, cfg)
+	if err != nil {
+		return nil, err
+	}
+	owner, err := common.NewStreamOwner(registered.SystemId, registered.Id, registered.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := janitorProvisioner.Declare(ctx, owner); err != nil {
+		return nil, err
+	}
+	if err := vacuumProvisioner.Declare(ctx, owner); err != nil {
+		return nil, err
+	}
+	return registered, nil
 }
 
 // MigrateStream moves the named stream's tables to targetVersion.

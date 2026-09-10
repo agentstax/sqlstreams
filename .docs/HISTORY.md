@@ -5,6 +5,33 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-10 — Stream maintenance settings and operations [0742] [0743] [0744]
+
+StreamConfig declares parallel JanitorConfig and VacuumConfig settings;
+stream maintenance handles expose Suspend, Unsuspend, and Status. New
+streams start with janitor active and vacuum suspended. Registration
+preserves operational targets; explicit target updates are atomic and
+audited. Running workers observe suspension on heartbeat and release after
+stopping. Status reports live claims and failures. Scheduled key vacuum uses the existing manager and pool.
+Admin reuses its stream/system controllers and owns worker declarations.
+Worker registration takes an explicit initial target through one validated
+path; zero is never replaced by a default.
+The CLI mirrors janitor and vacuum Suspend, Unsuspend, and Status through
+`stream janitor` and `stream vacuum`, including JSON output. CLI additions
+received source review and formatting only; tests remain deferred by request.
+
+PostgreSQL 18 race integration checks covered worker and stream persistence,
+including target history rollback.
+A fresh-database smoke check verified the handle workflow and cooperative
+suspension. After registration assembly was revised, targeted build, vet,
+race/integration, and convention checks passed. Existing systemregister,
+consumergroup, and workerclaim programs passed against disposable PostgreSQL
+18 with only their connection port overridden in temporary copies. The
+consumergroup source changed only to pass its former default target explicitly.
+Successful-pass history and randomized first-pass delay were
+removed after review and deferred to Later. No completion-history schema
+change remains. No throughput rerun.
+
 ## 2026-09-09 — Partial sweep grace applies to every batch [0739]
 
 Removed the first-batch cutoff reset. Each batch now requires its oldest

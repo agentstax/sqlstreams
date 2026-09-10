@@ -54,6 +54,7 @@ func NewInstanceRunner(workers *WorkerController, claimed *worker.WorkerInstance
 // nil. The claimed instance releases on the way out however Run exits.
 // A lost claim returns ErrInstanceLost even when work only reports its ctx's
 // cancellation -- work never inspects the cause itself.
+// Suspension cancels work at renewal and returns nil after release.
 func (r *InstanceRunner) Run(ctx context.Context, work func(context.Context) error) error {
 	if work == nil {
 		return errors.New("work must not be nil")
@@ -68,11 +69,14 @@ func (r *InstanceRunner) Run(ctx context.Context, work func(context.Context) err
 	stopWork(nil)   // triggers heartbeat to drain
 	<-heartbeatDone // wait for heartbeat to drain
 
-	if cause := context.Cause(workCtx); errors.Is(cause, worker.ErrInstanceLost) {
-		err = worker.ErrInstanceLost
+	if cause := context.Cause(workCtx); errors.Is(cause, worker.ErrInstanceLost) || errors.Is(cause, worker.ErrWorkerSuspended) {
+		err = cause
 	}
 
 	switch {
+	case errors.Is(err, worker.ErrWorkerSuspended):
+		r.Logger.InfoContext(ctx, "worker suspended")
+		return nil
 	case errors.Is(err, worker.ErrInstanceLost):
 		r.Logger.WarnContext(ctx, worker.EventInstanceLost.Message(), "code", worker.EventInstanceLost.GetCode())
 		return err
@@ -85,8 +89,8 @@ func (r *InstanceRunner) Run(ctx context.Context, work func(context.Context) err
 
 // startRenewalHeartbeat renews the claimed instance every InstanceTTL/2.
 // ErrInstanceLost cancels the work: the row expired or was removed, a
-// replacement may already be running. The returned channel closes when the
-// heartbeat is fully stopped.
+// replacement may already be running. ErrWorkerSuspended requests a normal stop.
+// The returned channel closes when the heartbeat is fully stopped.
 func (r *InstanceRunner) startRenewalHeartbeat(workCtx context.Context, stopWork context.CancelCauseFunc) <-chan struct{} {
 	done := make(chan struct{})
 
@@ -104,8 +108,8 @@ func (r *InstanceRunner) startRenewalHeartbeat(workCtx context.Context, stopWork
 				if err == nil {
 					continue
 				}
-				if errors.Is(err, worker.ErrInstanceLost) {
-					stopWork(worker.ErrInstanceLost)
+				if errors.Is(err, worker.ErrInstanceLost) || errors.Is(err, worker.ErrWorkerSuspended) {
+					stopWork(err)
 					return
 				}
 				if workCtx.Err() == nil {

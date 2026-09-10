@@ -16,3 +16,11 @@ var ErrInstanceLost = diagnostic.NewDiagnosticError("SQL0012", diagnostic.Recove
 var ErrWorkerDeclarationInterrupted = diagnostic.NewDiagnosticError("SQL0024", diagnostic.RecoveryTransient,
 	"could not finish the worker declaration",
 	"rerun the declaration if the worker should still exist")
+
+// ErrWorkerNotFound means the requested worker has not been declared.
+var ErrWorkerNotFound = diagnostic.NewDiagnosticError("SQL0106", diagnostic.RecoveryPermanent,
+	"worker not found", "register the owning resource before operating its worker")
+
+// ErrWorkerSuspended stops a running execution after its operational target becomes zero.
+var ErrWorkerSuspended = diagnostic.NewDiagnosticError("SQL0107", diagnostic.RecoveryPermanent,
+	"worker is suspended", "stop this execution; unsuspend the worker to allow a new claim")

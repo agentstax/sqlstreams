@@ -19,6 +19,7 @@ import (
 	metricsproducer "github.com/agentstax/sqlstreams/pkg/metric/producer"
 	"github.com/agentstax/sqlstreams/pkg/stream"
 	streamcontroller "github.com/agentstax/sqlstreams/pkg/stream/controller"
+	"github.com/agentstax/sqlstreams/pkg/worker"
 	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
 )
 
@@ -123,10 +124,10 @@ func (c *Consumer) Register[Message common.Versioned](ctx context.Context, consu
 	}
 
 	// the registered group config is stored on the group's consumer worker rows
-	if err := workers.RegisterWorker(ctx, messageconsumer.WorkerMessageConsumer, owner, toMessageConsumerWorkerConfig(declared)); err != nil {
+	if err := workers.RegisterWorker(ctx, messageconsumer.WorkerMessageConsumer, owner, worker.NoInstanceTarget, toMessageConsumerWorkerConfig(declared)); err != nil {
 		return nil, err
 	}
-	if err := workers.RegisterWorker(ctx, exceptionconsumer.WorkerExceptionConsumer, owner, toExceptionConsumerWorkerConfig(declared)); err != nil {
+	if err := workers.RegisterWorker(ctx, exceptionconsumer.WorkerExceptionConsumer, owner, worker.NoInstanceTarget, toExceptionConsumerWorkerConfig(declared)); err != nil {
 		return nil, err
 	}
 

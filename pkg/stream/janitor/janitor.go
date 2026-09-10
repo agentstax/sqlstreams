@@ -56,7 +56,7 @@ func NewJanitorProvisioner(ds *iDatastore.PostgresDatastore, cfg *JanitorConfig,
 		return nil, err
 	}
 
-	definition, err := worker.NewDefinition(WorkerStreamJanitor, common.OwnerStream, 1, defaultJanitorMetadata())
+	definition, err := worker.NewDefinition(WorkerStreamJanitor, common.OwnerStream, 1, toJanitorMetadata(cfg))
 	if err != nil {
 		return nil, err
 	}
