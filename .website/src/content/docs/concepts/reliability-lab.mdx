@@ -7,16 +7,22 @@ import ThreadAside from '../../../components/thread-aside/thread-aside.svelte';
 
 SQLStreams promises at-least-once delivery with no loss. The reliability lab
 is how that promise is checked: an hour of real producers and consumers
-against a real Postgres, and one verdict at the end. Pass means every
-committed message was delivered or dead-lettered and nothing else
-happened. This page is the lab as it ships, written so you can judge what
+against a real Postgres, and one verdict at the end. For scenarios with full
+message recording, pass means every committed message was delivered or
+dead-lettered and the declared checks held. This page is the lab as it ships,
+written so you can judge what
 "pass" actually proves, and then the chaos run it grows into.
 
 <ThreadAside label="NOTE" title="What ships today">
 `quiet` runs an hour at 200 messages a second with three consumer instances
 and no chaos; `dev` runs one minute. The `multistream-1`, `-4`, and `-16`
 scenarios step the offered rate across different stream counts. `throughput`
-is a 30-second probe with 1 KB messages and automatic batching. `just reliability-lab dev` builds the stack, runs it, and
+is a 30-second probe with 1 KB messages and automatic batching.
+`max-throughput` measures 25 minutes after a five-minute warmup. Both throughput
+scenarios disable per-message recording and report aggregate counters; their
+verdicts do not prove message identity checks or detailed latency. The
+[throughput benchmark](/benchmarks/) records the workload and evidence.
+`just reliability-lab dev` builds the stack, runs it, and
 exits with the verdict. Sections headed "Proposed" describe work not yet built. The [demo page](/demo/) is the same idea
 packaged for you to run in five minutes.
 

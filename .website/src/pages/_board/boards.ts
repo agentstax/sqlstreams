@@ -16,7 +16,7 @@ export const boards: Board[] = [
 		title: 'Getting Started',
 		slug: 'getting-started',
 		description: 'first produce and consume, why SQLStreams, a demo, and the roadmap',
-		threads: () => ['quickstart', 'why-sqlstreams', 'demo', 'roadmap'],
+		threads: () => ['quickstart', 'why-sqlstreams', 'benchmarks', 'demo', 'roadmap'],
 	},
 	{
 		title: 'Concepts',

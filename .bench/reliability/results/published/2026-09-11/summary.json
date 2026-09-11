@@ -1,0 +1,1130 @@
+{
+  "runs": [
+    {
+      "number": 1,
+      "run": "reliability_20260911_123711",
+      "verdict": "pass",
+      "hold": {
+        "warmup": false,
+        "name": "hold",
+        "declared_rate": 0,
+        "consumed_rate": 74129.26006796431,
+        "achieved_rate": 74130.1590584751,
+        "produce": {
+          "unavailable": true,
+          "count": 111122500,
+          "p50_ns": 0,
+          "p90_ns": 0,
+          "p99_ns": 0,
+          "p999_ns": 0,
+          "max_ns": 0
+        },
+        "end_to_end": {
+          "unavailable": true,
+          "count": 0,
+          "p50_ns": 0,
+          "p90_ns": 0,
+          "p99_ns": 0,
+          "p999_ns": 0,
+          "max_ns": 0
+        },
+        "backlog_slope": 5.497957956204271,
+        "schedule_slips": 0,
+        "headroom_breaches": 0,
+        "schedule_applicable": false,
+        "held": true,
+        "postgres_cpu": 185.9826642453998,
+        "producer_cpu": 41.737489972501294,
+        "consumer_cpu": 95.0231706285987
+      },
+      "sustained_s": 74129.26006796431,
+      "minutes": [
+        {
+          "minute": 1,
+          "produced_s": 86699.68157509294,
+          "consumed_s": 86457.04878360112,
+          "backlog_median": 41214.5,
+          "backlog_maximum": 114843,
+          "storage_min_bytes": 73687379968,
+          "storage_max_bytes": 81241956352,
+          "postgres_min_bytes": 24110239744,
+          "postgres_max_bytes": 31968972800
+        },
+        {
+          "minute": 2,
+          "produced_s": 82487.48113442912,
+          "consumed_s": 82052.0177698712,
+          "backlog_median": 52132.5,
+          "backlog_maximum": 156926,
+          "storage_min_bytes": 73336184832,
+          "storage_max_bytes": 81454649344,
+          "postgres_min_bytes": 23844352000,
+          "postgres_max_bytes": 32012562432
+        },
+        {
+          "minute": 3,
+          "produced_s": 84483.54484949839,
+          "consumed_s": 84579.87179844883,
+          "backlog_median": 49531.0,
+          "backlog_maximum": 166241,
+          "storage_min_bytes": 72754962432,
+          "storage_max_bytes": 81350311936,
+          "postgres_min_bytes": 23263113216,
+          "postgres_max_bytes": 31908065280
+        },
+        {
+          "minute": 4,
+          "produced_s": 74877.33589563197,
+          "consumed_s": 75029.61043162753,
+          "backlog_median": 52705.0,
+          "backlog_maximum": 163613,
+          "storage_min_bytes": 72535875584,
+          "storage_max_bytes": 80770551808,
+          "postgres_min_bytes": 23110324224,
+          "postgres_max_bytes": 31243227136
+        },
+        {
+          "minute": 5,
+          "produced_s": 68597.62727506239,
+          "consumed_s": 68619.61612333181,
+          "backlog_median": 57202.0,
+          "backlog_maximum": 181943,
+          "storage_min_bytes": 71719243776,
+          "storage_max_bytes": 80241278976,
+          "postgres_min_bytes": 22275788800,
+          "postgres_max_bytes": 30723371008
+        },
+        {
+          "minute": 6,
+          "produced_s": 71936.97846707718,
+          "consumed_s": 71925.46569023514,
+          "backlog_median": 41738.5,
+          "backlog_maximum": 117825,
+          "storage_min_bytes": 71740882944,
+          "storage_max_bytes": 79062056960,
+          "postgres_min_bytes": 22349778944,
+          "postgres_max_bytes": 29542035456
+        },
+        {
+          "minute": 7,
+          "produced_s": 88765.16142250059,
+          "consumed_s": 88466.22856870723,
+          "backlog_median": 78801.5,
+          "backlog_maximum": 149673,
+          "storage_min_bytes": 71367294976,
+          "storage_max_bytes": 78067613696,
+          "postgres_min_bytes": 21893173248,
+          "postgres_max_bytes": 28565270528
+        },
+        {
+          "minute": 8,
+          "produced_s": 76671.02888739853,
+          "consumed_s": 76558.85717789581,
+          "backlog_median": 48544.0,
+          "backlog_maximum": 129908,
+          "storage_min_bytes": 72195268608,
+          "storage_max_bytes": 79554711552,
+          "postgres_min_bytes": 22757732352,
+          "postgres_max_bytes": 30110887936
+        },
+        {
+          "minute": 9,
+          "produced_s": 75792.53337054934,
+          "consumed_s": 75745.17370501233,
+          "backlog_median": 47515.0,
+          "backlog_maximum": 129954,
+          "storage_min_bytes": 71422939136,
+          "storage_max_bytes": 78202372096,
+          "postgres_min_bytes": 22011580416,
+          "postgres_max_bytes": 28943863808
+        },
+        {
+          "minute": 10,
+          "produced_s": 67457.68436380854,
+          "consumed_s": 67418.1036419405,
+          "backlog_median": 47078,
+          "backlog_maximum": 133238,
+          "storage_min_bytes": 71914561536,
+          "storage_max_bytes": 78742315008,
+          "postgres_min_bytes": 22419271680,
+          "postgres_max_bytes": 29179916288
+        },
+        {
+          "minute": 11,
+          "produced_s": 76232.74833647329,
+          "consumed_s": 76374.88302424463,
+          "backlog_median": 56340.0,
+          "backlog_maximum": 150105,
+          "storage_min_bytes": 71623827456,
+          "storage_max_bytes": 78966239232,
+          "postgres_min_bytes": 22144978944,
+          "postgres_max_bytes": 29521997824
+        },
+        {
+          "minute": 12,
+          "produced_s": 75285.84811243184,
+          "consumed_s": 75047.03898556404,
+          "backlog_median": 51166.5,
+          "backlog_maximum": 139217,
+          "storage_min_bytes": 71034085376,
+          "storage_max_bytes": 79841452032,
+          "postgres_min_bytes": 21538435072,
+          "postgres_max_bytes": 30227329024
+        },
+        {
+          "minute": 13,
+          "produced_s": 65913.36300777731,
+          "consumed_s": 65847.12769743825,
+          "backlog_median": 57108.0,
+          "backlog_maximum": 152177,
+          "storage_min_bytes": 70853230592,
+          "storage_max_bytes": 79224446976,
+          "postgres_min_bytes": 21408968704,
+          "postgres_max_bytes": 29813755904
+        },
+        {
+          "minute": 14,
+          "produced_s": 64712.39630252256,
+          "consumed_s": 64834.18294189724,
+          "backlog_median": 50928.5,
+          "backlog_maximum": 195127,
+          "storage_min_bytes": 72428171264,
+          "storage_max_bytes": 80158650368,
+          "postgres_min_bytes": 23202926592,
+          "postgres_max_bytes": 30917685248
+        },
+        {
+          "minute": 15,
+          "produced_s": 75328.23429577058,
+          "consumed_s": 75820.52560603601,
+          "backlog_median": 63567.0,
+          "backlog_maximum": 196627,
+          "storage_min_bytes": 71034449920,
+          "storage_max_bytes": 81154428928,
+          "postgres_min_bytes": 21555720192,
+          "postgres_max_bytes": 31659372544
+        },
+        {
+          "minute": 16,
+          "produced_s": 78187.07416455098,
+          "consumed_s": 78004.3621821167,
+          "backlog_median": 39622.5,
+          "backlog_maximum": 147463,
+          "storage_min_bytes": 71083122688,
+          "storage_max_bytes": 78780768256,
+          "postgres_min_bytes": 21621682176,
+          "postgres_max_bytes": 29387485184
+        },
+        {
+          "minute": 17,
+          "produced_s": 73197.63002495996,
+          "consumed_s": 72953.33243936385,
+          "backlog_median": 71157.0,
+          "backlog_maximum": 130787,
+          "storage_min_bytes": 71234764800,
+          "storage_max_bytes": 78210908160,
+          "postgres_min_bytes": 21790035968,
+          "postgres_max_bytes": 28711628800
+        },
+        {
+          "minute": 18,
+          "produced_s": 80178.77709175664,
+          "consumed_s": 80396.2637369215,
+          "backlog_median": 57799.0,
+          "backlog_maximum": 152922,
+          "storage_min_bytes": 71354925056,
+          "storage_max_bytes": 78753431552,
+          "postgres_min_bytes": 21893222400,
+          "postgres_max_bytes": 29325217792
+        },
+        {
+          "minute": 19,
+          "produced_s": 65879.93763505355,
+          "consumed_s": 65114.542528116275,
+          "backlog_median": 56979.5,
+          "backlog_maximum": 135642,
+          "storage_min_bytes": 71876763648,
+          "storage_max_bytes": 78319190016,
+          "postgres_min_bytes": 22432804864,
+          "postgres_max_bytes": 28874199040
+        },
+        {
+          "minute": 20,
+          "produced_s": 77045.59052875898,
+          "consumed_s": 76655.16640572154,
+          "backlog_median": 63397.0,
+          "backlog_maximum": 172488,
+          "storage_min_bytes": 70968320000,
+          "storage_max_bytes": 78619521024,
+          "postgres_min_bytes": 21499375616,
+          "postgres_max_bytes": 29055774720
+        },
+        {
+          "minute": 21,
+          "produced_s": 69927.87595929764,
+          "consumed_s": 69083.31399876549,
+          "backlog_median": 48565.0,
+          "backlog_maximum": 165950,
+          "storage_min_bytes": 71133564928,
+          "storage_max_bytes": 78525689856,
+          "postgres_min_bytes": 21670416384,
+          "postgres_max_bytes": 29146427392
+        },
+        {
+          "minute": 22,
+          "produced_s": 59224.39869175996,
+          "consumed_s": 59161.661634368735,
+          "backlog_median": 50639.0,
+          "backlog_maximum": 137706,
+          "storage_min_bytes": 71448891392,
+          "storage_max_bytes": 79401693184,
+          "postgres_min_bytes": 21715210240,
+          "postgres_max_bytes": 29955321856
+        },
+        {
+          "minute": 23,
+          "produced_s": 63601.91800418477,
+          "consumed_s": 64721.22639903411,
+          "backlog_median": 52018.5,
+          "backlog_maximum": 151567,
+          "storage_min_bytes": 72185221120,
+          "storage_max_bytes": 81200025600,
+          "postgres_min_bytes": 22722072576,
+          "postgres_max_bytes": 31601479680
+        },
+        {
+          "minute": 24,
+          "produced_s": 73989.51023732235,
+          "consumed_s": 75567.11036153146,
+          "backlog_median": 74353.5,
+          "backlog_maximum": 361273,
+          "storage_min_bytes": 70646280192,
+          "storage_max_bytes": 80978718720,
+          "postgres_min_bytes": 21419913216,
+          "postgres_max_bytes": 31532281856
+        },
+        {
+          "minute": 25,
+          "produced_s": 68974.80176107207,
+          "consumed_s": 68979.78171378342,
+          "backlog_median": 50151.5,
+          "backlog_maximum": 178667,
+          "storage_min_bytes": 70491561984,
+          "storage_max_bytes": 77987438592,
+          "postgres_min_bytes": 21096304640,
+          "postgres_max_bytes": 28891648000
+        }
+      ],
+      "final_producer": {
+        "at": "2026-09-11T13:07:27.566557-04:00",
+        "process": "producer",
+        "stream": "orders",
+        "group": "",
+        "attempted": 142480500,
+        "committed": 142480500,
+        "rejected": 0,
+        "unknown": 0,
+        "success": 0,
+        "error": 0
+      },
+      "final_consumer": {
+        "at": "2026-09-11T13:07:29.974393-04:00",
+        "process": "consumer",
+        "stream": "orders",
+        "group": "processor",
+        "attempted": 0,
+        "committed": 0,
+        "rejected": 0,
+        "unknown": 0,
+        "success": 142480500,
+        "error": 0
+      },
+      "warnings": [
+        "time=2026-09-11T12:56:45.083-04:00 level=WARN msg=\"could not run worker tick -- backing off\" schema=sqlstreams worker=stream_janitor stream_id=4 attempts=1 delay=1.011041153s error=\"drop expired partitions: ERROR: canceling statement due to lock timeout (SQLSTATE 55P03)\"",
+        "time=2026-09-11T13:06:20.777-04:00 level=WARN msg=\"could not run worker tick -- backing off\" schema=sqlstreams worker=stream_janitor stream_id=4 attempts=1 delay=1.045275589s error=\"drop expired partitions: ERROR: canceling statement due to lock timeout (SQLSTATE 55P03)\""
+      ],
+      "minimum_logged_worker_failures": 2,
+      "peak_postgres_bytes": 35396882432,
+      "peak_combined_bytes": 84618317824,
+      "minimum_free_bytes": 99371438080,
+      "test_or_build_frames": 0,
+      "host_violation": false,
+      "cleanup": {
+        "database": "reliability_20260911_123711",
+        "dropped": true
+      },
+      "fingerprint": {
+        "execution": "native",
+        "runtime": {
+          "GOMAXPROCS": "4",
+          "GOGC": "400",
+          "GOMEMLIMIT": "2GiB"
+        },
+        "binary_sha": "0bb4d4e4ca158f1c42e59964c955d3f5c43e6d999abe956590d4cfca205d0640",
+        "library_sha": "ce33ff2cc834ad781cd68913a1acd86d6a8faafc",
+        "library_dirty": true,
+        "postgres_image": "native",
+        "host": {
+          "os": "Darwin 24.6.0",
+          "cpu": "Apple M4",
+          "cores": 10,
+          "memory_bytes": 25769803776
+        }
+      },
+      "evidence_sha256": "226c0b72880fea2402071e6d129750ca31bcc87c9a108fb452356cca0a0104e5",
+      "publication_eligible": true
+    },
+    {
+      "number": 2,
+      "run": "reliability_20260911_130753",
+      "verdict": "pass",
+      "hold": {
+        "warmup": false,
+        "name": "hold",
+        "declared_rate": 0,
+        "consumed_rate": 68187.5735878714,
+        "achieved_rate": 68184.88520000593,
+        "produce": {
+          "unavailable": true,
+          "count": 102207500,
+          "p50_ns": 0,
+          "p90_ns": 0,
+          "p99_ns": 0,
+          "p999_ns": 0,
+          "max_ns": 0
+        },
+        "end_to_end": {
+          "unavailable": true,
+          "count": 0,
+          "p50_ns": 0,
+          "p90_ns": 0,
+          "p99_ns": 0,
+          "p999_ns": 0,
+          "max_ns": 0
+        },
+        "backlog_slope": -0.6061510558056036,
+        "schedule_slips": 0,
+        "headroom_breaches": 0,
+        "schedule_applicable": false,
+        "held": true,
+        "postgres_cpu": 165.32933745122375,
+        "producer_cpu": 37.837419611639916,
+        "consumer_cpu": 84.3089157078864
+      },
+      "sustained_s": 68184.88520000593,
+      "minutes": [
+        {
+          "minute": 1,
+          "produced_s": 65535.81197700546,
+          "consumed_s": 65928.92981395255,
+          "backlog_median": 54561.0,
+          "backlog_maximum": 123100,
+          "storage_min_bytes": 70207418368,
+          "storage_max_bytes": 79762386944,
+          "postgres_min_bytes": 20739870720,
+          "postgres_max_bytes": 30352510976
+        },
+        {
+          "minute": 2,
+          "produced_s": 67334.44781537639,
+          "consumed_s": 67730.12251978462,
+          "backlog_median": 56361.5,
+          "backlog_maximum": 121062,
+          "storage_min_bytes": 70406258688,
+          "storage_max_bytes": 77816934400,
+          "postgres_min_bytes": 20921683968,
+          "postgres_max_bytes": 28438278144
+        },
+        {
+          "minute": 3,
+          "produced_s": 65387.595825634824,
+          "consumed_s": 65279.4667967347,
+          "backlog_median": 62500.0,
+          "backlog_maximum": 153019,
+          "storage_min_bytes": 70896701440,
+          "storage_max_bytes": 78092111872,
+          "postgres_min_bytes": 21411909632,
+          "postgres_max_bytes": 28421656576
+        },
+        {
+          "minute": 4,
+          "produced_s": 62059.170562376334,
+          "consumed_s": 62279.961877969785,
+          "backlog_median": 36690.0,
+          "backlog_maximum": 135579,
+          "storage_min_bytes": 70155771904,
+          "storage_max_bytes": 78568751104,
+          "postgres_min_bytes": 20568182784,
+          "postgres_max_bytes": 28880457728
+        },
+        {
+          "minute": 5,
+          "produced_s": 66815.16041958246,
+          "consumed_s": 66700.57628752064,
+          "backlog_median": 76036.5,
+          "backlog_maximum": 145487,
+          "storage_min_bytes": 70745305088,
+          "storage_max_bytes": 77506469888,
+          "postgres_min_bytes": 20951142400,
+          "postgres_max_bytes": 27942940672
+        },
+        {
+          "minute": 6,
+          "produced_s": 49707.53692900091,
+          "consumed_s": 49412.02843958138,
+          "backlog_median": 36749,
+          "backlog_maximum": 121315,
+          "storage_min_bytes": 69850005504,
+          "storage_max_bytes": 77806059520,
+          "postgres_min_bytes": 20288598016,
+          "postgres_max_bytes": 28512088064
+        },
+        {
+          "minute": 7,
+          "produced_s": 66145.90156705948,
+          "consumed_s": 66471.03321612086,
+          "backlog_median": 60453.0,
+          "backlog_maximum": 151273,
+          "storage_min_bytes": 72129425408,
+          "storage_max_bytes": 79721676800,
+          "postgres_min_bytes": 22608736256,
+          "postgres_max_bytes": 30100312064
+        },
+        {
+          "minute": 8,
+          "produced_s": 59720.082933587575,
+          "consumed_s": 60012.68121798941,
+          "backlog_median": 41412.5,
+          "backlog_maximum": 113750,
+          "storage_min_bytes": 70413574144,
+          "storage_max_bytes": 80509173760,
+          "postgres_min_bytes": 20752109568,
+          "postgres_max_bytes": 31251533824
+        },
+        {
+          "minute": 9,
+          "produced_s": 70091.87777769499,
+          "consumed_s": 70447.31885237867,
+          "backlog_median": 67289.0,
+          "backlog_maximum": 146619,
+          "storage_min_bytes": 70231044096,
+          "storage_max_bytes": 79262720000,
+          "postgres_min_bytes": 20930326528,
+          "postgres_max_bytes": 29793177600
+        },
+        {
+          "minute": 10,
+          "produced_s": 65441.37663807739,
+          "consumed_s": 65005.10614864502,
+          "backlog_median": 53680.5,
+          "backlog_maximum": 130250,
+          "storage_min_bytes": 70534451200,
+          "storage_max_bytes": 78029721600,
+          "postgres_min_bytes": 21046882304,
+          "postgres_max_bytes": 28559978496
+        },
+        {
+          "minute": 11,
+          "produced_s": 64161.052988288226,
+          "consumed_s": 64117.533658195105,
+          "backlog_median": 61522.0,
+          "backlog_maximum": 146085,
+          "storage_min_bytes": 69200678912,
+          "storage_max_bytes": 76638916608,
+          "postgres_min_bytes": 19766448128,
+          "postgres_max_bytes": 27168968704
+        },
+        {
+          "minute": 12,
+          "produced_s": 65973.32832712278,
+          "consumed_s": 66305.42777488008,
+          "backlog_median": 57719.5,
+          "backlog_maximum": 145907,
+          "storage_min_bytes": 69748645888,
+          "storage_max_bytes": 77618118656,
+          "postgres_min_bytes": 20290424832,
+          "postgres_max_bytes": 28198490112
+        },
+        {
+          "minute": 13,
+          "produced_s": 68466.87873318703,
+          "consumed_s": 68798.0761968199,
+          "backlog_median": 45209.5,
+          "backlog_maximum": 155564,
+          "storage_min_bytes": 70108860416,
+          "storage_max_bytes": 77562298368,
+          "postgres_min_bytes": 20604694528,
+          "postgres_max_bytes": 28092338176
+        },
+        {
+          "minute": 14,
+          "produced_s": 74005.81511271418,
+          "consumed_s": 73854.01464482048,
+          "backlog_median": 50402.5,
+          "backlog_maximum": 104954,
+          "storage_min_bytes": 70324867072,
+          "storage_max_bytes": 77488795648,
+          "postgres_min_bytes": 20962873344,
+          "postgres_max_bytes": 27973259264
+        },
+        {
+          "minute": 15,
+          "produced_s": 62758.79361493049,
+          "consumed_s": 62384.995556019065,
+          "backlog_median": 59772.5,
+          "backlog_maximum": 122459,
+          "storage_min_bytes": 70932688896,
+          "storage_max_bytes": 79118266368,
+          "postgres_min_bytes": 21445554176,
+          "postgres_max_bytes": 29647908864
+        },
+        {
+          "minute": 16,
+          "produced_s": 69896.95580628813,
+          "consumed_s": 70086.1178652755,
+          "backlog_median": 41175.0,
+          "backlog_maximum": 140387,
+          "storage_min_bytes": 69896495104,
+          "storage_max_bytes": 79774597120,
+          "postgres_min_bytes": 20455616512,
+          "postgres_max_bytes": 30303121408
+        },
+        {
+          "minute": 17,
+          "produced_s": 71964.14660212304,
+          "consumed_s": 72230.09351355679,
+          "backlog_median": 59240.0,
+          "backlog_maximum": 165330,
+          "storage_min_bytes": 71286521856,
+          "storage_max_bytes": 79656550400,
+          "postgres_min_bytes": 21747798016,
+          "postgres_max_bytes": 30133563392
+        },
+        {
+          "minute": 18,
+          "produced_s": 76739.75255462939,
+          "consumed_s": 76938.42241955861,
+          "backlog_median": 55382.5,
+          "backlog_maximum": 153649,
+          "storage_min_bytes": 71677952000,
+          "storage_max_bytes": 79476047872,
+          "postgres_min_bytes": 22188388352,
+          "postgres_max_bytes": 30236045312
+        },
+        {
+          "minute": 19,
+          "produced_s": 73618.81125891382,
+          "consumed_s": 73364.334010703,
+          "backlog_median": 76812.0,
+          "backlog_maximum": 462586,
+          "storage_min_bytes": 71526711296,
+          "storage_max_bytes": 78544846848,
+          "postgres_min_bytes": 22190305280,
+          "postgres_max_bytes": 29073108992
+        },
+        {
+          "minute": 20,
+          "produced_s": 76547.94894850072,
+          "consumed_s": 76350.32043287696,
+          "backlog_median": 65832.0,
+          "backlog_maximum": 143156,
+          "storage_min_bytes": 71360409600,
+          "storage_max_bytes": 78955073536,
+          "postgres_min_bytes": 21870710784,
+          "postgres_max_bytes": 29566496768
+        },
+        {
+          "minute": 21,
+          "produced_s": 73847.75932798823,
+          "consumed_s": 73902.65496019961,
+          "backlog_median": 47514.5,
+          "backlog_maximum": 148647,
+          "storage_min_bytes": 71563333632,
+          "storage_max_bytes": 78940581888,
+          "postgres_min_bytes": 22074486784,
+          "postgres_max_bytes": 29468512256
+        },
+        {
+          "minute": 22,
+          "produced_s": 78970.69480186682,
+          "consumed_s": 78935.02123539934,
+          "backlog_median": 47199.0,
+          "backlog_maximum": 144524,
+          "storage_min_bytes": 71377104896,
+          "storage_max_bytes": 79021084672,
+          "postgres_min_bytes": 21853655040,
+          "postgres_max_bytes": 29667569664
+        },
+        {
+          "minute": 23,
+          "produced_s": 62279.67032880218,
+          "consumed_s": 62103.977784116534,
+          "backlog_median": 35883.5,
+          "backlog_maximum": 157500,
+          "storage_min_bytes": 70901043200,
+          "storage_max_bytes": 79713218560,
+          "postgres_min_bytes": 21440475136,
+          "postgres_max_bytes": 30250586112
+        },
+        {
+          "minute": 24,
+          "produced_s": 74915.77100439034,
+          "consumed_s": 74720.77952246473,
+          "backlog_median": 41220.0,
+          "backlog_maximum": 166902,
+          "storage_min_bytes": 71296151552,
+          "storage_max_bytes": 78510288896,
+          "postgres_min_bytes": 21827981312,
+          "postgres_max_bytes": 29038088192
+        },
+        {
+          "minute": 25,
+          "produced_s": 67544.68884179076,
+          "consumed_s": 67380.14275262994,
+          "backlog_median": 51641.0,
+          "backlog_maximum": 119350,
+          "storage_min_bytes": 71626964992,
+          "storage_max_bytes": 78584070144,
+          "postgres_min_bytes": 22120026112,
+          "postgres_max_bytes": 28959690752
+        }
+      ],
+      "final_producer": {
+        "at": "2026-09-11T13:38:08.7051-04:00",
+        "process": "producer",
+        "stream": "orders",
+        "group": "",
+        "attempted": 129980250,
+        "committed": 129980250,
+        "rejected": 0,
+        "unknown": 0,
+        "success": 0,
+        "error": 0
+      },
+      "final_consumer": {
+        "at": "2026-09-11T13:38:10.400635-04:00",
+        "process": "consumer",
+        "stream": "orders",
+        "group": "processor",
+        "attempted": 0,
+        "committed": 0,
+        "rejected": 0,
+        "unknown": 0,
+        "success": 129980250,
+        "error": 0
+      },
+      "warnings": [],
+      "minimum_logged_worker_failures": 0,
+      "peak_postgres_bytes": 33796214784,
+      "peak_combined_bytes": 83246579712,
+      "minimum_free_bytes": 102101417984,
+      "test_or_build_frames": 0,
+      "host_violation": false,
+      "cleanup": {
+        "database": "reliability_20260911_130753",
+        "dropped": true
+      },
+      "fingerprint": {
+        "execution": "native",
+        "runtime": {
+          "GOMAXPROCS": "4",
+          "GOGC": "400",
+          "GOMEMLIMIT": "2GiB"
+        },
+        "binary_sha": "0bb4d4e4ca158f1c42e59964c955d3f5c43e6d999abe956590d4cfca205d0640",
+        "library_sha": "ce33ff2cc834ad781cd68913a1acd86d6a8faafc",
+        "library_dirty": true,
+        "postgres_image": "native",
+        "host": {
+          "os": "Darwin 24.6.0",
+          "cpu": "Apple M4",
+          "cores": 10,
+          "memory_bytes": 25769803776
+        }
+      },
+      "evidence_sha256": "5ecf58e1c6d62e6870727f743b9de75ea9bb7a6033eb0d6110651915f9a012b8",
+      "publication_eligible": true
+    },
+    {
+      "number": 3,
+      "run": "reliability_20260911_133838",
+      "verdict": "pass",
+      "hold": {
+        "warmup": false,
+        "name": "hold",
+        "declared_rate": 0,
+        "consumed_rate": 66152.06845238982,
+        "achieved_rate": 66140.77257570298,
+        "produce": {
+          "unavailable": true,
+          "count": 99212500,
+          "p50_ns": 0,
+          "p90_ns": 0,
+          "p99_ns": 0,
+          "p999_ns": 0,
+          "max_ns": 0
+        },
+        "end_to_end": {
+          "unavailable": true,
+          "count": 0,
+          "p50_ns": 0,
+          "p90_ns": 0,
+          "p99_ns": 0,
+          "p999_ns": 0,
+          "max_ns": 0
+        },
+        "backlog_slope": -2.339379655612303,
+        "schedule_slips": 0,
+        "headroom_breaches": 0,
+        "schedule_applicable": false,
+        "held": true,
+        "postgres_cpu": 159.2574946863022,
+        "producer_cpu": 36.81907142461404,
+        "consumer_cpu": 82.22406822312792
+      },
+      "sustained_s": 66140.77257570298,
+      "minutes": [
+        {
+          "minute": 1,
+          "produced_s": 69399.43453866683,
+          "consumed_s": 69722.11222198048,
+          "backlog_median": 49594.0,
+          "backlog_maximum": 116342,
+          "storage_min_bytes": 70763630592,
+          "storage_max_bytes": 79851491328,
+          "postgres_min_bytes": 21234659328,
+          "postgres_max_bytes": 30408519680
+        },
+        {
+          "minute": 2,
+          "produced_s": 68087.52407314244,
+          "consumed_s": 68002.11363588682,
+          "backlog_median": 60348.5,
+          "backlog_maximum": 133098,
+          "storage_min_bytes": 71370903552,
+          "storage_max_bytes": 79760269312,
+          "postgres_min_bytes": 21825900544,
+          "postgres_max_bytes": 30384222208
+        },
+        {
+          "minute": 3,
+          "produced_s": 63462.372179746286,
+          "consumed_s": 63553.708053935734,
+          "backlog_median": 65375.0,
+          "backlog_maximum": 136252,
+          "storage_min_bytes": 71692845056,
+          "storage_max_bytes": 78778781696,
+          "postgres_min_bytes": 22434172928,
+          "postgres_max_bytes": 29334302720
+        },
+        {
+          "minute": 4,
+          "produced_s": 62582.88039528809,
+          "consumed_s": 62154.75280882312,
+          "backlog_median": 51591.5,
+          "backlog_maximum": 133427,
+          "storage_min_bytes": 70339887104,
+          "storage_max_bytes": 79215190016,
+          "postgres_min_bytes": 21017243648,
+          "postgres_max_bytes": 29673091072
+        },
+        {
+          "minute": 5,
+          "produced_s": 64586.778389518935,
+          "consumed_s": 64362.90438099051,
+          "backlog_median": 46773.5,
+          "backlog_maximum": 125188,
+          "storage_min_bytes": 70006276096,
+          "storage_max_bytes": 77865930752,
+          "postgres_min_bytes": 20579545088,
+          "postgres_max_bytes": 28455964672
+        },
+        {
+          "minute": 6,
+          "produced_s": 63253.17221269855,
+          "consumed_s": 62537.27759858832,
+          "backlog_median": 57452.5,
+          "backlog_maximum": 418105,
+          "storage_min_bytes": 69956812800,
+          "storage_max_bytes": 77303242752,
+          "postgres_min_bytes": 20478742528,
+          "postgres_max_bytes": 27825106944
+        },
+        {
+          "minute": 7,
+          "produced_s": 66621.36028303696,
+          "consumed_s": 66372.05811021538,
+          "backlog_median": 65913.0,
+          "backlog_maximum": 487500,
+          "storage_min_bytes": 71876898816,
+          "storage_max_bytes": 79484334080,
+          "postgres_min_bytes": 22510358528,
+          "postgres_max_bytes": 29937889280
+        },
+        {
+          "minute": 8,
+          "produced_s": 64018.8958693012,
+          "consumed_s": 65498.12821208481,
+          "backlog_median": 59125.0,
+          "backlog_maximum": 156046,
+          "storage_min_bytes": 70174650368,
+          "storage_max_bytes": 81564676096,
+          "postgres_min_bytes": 20678324224,
+          "postgres_max_bytes": 32052621312
+        },
+        {
+          "minute": 9,
+          "produced_s": 75216.1834569436,
+          "consumed_s": 73769.82230930135,
+          "backlog_median": 42340.0,
+          "backlog_maximum": 143750,
+          "storage_min_bytes": 70466576384,
+          "storage_max_bytes": 77913493504,
+          "postgres_min_bytes": 20971282432,
+          "postgres_max_bytes": 28434976768
+        },
+        {
+          "minute": 10,
+          "produced_s": 65402.16655294435,
+          "consumed_s": 66551.29563173642,
+          "backlog_median": 54746.0,
+          "backlog_maximum": 126864,
+          "storage_min_bytes": 71139463168,
+          "storage_max_bytes": 78180675584,
+          "postgres_min_bytes": 21627187200,
+          "postgres_max_bytes": 28685176832
+        },
+        {
+          "minute": 11,
+          "produced_s": 70698.6385812161,
+          "consumed_s": 71355.06758384904,
+          "backlog_median": 64323.5,
+          "backlog_maximum": 151750,
+          "storage_min_bytes": 70347776000,
+          "storage_max_bytes": 77059493888,
+          "postgres_min_bytes": 20755509248,
+          "postgres_max_bytes": 27699056640
+        },
+        {
+          "minute": 12,
+          "produced_s": 68762.13139965375,
+          "consumed_s": 69593.03331445824,
+          "backlog_median": 60981.0,
+          "backlog_maximum": 147468,
+          "storage_min_bytes": 70459867136,
+          "storage_max_bytes": 76709838848,
+          "postgres_min_bytes": 21149749248,
+          "postgres_max_bytes": 27250831360
+        },
+        {
+          "minute": 13,
+          "produced_s": 61925.816133173175,
+          "consumed_s": 61956.569995182435,
+          "backlog_median": 45804.5,
+          "backlog_maximum": 159782,
+          "storage_min_bytes": 70093238272,
+          "storage_max_bytes": 77354762240,
+          "postgres_min_bytes": 20562915328,
+          "postgres_max_bytes": 27820666880
+        },
+        {
+          "minute": 14,
+          "produced_s": 68773.61701187766,
+          "consumed_s": 67463.2190777027,
+          "backlog_median": 67202.0,
+          "backlog_maximum": 142825,
+          "storage_min_bytes": 70440112128,
+          "storage_max_bytes": 77358534656,
+          "postgres_min_bytes": 20959268864,
+          "postgres_max_bytes": 27878215680
+        },
+        {
+          "minute": 15,
+          "produced_s": 57821.72710641889,
+          "consumed_s": 57441.929189740455,
+          "backlog_median": 37378.5,
+          "backlog_maximum": 155355,
+          "storage_min_bytes": 71171620864,
+          "storage_max_bytes": 79151702016,
+          "postgres_min_bytes": 21639843840,
+          "postgres_max_bytes": 29425160192
+        },
+        {
+          "minute": 16,
+          "produced_s": 68006.21534163134,
+          "consumed_s": 69484.46342439557,
+          "backlog_median": 40637.5,
+          "backlog_maximum": 119977,
+          "storage_min_bytes": 69443280896,
+          "storage_max_bytes": 79630221312,
+          "postgres_min_bytes": 19725848576,
+          "postgres_max_bytes": 30159335424
+        },
+        {
+          "minute": 17,
+          "produced_s": 68957.1737462315,
+          "consumed_s": 69260.47982145865,
+          "backlog_median": 72624.0,
+          "backlog_maximum": 154349,
+          "storage_min_bytes": 69987786752,
+          "storage_max_bytes": 77581049856,
+          "postgres_min_bytes": 20490358784,
+          "postgres_max_bytes": 28190380032
+        },
+        {
+          "minute": 18,
+          "produced_s": 68148.19052402343,
+          "consumed_s": 67697.02470310908,
+          "backlog_median": 50216.0,
+          "backlog_maximum": 147000,
+          "storage_min_bytes": 70124445696,
+          "storage_max_bytes": 76175695872,
+          "postgres_min_bytes": 20609732608,
+          "postgres_max_bytes": 26654076928
+        },
+        {
+          "minute": 19,
+          "produced_s": 67292.1664886379,
+          "consumed_s": 67047.03771251452,
+          "backlog_median": 61213.0,
+          "backlog_maximum": 137824,
+          "storage_min_bytes": 69997727744,
+          "storage_max_bytes": 76801101824,
+          "postgres_min_bytes": 20482404352,
+          "postgres_max_bytes": 27320381440
+        },
+        {
+          "minute": 20,
+          "produced_s": 69449.34562565832,
+          "consumed_s": 69530.76490077103,
+          "backlog_median": 67829.5,
+          "backlog_maximum": 149500,
+          "storage_min_bytes": 69975257088,
+          "storage_max_bytes": 77223407616,
+          "postgres_min_bytes": 20495388672,
+          "postgres_max_bytes": 27725713408
+        },
+        {
+          "minute": 21,
+          "produced_s": 65175.61114882163,
+          "consumed_s": 66802.71054580422,
+          "backlog_median": 73986.0,
+          "backlog_maximum": 131945,
+          "storage_min_bytes": 69893394432,
+          "storage_max_bytes": 76837400576,
+          "postgres_min_bytes": 20377743360,
+          "postgres_max_bytes": 27389915136
+        },
+        {
+          "minute": 22,
+          "produced_s": 67046.90792823974,
+          "consumed_s": 67693.32634563698,
+          "backlog_median": 62355,
+          "backlog_maximum": 146110,
+          "storage_min_bytes": 70238867456,
+          "storage_max_bytes": 77738708992,
+          "postgres_min_bytes": 20724264960,
+          "postgres_max_bytes": 28224040960
+        },
+        {
+          "minute": 23,
+          "produced_s": 67159.93680570697,
+          "consumed_s": 66403.0134575156,
+          "backlog_median": 57364.5,
+          "backlog_maximum": 140438,
+          "storage_min_bytes": 69757616128,
+          "storage_max_bytes": 77496975360,
+          "postgres_min_bytes": 20344672256,
+          "postgres_max_bytes": 27999080448
+        },
+        {
+          "minute": 24,
+          "produced_s": 55381.60188473068,
+          "consumed_s": 56229.803107007305,
+          "backlog_median": 47500.0,
+          "backlog_maximum": 147547,
+          "storage_min_bytes": 70640484352,
+          "storage_max_bytes": 78214832128,
+          "postgres_min_bytes": 20989108224,
+          "postgres_max_bytes": 29054382080
+        },
+        {
+          "minute": 25,
+          "produced_s": 62907.51101974392,
+          "consumed_s": 62420.57418767467,
+          "backlog_median": 54750.5,
+          "backlog_maximum": 159502,
+          "storage_min_bytes": 69959704576,
+          "storage_max_bytes": 79484354560,
+          "postgres_min_bytes": 20190814208,
+          "postgres_max_bytes": 29923864576
+        }
+      ],
+      "final_producer": {
+        "at": "2026-09-11T14:08:55.76551-04:00",
+        "process": "producer",
+        "stream": "orders",
+        "group": "",
+        "attempted": 125678250,
+        "committed": 125678250,
+        "rejected": 0,
+        "unknown": 0,
+        "success": 0,
+        "error": 0
+      },
+      "final_consumer": {
+        "at": "2026-09-11T14:08:58.160562-04:00",
+        "process": "consumer",
+        "stream": "orders",
+        "group": "processor",
+        "attempted": 0,
+        "committed": 0,
+        "rejected": 0,
+        "unknown": 0,
+        "success": 125678250,
+        "error": 0
+      },
+      "warnings": [],
+      "minimum_logged_worker_failures": 0,
+      "peak_postgres_bytes": 32052621312,
+      "peak_combined_bytes": 81564676096,
+      "minimum_free_bytes": 102192824320,
+      "test_or_build_frames": 0,
+      "host_violation": false,
+      "cleanup": {
+        "database": "reliability_20260911_133838",
+        "dropped": true
+      },
+      "fingerprint": {
+        "execution": "native",
+        "runtime": {
+          "GOMAXPROCS": "4",
+          "GOGC": "400",
+          "GOMEMLIMIT": "2GiB"
+        },
+        "binary_sha": "0bb4d4e4ca158f1c42e59964c955d3f5c43e6d999abe956590d4cfca205d0640",
+        "library_sha": "ce33ff2cc834ad781cd68913a1acd86d6a8faafc",
+        "library_dirty": true,
+        "postgres_image": "native",
+        "host": {
+          "os": "Darwin 24.6.0",
+          "cpu": "Apple M4",
+          "cores": 10,
+          "memory_bytes": 25769803776
+        }
+      },
+      "evidence_sha256": "772d51f90ed91de7c9c8d5e529bac4a2f25004fa894c06e97a0bca9f1ab2bccf",
+      "publication_eligible": true
+    }
+  ],
+  "complete": true,
+  "all_eligible": true,
+  "median_s": 68184.88520000593,
+  "minimum_s": 66140.77257570298,
+  "maximum_s": 74129.26006796431,
+  "limitations": [
+    "Aggregate counts do not establish message identity or exactly-once delivery.",
+    "Worker history is not a complete failure count; log suppression can hide additional events.",
+    "The workload has no external handler work and uses tuned configuration."
+  ]
+}

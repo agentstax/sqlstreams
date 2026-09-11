@@ -1,0 +1,9 @@
+{
+  "library_revision": "ce33ff2cc834ad781cd68913a1acd86d6a8faafc",
+  "source_sha256": "cd03bbe93dd64700fbd48383d9201fa0973a81b75fce587dfebe948bedb67971",
+  "runs": 3,
+  "warmup_seconds": 300,
+  "hold_seconds": 1500,
+  "selection": "median of min(produced_s, consumed_s) for the three predeclared runs; retain every outcome",
+  "binary_sha256": "0bb4d4e4ca158f1c42e59964c955d3f5c43e6d999abe956590d4cfca205d0640"
+}
