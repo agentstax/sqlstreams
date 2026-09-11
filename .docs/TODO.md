@@ -159,12 +159,31 @@ full attempted/outcome/handler recording before considering sampling.
 
 
 
+- [x] Independent consumer record files [0746]: bounded pool sized from peak
+  declared instances and resolved handler concurrency; each invocation still
+  flushes its complete record before returning. Existing checker discovers
+  every handler file; no producer/library or scenario setting changes.
+  Record/consumer/runner race tests, vet and lab build passed. Existing handler
+  failure test only changed its writer constructor; its assertions remain.
+  Four-caller recorder microbenchmark (three 1s runs): shared 2056/2174/2105
+  ns per row versus independent 779.2/784.5/763.8, about 2.7x recording rate.
+  This isolates recording and does not predict PostgreSQL throughput.
+  Native 12-second functional run `reliability_20260910_220519` PASS:
+  1,198,500 committed and handled once across four files, zero application
+  errors, duplicate deliveries, maintenance failures, or live/enabled exceptions.
+  Hold 98,995 produced / 97,296 consumed per second is a short burst, not a
+  sustained capacity result; zero checkpoints in this shortened measurement.
+  Database removed; complete records archived and gzip integrity checked.
+  Storage and microbenchmark details are in the run's `analysis.json`.
+- [ ] Run the independent consumer recorder at the original 10-minute duration
+  before claiming a steady-state improvement against the shared-writer control.
+
 - [ ] Record measured producer AND consumer rates, backlog trend, maintenance
   outcomes, storage peak/cleanup, and comparison limits before choosing
   longer runs or recording changes. No 30m run fits the current raw-record
   budget without revisiting storage: ~82GB at65k/s before DB/checker space.
 
-- [ ] Consumer profiling approved: one 600s diagnostic run on the original
+- [x] Consumer profiling completed: one 600s diagnostic run on the original
   recording path, unchanged workload/library/durability configuration. Temporary
   Go overlay instruments one in 256 handler records (mutex wait, JSON encoding,
   buffer/file flush); 60s CPU/mutex/block profiles start 120s into hold. Native
@@ -176,7 +195,7 @@ full attempted/outcome/handler recording before considering sampling.
   all 1,024 handler records while emitting four timing samples. Diagnostic
   throughput includes instrumentation overhead, not a new capacity claim.
   Run `reliability_20260910_212710` completed production, profiles captured
-  21:34:26–21:35:26 local; checker pending. Maintenance-history failures 0,
+  21:34:26–21:35:26 local; checker PASS. Maintenance-history failures 0,
   enabled/live exception consumers 0, no production swap-outs (820 swap-in
   pages). Full source overlay, timings, CPU/mutex/block profiles, pg waits,
   SQL/IO snapshots and analysis retained with the run.
@@ -201,9 +220,24 @@ full attempted/outcome/handler recording before considering sampling.
   Client WAL writes 6.240GB/19.662s plus 4.211GB WAL initialization/0.894s
   and 3.367s initialization sync. Host disk mean ~421MB/s combined read/write
   (nominal one-second alignment); this does not prove a physical SSD ceiling.
-  Conclusion pending exact checks: shared consumer record writer is a major
+  Conclusion after exact checks: shared consumer record writer is a major
   harness bottleneck; WAL/checkpoint writes also constrain the database.
   Do not promise removal of the entire 65k gap from a recording change.
+  Adjacent sampled windows confirm writer waiting outside the active Go
+  profiles: mean mutex wait before/during/after 29.15/50.29/36.06us, versus
+  encode+flush 7.59/8.98/9.12us. Estimated consumption 62.35/53.30/50.24k/s;
+  workload/checkpoint phases differ, so these are not an A/B estimate of
+  profiler overhead. Sampling remains enabled in all windows.
+  Final verdict `results/max-throughput/20260911T013728Z/`: 35,963,500
+  committed and handled once, every safety/error invariant zero; hold
+  48,097 produced/54,446 consumed per second with shrinking backlog.
+  Diagnostic rates are not a revised capacity result. Peak combined storage
+  65.770GB, minimum host free 76.817GB; 1,453 exception guard frames all zero.
+  Database dropped automatically. Full records retained compressed; default
+  benchmark/library code unchanged. The next focused design is consumer
+  recording concurrency with complete handler evidence, followed by a
+  controlled comparison; WAL/checkpoint cost remains independently visible.
+
 
 
 ### 1. Environment and fingerprint

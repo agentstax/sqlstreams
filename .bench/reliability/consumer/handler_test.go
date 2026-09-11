@@ -11,7 +11,7 @@ import (
 )
 
 func TestHandleReportsARecordWriteFailure(t *testing.T) {
-	writer, err := record.NewWriter(filepath.Join(t.TempDir(), "records"), "c", record.FileKindHandler)
+	writer, err := record.NewHandlerWriter(filepath.Join(t.TempDir(), "records"), "c", 1)
 	if err != nil {
 		t.Fatal(err)
 	}

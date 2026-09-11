@@ -24,11 +24,11 @@ type Handler struct {
 	stream   string
 	group    string
 	failRate float64
-	writer   *record.Writer
+	writer   *record.HandlerWriter
 	failed   chan error
 }
 
-func NewHandler(name string, stream string, group string, failRate float64, writer *record.Writer, failed chan error) (*Handler, error) {
+func NewHandler(name string, stream string, group string, failRate float64, writer *record.HandlerWriter, failed chan error) (*Handler, error) {
 	if name == "" {
 		return nil, errors.New("name must not be empty")
 	}

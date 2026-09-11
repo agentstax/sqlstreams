@@ -24,7 +24,17 @@ func (r *Runner) RunConsumer(ctx context.Context) error {
 		return err
 	}
 
-	handlerRecords, err := r.openWriter(record.FileKindHandler)
+	var instances int
+	for _, change := range r.declared.Consumers {
+		instances = max(instances, change.Instances)
+	}
+	var concurrency int
+	for _, registered := range streams {
+		for _, group := range registered.declared.Groups {
+			concurrency += instances * consumeOptions(group).WithDefaults().MessageConcurrency
+		}
+	}
+	handlerRecords, err := record.NewHandlerWriter(r.recordDir, r.name, max(1, concurrency))
 	if err != nil {
 		return err
 	}

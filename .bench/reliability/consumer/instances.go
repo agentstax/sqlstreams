@@ -24,7 +24,7 @@ type Instances struct {
 	stream   string
 	group    string
 	failRate float64
-	writer   *record.Writer
+	writer   *record.HandlerWriter
 	name     string
 	failed   chan error
 
@@ -37,7 +37,7 @@ type runningInstance struct {
 	done chan struct{}
 }
 
-func NewInstances(handle *sqlstreams.ConsumerHandle[common.Order], cfg *sqlstreams.ConsumerConfig, consume *sqlstreams.ConsumeOptions, stream string, group string, failRate float64, writer *record.Writer, name string, failed chan error) (*Instances, error) {
+func NewInstances(handle *sqlstreams.ConsumerHandle[common.Order], cfg *sqlstreams.ConsumerConfig, consume *sqlstreams.ConsumeOptions, stream string, group string, failRate float64, writer *record.HandlerWriter, name string, failed chan error) (*Instances, error) {
 	if handle == nil {
 		return nil, errors.New("handle must not be nil")
 	}

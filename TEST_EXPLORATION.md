@@ -771,9 +771,33 @@ the other session's janitor benchmark saturating the machine.
   lock_timeout in integer ms). The lock test waits only on the 100ms
   lock_timeout, which is the behavior under test. No tests: controller
   wrappers, the JSON adapter, ErrCompactionHeadNotFound (raised in admin).
-  Run order on resume: schedule, metric, produce, compaction, all
-  -race -count=1. Remaining roots with no directory: migrate (lock,
-  RunStep, schema state), system (Register, Get, Delete).
+  Migrate: 5 proposed, 1 cut (a NoTxn step -- wrapping it in a
+  transaction fails loudly on CREATE INDEX CONCURRENTLY), the stream
+  schema-state narrative trimmed to one read, not-registered trimmed to
+  two calls, 4 written 2026-09-10 under the benchmark hold -- compiled
+  and vetted only, never run. Files under `.tests/integration/migrate/`:
+  step_test.go (IsLocked false, true after AcquireLock, true after a
+  RunStep committed on the lock's connection, false after ReleaseLock; a
+  step whose apply creates migration_log_version then fails leaves no
+  index and only the baseline success row, TryRecordFailure writes the
+  version-2 failure row with the error text, Version stays 1, then the
+  succeeding step creates the index and Version reads 2), version_test.go
+  (system: up 2 floor 0, up 3 floor 3 -> {3,3}; down to 2 -> {2,0};
+  the stream owner's up-to-3 reads {3,3} on StreamSchemaState while the
+  system still reads {2,0}; SystemOwner on a tableless schema and
+  StreamSchemaState(404) both ErrNotRegistered). setup_test.go:
+  versionIndex const, errStepFailed, newMigrateDatastore (migrations,
+  system), newUnregisteredMigrateDatastore, registerStream, systemOwner,
+  streamOwner, acquireLock (ReleaseLock at cleanup), transactionalStep
+  (NewStep with no validate), indexExists, countMigrationRows, and the
+  step applies applyNothing, createVersionIndex,
+  createVersionIndexThenFail (all DDL is an index on migration_log). No
+  tests: ErrStepLockTimeout (2s lock_timeout times the retry curve),
+  ListStreams, the controller's range checks and step-index math, the
+  registry Validate (unit-tested).
+  Run order on resume: schedule, metric, produce, compaction, migrate,
+  all -race -count=1. Remaining root with no directory: system
+  (Register, Get, Delete).
 - Shape rule added to CONVENTIONS Part 5 (Test shape): tables hold values
   only; a set of verbs is straight-line calls and checks; no funcs in rows,
   no closures, no t.Run around one verb.

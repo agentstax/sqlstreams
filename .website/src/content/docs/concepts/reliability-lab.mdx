@@ -333,6 +333,13 @@ with at least 40GiB free on the host. Full recording writes two produce
 rows and one handler row per message. Checker imports need additional
 space after production ends; a longer run needs a storage estimate first.
 
+Concurrent handlers borrow separate record files, with one file per
+configured concurrent handler at the largest declared instance count.
+For `orders/processor` with one instance and message concurrency 4, the
+consumer process opens four `*.handler.jsonl` files. Each invocation writes
+and flushes its full record before returning. The checker reads all four;
+consumer identity stays in the record, independent of the file name.
+
 ### Reading the result
 
 The report separates production and consumption rates. Backlog samples
