@@ -52,6 +52,8 @@ roadmap later item for review code for interesting design decisions to write art
   - but its effect on day to day maintaining and extending code is minimal
 - Showing a feature coding session with setup and prompts and how much back and forth there is
   - would need snapshots of git diffs after each prompt or manual change
+- why topic per table instead of single table with LIST and RANGE subpartitions (0757 decision)
+- why cursor claim ranges, instead of singular or bit map with holes
 
 # Review
 
