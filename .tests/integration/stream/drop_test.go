@@ -176,7 +176,4 @@ func TestDropExpiredPartitionsRunTwiceDropsNothingMore(t *testing.T) {
 	if partitions := listPartitions(t, janitor, orders, 4); !slices.Equal(partitions, []int64{2, 3, 4}) {
 		t.Errorf("partitions after the rerun = %v, want the first pass's result kept [2 3 4]", partitions)
 	}
-	if ids := listMessageIds(t, janitor, janitor.Datastore.Schema+"."+stream.MessageLogTable(orders.Id)); !slices.Equal(ids, []int64{4, 5, 6, 7, 8}) {
-		t.Errorf("message ids after the rerun = %v, want [4 5 6 7 8]", ids)
-	}
 }

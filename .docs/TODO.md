@@ -44,6 +44,62 @@ test -race -count=1 ./reliability/...`, then `just reliability-lab dev`
 green, then the chunk's own sabotage. A green run is trusted only after
 the sabotage turns it.
 
+### Scratch/lab recording isolation (2026-09-11, in progress)
+
+- Comparing the original scratch workload with the actual lab record writers
+  enabled and disabled in the same producer/consumer processes. Five-minute
+  warmup, then four three-minute windows: on/off/on/off. Producer uses the
+  previously tested batch-flush candidate; consumer uses the current four-file
+  HandlerWriter. Original scratch identity verification remains active throughout.
+  This tests the combined recording candidate, not the default per-row producer.
+- Study `recording_fence_validation_20260911_123246`, run `scratch_123307`.
+  Source overlays, build/vet output, exact switches, process counters, host guard,
+  and analyzer retained with evidence. Ignore first 30s and last 5s per window.
+  Raw CPU counters are Mach ticks despite field names; analyzer converts with
+  this host's measured timebase 125/3. No library or default lab code changed.
+- Thirty-second smoke verified 300,000 identities exactly once and both repeated
+  switches; 89,000 recorded attempts had matching successful outcomes. Two
+  earlier validation attempts are excluded before measurement: one stopped to
+  fix live archive storage accounting, one interrupted by another session's
+  PostgreSQL 17 container startup. User arranged a quiet window for this attempt.
+- Audit: frozen scratch versus current library production code and dependencies
+  are unchanged (only two test files differ). Both batch APIs generate UUIDv7
+  keys, and both unpaced loops use four persistent callers. Remaining differences
+  include payload construction/shape, recording, monitoring, and startup timing.
+
+### Native scratch reference reconfirmation (2026-09-11, complete)
+
+- User requested returning to the original scratch workload to confirm the
+  earlier65k/s operating point. Reused exact frozen binary SHA256
+  b9a90cf4c0df65f0c7d71c096b708f8bc6c6c994c85d8429d6701df83eec28de,
+  library bb94ebcc; no rebuild against current library. Same configuration
+  as `consumer_pool_validation_20260910_211820`: continuous1800s,4x250
+  producer/pool8; consumerpool8/claim16k/queue64k/handlers4/poll100ms;
+  GOMAXPROCS4/GOGC400/GOMEMLIMIT2GiB each;1000-byte messages; native durable
+  PostgreSQL18.6/shared_buffers6GB/WAL8GB; TTL120s/grace30s/partition1m;
+  janitorpoll1s/batch10k/cleanup30s,vacuumpoll120s/timeout60s.
+- Completed `scratch_reconfirm_validation_20260911_113318` / `scratch_113338`:
+  129,811,000 produced identities consumed exactly once, zero application
+  errors/duplicates/maintenance failures, zero sampled maintenance retries.
+  Final15min64,649.66produced/64,646.33consumed per second versus original
+  65,075.52/65,057.32 (-0.65%/-0.63%). CONFIRMS roughly65k/s for the original
+  scratch configuration; no absolute-maximum or current-library claim.
+- Five-minute producer/consumer windows:0–5min102,235/102,259(opening burst),
+  5–10min68,759/68,733;10–15min67,690/67,664;15–20min63,898/63,904;
+  20–25min64,575/64,745;25–30min65,477/65,287. Nearest sample endpoints
+  differ slightly. Final five minute backlog medians12.6–19.3k, finalminute
+  median15k/max58,076; progress sampling includes lag, not exact queue count.
+  Final expiry query found zero expired keys at producer-stop cutoff and
+  8,323,000 retained keys. Whole-run consumer p99 upper bound3472ms.
+- Native scratch peak35.005GB,minhostfree107.477GB;0swapouts. Storage guard
+  also included retained reliability evidence under the100GBcombined cap
+  and40GiBfree floor.1,776hostguardframes,maxgap2.40s,no violation or Go
+  tooling load. Database removed; PostgreSQL durability/autovacuum kept ON,
+  deadlock_timeout1s/log_lock_waitsOFF restored. Frozen binary/source archive,
+  exact configs, identity evidence, guard, comparison.json, verdict.json and
+  reproducible analyzer retained. Only scratch orchestration paths/provenance
+  and accounting for reliability archives changed; no workload changes.
+
 ### Native maximum-throughput scenario (2026-09-10, in progress) [0745]
 
 User approved returning the scratch workload to the existing lab roles,
@@ -175,8 +231,66 @@ full attempted/outcome/handler recording before considering sampling.
   sustained capacity result; zero checkpoints in this shortened measurement.
   Database removed; complete records archived and gzip integrity checked.
   Storage and microbenchmark details are in the run's `analysis.json`.
-- [ ] Run the independent consumer recorder at the original 10-minute duration
-  before claiming a steady-state improvement against the shared-writer control.
+- [x] Matched independent-recorder run `reliability_20260910_222048`:
+  600s workload plus 16m35s checker; verdict PASS, all 38,661,000 messages
+  committed and handled once, zero lost/duplicate/error/reclaim/dead outcomes.
+  Warmup 76,129 produced / 76,094 consumed per second; five-minute hold
+  52,276 / 52,296, backlog slope -33.4 allocated IDs/s. Shared-writer control
+  `reliability_20260910_202351` held 54,329 / 58,958 while draining a large
+  startup backlog: producer rate here is 3.78% lower, not an improvement.
+  Hold backlog median 47,125 vs 899,070; peak 106,933 vs 1,988,391;
+  start/end 47,500/26,000 vs 1,976,890/580,797. End-to-end p50 162ms vs
+  14.06s; p99 1.59s vs 34.78s. Consumer median CPU 123% vs 183% of one
+  core, producer 83% vs 97%. Different rates and backlog make CPU totals
+  unsuitable as a direct per-message efficiency comparison.
+  Exact pg_settings and scenario matched; effective worker/stream settings
+  matched after removing generated IDs/timestamps. No production pkg changes
+  between recorded library commits 97cf389fa52f and f2e58a015e6a. This is a
+  sequential comparison, not repeated randomized evidence of a rate change.
+  Maintenance failures 0; all 1,499 exception guard frames enabled/live 0.
+  Swapouts 0, swapins 1,284 pages between pre-run and just-after-production
+  samples. Peak combined storage 71.196GB, minimum host free 80.409GB.
+  Database dropped automatically. Raw records 27.427GB compressed to 1.353GB;
+  gzip integrity passed. Run analysis.json, configuration-comparison.json
+  and backlog-comparison.json retain supporting comparisons.
+  Conclusion: consumer recording now keeps up without the former large lag,
+  but it did not recover the 65k/s reference. Keep this recorder; the next
+  useful bounded comparison is the already-tested producer batch-record
+  flush candidate combined with it, including the same maintenance checks.
+  No additional application configuration tuning or SSD investigation needed
+  to interpret this result.
+
+- [x] Combined producer batch-flush + independent consumer recorder:
+  `reliability_20260910_230258`, 600s workload plus 17m28s checker. Go overlay
+  applies the previously saved producer candidate to current consumer code;
+  default source untouched. Record/producer/consumer/runner targeted race
+  tests, vet and build passed, including whole-batch visibility before return.
+  Actual replacements and binary retained in run `_candidate` and `reliability`;
+  `_source` is the working tree, so the overlay must accompany reproduction.
+  Message verdict PASS: 42,218,750 committed and handled once; zero message
+  errors, losses, duplicates, reclaims, or dead outcomes. Warmup 85,810/85,771
+  produced/consumed per second. Hold 54,859/54,886, backlog slope -67IDs/s;
+  preceding independent-consumer-only control held 52,276/52,296. Observed
+  produce +4.94%, producer CPU 38.4% vs 83.5% of one core (-54.0%);
+  consumer CPU 106.5% vs 123.2%, PG 131.8% vs 121.0%. Hold backlog median
+  48,304 vs 47,125; peak 159,074 vs 106,933; start/end 94,340/15,000.
+  Hold end-to-end p99 1.83s vs 1.59s; no claim that latency improved.
+  MAINTENANCE NOT CLEAN: one stream_janitor failed attempt during warmup.
+  Server 23:06:36.578 logs DROP message_log_4_7 canceled by lock_timeout;
+  AccessExclusiveLock on parent message_log_4 (OID396077) was blocked by
+  four transactions (PIDs70449/70419/70370/70418), with a queued consumer
+  read behind it. Client warning appears23:06:59.909. A preceding drop of
+  partition8 waited briefly on autovacuum and succeeded: separate event.
+  Full failure row and surrounding server log preserved. This establishes
+  a parent-table lock conflict, not that recording changes caused it.
+  Exact pg_settings/scenario and normalized stream/worker configs match;
+  library commit delta contains test files only. No swapouts,179swapin pages;
+  all1,532 exception guard frames enabled/live0. Peak storage77.977GB,
+  minfree73.569GB. Database dropped;29.958GB raw records compressed to1.363GB,
+  gzip integrity passed; sizes in analysis.json. Keep this as a candidate, not a clean capacity
+  winner: modest single-pair gain and large producer CPU savings, but still
+  below65k/s with a maintenance failure. No timeout increase or new storage
+  investigation made in this comparison.
 
 - [ ] Record measured producer AND consumer rates, backlog trend, maintenance
   outcomes, storage peak/cleanup, and comparison limits before choosing

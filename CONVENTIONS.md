@@ -1043,7 +1043,7 @@ Every test is exactly one of three kinds, named by footprint:
   process with no I/O and no wait on the clock -- no connection, no
   `time.Sleep`, no goroutine blocked on a timer outside a
   `testing/synctest` bubble -- and runs under `go test ./...` from the
-  root with nothing installed.
+  root with nothing installed. (checked)
 - An **integration test** lives under `.tests/integration/`, in the
   dev-only `.tests` module, and runs against a real Postgres that the
   test binary starts in Docker. `just test-integration` runs them all.
@@ -1142,7 +1142,7 @@ One shape for both kinds, the same in every module.
 - Setup goes through the real registration verbs -- a system, stream, or
   consumer group is registered, never built from copied `CREATE TABLE`
   text -- the DDL sibling of "tests call the real datastore methods,
-  never a copy of their SQL".
+  never a copy of their SQL". (checked)
 - No `t.Parallel()`; no goroutine-count assertions.
 
 ## The .tests module
@@ -1158,7 +1158,7 @@ trees: `integration/` for integration tests and `e2e/` for e2e programs.
   when the test ends, in a Postgres container the test binary starts on
   first use; the reaper removes the container when the process exits.
   `SQLSTREAMS_TEST_DATABASE_URL`, when set, names a server to use instead
-  of a container, and `.tests/integration/postgres` is its only reader.
+  of a container, and `.tests/integration/postgres` is its only reader. (checked)
 - One directory per domain root under `integration/`, mirroring
   `pkg/<root>` (`.tests/integration/worker`, `.tests/integration/consume`),
   package named for the root, holding only `_test.go` files: one

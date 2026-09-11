@@ -1,8 +1,7 @@
-# Playground
+# Examples
 
-Thirteen small programs, one concept each, against a local Postgres. Every
-scenario is a `main.go` you run from the repo root. Read the header comment
-first: it names the concept, the story, and any scenario to run before it.
+Every example you should run from repo root.
+Read the file header comment first, it helps explain things.
 
 ## Install
 

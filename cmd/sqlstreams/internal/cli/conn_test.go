@@ -1,15 +1,13 @@
 package cli
 
 import (
-	"context"
 	"log/slog"
 	"strings"
 	"testing"
-
-	"github.com/agentstax/sqlstreams/pkg/datastore"
-	"github.com/agentstax/sqlstreams/pkg/sqlstreamstest"
 )
 
+// closed set: every usage error the connection settings can raise, each
+// rejected before anything dials.
 func TestConnectionRejectsInvalidSettingsBeforeDial(t *testing.T) {
 	t.Setenv(databaseURLEnv, "")
 	t.Setenv(schemaEnv, "")
@@ -25,46 +23,36 @@ func TestConnectionRejectsInvalidSettingsBeforeDial(t *testing.T) {
 		{"search path", "postgres://localhost/unused?search_path=other", "", "sets search_path"},
 	} {
 		t.Run(sample.name, func(t *testing.T) {
-			connection, err := newConnection(context.Background(), sample.url, sample.schema, slog.LevelError)
-			if connection != nil || err == nil || !strings.Contains(err.Error(), sample.want) {
-				t.Fatalf("expected %q, got %v", sample.want, err)
+			poolConfig, datastoreConfig, err := resolveConnection(sample.url, sample.schema, slog.LevelError)
+			if poolConfig != nil || datastoreConfig != nil || err == nil || !strings.Contains(err.Error(), sample.want) {
+				t.Fatalf("resolveConnection(%q, %q) = %v, %v, %v, want a usage error containing %q", sample.url, sample.schema, poolConfig, datastoreConfig, err, sample.want)
 			}
 		})
 	}
 }
 
-func TestConnectionPoolOwnership(t *testing.T) {
-	url := sqlstreamstest.DatabaseURL(t)
-	ctx := t.Context()
-	t.Setenv(databaseURLEnv, "https://invalid.example/ignored")
+// behavior: a flag wins over its environment variable, and an empty flag
+// falls back to it -- for the URL and the schema alike.
+func TestConnectionResolvesFlagsBeforeTheEnvironment(t *testing.T) {
+	// setup
+	t.Setenv(databaseURLEnv, "postgres://from-environment:5433/unused")
 	t.Setenv(schemaEnv, "from_environment")
-	connection, err := newConnection(ctx, url, "from_flag", slog.LevelError)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer connection.Close()
-	advanced, err := datastore.NewPostgresDatastore(ctx, connection.pool, connection.config)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if advanced.Schema != "from_flag" {
-		t.Fatal("flag schema did not reach the advanced datastore")
-	}
-	if advanced.Pool != connection.pool || advanced.Retry != connection.config.Retry {
-		t.Fatal("advanced datastore did not reuse the owned pool and resolved retry settings")
-	}
-	connection.Close()
-	if err := connection.pool.Ping(ctx); err == nil {
-		t.Fatal("connection.Close did not close its pool")
-	}
 
-	t.Setenv(databaseURLEnv, url)
-	fromEnvironment, err := newConnection(ctx, "", "", slog.LevelError)
+	// test
+	fromFlags, flagConfig, err := resolveConnection("postgres://from-flag:5432/unused", "from_flag", slog.LevelError)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer fromEnvironment.Close()
-	if fromEnvironment.config.Schema != "from_environment" {
-		t.Fatal("schema environment fallback was lost")
+	fromEnvironment, environmentConfig, err := resolveConnection("", "", slog.LevelError)
+
+	// verify
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fromFlags.ConnConfig.Host != "from-flag" || flagConfig.Schema != "from_flag" {
+		t.Errorf("resolveConnection(flags) = host %q, schema %q, want from-flag and from_flag", fromFlags.ConnConfig.Host, flagConfig.Schema)
+	}
+	if fromEnvironment.ConnConfig.Host != "from-environment" || environmentConfig.Schema != "from_environment" {
+		t.Errorf("resolveConnection(empty flags) = host %q, schema %q, want from-environment and from_environment", fromEnvironment.ConnConfig.Host, environmentConfig.Schema)
 	}
 }

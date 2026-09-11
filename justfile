@@ -190,6 +190,10 @@ manager-autorun-e2e:
 shutdown-truncation-e2e:
     go run ./.tests/e2e/shutdowntruncation/main.go
 
+# Signal cases: a killed producer, a producer and a consumer under SIGTERM, a second SIGTERM past a hung handler.
+signal-e2e:
+    go run ./.tests/e2e/signal/main.go
+
 # Measure lazy versus synchronous advancement of a consumer group's committed cursor.
 rollup-e2e:
     go run ./.tests/e2e/rollup/main.go

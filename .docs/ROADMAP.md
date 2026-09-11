@@ -49,35 +49,16 @@ the item is removed.
 
 - **Test suite: unit/integration split, `.tests` module, e2e conversion**
   (14c) -- rules in CONVENTIONS Part 5, settled in [0736] (superseding
-  [0730] [0731]; tree settled in [0737]). Unit tests beside the code;
-  integration tests under `.tests/integration/`, one directory per domain
-  root, over testcontainers; e2e programs under `.tests/e2e/`; the
-  subject of an integration test is a domain's datastore. Working one
-  domain at a time from an approved promise list: worker first (all 12
-  promises written 2026-09-09 in `.tests/integration/worker/`; #1 ran
-  green, #2-#12 compiled only, awaiting a Docker run),
-  then consume (`claim_test.go` moves), stream (the janitor sweep and
-  idempotency tests move), schedule, alert, metric. `TEST_EXPLORATION.md`
-  at root holds the research and is deleted at close-out.
-  - Pending: delete `pkg/sqlstreamstest` once `.bench/scratchnative` and
-    the janitor tests no longer import it; `cmd/sqlstreams` conn_test and
-    `.bench/reliability` measure_test read the env var directly.
-  - Pending: `(checked)` candidates for .tools/conventions, each sabotaged
-    before trusted: no `_test.go` under `pkg/` imports pgx or opens a
-    connection; no `time.Sleep` in a `_test.go` outside a `synctest`
-    bubble; no `CREATE TABLE` text in a `_test.go`; `SQLSTREAMS_TEST_*`
-    read only by `.tests/integration/postgres` and `.tests/e2e/common`;
-    no e2e program
-    declaring its own `must`.
-  - Pending e2e program `.tests/e2e/signal`, the four cases with no home yet: a
-    producer under SIGKILL leaves no prepared transaction or ungranted
-    lock; a producer under SIGTERM through `LifecycleContext` exits 0 with
-    the in-flight message committed; a consumer under SIGTERM exits 0
-    promptly; a second SIGTERM past a hung handler force-exits with status
-    128 plus the signal, never waiting out Timeout plus TimeoutGrace.
-  - Integration test `DropExpiredPartitions` called twice succeeds (a retry
-    after an ambiguous commit): written 2026-09-10 in
-    `.tests/integration/stream/drop_test.go`, unrun.
+  [0730] [0731]; tree settled in [0737]). Shipped 2026-09-11: every domain
+  root has its integration directory under `.tests/integration/` and the
+  whole suite is green under -race; four `(checked)` rules in
+  .tools/conventions test_kinds_test.go; `.tests/e2e/signal` behind
+  `just signal-e2e`. Left open:
+  - Delete `pkg/sqlstreamstest` once `.bench/reliability` measure_test
+    stops importing it (the last importer).
+  - The 55 e2e programs adopt `.tests/e2e/common` Must/Die/Assert/Recover
+    (signal uses them today); then the no-private-`must` rule becomes a
+    `(checked)` test.
 
 - **Move the public entry package out of pkg/** — follow through on [0665]
   and [0670] once its destination is selected. Update imports and path-aware
@@ -95,31 +76,6 @@ the item is removed.
   so no legacy-route redirects are required for the rename.
 
 ## Next
-
-- **Whole-partition retention with explicit maximum-timestamp metadata.**
-  - Reassess after [0734]: user accepts approximate id/timestamp order;
-    evaluate the oldest-row sweep precheck before this larger redesign.
-  Replace repeated per-row expiry scans with partition lifecycle management
-  that drops sealed partitions only when their greatest message timestamp
-  has expired and consumer cursors permit deletion. User selected this as
-  the next design direction after native retention benchmarking exposed
-  million-row scans returning no expired rows and janitor timeouts.
-  - Preserve protection for lagging consumers and transactional cleanup of
-    associated rows. Highest message id does not imply newest created_at:
-    concurrent transactions and NOW() transaction timestamps can invert
-    their order. Resolve that correctness risk explicitly; timeout tuning
-    does not fix it.
-  - Define partition sealing/rotation for low-volume and idle streams, safe
-    maximum-timestamp maintenance under concurrent/late commits, and the
-    extra retention beyond TTL caused by whole-partition deletion. Surface
-    retained bytes, expiry backlog, oldest retained age and cleanup failures
-    so operators can see delayed cleanup rather than silently growing disk.
-  - Benchmark metadata write contention, WAL/index cost and steady paired
-    throughput over several cleanup cycles within the storage budget.
-    Idempotency-key expiry remains a separate cleanup workload.
-  - Interim: test longer janitor cleanup deadlines and polling intervals in
-    scratch benchmarks; keep current row-level semantics. Evidence:
-    `.bench/scratchnative/results/evidence/native18/scratch_142040/`.
 
 - **Idle-fleet worker-load benchmark** (14c; measure BEFORE building any
   fix). An idle deployment pays per worker row per poll: winner's claim
@@ -212,6 +168,31 @@ the item is removed.
 
 Pre-v1 — the 14b public-API pass, then measurement, evaluation, and
 documentation; the latter want a surface that has stopped moving.
+
+- **Whole-partition retention with explicit maximum-timestamp metadata.**
+  - Reassess after [0734]: user accepts approximate id/timestamp order;
+    evaluate the oldest-row sweep precheck before this larger redesign.
+  Replace repeated per-row expiry scans with partition lifecycle management
+  that drops sealed partitions only when their greatest message timestamp
+  has expired and consumer cursors permit deletion. User selected this as
+  the next design direction after native retention benchmarking exposed
+  million-row scans returning no expired rows and janitor timeouts.
+  - Preserve protection for lagging consumers and transactional cleanup of
+    associated rows. Highest message id does not imply newest created_at:
+    concurrent transactions and NOW() transaction timestamps can invert
+    their order. Resolve that correctness risk explicitly; timeout tuning
+    does not fix it.
+  - Define partition sealing/rotation for low-volume and idle streams, safe
+    maximum-timestamp maintenance under concurrent/late commits, and the
+    extra retention beyond TTL caused by whole-partition deletion. Surface
+    retained bytes, expiry backlog, oldest retained age and cleanup failures
+    so operators can see delayed cleanup rather than silently growing disk.
+  - Benchmark metadata write contention, WAL/index cost and steady paired
+    throughput over several cleanup cycles within the storage budget.
+    Idempotency-key expiry remains a separate cleanup workload.
+  - Interim: test longer janitor cleanup deadlines and polling intervals in
+    scratch benchmarks; keep current row-level semantics. Evidence:
+    `.bench/scratchnative/results/evidence/native18/scratch_142040/`.
 
 - **Consider successful maintenance-pass tracking** -- evaluate whether janitor
   and vacuum status should expose the last completed pass separately from
