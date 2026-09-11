@@ -15,8 +15,8 @@ export const boards: Board[] = [
 	{
 		title: 'Getting Started',
 		slug: 'getting-started',
-		description: 'first produce and consume, why SQLStreams, a demo, and the roadmap',
-		threads: () => ['quickstart', 'why-sqlstreams', 'benchmarks', 'demo', 'roadmap'],
+		description: 'first produce and consume, why SQLStreams, benchmarks, and the roadmap',
+		threads: () => ['quickstart', 'why-sqlstreams', 'benchmarks', 'roadmap'],
 	},
 	{
 		title: 'Concepts',
@@ -35,9 +35,6 @@ export const boards: Board[] = [
 			'concepts/ordering',
 			'concepts/architecture',
 			'concepts/table-design',
-			'concepts/metrics-export',
-			'concepts/alert-history',
-			'concepts/reliability-lab',
 		],
 	},
 	{

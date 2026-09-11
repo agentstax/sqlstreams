@@ -6,8 +6,8 @@ description: Where SQLStreams is, where it's going, and what we want your opinio
 import ThreadAside from '../../components/thread-aside/thread-aside.svelte';
 
 SQLStreams is early, in the open, and built in deliberate layers — each one
-proven against failure-injection e2e tests (kill -9 mid-process, crash
-mid-commit, expired-lease reclaim) before the next goes on top. This page
+proven against integration tests over a real Postgres and an hour-long
+reliability run that ends in one verdict before the next goes on top. This page
 is the honest state of the world: what ships today, what's in flight, and
 what waits for a real workload to demand it.
 
@@ -39,13 +39,14 @@ The core described throughout these docs is shipped, not planned:
   oldest library version that can run against it, checked at migration
   time ([upgrades →](/guides/migrations/)).
 
-## Now: honest numbers
+## Now: measured numbers
 
-The current work is a benchmark methodology and recording pipeline —
-repeatable method, append-only records, regressions visible over time.
-Until it lands, these docs quote **no** throughput or latency numbers;
-when it lands, every number on this site will cite a recorded run. The
-docs themselves are mid-rewrite to that standard.
+Every number on this site cites a recorded run; the
+[benchmarks page](/benchmarks/) holds the sustained-throughput result and
+how to reproduce it. The current work is the lab itself — one command
+that runs a whole scenario, native or in Compose — and then recovery
+under load: a chosen fault, the backlog it leaves, and how long the drain
+takes.
 
 ## Next: the v1 surface
 

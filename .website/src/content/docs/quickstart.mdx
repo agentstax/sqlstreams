@@ -189,9 +189,8 @@ received welcome email request for user-123
 
 Startup also writes logs to stderr. On a fresh installation,
 `alert evidence is insufficient` means an alert check has too little
-metric history to evaluate yet; it does not mean the message failed.
-[Alert history](/concepts/alert-history/#recording-and-evidence-gaps)
-explains missing evidence.
+metric history to evaluate yet; it does not mean the message failed. It
+stops once the collector has recorded a couple of minutes of samples.
 
 The process keeps waiting for messages. Press Ctrl-C to stop it:
 `LifecycleContext` turns SIGINT and SIGTERM into cancellation, and

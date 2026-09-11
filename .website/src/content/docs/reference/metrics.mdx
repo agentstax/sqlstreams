@@ -120,8 +120,8 @@ Consumer-session series have no typed handle yet and are read through
 after every read and measurement write in a collector pass succeeds.
 Startup and partial passes do not refresh it. No retained value means no
 retained completion evidence, not a timestamp of zero. The independent
-[collector-progress alert](/concepts/metrics-export/#observe-collector-progress-independently)
-combines completion with retained manager lease coverage.
+collector-progress alert combines completion with retained manager lease
+coverage ([0700](/decisions/0700/)).
 
 ## Your own measurements
 
@@ -165,5 +165,11 @@ series appears in `Latest` and never in `Definitions`.
 - Consuming `__system.metrics` is not a guarantee of every intermediate
   value: compaction applies there too.
 - The optional `otel` module exports these through OpenTelemetry and
-  Prometheus; [metrics export](/concepts/metrics-export/) is the proposal
-  for the parts still open.
+  Prometheus. Every collection reads the latest retained values; counters
+  export their stored cumulative totals, so reading 120 twice exports 120.
+  Two collection-local gauges, `sqlstreams_otel_source_read_success` and
+  `sqlstreams_otel_measurements_rejected`, say whether Postgres was read and
+  how many retained rows were omitted; the warning
+  [measurements cannot be exported](/errors/SQL0104/) names the family.
+- Run one export target per installation. Replicas read the same deployment
+  totals, so summing them counts every measurement once per replica.

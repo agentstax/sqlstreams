@@ -93,11 +93,15 @@ already active.
   `PendingDuration` and `MaximumGap` default to two minutes; `DisablePending: true` allows
   immediate activation but still requires fresh evidence. Missing or stale
   evidence leaves recorded alerts unchanged and increments the check's failed
-  stream count. See [measurement history](/concepts/alert-history/) for the rules.
+  stream count. The rule: the newest collected sample must be younger than
+  `MaximumGap`, and the alert activates once consecutive unhealthy samples
+  with no gap wider than `MaximumGap` span `PendingDuration`. A restart gap
+  earns no duration; a single sample never activates by waiting.
 - Collector progress requires two minutes of overdue or absent completion
   during continuous manager lease coverage. A coverage gap restarts pending;
   insufficient evidence leaves the recorded alert unchanged and logs a warning.
-  See [collector progress](/concepts/metrics-export/#observe-collector-progress-independently).
+  Coverage is read from `worker_instance_log`, so a released or crashed
+  manager counts until its last recorded expiry ([0700](/decisions/0700/)).
 - An alert's key is its owner's id, so the read resolves the name first.
   Destroy the stream and `stream.Alerts().PartitionCount().Latest(ctx)`
   returns `ErrStreamNotFound` rather than the last alert; a missing group is
@@ -112,6 +116,7 @@ already active.
   `AlertEvaluationStateHealthy`, `AlertEvaluationStatePending`,
   `AlertEvaluationStateActive`, or `AlertEvaluationStateInsufficientEvidence`.
   `Finding` accompanies pending/active states; `Reason` explains insufficient
-  evidence for display. Timing and resolved settings are described in
-  [evaluation diagnostics](/concepts/alert-history/#inspect-the-current-evaluation).
+  evidence for display. `EvaluatedAt`, `ObservedAt`, `UnhealthySince`, and
+  `ObservedDuration` carry the timing, and the resolved `PendingDuration`,
+  `MaximumGap`, and `MaximumAge` the policy it ran under. Nothing is persisted.
   `Latest` and `History` still read recorded alerts, so their results can differ.
