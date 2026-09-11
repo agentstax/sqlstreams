@@ -49,6 +49,15 @@ func run() (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	if flags.role == "report" {
+		runs, err := checker.ReadRuns(flags.resultsDir, flags.scenario)
+		if err != nil {
+			return 0, err
+		}
+		fmt.Print(checker.RunsReport(flags.scenario, runs))
+		return 0, nil
+	}
+
 	declared, ok := scenarios.ByName(flags.scenario)
 	if flags.scenarioFile != "" {
 		encoded, err := os.ReadFile(flags.scenarioFile)
@@ -74,14 +83,6 @@ func run() (int, error) {
 	}
 	if flags.role == "print" {
 		fmt.Print(declared.String())
-		return 0, nil
-	}
-	if flags.role == "report" {
-		runs, err := checker.ReadRuns(flags.resultsDir, declared.Name)
-		if err != nil {
-			return 0, err
-		}
-		fmt.Print(checker.RunsReport(declared.Name, runs))
 		return 0, nil
 	}
 

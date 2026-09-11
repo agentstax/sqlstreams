@@ -15,16 +15,26 @@ written so you can judge what
 
 <ThreadAside label="NOTE" title="What ships today">
 `quiet` runs an hour at 200 messages a second with three consumer instances
-and no chaos; `dev` runs one minute. The `multistream-1`, `-4`, and `-16`
-scenarios step the offered rate across different stream counts. `throughput`
-is a 30-second probe with 1 KB messages and automatic batching.
-`max-throughput` measures 25 minutes after a five-minute warmup. Both throughput
-scenarios disable per-message recording and report aggregate counters; their
-verdicts do not prove message identity checks or detailed latency. The
-[throughput benchmark](/benchmarks/) records the workload and evidence.
-`just reliability-lab dev` builds the stack, runs it, and
-exits with the verdict. Sections headed "Proposed" describe work not yet built. The [demo page](/demo/) is the same idea
-packaged for you to run in five minutes.
+and no chaos. `just reliability-smoke` runs one minute of that same scenario;
+`just reliability-lab quiet` runs the full hour. Short runs check the lab but
+do not establish sustained capacity.
+
+The experimental `multistream-1`, `-4`, and `-16` scenarios compare deployments
+at equal total offered rates. Stream count, group count, consumer instances,
+and producer batch workers grow together, so these runs do not isolate the
+cost of adding streams.
+
+`max-throughput` measures 25 minutes after a five-minute warmup, with retention
+and key vacuum enabled. It disables per-message recording and reports aggregate
+counters; its verdict does not prove message identity checks or detailed latency.
+The [throughput benchmark](/benchmarks/) records the workload and evidence.
+
+The old `dev` and `throughput` declarations are retired. Their recorded results
+remain available through `just reliability-report dev` and
+`just reliability-report throughput`. New short quiet runs are recorded under
+`quiet`, with their time scale included in the report's comparison identity.
+Sections headed "Proposed" describe work not yet built. The [demo page](/demo/)
+is the same idea packaged for you to run in five minutes.
 
 </ThreadAside>
 

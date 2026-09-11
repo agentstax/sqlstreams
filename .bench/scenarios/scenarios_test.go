@@ -29,8 +29,8 @@ func TestDeclarationsMatchTheirFiles(t *testing.T) {
 }
 
 func TestByName(t *testing.T) {
-	if _, ok := ByName("dev"); !ok {
-		t.Fatal("dev scenario is not declared")
+	if _, ok := ByName("quiet"); !ok {
+		t.Fatal("quiet scenario is not declared")
 	}
 	if _, ok := ByName("nope"); ok {
 		t.Fatal("ByName found a scenario that does not exist")

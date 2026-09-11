@@ -54,7 +54,7 @@ services:
       context: ..
       dockerfile: .bench/Dockerfile
     hostname: producer
-    command: ['-role', 'producer', '-scenario', '${SCENARIO:-dev}', '-time-scale', '${TIME_SCALE:-1}', '-record-dir', '/records']
+    command: ['-role', 'producer', '-scenario', '${SCENARIO:-quiet}', '-time-scale', '${TIME_SCALE:-1}', '-record-dir', '/records']
     deploy:
       resources:
         limits:
@@ -76,7 +76,7 @@ services:
     build:
       context: ..
       dockerfile: .bench/Dockerfile
-    command: ['-role', 'consumer', '-scenario', '${SCENARIO:-dev}', '-time-scale', '${TIME_SCALE:-1}', '-record-dir', '/records']
+    command: ['-role', 'consumer', '-scenario', '${SCENARIO:-quiet}', '-time-scale', '${TIME_SCALE:-1}', '-record-dir', '/records']
     deploy:
       resources:
         limits:
@@ -100,7 +100,7 @@ services:
       context: ..
       dockerfile: .bench/Dockerfile
     hostname: observer
-    command: ['-role', 'observer', '-scenario', '${SCENARIO:-dev}', '-time-scale', '${TIME_SCALE:-1}', '-record-dir', '/records']
+    command: ['-role', 'observer', '-scenario', '${SCENARIO:-quiet}', '-time-scale', '${TIME_SCALE:-1}', '-record-dir', '/records']
     environment:
       SCENARIO_FILE: ${SCENARIO_FILE:-}
       POSTGRES_HOST: postgres
@@ -119,7 +119,7 @@ services:
       context: ..
       dockerfile: .bench/Dockerfile
     profiles: [checker]
-    command: ['-role', 'checker', '-scenario', '${SCENARIO:-dev}', '-time-scale', '${TIME_SCALE:-1}', '-record-dir', '/records', '-results-dir', '/results', '-fingerprint-file', '/results/fingerprint.json', '-stats-file', '/results/stats.jsonl', '-drain-budget', '${DRAIN_BUDGET:-2m}']
+    command: ['-role', 'checker', '-scenario', '${SCENARIO:-quiet}', '-time-scale', '${TIME_SCALE:-1}', '-record-dir', '/records', '-results-dir', '/results', '-fingerprint-file', '/results/fingerprint.json', '-stats-file', '/results/stats.jsonl', '-drain-budget', '${DRAIN_BUDGET:-2m}']
     environment:
       SCENARIO_FILE: ${SCENARIO_FILE:-}
       POSTGRES_HOST: postgres

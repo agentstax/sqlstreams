@@ -31,11 +31,11 @@ the item is removed.
     recording: duplicate produces can report message id zero.
   - Debug-buffer comparison: healthy-path NewPipelineLogger Buffer on/off,
     ten repetitions and benchstat; record the result against [0559].
-  - When this lands, fold the existing ad-hoc benches into the standard it
-    sets — one method/env/recording shape across .bench/: .bench/idempotency,
-    .bench/scale, .bench/trigger_fanout, the compaction hot-key
-    serialization bench (.bench/compaction, [0574]), and the consume-side
-    fillfactor bench (.bench/fillfactor, [0578]).
+  - Active benchmarks are steady delivery, sustained capacity, and an
+    experimental multi-stream deployment comparison. Completed investigations
+    retain evidence rather than gaining permanent scenarios. New scenarios
+    must name a recurring decision and a measurement the existing ones cannot
+    answer; do not rebuild the retired SQL and tuning matrices.
   - Design round 2026-08-22 (tabled for the documentation-first pass, which
     closed 2026-08-23 — this is now the front of Now):
     method + recording shape drafted in repo-root bench-methodology.html
@@ -158,6 +158,14 @@ the item is removed.
   indexing result so a future domain move or deployment can repeat them.
 
 ## Later
+
+- **Automatic-batching capacity comparison** — measure the ordinary automatic
+  batching path before making a capacity claim about it. The published explicit
+  batch workload is not a substitute; the retired 30-second probe was not a
+  capacity measurement.
+- **Recovery under load** — choose a fault and recovery objective before adding
+  a scenario. Measure recovery time, backlog drain, and replay with durable
+  identity evidence; graceful instance-count changes do not simulate crashes.
 
 Pre-v1 — the 14b public-API pass, then measurement, evaluation, and
 documentation; the latter want a surface that has stopped moving.

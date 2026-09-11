@@ -5,6 +5,27 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-11 — Benchmark workloads reduced to recurring questions [0750]
+
+Quiet and max-throughput remain the steady-delivery and sustained-capacity
+baselines; multi-stream remains an experimental deployment comparison. Dev
+is replaced by `just reliability-smoke`, a one-minute quiet run. The lab recipe
+requires a scenario, and the short throughput declaration is retired. Reports
+still read historical scenario names without an active declaration.
+
+Retired 50 tracked source files from the independent claim, compaction,
+fillfactor, scale, trigger-fanout, and native scratch experiments. Their exact
+source is frozen in `.bench/results/retired-source-2026-09-11.tar.gz`; historical
+results, published evidence, design notes, and local scratch evidence remain.
+No new benchmark or correctness-test scenario was introduced. The existing
+scenario lookup test now selects quiet because dev is intentionally retired.
+
+Validation: benchmark build, vet, formatting, and targeted race tests passed.
+CLI checks covered all five declarations, retired-name rejection, and historical
+reports. Smoke recipe expansion and the site build passed. All 51 existing
+evidence files are unchanged, and all 50 archived sources match their originals.
+No database benchmark or full e2e suite was run for this cleanup.
+
 ## 2026-09-11 — Benchmark runner promoted to .bench [0749]
 
 Moved the reliability lab's entry point, packages, scripts, Compose stack,

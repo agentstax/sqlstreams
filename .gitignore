@@ -25,11 +25,8 @@ go.work.sum
 /.tools/codeexport/codeexport
 /.tools/compat/compat
 /.tools/compatexport/compatexport
-/.bench/claim/claim
 /.bench/reliability
 /.bench/.bench
-/.bench/scale/projector/projector
-/.bench/*/driver/driver
 *.test
 *.prof
 *.pprof
