@@ -169,7 +169,7 @@ the item is removed.
 - **Recovery under load** — choose a fault and recovery objective before adding
   a scenario. Measure recovery time, backlog drain, and replay with durable
   identity evidence; graceful instance-count changes do not simulate crashes.
-  - Chaos-run shape drafted 2026-09 (moved off the reliability-lab page
+  - Chaos-run shape drafted 2026-09 (moved off the former benchmark page
     2026-09-11, tooling is not proposed on the site): one hour on `orders`
     with DeliveryLogMode all and a 0.02 handler fail rate; producer phases
     warm steady 200/s 10m, pause 1m, saturate 64 in flight 5m, ramp
@@ -191,7 +191,7 @@ the item is removed.
   reader verifies durability by hand in five minutes. The proposed page
   was removed 2026-09-11: its premise (the packaged failure-injection e2e
   tests) went when those tests became integration tests, and no scenario
-  driver exists yet. Pickup depends on the reliability-lab manager owning
+  driver exists yet. Pickup depends on the benchmark manager owning
   complete runs; the demo is that manager's run with a scoreboard.
 
 Pre-v1 — the 14b public-API pass, then measurement, evaluation, and
@@ -244,7 +244,7 @@ documentation; the latter want a surface that has stopped moving.
   verify that reclamation catches up. Reuse the existing metrics/alert
   machinery; define sampling cost and alert thresholds when this is picked up.
 
-- **Reliability scenarios declare the janitor's TTLs** -- the quiet run
+- **Benchmark scenarios declare the janitor's TTLs** -- the quiet run
   registers `orders` with defaults, so every janitor sweep returns before
   touching a row: retention 0 disables drop and sweep, the 24h idempotency
   key TTL never expires inside 60m, and 720k rows never fill a 1M-row

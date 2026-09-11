@@ -1,11 +1,8 @@
 package main
 
-// reliability lab: an hour of real producers and consumers against a real
-// Postgres, ending in one verdict. Every produce and every handler invocation
-// is written to a record file; after producers stop and consumers drain, the
-// checker joins those records against SQLStreams's own tables and sorts every
-// message into a named bucket. Design in decision record 0687; the proposal
-// page is .website/src/content/docs/concepts/reliability-lab.mdx.
+// The benchmark runner drives scenario-declared producers and consumers against
+// Postgres and ends each run with a checker verdict. Scenarios choose full
+// per-message evidence or aggregate counters.
 //
 // Manager coordinates complete runs; each child executes one role.
 // One binary, one role per process: -role producer walks the scenario's

@@ -1053,7 +1053,7 @@ Every test is exactly one of three kinds, named by footprint:
 
 There is no fourth kind. A single-process scenario that touches Postgres
 is an integration test, never a `_test.go` beside the code and never a
-new e2e program. The reliability lab (`.bench`) is the
+new e2e program. The benchmark runner (`.bench`) is the
 whole-system layer and keeps its own rules; `.tools/conventions` tests
 the rule sheet, not the library.
 

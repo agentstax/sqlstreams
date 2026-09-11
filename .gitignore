@@ -9,7 +9,7 @@ go.work.sum
 /.bin/*
 !/.bin/.gitkeep
 
-# reliability-lab runs: results/<scenario>/runs.jsonl is tracked, the
+# Benchmark runs: results/<scenario>/runs.jsonl is tracked, the
 # per-run directories and the recipe's scratch files are not
 .bench/results/*/*/
 .bench/results/fingerprint.json
@@ -21,7 +21,7 @@ go.work.sum
 /.tools/codeexport/codeexport
 /.tools/compat/compat
 /.tools/compatexport/compatexport
-/.bench/reliability
+/.bench/bench
 /.bench/.bench
 *.test
 *.prof

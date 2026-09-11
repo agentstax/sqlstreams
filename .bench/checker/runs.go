@@ -46,7 +46,7 @@ func ReadRuns(dir string, scenarioName string) ([]*Verdict, error) {
 	path := filepath.Join(dir, scenarioName, runsFile)
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("runs: %w -- a run through just reliability-lab writes it", err)
+		return nil, fmt.Errorf("runs: %w -- a run through just bench writes it", err)
 	}
 	defer file.Close()
 

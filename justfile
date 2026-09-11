@@ -25,18 +25,18 @@ compat-lab expect="round-trip":
 # drain_budget bounds how long the checker waits for the consumers to catch up; a saturating scenario needs more than the default.
 # replicas is the number of consumer processes, each running the scenario's instance count on every group.
 # sync sets synchronous_commit on the lab database for the run; off is a labelled diagnostic cell, never the headline.
-reliability-lab scenario time_scale="1" drain_budget="2m" reps="1" replicas="1" sync="on" execution="compose":
+bench scenario time_scale="1" drain_budget="2m" reps="1" replicas="1" sync="on" execution="compose":
     #!/usr/bin/env bash
     set -euo pipefail
     cd .bench
-    go build -o reliability .
-    exec ./reliability -role manager -scenario {{ scenario }} -time-scale {{ time_scale }} -drain-budget {{ drain_budget }} -reps {{ reps }} -replicas {{ replicas }} -sync {{ sync }} -execution {{ execution }}
+    go build -o bench .
+    exec ./bench -role manager -scenario {{ scenario }} -time-scale {{ time_scale }} -drain-budget {{ drain_budget }} -reps {{ reps }} -replicas {{ replicas }} -sync {{ sync }} -execution {{ execution }}
 
 # Run one minute of the quiet scenario as a smoke check.
-reliability-smoke: (reliability-lab "quiet" "0.016666666666666666")
+bench-smoke: (bench "quiet" "0.016666666666666666")
 
 # Summarize a scenario's recorded runs from .bench/results/<scenario>/runs.jsonl: medians per environment identity.
-reliability-report scenario="quiet":
+bench-report scenario="quiet":
     cd .bench && go run . -role report -scenario {{ scenario }}
 
 ### DATABASE ###

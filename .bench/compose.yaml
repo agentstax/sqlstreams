@@ -1,5 +1,5 @@
-# The reliability lab's own stack: a fresh Postgres, one image, one process
-# per role. `just reliability-lab` brings the consumer and observer up, runs
+# The benchmark stack: a fresh Postgres, one image, one process
+# per role. `just bench` brings the consumer and observer up, runs
 # the producer to the end of its phases, then runs the checker: it loads the
 # record files from the shared `records` volume, drains the group, writes its
 # results to ./results, and exits with the verdict. The producer and consumer
@@ -16,7 +16,7 @@
 # and the checker records what the server reports back. PGDATA sits on a
 # named volume (never the container's overlay filesystem); `down -v` drops it
 # so every run starts from an empty cluster.
-name: reliability
+name: bench
 services:
   postgres:
     image: postgres:18.4

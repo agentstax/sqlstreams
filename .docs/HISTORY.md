@@ -5,6 +5,18 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-11 — Benchmark commands and runs use bench [0755]
+
+Renamed the commands to `just bench`, `just bench-smoke`, and
+`just bench-report`; the binary, Compose project, and new run identifiers
+also use bench. Updated current documentation and diagnostics, removed the
+obsolete local binary, and labeled published reproduction commands as using
+frozen source. Recorded evidence and historical names remain intact.
+
+Verification: Go formatting, build, and vet passed; the container image and
+website built. Recipe dry runs resolve the new binary, and `bench-report quiet`
+reads the existing results.
+
 ## 2026-09-11 — Benchmark runs share configuration and output [0754]
 
 Manager builds Compose images once before repetitions and supplies the same

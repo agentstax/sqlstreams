@@ -1,10 +1,13 @@
 ---
-status: accepted
+status: superseded
 date: 2026-09-11
 phase: "pre-v1"
 ---
 
 # Benchmark runner lives at the .bench root
+
+Superseded by [0755](0755-benchmark-commands-and-runs-use-bench.md) for command
+naming; the root layout and evidence preservation continue unchanged.
 
 ## Context
 

@@ -3,8 +3,8 @@
 FROM golang:1.27 AS build
 WORKDIR /src
 COPY . .
-RUN cd .bench && CGO_ENABLED=0 go build -o /reliability .
+RUN cd .bench && CGO_ENABLED=0 go build -o /bench .
 
 FROM gcr.io/distroless/static-debian12
-COPY --from=build /reliability /reliability
-ENTRYPOINT ["/reliability"]
+COPY --from=build /bench /bench
+ENTRYPOINT ["/bench"]

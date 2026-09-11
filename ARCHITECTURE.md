@@ -48,7 +48,7 @@ The root module is the library. Nested modules with their own `go.mod`:
 | `otel` | metrics exporter |
 | `.tests` | integration tests (`integration/`) and end-to-end tests with their support commands (`e2e/`) |
 | `examples` | runnable user examples |
-| `.bench` | benchmarks and the reliability lab |
+| `.bench` | benchmark scenarios and their runner |
 | `.tools` | convention tests, compatibility checks, doc-site exports |
 
 Under `pkg/`, a package is one of three kinds:

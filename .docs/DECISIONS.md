@@ -351,7 +351,7 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 - 0596 2026-08-26 accepted (pre-v1) — the decision records publish as a board
 - 0597 2026-08-27 accepted (pre-v1) — website layered error handling
 - 0598 2026-08-27 accepted (pre-v1) — the site notice's full-page face is cut until something needs it
-- 0599 2026-08-27 accepted (pre-v1) — the cookie notice is the site's privacy note, on its own surface
+- 0599 2026-08-27 superseded in part by 0756 (pre-v1) — the cookie notice is the site's privacy note, on its own surface
 - 0600 2026-08-27 accepted (pre-v1) — each consent control gets its own answer, and Accept all gets its own component
 - 0601 2026-08-27 accepted (pre-v1) — doc site versioning: one live site, frozen deployments per version
 - 0602 2026-08-27 accepted (pre-v1) — doc site mobile pass: two breakpoints, sandbox gated off phones
@@ -517,7 +517,7 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 
 - 0748 2026-09-11 accepted (pre-v1) — Published throughput uses three fixed-duration runs and retains every outcome
 
-- 0749 2026-09-11 accepted (pre-v1) — Benchmark runner lives at the .bench root
+- 0749 2026-09-11 superseded (pre-v1) — Benchmark runner lives at the .bench root
 
 - 0750 2026-09-11 superseded (pre-v1) — Benchmarks retain recurring workloads and freeze completed investigations
 
@@ -528,3 +528,7 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 - 0753 2026-09-11 superseded (pre-v1) — Manager coordinates existing benchmark roles
 
 - 0754 2026-09-11 accepted (pre-v1) — Benchmark runs share configuration and output
+
+- 0755 2026-09-11 accepted (pre-v1) — Benchmark commands and runs use bench
+
+- 0756 2026-09-11 accepted (pre-v1) — Accept all wears the dark pattern

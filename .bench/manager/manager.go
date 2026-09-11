@@ -63,7 +63,7 @@ func NewManager(declared *scenario.Scenario, cfg *ManagerConfig) (*Manager, erro
 // Run returns the worst repetition's verdict. Failure outranks unknown;
 // an orchestration or cleanup error ends the run with an error instead.
 func (m *Manager) Run(ctx context.Context) (int, error) {
-	m.name = "reliability_" + strconv.FormatInt(time.Now().UnixNano(), 10)
+	m.name = "bench_" + strconv.FormatInt(time.Now().UnixNano(), 10)
 	m.environment = nil
 	for _, value := range os.Environ() {
 		if !strings.HasPrefix(value, "SCENARIO_FILE=") && (m.cfg.Execution == "native" || !strings.HasPrefix(value, "POSTGRES_")) {

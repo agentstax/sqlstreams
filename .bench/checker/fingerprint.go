@@ -73,7 +73,7 @@ func ReadFingerprint(path string) (*Fingerprint, error) {
 
 	encoded, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("fingerprint: %w -- run the scenario through just reliability-lab, which writes it", err)
+		return nil, fmt.Errorf("fingerprint: %w -- run the scenario through just bench, which writes it", err)
 	}
 	fingerprint := &Fingerprint{}
 	if err := json.Unmarshal(encoded, fingerprint); err != nil {

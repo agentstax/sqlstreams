@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded
 date: 2026-08-27
 phase: pre-v1
 ---
@@ -56,3 +56,6 @@ veil (contradicts the costume and taxes every first read).
 - The statement is now load-bearing prose: a change to what the site
   stores has to change act two's paragraph in the same edit.
 - Adding a punchline is an entry in `reveals.ts` and nothing else.
+
+The equal-prominence bullet was superseded by [0756]. The two acts, the
+statement, and the storage key remain in force.

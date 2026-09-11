@@ -12,7 +12,7 @@ are in `.docs/DECISIONS.md`. A new record adds its number to its line.
 - topic catalog, schema version, rename, alter, per-topic tables, table names: 0241-0248 0348-0353 0401-0411 0570-0572 0611 0613 0618 0624 0628 0667 0668 0669
 - compaction, message key, rank, ordered/exclusive/parallel, key lease, deadlock: 0261-0273 0403 0463 0574 0612 0617 0659-0660 0691
 - produce, ProduceInTx, batch, idempotency key, uuid: 0021-0023 0283-0284 0321-0323 0376 0525 0622-0623 0634
-- synchronous_commit, crash lab, bench method, reliability lab, ledger and checker, scenario file, drain, safety checks: 0081-0086 0687 0696 0697 0711 0713 0723 0745 0746 0747 0748 0749 0750 0751 0753 0754
+- synchronous_commit, crash lab, bench method, benchmark runner, ledger and checker, scenario file, drain, safety checks: 0081-0086 0687 0696 0697 0711 0713 0723 0745 0746 0747 0748 0749 0750 0751 0753 0754 0755
 - errors (VK codes, fix, diagnose), logging (levels, buffer, suppression, stop line), metrics declarations, collector poll rate, export freshness, otel, Prometheus, payload never logged: 0302-0305 0326 0522-0524 0550-0554 0558-0569 0589-0590 0647-0648 0661 0666 0670 0678 0682-0684 0686 0688 0689 0705 0706 0707 0708 0717
 - migrations, schema versioning, advisory lock, MinCompatibleVersion, Postgres schema/search_path: 0341-0347 0501 0526-0527 0579-0580 0588 0629-0632 0650
 - workers, worker_instance, system manager, liveness, instance target, Run loop, fatal consumption errors: 0421-0431 0537 0545-0549 0627 0635-0642 0671 0700 0701 0702 0740 0741 0742 0743 0744
@@ -23,7 +23,7 @@ are in `.docs/DECISIONS.md`. A new record adds its number to its line.
 - declarations: newest-wins, CLI never writes config, worker metadata: 0515-0521 0626 0670 0741 0742 0743 0744
 - client shape, handles, Register, lifecycle ctx, shutdown, named return parameters: 0361-0377 0625 0633-0646 0657 0664-0665 0670 0672 0742 0743 0744
 - CLI: nested module, flags, --output json: 0354-0355 0576
-- doc site: board, sandbox, versioning, voice, cookie, errors, links, page size, reference board, proposed pages only for user-facing features: 0581-0610 0651 0677 0679 0712 0721 0752
+- doc site: board, sandbox, versioning, voice, cookie, errors, links, page size, reference board, proposed pages only for user-facing features: 0581-0610 0651 0677 0679 0712 0721 0752 0756
 - rejected/reverted (do not re-suggest): 0270 latest_key backfill, 0379 PartitionsAhead, 0591 pglite prefetch, 0594 byte ceilings, 0672 mandatory named client results, 0673 0675 scheduled time as a message_log column / sent_at, 0323 a library retry inside InTransaction, 0536 a never-nil MessageOptions (NULLIF/COALESCE reshape), 0578 any fillfactor change without measured HOT-ratio degradation, 0626 strict declaration forms (RequireMatch, a stale-build gate)
 - playground, examples, e2e, handler placement, handle and instance names: 0674 0718-0720 0737
 - tests: unit/integration/e2e kinds, .tests module, testcontainers, when a test earns its place, no fake datastore, schema per test, setup/test/verify, SQLSTREAMS_TEST_DATABASE_URL, e2e conversion: 0328 0719 0730 0731 0736 0737
