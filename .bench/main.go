@@ -7,6 +7,7 @@ package main
 // message into a named bucket. Design in decision record 0687; the proposal
 // page is .website/src/content/docs/concepts/reliability-lab.mdx.
 //
+// Manager coordinates complete runs; each child executes one role.
 // One binary, one role per process: -role producer walks the scenario's
 // phases, -role consumer follows its consumer timeline until stopped, -role
 // observer samples the server once a second until stopped, -role checker
@@ -23,6 +24,7 @@ import (
 
 	"github.com/agentstax/sqlstreams/.bench/checker"
 	"github.com/agentstax/sqlstreams/.bench/common"
+	"github.com/agentstax/sqlstreams/.bench/manager"
 	"github.com/agentstax/sqlstreams/.bench/runner"
 	"github.com/agentstax/sqlstreams/.bench/scenario"
 	"github.com/agentstax/sqlstreams/.bench/scenarios"
@@ -30,7 +32,7 @@ import (
 )
 
 // exitLabFailure is the one exit code that is not a verdict: connection,
-// flags, or record files failed before or columns any judging.
+// flags, or record files failed before judging.
 const exitLabFailure = 3
 
 func main() {
@@ -88,6 +90,13 @@ func run() (int, error) {
 
 	ctx, stop := sqlstreams.LifecycleContext(nil)
 	defer stop()
+	if flags.role == "manager" {
+		instance, err := manager.NewManager(declared, flags.manager)
+		if err != nil {
+			return 0, err
+		}
+		return instance.Run(ctx)
+	}
 	connection, err := common.NewConnection(ctx, declared.MaxConns)
 	if err != nil {
 		return 0, err
@@ -106,11 +115,11 @@ func run() (int, error) {
 	case "observer":
 		return 0, role.RunObserver(ctx)
 	case "checker":
-		verdict, err := role.RunChecker(ctx, flags.resultsDir, flags.fingerprintFile, flags.statsFile, flags.drainBudget)
+		verdict, err := role.RunChecker(ctx, flags.runDir, flags.resultsDir, flags.fingerprintFile, flags.statsFile, flags.drainBudget)
 		if err != nil {
 			return 0, err
 		}
 		return verdict.ExitCode(), nil
 	}
-	return 0, fmt.Errorf("unrecognized role: %q -- one of producer, consumer, observer, checker, report, print", flags.role)
+	return 0, fmt.Errorf("unrecognized role: %q -- one of manager, producer, consumer, observer, checker, report, print", flags.role)
 }

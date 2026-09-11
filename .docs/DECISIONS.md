@@ -522,3 +522,9 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 - 0750 2026-09-11 superseded (pre-v1) — Benchmarks retain recurring workloads and freeze completed investigations
 
 - 0751 2026-09-11 accepted (pre-v1) — Results follow maintained scenario families
+
+- 0752 2026-09-11 accepted (pre-v1) — Proposed site pages exist only for features a user consumes
+
+- 0753 2026-09-11 superseded (pre-v1) — Manager coordinates existing benchmark roles
+
+- 0754 2026-09-11 accepted (pre-v1) — Benchmark runs share configuration and output

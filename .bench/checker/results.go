@@ -13,50 +13,50 @@ import (
 	"github.com/agentstax/sqlstreams/.bench/scenario"
 )
 
-// the results files under <dir>/<scenario>/<timestamp>/
+// Files written into the run directory supplied by Manager.
 const (
 	verdictFile = "verdict.json"
 	reportFile  = "report.scenario"
 )
 
-// WriteResults writes the verdict as JSON, the report columns it, and
-// copies of the observer's and the host's raw sample files under
-// <dir>/<scenario>/<started at>/ and returns that directory.
-func WriteResults(dir string, recordDir string, statsFile string, declared *scenario.Scenario, verdict *Verdict) (string, error) {
-	runDir := filepath.Join(dir, declared.Name, verdict.StartedAt.UTC().Format("20060102T150405Z"))
-	if err := os.MkdirAll(runDir, 0o755); err != nil {
-		return "", err
+// WriteResults writes the verdict and retained measurements into the supplied run directory.
+func WriteResults(runDir string, recordDir string, statsFile string, declared *scenario.Scenario, verdict *Verdict) error {
+	if err := os.MkdirAll(filepath.Join(runDir, "records"), 0o755); err != nil {
+		return err
 	}
 
 	samples, err := filepath.Glob(filepath.Join(recordDir, "*.sample.jsonl"))
 	if err != nil {
-		return "", err
+		return err
 	}
 	backlogs, err := filepath.Glob(filepath.Join(recordDir, "*.backlog.jsonl"))
 	if err != nil {
-		return "", err
+		return err
 	}
 	progress, err := filepath.Glob(filepath.Join(recordDir, "*.progress.jsonl"))
 	if err != nil {
-		return "", err
+		return err
 	}
-	for _, path := range append(append(append(samples, backlogs...), progress...), statsFile) {
-		if err := copyFile(path, filepath.Join(runDir, filepath.Base(path))); err != nil {
-			return "", err
+	for _, path := range append(append(samples, backlogs...), progress...) {
+		if err := copyFile(path, filepath.Join(runDir, "records", filepath.Base(path))); err != nil {
+			return err
 		}
 	}
 
+	if err := copyFile(statsFile, filepath.Join(runDir, filepath.Base(statsFile))); err != nil {
+		return err
+	}
 	encoded, err := json.MarshalIndent(verdict, "", "  ")
 	if err != nil {
-		return "", err
+		return err
 	}
 	if err := os.WriteFile(filepath.Join(runDir, verdictFile), append(encoded, '\n'), 0o644); err != nil {
-		return "", err
+		return err
 	}
 	if err := os.WriteFile(filepath.Join(runDir, reportFile), []byte(Report(declared, verdict)), 0o644); err != nil {
-		return "", err
+		return err
 	}
-	return runDir, nil
+	return nil
 }
 
 // Report is the scenario printed back with each phase's measured columns and
@@ -111,18 +111,31 @@ func (p PhaseSummary) ReportColumns() string {
 	if p.Warmup {
 		guards = "warmup (excluded from run guards)"
 	}
+	cpuColumns := "cpu"
+	for _, sample := range []struct {
+		name    string
+		percent *float64
+	}{
+		{"postgres", p.PostgresCpu}, {"producer", p.ProducerCpu}, {"consumer", p.ConsumerCpu},
+	} {
+		if sample.percent == nil {
+			cpuColumns += " " + sample.name + " unavailable"
+		} else {
+			cpuColumns += fmt.Sprintf(" %s %.0f%%", sample.name, *sample.percent)
+		}
+	}
 	target := fmt.Sprintf(" of %d/s", p.DeclaredRate)
 	if p.DeclaredRate == 0 {
 		target = ""
 	}
 	if p.Produce.Unavailable {
-		return fmt.Sprintf("achieved %.1f/s%s, consumed %.1f/s\tlatency unavailable (per-message recording disabled)\tcpu postgres %.0f%% producer %.0f%% consumer %.0f%%\t%s", p.AchievedRate, target, p.ConsumedRate, p.PostgresCpu, p.ProducerCpu, p.ConsumerCpu, guards)
+		return fmt.Sprintf("achieved %.1f/s%s, consumed %.1f/s\tlatency unavailable (per-message recording disabled)\t%s\t%s", p.AchievedRate, target, p.ConsumedRate, cpuColumns, guards)
 	}
-	return fmt.Sprintf("achieved %.1f/s%s, consumed %.1f/s\tproduce p50 %s p99 %s\tend-to-end p50 %s p99 %s\tcpu postgres %.0f%% producer %.0f%% consumer %.0f%%\t%s",
+	return fmt.Sprintf("achieved %.1f/s%s, consumed %.1f/s\tproduce p50 %s p99 %s\tend-to-end p50 %s p99 %s\t%s\t%s",
 		p.AchievedRate, target, p.ConsumedRate,
 		formatLatency(p.Produce.P50), formatLatency(p.Produce.P99),
 		formatLatency(p.EndToEnd.P50), formatLatency(p.EndToEnd.P99),
-		p.PostgresCpu, p.ProducerCpu, p.ConsumerCpu, guards)
+		cpuColumns, guards)
 }
 
 // ReportColumns is the report's columns after the declared line, tab-separated:
@@ -169,6 +182,9 @@ func serverColumns(server ServerSummary) string {
 
 // copyFile copies src to dst whole; the raw sample files are small.
 func copyFile(src string, dst string) error {
+	if filepath.Clean(src) == filepath.Clean(dst) {
+		return nil
+	}
 	content, err := os.ReadFile(src)
 	if err != nil {
 		return err

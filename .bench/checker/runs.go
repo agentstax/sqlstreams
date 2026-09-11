@@ -29,6 +29,9 @@ func AppendRun(dir string, declared *scenario.Scenario, verdict *Verdict) error 
 	if err != nil {
 		return err
 	}
+	if err := os.MkdirAll(filepath.Join(dir, declared.Name), 0o755); err != nil {
+		return err
+	}
 	file, err := os.OpenFile(filepath.Join(dir, declared.Name, runsFile), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return err

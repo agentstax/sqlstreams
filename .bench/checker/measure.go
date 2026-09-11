@@ -66,10 +66,10 @@ type PhaseSummary struct {
 	Held               bool    `json:"held"` // required phase guards inside their tolerances
 
 	// median CPU of each service's containers over the phase, percent of
-	// one core -- what names the limiter
-	PostgresCpu float64 `json:"postgres_cpu"`
-	ProducerCpu float64 `json:"producer_cpu"`
-	ConsumerCpu float64 `json:"consumer_cpu"`
+	// one core; nil means that service was not measured
+	PostgresCpu *float64 `json:"postgres_cpu"`
+	ProducerCpu *float64 `json:"producer_cpu"`
+	ConsumerCpu *float64 `json:"consumer_cpu"`
 }
 
 // measure reads the produce side -- produce latency, throughput, the

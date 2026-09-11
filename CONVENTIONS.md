@@ -1185,9 +1185,11 @@ trees: `integration/` for integration tests and `e2e/` for e2e programs.
 - End-to-end tests and their support programs live under `.tests/e2e/`,
   in the `.tests` module. The root Justfile exposes each test as a
   `<name>-e2e` recipe.
-- Every program is `run() error` deferring `common.Recover` and exiting
-  1; `Must`, `Die`, `Assert`, and the development-database pool
-  (`NewPool`) come from `.tests/e2e/common`, never a private copy. (checked)
+- Every program is `run() error` returning plain errors, and `main`
+  prints the error and exits 1. No must, die, or assert helper, private
+  or shared: a failed step is a returned error, so deferred cleanup runs
+  on the way out. The development-database pool (`NewPool`) comes from
+  `.tests/e2e/common`. (checked)
 - A new single-process scenario is an integration test, not an e2e
   program.
 - E2E tests assert on log events by level and attributes through a
@@ -1219,7 +1221,9 @@ Rules for the doc site (.website/) and all user-facing prose.
 - Docs describe the real API only: every code sample compiles against the
   shipped library. A capability that does not exist yet is marked as
   proposed, never shown as current; the process that gets it there (the
-  doc page as the proposal) is in AGENTS.md.
+  doc page as the proposal) is in AGENTS.md. A proposed page or section
+  exists only for a feature a user consumes; developer tooling is never
+  proposed on the site.
 - No performance number without a benchmark record behind it. The site
   cites .bench/ records; a comparison table scores shipped behavior only --
   a proposed capability is never a checkmark.

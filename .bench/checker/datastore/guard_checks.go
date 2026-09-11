@@ -49,15 +49,15 @@ func (d *CheckerDatastore) ReadBacklogSlope(ctx context.Context, from time.Time,
 }
 
 // ReadContainerCpu is the median CPU of one compose service's containers
-// over [from, to), as a percent of one core; 0 with no samples.
-func (d *CheckerDatastore) ReadContainerCpu(ctx context.Context, from time.Time, to time.Time, service string) (float64, error) {
+// over [from, to), as a percent of one core; nil with no samples.
+func (d *CheckerDatastore) ReadContainerCpu(ctx context.Context, from time.Time, to time.Time, service string) (*float64, error) {
 	cpuSql := fmt.Sprintf(`
 		-- lab: datastore.ReadContainerCpu
-		SELECT COALESCE(percentile_cont(0.5) WITHIN GROUP (ORDER BY cpu_percent), 0)
+		SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY cpu_percent)
 		FROM %[1]s
 		WHERE at >= $1 AND at < $2 AND service = $3;
 	`, containerSample)
-	var cpu float64
+	var cpu *float64
 	err := d.pool.QueryRow(ctx, cpuSql, from, to, service).Scan(&cpu)
 	return cpu, err
 }

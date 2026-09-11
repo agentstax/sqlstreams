@@ -18,8 +18,7 @@ covers session workflow only; the two are a set.
   code or design in the reply and STOP. Edit nothing until an explicit
   "go" / "write it"; a later message continuing the discussion is not
   approval.
-- .docs/archive/explain-it-back.md and .docs/THOUGHTS.md are the user's own
-  writing -- read them, never edit them.
+- .docs/THOUGHTS.md is the user's own writing -- read it, never edit it.
 
 ## Responses
 
@@ -58,10 +57,13 @@ Before code:
 
 Public surface:
 
-- Documentation drives implementation: the doc-site page IS the proposal --
-  write it, review it with the user, then build. The site documents shipped
-  behavior only; anything ahead of the library is labeled Proposed and
-  doubles as that work's spec (the rule is CONVENTIONS ## Documentation).
+- Documentation drives implementation for a feature a user consumes: the
+  doc-site page IS the proposal -- write it, review it with the user, then
+  build. The site documents shipped behavior only; anything ahead of the
+  library is labeled Proposed and doubles as that work's spec (the rule is
+  CONVENTIONS ## Documentation). Developer tooling (.bench, .tools, .tests,
+  dev recipes) is specced in ROADMAP/TODO and its decision record, never
+  as a Proposed page or section on the site.
 - Public API shapes are judged by concept count (SQLStreams ideas held before
   domain code), traps (does the obvious thing work), consistency across
   packages, and whether each explicit param is a real seam. Line count is
@@ -148,13 +150,6 @@ file) and README/CLAUDE.md stay at root:
   the current max.
 - .docs/THOUGHTS.md -- the user's scratch: ideas not yet promoted to the
   ROADMAP. Never edited by agents.
-- Tabled drafts a ROADMAP item names by path (at root bench-design.md
-  with bench-methodology.html) stay where that item
-  names them until it ships, then are folded into the surface and deleted.
-- .docs/archive/ -- source material, never edited: explain-it-back.md (the
-  user's own writing; some decision rationale exists only there).
-- _netflix-rubric.md stays at root by the user's choice -- a grading
-  rubric for review passes, not a working doc.
 - CONVENTIONS.md (code rules), .website/CONVENTIONS.md (frontend code
   rules) and .website/VOICE.md (site prose voice) -- both loaded via
   .website/CLAUDE.md when working in that tree -- and AGENTS.md (this

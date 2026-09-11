@@ -13,7 +13,7 @@ import (
 )
 
 // Connection is the pool and client a role runs on, built from the
-// POSTGRES_* environment the compose file sets.
+// POSTGRES_* environment supplied by the caller or Compose.
 type Connection struct {
 	Pool   *pgxpool.Pool
 	Client *sqlstreams.Client

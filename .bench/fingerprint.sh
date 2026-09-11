@@ -24,13 +24,25 @@ Darwin)
   ;;
 esac
 
-postgres_image=$(docker inspect --format '{{.Config.Image}}' "$(docker compose ps -q postgres)")
-docker_cpus=$(docker info --format '{{.NCPU}}')
-docker_memory_bytes=$(docker info --format '{{.MemTotal}}')
-docker_version=$(docker info --format '{{.ServerVersion}}')
+execution=${1:-compose}
+postgres_image=external
+docker_cpus=0
+docker_memory_bytes=0
+docker_version=""
+runtime='{}'
+if [ "$execution" = compose ]; then
+  postgres_image=$(docker inspect --format '{{.Config.Image}}' "$(docker compose ps -q postgres)")
+  docker_cpus=$(docker info --format '{{.NCPU}}')
+  docker_memory_bytes=$(docker info --format '{{.MemTotal}}')
+  docker_version=$(docker info --format '{{.ServerVersion}}')
+else
+  runtime="{\"GOMAXPROCS\": \"${GOMAXPROCS:-}\", \"GOGC\": \"${GOGC:-}\", \"GOMEMLIMIT\": \"${GOMEMLIMIT:-}\"}"
+fi
 
 cat <<JSON
 {
+  "execution": "$execution",
+  "runtime": $runtime,
   "library_sha": "$library_sha",
   "library_dirty": $library_dirty,
   "postgres_image": "$postgres_image",

@@ -57,3 +57,6 @@ This supersedes [0711](0711-reliability-lab-is-the-benchmark-harness.md).
 
 Superseded by [0747](0747-throughput-scenarios-can-disable-message-recording.md) for optional aggregate-only recording;
 other workload and environment decisions remain in force.
+
+The native database-ownership and launcher requirements are superseded by
+[0753](0753-manager-coordinates-existing-benchmark-roles.md).

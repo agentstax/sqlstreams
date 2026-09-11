@@ -29,8 +29,8 @@ var connectVerbs = map[string][]string{
 // testDatabaseSeam is the one reader of the SQLSTREAMS_TEST_* variables.
 const testDatabaseSeam = ".tests/integration/postgres"
 
-// privateHelperNames are the e2e helpers .tests/e2e/common declares; a
-// program declaring its own copy drifts from the shared shape.
+// privateHelperNames are the panic-and-recover helpers an e2e program
+// must not declare: a failed step is a returned error, never a panic.
 var privateHelperNames = map[string]bool{"must": true, "die": true, "assert": true, "testFailure": true}
 
 // A unit test runs with nothing installed, so no _test.go beside the code
@@ -117,8 +117,8 @@ func TestTestDatabaseVariablesReadOnlyThroughTheSeam(t *testing.T) {
 	}
 }
 
-// Every e2e program takes must, die, assert, and the pool from
-// .tests/e2e/common -- never a private copy.
+// No e2e program declares a must, die, or assert helper -- a failed step
+// is a returned error, so deferred cleanup runs on the way out.
 func TestE2eProgramsDeclareNoPrivateHelpers(t *testing.T) {
 	files := goFiles(t, ".tests/e2e")
 	walked := 0

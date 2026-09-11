@@ -47,3 +47,24 @@ func (d *RunnerDatastore) ExceptionConsumersStopped(ctx context.Context) (bool, 
 	err := d.pool.QueryRow(ctx, stoppedSql).Scan(&stopped)
 	return stopped, err
 }
+
+// CheckRunDatabase requires a fresh, durable database before a local run registers anything.
+func (d *RunnerDatastore) CheckRunDatabase(ctx context.Context) error {
+	var empty, durable bool
+	err := d.pool.QueryRow(ctx, `
+  -- lab: datastore.CheckRunDatabase
+  SELECT to_regnamespace('sqlstreams') IS NULL,
+   current_setting('fsync')='on' AND current_setting('synchronous_commit')='on'
+   AND current_setting('full_page_writes')='on' AND current_setting('autovacuum')='on';
+ `).Scan(&empty, &durable)
+	if err != nil {
+		return err
+	}
+	if !empty {
+		return errors.New("benchmark database already contains sqlstreams; supply a fresh database through POSTGRES_DB")
+	}
+	if !durable {
+		return errors.New("benchmark database requires fsync, synchronous_commit, full_page_writes, and autovacuum on")
+	}
+	return nil
+}

@@ -29,6 +29,13 @@ the item is removed.
     checkpoint, three repetitions, then paced runs at half the held maximum.
     Recheck the earlier CountLost duplicate-key finding before extending full
     recording: duplicate produces can report message id zero.
+  - Setup testing 2026-09-11: aggregate handler totals use progress loaded
+    before drain. A native run reported 19,184,500 handled while the retained
+    final counter and produced total both reached 19,230,000; reproduced in a
+    shorter run. Resolve the checker's snapshot timing before relying on final
+    aggregate totals. Also investigate PostgreSQL's `SET LOCAL can only be
+    used in transaction blocks` warning from `produce.ensureCoveringPartition`;
+    the warning's effect on the intended lock timeout is not yet established.
   - Debug-buffer comparison: healthy-path NewPipelineLogger Buffer on/off,
     ten repetitions and benchstat; record the result against [0559].
   - Active benchmarks are steady delivery, sustained capacity, and an
@@ -38,18 +45,14 @@ the item is removed.
     answer; do not rebuild the retired SQL and tuning matrices.
   - Design round 2026-08-22 (tabled for the documentation-first pass, which
     closed 2026-08-23 — this is now the front of Now):
-    method + recording shape drafted in repo-root bench-methodology.html
-    (generic 14-rule method, sourced) and bench-design.md (vulkan record
-    schema, harness shape, fold-in inventory, first-build scope options —
-    scope not yet settled). Settled in the round: two tiers (go test
+    method + recording shape drafted (the root drafts were deleted
+    2026-09-08; the settled parts are below). Settled in the round: two tiers (go test
     -bench + benchstat for CPU paths; shared harness for Postgres-bound
     benches), git-tracked append-only cells.jsonl, hdrhistogram-go dep in
     the `.bench` module, no regression detection yet (record keyed so a
     loader/Otava can ingest later). Decision records written when design
     closes. [0565] note: the [0559] gate now measures NewPipelineLogger
     Buffer on/off, BufferLogger no longer exists.
-  - Documentation drives this work: the methodology page becomes a doc-site
-    page and the user-facing spec is written before the harness is built.
   - bench mark tests should be done on at least postgres 18 as there 
     could be performance gains, specifically with uuidv7
 
@@ -166,6 +169,30 @@ the item is removed.
 - **Recovery under load** — choose a fault and recovery objective before adding
   a scenario. Measure recovery time, backlog drain, and replay with durable
   identity evidence; graceful instance-count changes do not simulate crashes.
+  - Chaos-run shape drafted 2026-09 (moved off the reliability-lab page
+    2026-09-11, tooling is not proposed on the site): one hour on `orders`
+    with DeliveryLogMode all and a 0.02 handler fail rate; producer phases
+    warm steady 200/s 10m, pause 1m, saturate 64 in flight 5m, ramp
+    2000/s -> 200/s 10m, hold 200/s; consumers 3 at 0m, 0 at 20m, 8 at 22m,
+    kill consumer 2 at 45m. Expect lost/unexpected/undelivered/unbucketed 0,
+    recovered and duplicates reported, reclaims 0 outside the kill window,
+    recovery <= 2m after the pause, the flood, and the kill. Two phases are
+    deliberate: consumers at zero forces backlog growth and drain with
+    nothing lost; eight on a three-consumer stream is oversubscription with
+    zero reclaims still expected. A kill on an idle instance, or a run
+    whose lease never expires, reads unknown. Staged after that: Postgres
+    paused past the lease, a compacted keyed stream with a "compacted away"
+    bucket and per-key order, two schema versions live, bindings and
+    schedules, `__system` metric and alert assertions at the end.
+- **`sqlstreams demo --chaos`** — one command that starts a disposable
+  Postgres, an `orders` stream, three consumer instances, and 5,000
+  messages, prints produced / resolved / lost, and suggests attacks
+  (kill an instance mid-message, crash mid-commit, restart Postgres) so a
+  reader verifies durability by hand in five minutes. The proposed page
+  was removed 2026-09-11: its premise (the packaged failure-injection e2e
+  tests) went when those tests became integration tests, and no scenario
+  driver exists yet. Pickup depends on the reliability-lab manager owning
+  complete runs; the demo is that manager's run with a scoreboard.
 
 Pre-v1 — the 14b public-API pass, then measurement, evaluation, and
 documentation; the latter want a surface that has stopped moving.

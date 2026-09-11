@@ -5,6 +5,65 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-11 — Benchmark runs share configuration and output [0754]
+
+Manager builds Compose images once before repetitions and supplies the same
+role arguments to native processes and containers. Compose no longer repeats
+scenario commands or their environment-variable translation. Checker writes
+its verdict and report into Manager's run directory, alongside declaration,
+fingerprint, logs, and retained measurements; it creates no second timestamp
+directory. Native runtime tuning now comes from the caller's Go environment.
+
+Verification: .bench build, vet, and race tests passed. Native completion,
+child failure, interruption, and reuse rejection passed. Two Compose
+repetitions passed using one build phase, with one directory per repetition,
+two run-index entries, and no duplicated measurement files or remaining
+project containers and volumes.
+
+Extended setup verification: the Just entry point, all five native scenarios
+(shortened), deliberate failed and unknown verdicts, native durability
+rejection, and Compose custom declarations with consumer schedule changes,
+two replicas, two repetitions, and killed-consumer cleanup behaved as expected.
+CLI checks found and fixed non-finite time scales reaching execution. The
+three-minute aggregate run and a shorter reproduction exposed stale final
+handler totals and a PostgreSQL partition-creation warning; both are recorded
+under the benchmark ROADMAP item. These runs validate setup behavior, not
+published sustained capacity.
+
+## 2026-09-11 — Proposed site pages exist only for features a user consumes [0752]
+
+The doc-page-first rule now applies only to a feature a user consumes;
+developer tooling is specced in ROADMAP/TODO and its record. Deleted from
+the site: the demo page and its ChaosDiagram component, the
+reliability-lab concept page (its two Proposed sections were bench
+tooling specs, the rest .bench operator documentation), and the
+metrics-export and alert-history concept pages that had been the otel and
+history-alert round's proposal. Their reader-facing facts moved to the
+metrics and alerts reference threads; the chaos-run shape and the demo
+command are roadmap items. The site roadmap page no longer claims e2e
+failure-injection tests or an absence of throughput numbers. AGENTS.md
+and ROADMAP.md dropped references to root drafts and archive files that
+no longer exist.
+
+Verification: `astro check` and `astro build` pass with no link to a
+removed page.
+
+## 2026-09-11 — Manager coordinates native and Compose benchmark runs [0753]
+
+One Go Manager owns the existing role lifecycle; the Just recipe builds and
+invokes it. Native runs use POSTGRES_* against a supplied empty database and
+leave it intact. Compose retains its own stack and resource limits. Removed
+native.py and the draft's separate database wrapper, source copying, storage
+scans, and configuration dumps. Observer samples local role CPU; unmeasured
+service CPU is null in JSON and unavailable in reports.
+
+Verification: .bench build, vet, and race tests passed. Native completion
+with two consumer processes, child failure, interruption, and database reuse
+rejection passed, with no role connections left behind and the supplied
+database preserved. Compose completion with two consumers and interruption
+passed; owned containers and volumes were removed. These were lifecycle
+smoke checks, not new sustained-throughput results.
+
 ## 2026-09-11 — E2E programs reduced to the one that needs a process [0736]
 
 Audited all 61 programs under `.tests/e2e/` against the test-kind rule:

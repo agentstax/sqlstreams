@@ -4,8 +4,8 @@
 # record files from the shared `records` volume, drains the group, writes its
 # results to ./results, and exits with the verdict. The producer and consumer
 # are capped at two CPUs each so the generator_headroom check has a cap to
-# judge against. The consumer carries no fixed hostname: `--scale consumer=N`
-# runs replicas, and each names its records by its container id. The checker sits behind a profile so
+# judge against. Manager starts each consumer replica separately; its container
+# role name identifies its records. The checker sits behind a profile so
 # a plain `up` never starts it. Each role's hostname is its record name, so
 # keys read `producer-<seq>`. No dependent carries `restart: true` -- a
 # Postgres restart during a chaos phase must not restart the roles under
@@ -54,20 +54,18 @@ services:
       context: ..
       dockerfile: .bench/Dockerfile
     hostname: producer
-    command: ['-role', 'producer', '-scenario', '${SCENARIO:-quiet}', '-time-scale', '${TIME_SCALE:-1}', '-record-dir', '/records']
     deploy:
       resources:
         limits:
           cpus: '2'
     environment:
-      SCENARIO_FILE: ${SCENARIO_FILE:-}
       POSTGRES_HOST: postgres
       POSTGRES_USER: ${POSTGRES_USER:-lab}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lab}
       POSTGRES_DB: ${POSTGRES_DB:-lab}
     volumes:
       - records:/records
-      - ./results:/results:ro
+      - ${LAB_RESULTS_DIR:-./results}:/results:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -76,20 +74,18 @@ services:
     build:
       context: ..
       dockerfile: .bench/Dockerfile
-    command: ['-role', 'consumer', '-scenario', '${SCENARIO:-quiet}', '-time-scale', '${TIME_SCALE:-1}', '-record-dir', '/records']
     deploy:
       resources:
         limits:
           cpus: '2'
     environment:
-      SCENARIO_FILE: ${SCENARIO_FILE:-}
       POSTGRES_HOST: postgres
       POSTGRES_USER: ${POSTGRES_USER:-lab}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lab}
       POSTGRES_DB: ${POSTGRES_DB:-lab}
     volumes:
       - records:/records
-      - ./results:/results:ro
+      - ${LAB_RESULTS_DIR:-./results}:/results:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -100,16 +96,14 @@ services:
       context: ..
       dockerfile: .bench/Dockerfile
     hostname: observer
-    command: ['-role', 'observer', '-scenario', '${SCENARIO:-quiet}', '-time-scale', '${TIME_SCALE:-1}', '-record-dir', '/records']
     environment:
-      SCENARIO_FILE: ${SCENARIO_FILE:-}
       POSTGRES_HOST: postgres
       POSTGRES_USER: ${POSTGRES_USER:-lab}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lab}
       POSTGRES_DB: ${POSTGRES_DB:-lab}
     volumes:
       - records:/records
-      - ./results:/results:ro
+      - ${LAB_RESULTS_DIR:-./results}:/results:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -119,16 +113,14 @@ services:
       context: ..
       dockerfile: .bench/Dockerfile
     profiles: [checker]
-    command: ['-role', 'checker', '-scenario', '${SCENARIO:-quiet}', '-time-scale', '${TIME_SCALE:-1}', '-record-dir', '/records', '-results-dir', '/results', '-fingerprint-file', '/results/fingerprint.json', '-stats-file', '/results/stats.jsonl', '-drain-budget', '${DRAIN_BUDGET:-2m}']
     environment:
-      SCENARIO_FILE: ${SCENARIO_FILE:-}
       POSTGRES_HOST: postgres
       POSTGRES_USER: ${POSTGRES_USER:-lab}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lab}
       POSTGRES_DB: ${POSTGRES_DB:-lab}
     volumes:
       - records:/records
-      - ./results:/results
+      - ${LAB_RESULTS_DIR:-./results}:/results
     depends_on:
       postgres:
         condition: service_healthy

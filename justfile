@@ -20,7 +20,8 @@ test-integration:
 compat-lab expect="round-trip":
     cd .tools/compat && go run . -expect={{ expect }}
 
-# Run a reliability-lab scenario on its own compose stack, reps times from a fresh stack, and exit with the worst verdict: 0 pass, 1 fail, 2 unknown, 3 lab failure.
+# Run a scenario through Manager: Compose owns a fresh stack per repetition; native uses one supplied empty database.
+# Exit with the worst verdict: 0 pass, 1 fail, 2 unknown, 3 lab failure.
 # drain_budget bounds how long the checker waits for the consumers to catch up; a saturating scenario needs more than the default.
 # replicas is the number of consumer processes, each running the scenario's instance count on every group.
 # sync sets synchronous_commit on the lab database for the run; off is a labelled diagnostic cell, never the headline.
@@ -28,50 +29,8 @@ reliability-lab scenario time_scale="1" drain_budget="2m" reps="1" replicas="1" 
     #!/usr/bin/env bash
     set -euo pipefail
     cd .bench
-    export SCENARIO={{ scenario }} TIME_SCALE={{ time_scale }} DRAIN_BUDGET={{ drain_budget }}
-    if [ "{{ execution }}" = native ]; then
-        if [ "{{ replicas }}" != 1 ] || [ "{{ sync }}" != on ] || [ "{{ reps }}" != 1 ]; then
-            echo "native currently requires reps=1, replicas=1, and sync=on" >&2
-            exit 3
-        fi
-        go build -o reliability .
-        for rep in $(seq 1 {{ reps }}); do
-            python3 native.py --binary "$PWD/reliability" --scenario "$SCENARIO" --time-scale "$TIME_SCALE" --drain-budget "$DRAIN_BUDGET" --postgres-bin "${LAB_POSTGRES_BIN:?Set LAB_POSTGRES_BIN}" --port "${LAB_POSTGRES_PORT:?Set LAB_POSTGRES_PORT}" --user "${LAB_POSTGRES_USER:?Set LAB_POSTGRES_USER}"
-        done
-        exit 0
-    fi
-    if [ "{{ execution }}" != compose ]; then
-        echo "execution must be compose or native" >&2
-        exit 3
-    fi
-    # the repo .env just loads names the dev database; the lab's stack is its own
-    unset POSTGRES_HOST POSTGRES_PORT POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB
-    stats_pid=""
-    trap 'kill "$stats_pid" 2>/dev/null || true; docker compose down -v --remove-orphans' EXIT
-    # a run killed mid-way can leave a one-off container holding the records volume
-    docker compose down -v --remove-orphans
-    docker compose --profile checker build
-    worst=0
-    for rep in $(seq 1 {{ reps }}); do
-        echo "rep $rep of {{ reps }}"
-        docker compose up --detach --scale consumer={{ replicas }} consumer observer
-        docker compose exec -T postgres psql -U lab -d lab -q -c "ALTER DATABASE lab SET synchronous_commit = {{ sync }}"
-        mkdir -p results && ./fingerprint.sh > results/fingerprint.json
-        ./stats.sh > results/stats.jsonl &
-        stats_pid=$!
-        docker compose run --rm producer
-        kill "$stats_pid" && wait "$stats_pid" || true
-        code=0
-        docker compose run --rm checker || code=$?
-        docker compose down -v --remove-orphans
-        # a lab failure outranks a fail, which outranks an unknown
-        case "$code:$worst" in
-            3:*) worst=3 ;;
-            1:0|1:2) worst=1 ;;
-            2:0) worst=2 ;;
-        esac
-    done
-    exit "$worst"
+    go build -o reliability .
+    exec ./reliability -role manager -scenario {{ scenario }} -time-scale {{ time_scale }} -drain-budget {{ drain_budget }} -reps {{ reps }} -replicas {{ replicas }} -sync {{ sync }} -execution {{ execution }}
 
 # Run one minute of the quiet scenario as a smoke check.
 reliability-smoke: (reliability-lab "quiet" "0.016666666666666666")
@@ -129,11 +88,12 @@ produce count="1":
 
 # Build an e2e test binary in .bin/. EX: just build-e2e signal
 build-e2e test:
-    go build -o .bin/{{ test }} ./.tests/e2e/{{ test }}/main.go
+    go build -o .bin/{{ test }} ./.tests/e2e/{{ test }}
 
 # Signal cases: a killed producer, a producer and a consumer under SIGTERM, a second SIGTERM past a hung handler.
 signal-e2e:
-    go run ./.tests/e2e/signal/main.go
+    go build -o .bin/ ./.tests/e2e/signal/...
+    go run ./.tests/e2e/signal
 
 ### INSPECT ###
 
