@@ -749,10 +749,31 @@ the other session's janitor benchmark saturating the machine.
   background goroutine), ErrPartitionCreationBehind,
   ErrPartitionLockTimeout, the SchemaVersion guard, the claim-first
   snapshot fence (consume claim test pins it), key resolution (unit).
-  Run order on resume: schedule, metric, produce, all -race -count=1.
-  Remaining roots with no directory: compaction (LockHead, GetHead,
-  ListHeads, ListKeyMessages, ListKeyMessagesByCreatedAt), migrate
-  (lock, RunStep, schema state), system (Register, Get, Delete).
+  Compaction: 6 proposed, 1 cut (the empty row's updated_at refresh --
+  restates the CASE, nothing observable depends on it), 5 and 6 merged,
+  4 written 2026-09-10 under the benchmark hold -- compiled and vetted
+  only, never run. Files under `.tests/integration/compaction/`:
+  head_test.go (LockHead creates the row, nil head, second tx under a
+  100ms lock_timeout gets 55P03, locks after the holder commits; a
+  compacted AppendMessageInTx in the locking tx fills the row LockHead
+  created and GetHead reads it; GetHead and ListHeads skip an empty row
+  and an unseen key, field check on one head), message_test.go
+  (ListKeyMessages newest first within the limit with rank 0 and ""
+  routing key on the uncompacted row; ListKeyMessagesByCreatedAt
+  inclusive at both ends, created_at then id descending, with created_at
+  set by UPDATE to fixed UTC instants). setup_test.go:
+  newCompactionDatastore (heads, orders at the default partition size),
+  newProduceDatastore, produceCompactionTestMessage, compactedAppend
+  (routing key orders.updated), produceCompacted, produceUncompacted,
+  lockEmptyHead (LockHead in its own committed InTransaction),
+  setCreatedAt, heldTx (a pgx.Tx with Raw(), the shape LockHead takes),
+  holdTransaction returning iDatastore.Tx, setLockTimeout (SET LOCAL
+  lock_timeout in integer ms). The lock test waits only on the 100ms
+  lock_timeout, which is the behavior under test. No tests: controller
+  wrappers, the JSON adapter, ErrCompactionHeadNotFound (raised in admin).
+  Run order on resume: schedule, metric, produce, compaction, all
+  -race -count=1. Remaining roots with no directory: migrate (lock,
+  RunStep, schema state), system (Register, Get, Delete).
 - Shape rule added to CONVENTIONS Part 5 (Test shape): tables hold values
   only; a set of verbs is straight-line calls and checks; no funcs in rows,
   no closures, no t.Run around one verb.

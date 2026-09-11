@@ -175,6 +175,36 @@ full attempted/outcome/handler recording before considering sampling.
   build/vet and targeted race checks passed; a sampled-write check preserves
   all 1,024 handler records while emitting four timing samples. Diagnostic
   throughput includes instrumentation overhead, not a new capacity claim.
+  Run `reliability_20260910_212710` completed production, profiles captured
+  21:34:26–21:35:26 local; checker pending. Maintenance-history failures 0,
+  enabled/live exception consumers 0, no production swap-outs (820 swap-in
+  pages). Full source overlay, timings, CPU/mutex/block profiles, pg waits,
+  SQL/IO snapshots and analysis retained with the run.
+  Initial profile findings: writer 36.72/85.23 CPU sample seconds (43.08%),
+  bufio.Flush 34.62s (40.62%). Mutex profile attributes 123.44s of 123.52s
+  aggregate waiter delay to record.Writer (99.94% cumulative); block profile
+  independently has 102.10s at its mutex. These sum across goroutines, not
+  wall-clock seconds. Sampled diagnostic timing-file writes add 1.28s of
+  file-lock blocking, separate from the original writer mutex.
+  Across 12,524 sampled handler writes, mean wait/encode/flush 50.29/3.78/
+  5.20us; mutex p99 240.9us, flush p99 22.4us. One-in-256 samples can miss
+  rare stalls; estimated throughput 53.3k/s during capture, not final verdict.
+  Main-stream message reads returned 3,227,780 rows in 363 calls, 7.127s
+  summed SQL time, zero shared blocks read and zero read IO time. Dispatch
+  waited 54.15 aggregate seconds for handler permits; prefetch waited 16.42s
+  for queue room. This points to downstream handler/recording pressure,
+  not a shortage of fetched messages in this window.
+  PostgreSQL also remains write-limited: 726 WALWrite LWLock and 93 WalWrite
+  IO observations among 1,781 active-backend observations (includes vacuum);
+  commits dominate those waits. Checkpointer sampled in DataFileWrite on
+  281/298 frames; pg_stat_io reports 56.51s writing 4.286GB in the window.
+  Client WAL writes 6.240GB/19.662s plus 4.211GB WAL initialization/0.894s
+  and 3.367s initialization sync. Host disk mean ~421MB/s combined read/write
+  (nominal one-second alignment); this does not prove a physical SSD ceiling.
+  Conclusion pending exact checks: shared consumer record writer is a major
+  harness bottleneck; WAL/checkpoint writes also constrain the database.
+  Do not promise removal of the entire 65k gap from a recording change.
+
 
 ### 1. Environment and fingerprint
 
