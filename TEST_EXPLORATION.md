@@ -795,9 +795,25 @@ the other session's janitor benchmark saturating the machine.
   tests: ErrStepLockTimeout (2s lock_timeout times the retry curve),
   ListStreams, the controller's range checks and step-index math, the
   registry Validate (unit-tested).
+  System: 3 proposed, the table-by-table check trimmed from Register
+  (a catalog count; every suite's setup runs Register), 3 written
+  2026-09-10 under the benchmark hold -- compiled and vetted only, never
+  run. Files under `.tests/integration/system/`: system_test.go (Register
+  seeds the row and one version-1 baseline, Get DeepEquals it, a second
+  Register returns the same row and adds no baseline; 8 concurrent first
+  registrations resolve one id with one system_config row and one
+  baseline; Delete drops the eleven control-plane tables by to_regclass,
+  Get reads (nil, nil) on the missing table, Register afterwards
+  recreates the tables with one baseline for the new id). setup_test.go:
+  controlPlaneTables (the eleven names), newSystemDatastore over an
+  unregistered schema, tableExists, countRows, countBaselines. No tests:
+  ErrSchemaNotCreatable (needs a role without CREATE; the seam connects
+  as the container superuser), Register waiting on Delete's lock, the
+  adapter.
   Run order on resume: schedule, metric, produce, compaction, migrate,
-  all -race -count=1. Remaining root with no directory: system
-  (Register, Get, Delete).
+  system, all -race -count=1. Every root now has its directory: worker,
+  consume, stream green; schedule (7), metric (5), produce (8),
+  compaction (4), migrate (4), system (3) unrun; alert none.
 - Shape rule added to CONVENTIONS Part 5 (Test shape): tables hold values
   only; a set of verbs is straight-line calls and checks; no funcs in rows,
   no closures, no t.Run around one verb.
