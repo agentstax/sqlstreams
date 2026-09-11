@@ -20,18 +20,21 @@ func main() {
 	}
 }
 
-func run() (err error) {
-	defer common.Recover(&err)
+func run() error {
 	ctx := context.Background()
-
 	pool, err := common.NewPool(ctx, nil)
-	common.Must(err)
+	if err != nil {
+		return err
+	}
 	defer pool.Close()
-
 	client, err := sqlstreams.NewClient(ctx, pool, nil)
-	common.Must(err)
+	if err != nil {
+		return err
+	}
 
-	common.Must(client.System().Register(ctx, nil))
+	if err := client.System().Register(ctx, nil); err != nil {
+		return err
+	}
 	fmt.Println("system registered")
 	return nil
 }
