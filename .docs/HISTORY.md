@@ -5,6 +5,28 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-11 — Test suite: unit beside the code, integration over testcontainers [0736] [0737]
+
+Every test is one of three kinds: a unit test beside the code with no I/O
+and no clock, an integration test in the nested dev-only `.tests` module
+against a Postgres container with a schema per test, or an e2e program.
+The subject of an integration test is a domain's datastore driven through
+its verbs, from an approved promise list per root. Every root has its
+directory under `.tests/integration/`: worker, consume, stream, schedule,
+metric, produce, compaction, migrate, system; alert has one settings-read
+verb and gets none. Five `(checked)` rules in `.tools/conventions` pin the
+kinds: no connect verb or sleep in a unit test, no copied CREATE TABLE
+text, the test database variable read only by the Docker seam, and no
+e2e program declaring its own helpers -- every program takes Must, Die,
+Assert, Recover, and the pool from `.tests/e2e/common`. The `sqlstreams`
+CLI resolves its connection before it dials, so its tests are dial-free.
+`pkg/sqlstreamstest` is gone.
+
+The suite ran green under -race, then twice with shuffled order, on
+2026-09-11. `just signal-e2e` covers a killed producer, a producer and a
+consumer under SIGTERM, and a second SIGTERM past a hung handler, green
+against the development database.
+
 ## 2026-09-10 — Maximum-throughput scenario in the reliability lab [0745]
 
 The lab supports bounded unpaced callers, explicit batches, declared

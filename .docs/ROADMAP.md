@@ -47,17 +47,6 @@ the item is removed.
   - bench mark tests should be done on at least postgres 18 as there 
     could be performance gains, specifically with uuidv7
 
-- **Test suite: unit/integration split, `.tests` module, e2e conversion**
-  (14c) -- rules in CONVENTIONS Part 5, settled in [0736] (superseding
-  [0730] [0731]; tree settled in [0737]). Shipped 2026-09-11: every domain
-  root has its integration directory under `.tests/integration/` and the
-  whole suite is green under -race; four `(checked)` rules in
-  .tools/conventions test_kinds_test.go; `.tests/e2e/signal` behind
-  `just signal-e2e`; every e2e program takes Must, Die, Assert, Recover,
-  and NewPool from `.tests/e2e/common` under a fifth `(checked)` rule;
-  `pkg/sqlstreamstest` is deleted. Left open: the HISTORY entry, after
-  which this item is removed.
-
 - **Move the public entry package out of pkg/** — follow through on [0665]
   and [0670] once its destination is selected. Update imports and path-aware
   tooling separately from semantic API changes; no module split is selected.

@@ -135,10 +135,3 @@ and `SchedulerInstance[T]` values. A package that needs a fake declares
 the small interface it consumes beside its own code; SQLStreams does not ship
 a second, partial definition of those instances. The client stays concrete
 for integration tests.
-
-<ThreadAside label="PROPOSED" title="A test helper">
-`sqlstreamstest.NewClient(t)` stands the real library up in a schema it drops
-at cleanup, so a handler test runs against Postgres and nothing fake. Not
-built; a reference page lands with the package.
-
-</ThreadAside>
