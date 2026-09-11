@@ -19,11 +19,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/agentstax/sqlstreams/.tests/e2e/common"
 	"github.com/agentstax/sqlstreams/pkg/alert"
 	"github.com/agentstax/sqlstreams/pkg/alert/compactionreadcost"
 	"github.com/agentstax/sqlstreams/pkg/alert/partitioncount"
 	"github.com/agentstax/sqlstreams/pkg/alert/workerliveness"
-	"github.com/agentstax/sqlstreams/pkg/common"
+	iCommon "github.com/agentstax/sqlstreams/pkg/common"
 	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
 	"github.com/agentstax/sqlstreams/pkg/metric"
 	"github.com/agentstax/sqlstreams/pkg/metric/collector"
@@ -57,11 +58,11 @@ var (
 	prefix          string
 
 	testStream      *stream.Stream
-	testStreamOwner *common.Owner
+	testStreamOwner *iCommon.Owner
 	testGroupName   string
 
 	jobGroup      int64
-	jobGroupOwner *common.Owner
+	jobGroupOwner *iCommon.Owner
 )
 
 func main() {
@@ -71,69 +72,51 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err = sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err = iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
-	must(client.System().Register(ctx, &sqlstreams.SystemConfig{
+	common.Must(err)
+	common.Must(client.System().Register(ctx, &sqlstreams.SystemConfig{
 		WorkerLivenessAlert: &alert.WorkerLivenessAlertConfig{DisablePending: true},
 		MetricCollector:     &metric.MetricCollectorWorkerConfig{PollRate: 200 * time.Millisecond},
 	}))
-	defer func() { must(client.System().Register(ctx, nil)) }()
+	defer func() { common.Must(client.System().Register(ctx, nil)) }()
 
 	capture = newCaptureLogger()
 	registerClient, err = sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{Logger: capture})
-	must(err)
+	common.Must(err)
 
 	schedulesStream, err = client.Stream[sqlstreams.RawPayload](schedule.ScheduleStreamName).Get(ctx)
-	must(err)
+	common.Must(err)
 	alertsStream, err = client.Stream[sqlstreams.RawPayload](alert.AlertStreamName).Get(ctx)
-	must(err)
+	common.Must(err)
 
 	jobGroup = scalarInt64(ctx,
 		fmt.Sprintf(`SELECT id FROM %s.consumer_group_config WHERE stream_id = $1 AND name = $2;`, ds.Schema),
 		schedulesStream.Id, workerliveness.JobName)
-	jobGroupOwner, err = common.NewConsumerGroupOwner(schedulesStream.SystemId, schedulesStream.Id, jobGroup, workerliveness.JobName)
-	must(err)
+	jobGroupOwner, err = iCommon.NewConsumerGroupOwner(schedulesStream.SystemId, schedulesStream.Id, jobGroup, workerliveness.JobName)
+	common.Must(err)
 
 	prefix = fmt.Sprintf("workerliveness.%d", time.Now().UnixNano())
 	testGroupName = prefix + ".group"
 	testStream, err = client.Stream[sqlstreams.RawPayload](prefix+".stream").Register(ctx, nil)
-	must(err)
-	testStreamOwner, err = common.NewStreamOwner(testStream.SystemId, testStream.Id, testStream.Name)
-	must(err)
+	common.Must(err)
+	testStreamOwner, err = iCommon.NewStreamOwner(testStream.SystemId, testStream.Id, testStream.Name)
+	common.Must(err)
 	defer cleanup()
 
 	// only the e2e test's run-nows produce job requests (a suspended job still
 	// runs on run-now)
 	for _, jobName := range []string{partitioncount.JobName, compactionreadcost.JobName, workerliveness.JobName} {
-		must(client.Scheduler(jobName).Suspend(ctx))
+		common.Must(client.Scheduler(jobName).Suspend(ctx))
 	}
 
 	stopCollector := startCollector(ctx)
@@ -153,13 +136,13 @@ func registerSection(ctx context.Context) {
 
 	// a fresh stream's only worker row is its janitor, and nothing has claimed it
 	_, err := registerClient.Stream[testMessage](testStream.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	lines := capture.find(eventCode, alert.AlertWorkerLiveness.Name, testStream.Name)
 	if len(lines) != 1 {
-		die(fmt.Sprintf("produce-only Register: want 1 %s line, got %d", eventCode, len(lines)))
+		common.Die(fmt.Sprintf("produce-only Register: want 1 %s line, got %d", eventCode, len(lines)))
 	}
 	if detail := lines[0]["detail"]; !strings.Contains(fmt.Sprint(detail), "stream_janitor") {
-		die(fmt.Sprintf("produce-only Register: the line must name the unclaimed janitor, got %v", detail))
+		common.Die(fmt.Sprintf("produce-only Register: the line must name the unclaimed janitor, got %v", detail))
 	}
 	fmt.Println("  ✓ a produce-only Register warned once, naming the unclaimed stream_janitor")
 
@@ -170,9 +153,9 @@ func registerSection(ctx context.Context) {
 
 	before := len(capture.find(eventCode, alert.AlertWorkerLiveness.Name, testStream.Name))
 	_, err = registerClient.Stream[testMessage](testStream.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	if got := len(capture.find(eventCode, alert.AlertWorkerLiveness.Name, testStream.Name)); got != before {
-		die(fmt.Sprintf("Register under a live consumer must be silent, got %d lines after %d", got, before))
+		common.Die(fmt.Sprintf("Register under a live consumer must be silent, got %d lines after %d", got, before))
 	}
 	fmt.Println("  ✓ with every row claimed, the next Register said nothing")
 
@@ -189,20 +172,20 @@ func scheduledSection(ctx context.Context) {
 	defer stopExecutor()
 
 	activeRun, err := client.Scheduler(workerliveness.JobName).Run(ctx, nil)
-	must(err)
+	common.Must(err)
 	waitDelivered(ctx, activeRun.Id, "success")
 
 	key := alertKey(testStreamOwner)
 	if got := headStatus(ctx, key); got != string(alert.AlertStatusActive) {
-		die(fmt.Sprintf("the check must publish an active alert for the stream, got %q", got))
+		common.Die(fmt.Sprintf("the check must publish an active alert for the stream, got %q", got))
 	}
 
 	found := listedAlert(ctx)
 	if found == nil {
-		die("ListAlerts must carry the stream's active worker_liveness alert")
+		common.Die("ListAlerts must carry the stream's active worker_liveness alert")
 	}
 	if !namesWorker(found, "message_consumer", testGroupName) {
-		die(fmt.Sprintf("the alert must name the group's unclaimed message_consumer, got %v", found.Data["workers"]))
+		common.Die(fmt.Sprintf("the alert must name the group's unclaimed message_consumer, got %v", found.Data["workers"]))
 	}
 	fmt.Println("  ✓ the check published an active alert naming the group's message_consumer")
 
@@ -213,10 +196,10 @@ func scheduledSection(ctx context.Context) {
 	waitCollectedWorkers(ctx, true)
 
 	resolveRun, err := client.Scheduler(workerliveness.JobName).Run(ctx, nil)
-	must(err)
+	common.Must(err)
 	waitDelivered(ctx, resolveRun.Id, "success")
 	if got := headStatus(ctx, key); got != string(alert.AlertStatusResolved) {
-		die(fmt.Sprintf("a claimed fleet must resolve the alert, got %q", got))
+		common.Die(fmt.Sprintf("a claimed fleet must resolve the alert, got %q", got))
 	}
 	fmt.Println("  ✓ with the consumer back, the next run resolved it")
 }
@@ -226,24 +209,24 @@ func scheduledSection(ctx context.Context) {
 // The collector runs independently so it can observe the e2e test stream without claiming its workers.
 func startCollector(ctx context.Context) func() {
 	system, err := client.System().Get(ctx)
-	must(err)
-	owner, err := common.NewSystemOwner(system.Id)
-	must(err)
+	common.Must(err)
+	owner, err := iCommon.NewSystemOwner(system.Id)
+	common.Must(err)
 	workers, err := workercontroller.NewWorkerController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	row, err := workers.GetWorker(ctx, collector.WorkerMetricsCollector, owner)
-	must(err)
+	common.Must(err)
 	provisioner, err := collector.NewMetricsCollectorProvisioner(ds, nil, ds.Logger)
-	must(err)
+	common.Must(err)
 	execution, err := provisioner.Provision(ctx, row)
-	must(err)
+	common.Must(err)
 	if execution == nil {
-		die("metrics collector is already claimed")
+		common.Die("metrics collector is already claimed")
 	}
 	runCtx, cancel := context.WithCancel(ctx)
 	done := make(chan error, 1)
 	go func() { done <- execution.Run(runCtx) }()
-	return func() { cancel(); must(<-done) }
+	return func() { cancel(); common.Must(<-done) }
 }
 
 func waitCollectedWorkers(ctx context.Context, healthy bool) {
@@ -256,14 +239,14 @@ func waitCollectedWorkers(ctx context.Context, healthy bool) {
 		select {
 		case <-ticker.C:
 			measurement, err := client.Stream[testMessage](testStream.Name).Metrics().UnclaimedWorkers().Latest(ctx)
-			must(err)
+			common.Must(err)
 			if measurement != nil && measurement.At.After(started) && (measurement.Value == 0) == healthy {
 				return
 			}
 		case <-deadline.C:
-			die("collector did not observe the expected worker state within 10s")
+			common.Die("collector did not observe the expected worker state within 10s")
 		case <-ctx.Done():
-			must(ctx.Err())
+			common.Must(ctx.Err())
 		}
 	}
 }
@@ -272,7 +255,7 @@ func waitCollectedWorkers(ctx context.Context, healthy bool) {
 // called; its manager claims every worker row the stream owns.
 func startConsumer(ctx context.Context) func() {
 	instance, err := client.Stream[testMessage](testStream.Name).Consumer(testGroupName).Register(ctx, nil)
-	must(err)
+	common.Must(err)
 
 	runCtx, cancel := context.WithCancel(ctx)
 	done := make(chan error, 1)
@@ -281,7 +264,7 @@ func startConsumer(ctx context.Context) func() {
 	}()
 	return func() {
 		cancel()
-		must(<-done)
+		common.Must(<-done)
 	}
 }
 
@@ -289,13 +272,13 @@ func startConsumer(ctx context.Context) func() {
 // until the returned stop is called.
 func startExecutor(ctx context.Context) func() {
 	provisioner, err := workerliveness.NewWorkerLivenessProvisioner(ds, nil, ds.Logger)
-	must(err)
+	common.Must(err)
 	workers, err := workercontroller.NewWorkerController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	row, err := workers.GetWorker(ctx, workerliveness.JobName, jobGroupOwner)
-	must(err)
+	common.Must(err)
 	if row == nil {
-		die("RegisterSystem must declare the " + workerliveness.JobName + " worker row")
+		common.Die("RegisterSystem must declare the " + workerliveness.JobName + " worker row")
 	}
 
 	// a crashed earlier run's claim lingers until its InstanceTTL expires --
@@ -304,12 +287,12 @@ func startExecutor(ctx context.Context) func() {
 	deadline := time.Now().Add(60 * time.Second)
 	for {
 		execution, err = provisioner.Provision(ctx, row)
-		must(err)
+		common.Must(err)
 		if execution != nil {
 			break
 		}
 		if time.Now().After(deadline) {
-			die("the alert worker declined the instance for 60s -- is a daemon already running?")
+			common.Die("the alert worker declined the instance for 60s -- is a daemon already running?")
 		}
 		time.Sleep(time.Second)
 	}
@@ -319,7 +302,7 @@ func startExecutor(ctx context.Context) func() {
 	go func() { done <- execution.Run(runCtx) }()
 	return func() {
 		cancel()
-		must(<-done)
+		common.Must(<-done)
 	}
 }
 
@@ -327,7 +310,7 @@ func cleanup() {
 	ctx := context.Background()
 
 	for _, jobName := range []string{partitioncount.JobName, compactionreadcost.JobName, workerliveness.JobName} {
-		must(client.Scheduler(jobName).Unsuspend(ctx))
+		common.Must(client.Scheduler(jobName).Unsuspend(ctx))
 	}
 
 	// the check evaluates every stream, so a run leaves a head on each one --
@@ -336,7 +319,7 @@ func cleanup() {
 	exec(ctx, fmt.Sprintf(`DELETE FROM %s.%s WHERE compaction_key LIKE $1;`, ds.Schema, stream.CompactionHeadTable(alertsStream.Id)), pattern)
 	exec(ctx, fmt.Sprintf(`DELETE FROM %s.%s WHERE message_key LIKE $1;`, ds.Schema, stream.MessageLogTable(alertsStream.Id)), pattern)
 
-	must(client.Stream[testMessage](testStream.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+	common.Must(client.Stream[testMessage](testStream.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 }
 
 // --- assertion helpers ---
@@ -360,14 +343,14 @@ func waitUnclaimed(ctx context.Context, want int64) {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	die(fmt.Sprintf("timed out waiting for %d unclaimed worker rows on the e2e test stream", want))
+	common.Die(fmt.Sprintf("timed out waiting for %d unclaimed worker rows on the e2e test stream", want))
 }
 
 // listedAlert is the e2e test stream's worker_liveness alert as the stream's
 // alerts handle reads it, nil when the stream has none.
 func listedAlert(ctx context.Context) *alert.Alert {
 	found, err := client.Stream[sqlstreams.RawPayload](testStream.Name).Alerts().WorkerLiveness().Latest(ctx)
-	must(err)
+	common.Must(err)
 	return found
 }
 
@@ -387,9 +370,9 @@ func namesWorker(found *alert.Alert, workerName string, ownerName string) bool {
 	return false
 }
 
-func alertKey(owner *common.Owner) string {
+func alertKey(owner *iCommon.Owner) string {
 	key, err := alert.MessageKey(alert.AlertWorkerLiveness.Name, owner)
-	must(err)
+	common.Must(err)
 	return key
 }
 
@@ -403,7 +386,7 @@ func headStatus(ctx context.Context, messageKey string) string {
 	`, ds.Schema, stream.CompactionHeadTable(alertsStream.Id), ds.Schema, stream.MessageLogTable(alertsStream.Id))
 	var status *string
 	err := ds.Pool.QueryRow(ctx, sql, messageKey).Scan(&status)
-	must(err)
+	common.Must(err)
 	if status == nil {
 		return ""
 	}
@@ -422,18 +405,18 @@ func waitDelivered(ctx context.Context, messageId int64, status string) {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	die("timed out waiting for: " + sql)
+	common.Die("timed out waiting for: " + sql)
 }
 
 func scalarInt64(ctx context.Context, sql string, args ...any) int64 {
 	var value int64
-	must(ds.Pool.QueryRow(ctx, sql, args...).Scan(&value))
+	common.Must(ds.Pool.QueryRow(ctx, sql, args...).Scan(&value))
 	return value
 }
 
 func exec(ctx context.Context, sql string, args ...any) {
 	_, err := ds.Pool.Exec(ctx, sql, args...)
-	must(err)
+	common.Must(err)
 }
 
 // --- capture logger ---
@@ -491,13 +474,3 @@ func (c *captureLogger) find(code string, alertName string, ownerName string) []
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-
-func die(msg string) {
-	panic(testFailure{message: msg})
-}

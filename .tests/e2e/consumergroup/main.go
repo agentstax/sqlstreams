@@ -32,7 +32,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/.tests/e2e/common"
+	iCommon "github.com/agentstax/sqlstreams/pkg/common"
 	"github.com/agentstax/sqlstreams/pkg/consume"
 	consumecontroller "github.com/agentstax/sqlstreams/pkg/consume/controller"
 	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
@@ -55,120 +56,102 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 
 	suffix := time.Now().UnixNano()
 	streamA, err := client.Stream[sqlstreams.RawPayload](fmt.Sprintf("consumergroup.a.%d", suffix)).Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	streamB, err := client.Stream[sqlstreams.RawPayload](fmt.Sprintf("consumergroup.b.%d", suffix)).Register(ctx, nil)
-	must(err)
+	common.Must(err)
 
 	step("RegisterGroup registers the group with its children in one txn")
 	group := fmt.Sprintf("consumergroup.group.%d", suffix)
 	registered, err := cd.RegisterGroup(ctx, streamA.Id, group, consume.Beginning())
-	must(err)
+	common.Must(err)
 	g, err := cd.GetGroup(ctx, streamA.Id, group)
-	must(err)
+	common.Must(err)
 	if g == nil || g.Id != registered.Id || g.StreamId != streamA.Id || g.CreatedAt.IsZero() {
-		die(fmt.Sprintf("GetGroup returned %+v, want id %d on stream %d with created_at set", g, registered.Id, streamA.Id))
+		common.Die(fmt.Sprintf("GetGroup returned %+v, want id %d on stream %d with created_at set", g, registered.Id, streamA.Id))
 	}
 	assertChildren(ctx, ds, streamA.Id, registered.Id, 1, "at registration")
 	fmt.Printf("  ✓ group %q (id %d) on stream %d, cursor created with it\n", group, registered.Id, streamA.Id)
 
 	step("same name on a second stream is a DIFFERENT group")
 	other, err := cd.RegisterGroup(ctx, streamB.Id, group, consume.Beginning())
-	must(err)
+	common.Must(err)
 	if other.Id == registered.Id {
-		die(fmt.Sprintf("second stream reused the first stream's group: %+v", other))
+		common.Die(fmt.Sprintf("second stream reused the first stream's group: %+v", other))
 	}
 	fmt.Printf("  ✓ own registry row (id %d vs %d)\n", other.Id, registered.Id)
 
 	step("consumer worker reads exclude ancestors and other groups")
 	workerController, err := workercontroller.NewWorkerController(ds, ds.Logger)
-	must(err)
-	owner, err := common.NewConsumerGroupOwner(streamA.SystemId, streamA.Id, registered.Id, group)
-	must(err)
-	otherOwner, err := common.NewConsumerGroupOwner(streamB.SystemId, streamB.Id, other.Id, group)
-	must(err)
+	common.Must(err)
+	owner, err := iCommon.NewConsumerGroupOwner(streamA.SystemId, streamA.Id, registered.Id, group)
+	common.Must(err)
+	otherOwner, err := iCommon.NewConsumerGroupOwner(streamB.SystemId, streamB.Id, other.Id, group)
+	common.Must(err)
 	sibling, err := cd.RegisterGroup(ctx, streamA.Id, group+".sibling", consume.Beginning())
-	must(err)
-	siblingOwner, err := common.NewConsumerGroupOwner(streamA.SystemId, streamA.Id, sibling.Id, sibling.Name)
-	must(err)
-	for _, groupOwner := range []*common.Owner{owner, otherOwner, siblingOwner} {
-		must(workerController.RegisterWorker(ctx, "test_reader", groupOwner, 1, nil))
-		must(workerController.RegisterWorker(ctx, "test_retry", groupOwner, 1, nil))
+	common.Must(err)
+	siblingOwner, err := iCommon.NewConsumerGroupOwner(streamA.SystemId, streamA.Id, sibling.Id, sibling.Name)
+	common.Must(err)
+	for _, groupOwner := range []*iCommon.Owner{owner, otherOwner, siblingOwner} {
+		common.Must(workerController.RegisterWorker(ctx, "test_reader", groupOwner, 1, nil))
+		common.Must(workerController.RegisterWorker(ctx, "test_retry", groupOwner, 1, nil))
 	}
 	listed, err := client.Stream[sqlstreams.RawPayload](streamA.Name).Consumer(group).Workers(ctx)
-	must(err)
+	common.Must(err)
 	if len(listed) != 2 {
-		die(fmt.Sprintf("consumer workers = %d, want 2", len(listed)))
+		common.Die(fmt.Sprintf("consumer workers = %d, want 2", len(listed)))
 	}
 	for _, found := range listed {
 		if !reflect.DeepEqual(found.Owner, owner) {
-			die(fmt.Sprintf("worker %d has owner %+v, want %+v", found.Id, found.Owner, owner))
+			common.Die(fmt.Sprintf("worker %d has owner %+v, want %+v", found.Id, found.Owner, owner))
 		}
 		expected, err := workerController.GetWorker(ctx, found.Name, owner)
-		must(err)
+		common.Must(err)
 		if !reflect.DeepEqual(found, expected) {
-			die(fmt.Sprintf("worker %d differs from its stored declaration", found.Id))
+			common.Die(fmt.Sprintf("worker %d differs from its stored declaration", found.Id))
 		}
 	}
 	chain, err := workerController.ListWorkers(ctx, owner)
-	must(err)
-	counts := map[common.OwnerKind]int{}
+	common.Must(err)
+	counts := map[iCommon.OwnerKind]int{}
 	for _, found := range chain {
 		counts[found.Owner.Kind()]++
 		if found.Owner.ConsumerGroupId > 0 && found.Owner.ConsumerGroupId != owner.ConsumerGroupId {
-			die("manager's owner-chain read includes another group")
+			common.Die("manager's owner-chain read includes another group")
 		}
 	}
-	if counts[common.OwnerConsumerGroup] != 2 || counts[common.OwnerStream] == 0 || counts[common.OwnerSystem] == 0 {
-		die(fmt.Sprintf("manager's owner-chain selection changed: %v", counts))
+	if counts[iCommon.OwnerConsumerGroup] != 2 || counts[iCommon.OwnerStream] == 0 || counts[iCommon.OwnerSystem] == 0 {
+		common.Die(fmt.Sprintf("manager's owner-chain selection changed: %v", counts))
 	}
 	emptyGroup, err := cd.RegisterGroup(ctx, streamA.Id, group+".empty", consume.Beginning())
-	must(err)
+	common.Must(err)
 	empty, err := client.Stream[sqlstreams.RawPayload](streamA.Name).Consumer(emptyGroup.Name).Workers(ctx)
-	must(err)
+	common.Must(err)
 	if len(empty) != 0 {
-		die("consumer with no worker declarations must return an empty list")
+		common.Die("consumer with no worker declarations must return an empty list")
 	}
-	systemOwner, err := common.NewSystemOwner(streamA.SystemId)
-	must(err)
-	for _, invalidOwner := range []*common.Owner{nil, systemOwner} {
+	systemOwner, err := iCommon.NewSystemOwner(streamA.SystemId)
+	common.Must(err)
+	for _, invalidOwner := range []*iCommon.Owner{nil, systemOwner} {
 		if _, err := workerController.ListConsumerGroupWorkers(ctx, invalidOwner); err == nil {
-			die("consumer worker read must reject an owner without a group")
+			common.Die("consumer worker read must reject an owner without a group")
 		}
 	}
 	fmt.Println("  ✓ group-only rows preserve declarations; manager still sees group, stream, and system workers")
@@ -188,22 +171,22 @@ func run() (err error) {
 	wg.Wait()
 	close(errs)
 	for err := range errs {
-		must(err)
+		common.Must(err)
 	}
 	var raceRows int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.consumer_group_config WHERE stream_id = $1 AND name = $2;`, ds.Schema), streamA.Id, race).Scan(&raceRows))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.consumer_group_config WHERE stream_id = $1 AND name = $2;`, ds.Schema), streamA.Id, race).Scan(&raceRows))
 	if raceRows != 1 {
-		die(fmt.Sprintf("race group has %d registry rows, want 1", raceRows))
+		common.Die(fmt.Sprintf("race group has %d registry rows, want 1", raceRows))
 	}
 	fmt.Printf("  ✓ 10 concurrent registrations -> one registry row\n")
 
 	step("Start: consume.Head() places a new group's cursor at MAX(id); an existing group keeps its position")
 	producing, err := client.Stream[testMessage](streamA.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	var seededHead int64
 	for n := 1; n <= 3; n++ {
 		produced, err := producing.Produce(ctx, &testMessage{N: n}, nil)
-		must(err)
+		common.Must(err)
 		seededHead = produced.Id
 	}
 	headGroup := fmt.Sprintf("consumergroup.head.%d", suffix)
@@ -211,10 +194,10 @@ func run() (err error) {
 		Start: sqlstreams.Head(),
 	})
 
-	must(err)
+	common.Must(err)
 	assertCursor(ctx, ds, streamA.Id, headGroup, seededHead, "after Register at the head")
 	fresh, err := producing.Produce(ctx, &testMessage{N: 4}, nil)
-	must(err)
+	common.Must(err)
 	consumeCtx, stop := context.WithCancel(ctx)
 	time.AfterFunc(20*time.Second, stop)
 	var seen []int
@@ -224,45 +207,45 @@ func run() (err error) {
 		return nil
 	}, &sqlstreams.ConsumeOptions{ClaimPollRate: 200 * time.Millisecond})
 	if consumeErr != nil && !errors.Is(consumeErr, context.Canceled) {
-		must(consumeErr)
+		common.Must(consumeErr)
 	}
 	if len(seen) != 1 || seen[0] != 4 {
-		die(fmt.Sprintf("group at the head saw %v, want only the post-register message 4 (id %d)", seen, fresh.Id))
+		common.Die(fmt.Sprintf("group at the head saw %v, want only the post-register message 4 (id %d)", seen, fresh.Id))
 	}
 	before := readCursor(ctx, ds, streamA.Id, headGroup)
 	_, err = client.Stream[testMessage](streamA.Name).Consumer(headGroup).Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	assertCursor(ctx, ds, streamA.Id, headGroup, before, "after a second Register at the beginning")
 	fmt.Printf("  ✓ cursor created at %d, only message 4 delivered, a later Register left the row alone\n", seededHead)
 
 	step("destroying a stream destroys ITS groups and no one else's")
-	must(client.Stream[sqlstreams.RawPayload](streamB.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+	common.Must(client.Stream[sqlstreams.RawPayload](streamB.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	var bRows int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.consumer_group_config WHERE id = $1;`, ds.Schema), other.Id).Scan(&bRows))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.consumer_group_config WHERE id = $1;`, ds.Schema), other.Id).Scan(&bRows))
 	if bRows != 0 {
-		die("streamB's group survived its stream's Destroy")
+		common.Die("streamB's group survived its stream's Destroy")
 	}
 	// streamB's per-stream tables are dropped with it -- the cursor rows are
 	// gone because their whole table is
 	var cursorTable *string
-	must(ds.Pool.QueryRow(ctx, `SELECT to_regclass($1)::text;`, fmt.Sprintf("%s.%s", ds.Schema, stream.ConsumerGroupCursorTable(streamB.Id))).Scan(&cursorTable))
+	common.Must(ds.Pool.QueryRow(ctx, `SELECT to_regclass($1)::text;`, fmt.Sprintf("%s.%s", ds.Schema, stream.ConsumerGroupCursorTable(streamB.Id))).Scan(&cursorTable))
 	if cursorTable != nil {
-		die("streamB's consumer_group_cursor table survived its stream's Destroy")
+		common.Die("streamB's consumer_group_cursor table survived its stream's Destroy")
 	}
 	if g, err := cd.GetGroup(ctx, streamA.Id, group); err != nil || g == nil || g.Id != registered.Id {
-		die(fmt.Sprintf("stream destroy touched the OTHER stream's group: %+v err=%v", g, err))
+		common.Die(fmt.Sprintf("stream destroy touched the OTHER stream's group: %+v err=%v", g, err))
 	}
 	assertChildren(ctx, ds, streamA.Id, registered.Id, 1, "after streamB's destroy")
 	fmt.Printf("  ✓ streamB's group + children cascaded away, streamA's same-named group untouched\n")
 
 	step("deleting a group row cascades its cursor")
 	if _, err := ds.Pool.Exec(ctx, fmt.Sprintf(`DELETE FROM %s.consumer_group_config WHERE id = $1;`, ds.Schema), registered.Id); err != nil {
-		die(err.Error())
+		common.Die(err.Error())
 	}
 	gone, err := cd.GetGroup(ctx, streamA.Id, group)
-	must(err)
+	common.Must(err)
 	if gone != nil {
-		die(fmt.Sprintf("GetGroup still resolves the deleted group: %+v", gone))
+		common.Die(fmt.Sprintf("GetGroup still resolves the deleted group: %+v", gone))
 	}
 	assertChildren(ctx, ds, streamA.Id, registered.Id, 0, "after the group row's delete")
 	fmt.Printf("  ✓ group %d deleted, cursor cascaded away\n", registered.Id)
@@ -271,8 +254,8 @@ func run() (err error) {
 
 	// cleanup
 	_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`DELETE FROM %s.consumer_group_config WHERE stream_id = $1 AND name = $2;`, ds.Schema), streamA.Id, race)
-	must(err)
-	must(client.Stream[testMessage](streamA.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+	common.Must(err)
+	common.Must(client.Stream[testMessage](streamA.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 
 	fmt.Printf("\n✅ consumer group registry e2e test PASSED\n")
 	return nil
@@ -283,57 +266,57 @@ func destroySection(ctx context.Context, pool *pgxpool.Pool, client *sqlstreams.
 
 	doomedName := fmt.Sprintf("consumergroup.doomed.%d", suffix)
 	doomed, err := cd.RegisterGroup(ctx, streamA.Id, doomedName, consume.Beginning())
-	must(err)
+	common.Must(err)
 	_, err = cd.DeclareBindings(ctx, streamA.Id, doomed.Id, []string{"some.routing.key"}, time.Now())
-	must(err)
+	common.Must(err)
 
 	locked, err := sqlstreams.NewClient(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 	if err := locked.Stream[testMessage](streamA.Name).Consumer(doomedName).Destroy(ctx, nil); !errors.Is(err, stream.ErrDestroyDisabled) {
-		die(fmt.Sprintf("destroy without AllowDestroy: want ErrDestroyDisabled, got %v", err))
+		common.Die(fmt.Sprintf("destroy without AllowDestroy: want ErrDestroyDisabled, got %v", err))
 	}
 	if err := client.Stream[testMessage](streamA.Name).Consumer(doomedName+".missing").Destroy(ctx, nil); !errors.Is(err, consume.ErrConsumerNotFound) {
-		die(fmt.Sprintf("destroy of an unregistered group: want ErrConsumerNotFound, got %v", err))
+		common.Die(fmt.Sprintf("destroy of an unregistered group: want ErrConsumerNotFound, got %v", err))
 	}
 	fmt.Printf("  ✓ AllowDestroy gate and not-found error\n")
 
 	// a live worker instance -- what a running consumer heartbeats -- refuses
 	// the destroy; releasing it clears the guard
 	workers, err := workercontroller.NewWorkerController(ds, ds.Logger)
-	must(err)
-	groupOwner, err := common.NewConsumerGroupOwner(streamA.SystemId, streamA.Id, doomed.Id, doomedName)
-	must(err)
-	must(workers.RegisterWorker(ctx, "message_consumer", groupOwner, 1, nil))
+	common.Must(err)
+	groupOwner, err := iCommon.NewConsumerGroupOwner(streamA.SystemId, streamA.Id, doomed.Id, doomedName)
+	common.Must(err)
+	common.Must(workers.RegisterWorker(ctx, "message_consumer", groupOwner, 1, nil))
 	row, err := workers.GetWorker(ctx, "message_consumer", groupOwner)
-	must(err)
+	common.Must(err)
 	claimed, err := workers.ClaimInstance(ctx, row.Id, 30*time.Second)
-	must(err)
+	common.Must(err)
 	if claimed == nil {
-		die("the e2e test's own worker claim was declined")
+		common.Die("the e2e test's own worker claim was declined")
 	}
 	if err := client.Stream[testMessage](streamA.Name).Consumer(doomedName).Destroy(ctx, nil); !errors.Is(err, consume.ErrConsumerGroupLive) {
-		die(fmt.Sprintf("destroy with a live worker instance: want ErrConsumerGroupLive, got %v", err))
+		common.Die(fmt.Sprintf("destroy with a live worker instance: want ErrConsumerGroupLive, got %v", err))
 	}
-	must(workers.ReleaseInstance(ctx, claimed.Id, claimed.Token))
+	common.Must(workers.ReleaseInstance(ctx, claimed.Id, claimed.Token))
 	fmt.Printf("  ✓ live worker instance refuses the destroy\n")
 
 	// delivery rows refuse it; force discards them along with the rows no FK
 	// reaches (claim_lease, message_key_lease, delivery_log)
 	_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (consumer_group_id, message_id, status, concurrency) VALUES ($1, 1, 'ready', 'parallel');`, ds.Schema, stream.ExceptionQueueTable(streamA.Id)), doomed.Id)
-	must(err)
+	common.Must(err)
 	_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (consumer_group_id, low, high, expires_at) VALUES ($1, 1, 10, now() + interval '1 minute');`, ds.Schema, stream.ClaimLeaseTable(streamA.Id)), doomed.Id)
-	must(err)
+	common.Must(err)
 	_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (consumer_group_id, message_id, attempt, status, error) VALUES ($1, 1, 1, 'failure', 'e2e test');`, ds.Schema, stream.DeliveryLogTable(streamA.Id)), doomed.Id)
-	must(err)
+	common.Must(err)
 	_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (consumer_group_id, message_key, token, expires_at) VALUES ($1, 'testkey', gen_random_uuid(), now());`, ds.Schema, stream.MessageKeyLeaseTable(streamA.Id)), doomed.Id)
-	must(err)
+	common.Must(err)
 	if err := client.Stream[testMessage](streamA.Name).Consumer(doomedName).Destroy(ctx, nil); !errors.Is(err, consume.ErrConsumerGroupDeliveriesPending) {
-		die(fmt.Sprintf("destroy with delivery rows: want ErrConsumerGroupDeliveriesPending, got %v", err))
+		common.Die(fmt.Sprintf("destroy with delivery rows: want ErrConsumerGroupDeliveriesPending, got %v", err))
 	}
-	must(client.Stream[testMessage](streamA.Name).Consumer(doomedName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+	common.Must(client.Stream[testMessage](streamA.Name).Consumer(doomedName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 
 	for what, sql := range map[string]string{
 		"group rows":        fmt.Sprintf(`SELECT COUNT(*) FROM %s.consumer_group_config WHERE id = $1;`, ds.Schema),
@@ -347,9 +330,9 @@ func destroySection(ctx context.Context, pool *pgxpool.Pool, client *sqlstreams.
 		"delivery log rows": fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = $1;`, ds.Schema, stream.DeliveryLogTable(streamA.Id)),
 	} {
 		var count int
-		must(ds.Pool.QueryRow(ctx, sql, doomed.Id).Scan(&count))
+		common.Must(ds.Pool.QueryRow(ctx, sql, doomed.Id).Scan(&count))
 		if count != 0 {
-			die(fmt.Sprintf("force destroy left %d %s behind", count, what))
+			common.Die(fmt.Sprintf("force destroy left %d %s behind", count, what))
 		}
 	}
 	fmt.Printf("  ✓ delivery backlog refused, force swept group/cursor/binding/worker/instances/leases/deliveries\n")
@@ -365,14 +348,14 @@ func readCursor(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId 
 		FROM %s.%s c JOIN %s.consumer_group_config g ON g.id = c.consumer_group_id
 		WHERE g.stream_id = $1 AND g.name = $2;
 	`, ds.Schema, stream.ConsumerGroupCursorTable(streamId), ds.Schema)
-	must(ds.Pool.QueryRow(ctx, sql, streamId, group).Scan(&committed))
+	common.Must(ds.Pool.QueryRow(ctx, sql, streamId, group).Scan(&committed))
 	return committed
 }
 
 func assertCursor(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, group string, want int64, when string) {
 	committed := readCursor(ctx, ds, streamId, group)
 	if committed != want {
-		die(fmt.Sprintf("group %q committed = %d %s, want %d", group, committed, when, want))
+		common.Die(fmt.Sprintf("group %q committed = %d %s, want %d", group, committed, when, want))
 	}
 }
 
@@ -380,18 +363,10 @@ func assertCursor(ctx context.Context, ds *iDatastore.PostgresDatastore, streamI
 // together with the registry row (want 1 or 0).
 func assertChildren(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, groupId int64, want int, when string) {
 	var cursors int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = $1;`, ds.Schema, stream.ConsumerGroupCursorTable(streamId)), groupId).Scan(&cursors))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = $1;`, ds.Schema, stream.ConsumerGroupCursorTable(streamId)), groupId).Scan(&cursors))
 	if cursors != want {
-		die(fmt.Sprintf("group %d has %d cursors %s, want %d", groupId, cursors, when, want))
+		common.Die(fmt.Sprintf("group %d has %d cursors %s, want %d", groupId, cursors, when, want))
 	}
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}

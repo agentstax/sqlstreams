@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/agentstax/sqlstreams/.tests/e2e/common"
 	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
@@ -30,49 +31,31 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 
 	const streamName = "test.producerregister"
 	_ = client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}) // clean slate from any crashed prior run
 	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	// ===== Register on Background =====
 	step("Register(context.Background()) -- a build step, no lifetime to enforce")
 	instance, err := client.Stream[Message](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	produced, err := instance.Produce(ctx, &Message{Data: "registered"}, nil)
-	must(err)
+	common.Must(err)
 	fmt.Printf("  ✓ produced %+v id=%d duplicate=%t\n", *produced.Message, produced.Id, produced.Duplicate)
 
 	// ===== per-call shutdown =====
@@ -85,15 +68,15 @@ func run() (err error) {
 	// ===== the instance holds no lifetime =====
 	step("produce again on a live ctx -- the same instance still accepts work")
 	_, err = instance.Produce(ctx, &Message{Data: "second life"}, nil)
-	must(err)
+	common.Must(err)
 	fmt.Println("  ✓ same instance produces after the cancelled call")
 
 	// ===== Register many times =====
 	step("Register again -- an independent instance from the same factory")
 	sibling, err := client.Stream[Message](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	_, err = sibling.Produce(ctx, &Message{Data: "sibling"}, nil)
-	must(err)
+	common.Must(err)
 	fmt.Println("  ✓ sibling instance produces")
 
 	fmt.Println("\n✅ PRODUCER REGISTER E2E TEST PASSED")
@@ -108,17 +91,7 @@ func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
 
 func requireIs(err, want error) {
 	if !errors.Is(err, want) {
-		die(fmt.Sprintf("want %v, got %v", want, err))
+		common.Die(fmt.Sprintf("want %v, got %v", want, err))
 	}
 	fmt.Printf("  ✓ %v\n", err)
-}
-
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-
-func die(msg string) {
-	panic(testFailure{message: msg})
 }

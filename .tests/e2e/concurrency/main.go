@@ -44,44 +44,26 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", &sqlstreams.PostgresConnectionConfig{MaxConns: 20})
-	must(err)
+	pool, err := common.NewPool(ctx, &sqlstreams.PostgresConnectionConfig{MaxConns: 20})
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 
 	streamName := fmt.Sprintf("phase14a.concurrency.%d", time.Now().UnixNano())
 	tp, err := client.Stream[common.Work](streamName).Register(ctx, &sqlstreams.StreamConfig{})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[common.Work](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[common.Work](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 
 	runOrdering(ctx, client, wpInstance, tp.Name)
 	runThroughput(ctx, client, wpInstance, tp.Name)
@@ -103,7 +85,7 @@ func runOrdering(ctx context.Context, client *sqlstreams.Client, wpInstance *sql
 	slowAt, fastAt := drain(ctx, client, streamName, "phase14a.concurrency.n1", 1, 4)
 	for i, at := range fastAt {
 		if at < slowAt {
-			die(fmt.Sprintf("pool=1: fast message %d completed at %s, before the slow message finished at %s -- dispatch should have been serial", i, at, slowAt))
+			common.Die(fmt.Sprintf("pool=1: fast message %d completed at %s, before the slow message finished at %s -- dispatch should have been serial", i, at, slowAt))
 		}
 	}
 	fmt.Printf("  ✓ all 3 fast completions landed after the slow one (%s)\n", slowAt)
@@ -112,7 +94,7 @@ func runOrdering(ctx context.Context, client *sqlstreams.Client, wpInstance *sql
 	slowAt, fastAt = drain(ctx, client, streamName, "phase14a.concurrency.n4", 4, 4)
 	for i, at := range fastAt {
 		if at > slowAt {
-			die(fmt.Sprintf("pool=4: fast message %d completed at %s, after the slow message finished at %s -- it should have run concurrently with it", i, at, slowAt))
+			common.Die(fmt.Sprintf("pool=4: fast message %d completed at %s, after the slow message finished at %s -- it should have run concurrently with it", i, at, slowAt))
 		}
 	}
 	fmt.Printf("  ✓ all 3 fast completions landed before the slow one (%s) -- it didn't block them\n", slowAt)
@@ -126,7 +108,7 @@ func drain(ctx context.Context, client *sqlstreams.Client, streamName, group str
 		Message: &sqlstreams.MessageOptions{Timeout: 10 * time.Second},
 	})
 
-	must(err)
+	common.Must(err)
 
 	options := &sqlstreams.ConsumeOptions{
 		DisableGracefulShutdown: true,
@@ -146,7 +128,7 @@ func drain(ctx context.Context, client *sqlstreams.Client, streamName, group str
 	var count atomic.Int64
 	start := time.Now()
 
-	must(wcInstance.Consume(runCtx, func(ctx context.Context, work *common.Work) error {
+	common.Must(wcInstance.Consume(runCtx, func(ctx context.Context, work *common.Work) error {
 		if work.SleepMs > 0 {
 			time.Sleep(time.Duration(work.SleepMs) * time.Millisecond)
 		}
@@ -194,7 +176,7 @@ func runThroughput(ctx context.Context, client *sqlstreams.Client, wpInstance *s
 	fmt.Printf("RESULT pool=8 processed=%d elapsed=%s throughput=%.1f/s\n", throughputCount, elapsed8, tput8)
 
 	if speedup := tput8 / tput1; speedup < minSpeedup {
-		die(fmt.Sprintf("pool=8 throughput only %.1fx pool=1's -- expected at least %.1fx", speedup, minSpeedup))
+		common.Die(fmt.Sprintf("pool=8 throughput only %.1fx pool=1's -- expected at least %.1fx", speedup, minSpeedup))
 	} else {
 		fmt.Printf("  ✓ pool=8 throughput is %.1fx pool=1's\n", tput8/tput1)
 	}
@@ -205,7 +187,7 @@ func drainTimed(ctx context.Context, client *sqlstreams.Client, streamName, grou
 		Message: &sqlstreams.MessageOptions{Timeout: 10 * time.Second},
 	})
 
-	must(err)
+	common.Must(err)
 
 	options := &sqlstreams.ConsumeOptions{
 		DisableGracefulShutdown: true,
@@ -223,7 +205,7 @@ func drainTimed(ctx context.Context, client *sqlstreams.Client, streamName, grou
 	var elapsed time.Duration
 	start := time.Now()
 
-	must(wcInstance.Consume(runCtx, func(ctx context.Context, work *common.Work) error {
+	common.Must(wcInstance.Consume(runCtx, func(ctx context.Context, work *common.Work) error {
 		if work.SleepMs > 0 {
 			time.Sleep(time.Duration(work.SleepMs) * time.Millisecond)
 		}
@@ -250,16 +232,8 @@ func seedSleep(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[comm
 			work.SleepMs = ms
 			return work, nil
 		}, nil)
-		must(err)
+		common.Must(err)
 	}
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}

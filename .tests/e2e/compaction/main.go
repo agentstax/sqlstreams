@@ -32,6 +32,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/agentstax/sqlstreams/.tests/e2e/common"
 	"github.com/agentstax/sqlstreams/pkg/consume"
 	consumecontroller "github.com/agentstax/sqlstreams/pkg/consume/controller"
 	cursoradvancerdatastore "github.com/agentstax/sqlstreams/pkg/consume/cursoradvancer/controller/datastore"
@@ -68,54 +69,36 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	streamName := fmt.Sprintf("phase8c.compaction.%d", time.Now().UnixNano())
 	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	messageConsumers, err := messageconsumercontroller.NewMessageConsumerGroupController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	deliveryConsumers, err := deliveryconsumercontroller.NewDeliveryConsumerGroupController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	cursorAdvancerDatastore, err := cursoradvancerdatastore.NewCursorAdvancerDatastore(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	wpInstance, err := client.Stream[KeyedRecord](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	cursorGroupID = mustGroupID(cd.RegisterGroup(ctx, tp.Id, cursorGroup, consume.Beginning()))
 
 	const lease = 2 * time.Second
@@ -131,15 +114,15 @@ func run() (err error) {
 	publish(ctx, wpInstance, "user:2", 2, false) // id 6 <- latest for user:2
 
 	claim, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, cursorGroupID, 1, 10, maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
-	must(err)
+	common.Must(err)
 	if claim == nil {
-		die("expected a fresh claim, got nil (no work?)")
+		common.Die("expected a fresh claim, got nil (no work?)")
 	}
 	fmt.Printf("  claimed (%d,%d]  ids=%v\n", claim.Lease.Low, claim.Lease.High, ids(claim.Messages))
 	assertIDs("only the latest version of each key, plus the unkeyed row, come back", ids(claim.Messages), []int64{3, 4, 6})
 	assertInt("all 6 rows still physically exist -- compaction filters, never deletes", rowCount(ctx, ds, tp.Id), 6)
 
-	must(messageConsumers.Commit(ctx, tp.Id, cursorGroupID, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
+	common.Must(messageConsumers.Commit(ctx, tp.Id, cursorGroupID, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 	committed := advance(ctx, cursorAdvancerDatastore, tp.Id)
 	assertInt("committed advances over the whole range regardless of compaction", committed, 6)
 
@@ -147,17 +130,17 @@ func run() (err error) {
 	step("user:3 v1 delivered, THEN v2 is published and delivered on its own later read")
 	publish(ctx, wpInstance, "user:3", 1, false) // id 7
 	claim, err = messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, cursorGroupID, 1, 1, maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
-	must(err)
+	common.Must(err)
 	assertIDs("user:3 v1 delivered -- it's the only version so far", ids(claim.Messages), []int64{7})
-	must(messageConsumers.Commit(ctx, tp.Id, cursorGroupID, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
+	common.Must(messageConsumers.Commit(ctx, tp.Id, cursorGroupID, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 	committed = advance(ctx, cursorAdvancerDatastore, tp.Id)
 	assertInt("committed", committed, 7)
 
 	publish(ctx, wpInstance, "user:3", 2, false) // id 8, published AFTER v1 already delivered+committed
 	claim, err = messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, cursorGroupID, 1, 1, maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
-	must(err)
+	common.Must(err)
 	assertIDs("user:3 v2 delivered on its own read -- v1's earlier delivery is untouched", ids(claim.Messages), []int64{8})
-	must(messageConsumers.Commit(ctx, tp.Id, cursorGroupID, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
+	common.Must(messageConsumers.Commit(ctx, tp.Id, cursorGroupID, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 	committed = advance(ctx, cursorAdvancerDatastore, tp.Id)
 	assertInt("committed only ever moves forward", committed, 8)
 	assertTrue("v1 (id 7) is still physically present -- compaction never rewrites history", rowExists(ctx, ds, tp.Id, 7))
@@ -166,9 +149,9 @@ func run() (err error) {
 	step("WORKER 1 claims user:4 v1, then crashes before Commit")
 	publish(ctx, wpInstance, "user:4", 1, false) // id 9
 	claim1, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, cursorGroupID, 1, 1, maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
-	must(err)
+	common.Must(err)
 	if claim1 == nil {
-		die("expected a fresh claim, got nil")
+		common.Die("expected a fresh claim, got nil")
 	}
 	assertIDs("WORKER 1 claims user:4 v1", ids(claim1.Messages), []int64{9})
 	fmt.Printf("  claimed (%d,%d] lease=%s -- WORKER 1 crashes here, never calls Commit\n",
@@ -182,29 +165,29 @@ func run() (err error) {
 
 	step("WORKER 2 polls: reclaims the exact expired range -- v1 is now superseded")
 	claim2, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, cursorGroupID, 1, 1, maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
-	must(err)
+	common.Must(err)
 	if claim2 == nil {
-		die("expected a reclaim, got nil")
+		common.Die("expected a reclaim, got nil")
 	}
 	assertInt("reclaim re-reads the exact same range low", claim2.Lease.Low, claim1.Lease.Low)
 	assertInt("reclaim re-reads the exact same range high", claim2.Lease.High, claim1.Lease.High)
 	if shortTok(claim2.Lease.Token) == shortTok(claim1.Lease.Token) {
-		die("token was not rotated")
+		common.Die("token was not rotated")
 	}
 	assertIDs("v1 is superseded -- the reclaimed read returns NOTHING for this range, by design", ids(claim2.Messages), []int64{})
 	fmt.Println("  -> the accepted tradeoff: at-least-once is a per-KEY guarantee (the current latest")
 	fmt.Println("     value eventually arrives), not a per-message one -- v1 owed nothing further")
 	fmt.Println("     once v2 superseded it, exactly like Kafka's own compacted-stream contract")
 
-	must(messageConsumers.Commit(ctx, tp.Id, cursorGroupID, claim2.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
+	common.Must(messageConsumers.Commit(ctx, tp.Id, cursorGroupID, claim2.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 	committed = advance(ctx, cursorAdvancerDatastore, tp.Id)
 	assertInt("committed moves past the (empty) reclaimed range", committed, 9)
 
 	step("v2 still gets its own, independent delivery -- the obligation carried forward")
 	claim3, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, cursorGroupID, 1, 1, maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
-	must(err)
+	common.Must(err)
 	assertIDs("user:4 v2 delivered", ids(claim3.Messages), []int64{10})
-	must(messageConsumers.Commit(ctx, tp.Id, cursorGroupID, claim3.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
+	common.Must(messageConsumers.Commit(ctx, tp.Id, cursorGroupID, claim3.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 	committed = advance(ctx, cursorAdvancerDatastore, tp.Id)
 	assertInt("committed", committed, 10)
 
@@ -212,18 +195,18 @@ func run() (err error) {
 	step("a message marked deleted in its OWN payload is delivered normally on both paths")
 	publish(ctx, wpInstance, "user:5", 1, true) // id 11, CURSOR path
 	claim, err = messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, cursorGroupID, 1, 1, maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
-	must(err)
+	common.Must(err)
 	assertIDs("CURSOR path delivers the deleted-marked message like any other", ids(claim.Messages), []int64{11})
 	assertTrue("payload's own Deleted field survives -- the query never special-cases it", decode(claim.Messages[0].Payload).Deleted)
-	must(messageConsumers.Commit(ctx, tp.Id, cursorGroupID, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
+	common.Must(messageConsumers.Commit(ctx, tp.Id, cursorGroupID, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 	committed = advance(ctx, cursorAdvancerDatastore, tp.Id)
 	assertInt("committed", committed, 11)
 
 	publish(ctx, wpInstance, "user:6", 1, true)                                                        // id 12, LIFECYCLE path
 	lifecycleGroupID := mustGroupID(cd.RegisterGroup(ctx, tp.Id, lifecycleGroup, consume.Beginning())) // fresh group scans from mark 0 -> the whole log
-	must(deliveryConsumers.FanOut(ctx, tp.Id, lifecycleGroupID, 1, 100))
+	common.Must(deliveryConsumers.FanOut(ctx, tp.Id, lifecycleGroupID, 1, 100))
 	delivered, err := deliveryConsumers.ClaimMessagesWithLifecycle(ctx, tp.Id, lifecycleGroupID, 20)
-	must(err)
+	common.Must(err)
 	assertIDs("FanOut applies the identical compaction predicate across its whole scan, not a range",
 		deliveryIDs(delivered), []int64{3, 4, 6, 8, 10, 11, 12})
 	deletedDelivered := false
@@ -260,18 +243,18 @@ func publish(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[KeyedR
 	_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*KeyedRecord, error) {
 		return &KeyedRecord{Key: key, Version: version, Deleted: deleted}, nil
 	}, opts)
-	must(err)
+	common.Must(err)
 }
 
 func advance(ctx context.Context, cursorAdvancerDatastore *cursoradvancerdatastore.CursorAdvancerDatastore, streamId int64) int64 {
 	c, err := cursorAdvancerDatastore.AdvanceCommitted(ctx, streamId, cursorGroupID)
-	must(err)
+	common.Must(err)
 	return c
 }
 
 func decode(payload json.RawMessage) KeyedRecord {
 	var kr KeyedRecord
-	must(json.Unmarshal(payload, &kr))
+	common.Must(json.Unmarshal(payload, &kr))
 	return kr
 }
 
@@ -298,21 +281,21 @@ func explainNoCompactionSubplan(ctx context.Context, ds *iDatastore.PostgresData
 	`, logTable, ds.Schema, stream.BindingConfigTable(streamId), ds.Schema, stream.BindingConfigTable(streamId), ds.Schema, stream.CompactionHeadTable(streamId))
 
 	rows, err := ds.Pool.Query(ctx, sql, low, high, cursorGroupID)
-	must(err)
+	common.Must(err)
 	defer rows.Close()
 
 	var plan strings.Builder
 	for rows.Next() {
 		var line string
-		must(rows.Scan(&line))
+		common.Must(rows.Scan(&line))
 		plan.WriteString(line)
 		plan.WriteString("\n")
 	}
-	must(rows.Err())
+	common.Must(rows.Err())
 	fmt.Print(plan.String())
 
 	matched, err := regexp.MatchString(`(?i)compaction_head.*never executed`, plan.String())
-	must(err)
+	common.Must(err)
 	assertTrue("the compaction_head lookup never executed against unkeyed-only rows", matched)
 }
 
@@ -326,7 +309,7 @@ func rowExists(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId, 
 
 func scalar(ctx context.Context, ds *iDatastore.PostgresDatastore, q string, args ...any) int64 {
 	var v int64
-	must(ds.Pool.QueryRow(ctx, q, args...).Scan(&v))
+	common.Must(ds.Pool.QueryRow(ctx, q, args...).Scan(&v))
 	return v
 }
 
@@ -355,36 +338,28 @@ func shortTok[T fmt.Stringer](t T) string {
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}
 func assertInt(label string, got, want int64) {
 	if got != want {
-		die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
+		common.Die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
 	}
 	fmt.Printf("  ✓ %s (%d)\n", label, got)
 }
 func assertIDs(label string, got, want []int64) {
 	if len(got) != len(want) {
-		die(fmt.Sprintf("%s: got %v, want %v", label, got, want))
+		common.Die(fmt.Sprintf("%s: got %v, want %v", label, got, want))
 	}
 	for i := range got {
 		if got[i] != want[i] {
-			die(fmt.Sprintf("%s: got %v, want %v", label, got, want))
+			common.Die(fmt.Sprintf("%s: got %v, want %v", label, got, want))
 		}
 	}
 	fmt.Printf("  ✓ %s %v\n", label, got)
 }
 func assertTrue(label string, cond bool) {
 	if !cond {
-		die(fmt.Sprintf("%s: got false, want true", label))
+		common.Die(fmt.Sprintf("%s: got false, want true", label))
 	}
 	fmt.Printf("  ✓ %s\n", label)
 }
 
-func mustGroupID(g *consume.Consumer, err error) int64 { must(err); return g.Id }
+func mustGroupID(g *consume.Consumer, err error) int64 { common.Must(err); return g.Id }

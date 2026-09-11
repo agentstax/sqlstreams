@@ -49,32 +49,14 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", &sqlstreams.PostgresConnectionConfig{
+	pool, err := common.NewPool(ctx, &sqlstreams.PostgresConnectionConfig{
 		MaxConns: 40, // headroom above the contention scenario's 20 concurrent goroutines
 	})
-	must(err)
+	common.Must(err)
 	defer pool.Close()
 
 	stalenessScenario(ctx, pool)
@@ -123,26 +105,26 @@ func stalenessScenario(ctx context.Context, pool *pgxpool.Pool) {
 // `committed` so staleness is measured from the outside, not self-reported.
 func runLazyStaleness(ctx context.Context, pool *pgxpool.Pool) ([]rangeEvent, []sample) {
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	streamName := fmt.Sprintf("phase10.rollup.staleness.lazy.%d", time.Now().UnixNano())
 	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	messageConsumers, err := messageconsumercontroller.NewMessageConsumerGroupController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	cursorAdvancerDatastore, err := cursoradvancerdatastore.NewCursorAdvancerDatastore(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	groupId := mustGroupID(cd.RegisterGroup(ctx, tp.Id, group, consume.Beginning()))
 	seed(ctx, wpInstance, int(int64(numRanges)*batchSize))
 
@@ -182,12 +164,12 @@ func runLazyStaleness(ctx context.Context, pool *pgxpool.Pool) ([]rangeEvent, []
 	var events []rangeEvent
 	for i := range numRanges {
 		claim, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, int(batchSize), maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
-		must(err)
+		common.Must(err)
 		if claim == nil {
 			break
 		}
 		time.Sleep(jitter(i))
-		must(messageConsumers.Commit(ctx, tp.Id, groupId, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
+		common.Must(messageConsumers.Commit(ctx, tp.Id, groupId, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 		events = append(events, rangeEvent{commitTime: time.Now(), high: claim.Lease.High})
 	}
 
@@ -203,42 +185,42 @@ func runLazyStaleness(ctx context.Context, pool *pgxpool.Pool) ([]rangeEvent, []
 // immediately after each Commit -- staleness is just that call's own latency.
 func runSyncStaleness(ctx context.Context, pool *pgxpool.Pool) []float64 {
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	streamName := fmt.Sprintf("phase10.rollup.staleness.sync.%d", time.Now().UnixNano())
 	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	messageConsumers, err := messageconsumercontroller.NewMessageConsumerGroupController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	cursorAdvancerDatastore, err := cursoradvancerdatastore.NewCursorAdvancerDatastore(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	groupId := mustGroupID(cd.RegisterGroup(ctx, tp.Id, group, consume.Beginning()))
 	seed(ctx, wpInstance, int(int64(numRanges)*batchSize))
 
 	var stalenesses []float64
 	for i := range numRanges {
 		claim, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, int(batchSize), maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
-		must(err)
+		common.Must(err)
 		if claim == nil {
 			break
 		}
 		time.Sleep(jitter(i))
-		must(messageConsumers.Commit(ctx, tp.Id, groupId, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
+		common.Must(messageConsumers.Commit(ctx, tp.Id, groupId, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 
 		start := time.Now()
 		_, err = cursorAdvancerDatastore.AdvanceCommitted(ctx, tp.Id, groupId)
-		must(err)
+		common.Must(err)
 		stalenesses = append(stalenesses, msSince(start))
 	}
 	return stalenesses
@@ -291,40 +273,40 @@ func fixedCostScenario(ctx context.Context, pool *pgxpool.Pool) {
 
 func timeSequentialCommits(ctx context.Context, pool *pgxpool.Pool, label string, n float64, syncAdvance bool) float64 {
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	streamName := fmt.Sprintf("phase10.rollup.fixedcost.%s.%d", label, time.Now().UnixNano())
 	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	messageConsumers, err := messageconsumercontroller.NewMessageConsumerGroupController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	cursorAdvancerDatastore, err := cursoradvancerdatastore.NewCursorAdvancerDatastore(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	groupId := mustGroupID(cd.RegisterGroup(ctx, tp.Id, group, consume.Beginning()))
 	seed(ctx, wpInstance, int(n))
 
 	start := time.Now()
 	for range int(n) {
 		claim, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, 1, maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
-		must(err)
+		common.Must(err)
 		if claim == nil {
 			break
 		}
-		must(messageConsumers.Commit(ctx, tp.Id, groupId, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
+		common.Must(messageConsumers.Commit(ctx, tp.Id, groupId, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 		if syncAdvance {
 			_, err := cursorAdvancerDatastore.AdvanceCommitted(ctx, tp.Id, groupId)
-			must(err)
+			common.Must(err)
 		}
 	}
 	return msSince(start)
@@ -350,26 +332,26 @@ func contentionScenario(ctx context.Context, pool *pgxpool.Pool) {
 func timeConcurrentCommits(ctx context.Context, pool *pgxpool.Pool, label string, goroutines, perGoroutine int, syncAdvance bool) float64 {
 	total := goroutines * perGoroutine
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	streamName := fmt.Sprintf("phase10.rollup.contention.%s.%d", label, time.Now().UnixNano())
 	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	messageConsumers, err := messageconsumercontroller.NewMessageConsumerGroupController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	cursorAdvancerDatastore, err := cursoradvancerdatastore.NewCursorAdvancerDatastore(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	groupId := mustGroupID(cd.RegisterGroup(ctx, tp.Id, group, consume.Beginning()))
 	seed(ctx, wpInstance, total)
 
@@ -379,14 +361,14 @@ func timeConcurrentCommits(ctx context.Context, pool *pgxpool.Pool, label string
 		wg.Go(func() {
 			for range perGoroutine {
 				claim, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, 1, maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
-				must(err)
+				common.Must(err)
 				if claim == nil {
 					return
 				}
-				must(messageConsumers.Commit(ctx, tp.Id, groupId, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
+				common.Must(messageConsumers.Commit(ctx, tp.Id, groupId, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 				if syncAdvance {
 					_, err := cursorAdvancerDatastore.AdvanceCommitted(ctx, tp.Id, groupId)
-					must(err)
+					common.Must(err)
 				}
 			}
 		})
@@ -402,13 +384,13 @@ func seed(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[common.Wo
 		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 			return common.NewWork(30, "admin@example.com")
 		}, nil)
-		must(err)
+		common.Must(err)
 	}
 }
 
 func committedCol(ctx context.Context, ds *iDatastore.PostgresDatastore, groupId int64, streamId int64) int64 {
 	var v int64
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT committed FROM %s.%s WHERE consumer_group_id=$1`, ds.Schema, stream.ConsumerGroupCursorTable(streamId)), groupId).Scan(&v))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT committed FROM %s.%s WHERE consumer_group_id=$1`, ds.Schema, stream.ConsumerGroupCursorTable(streamId)), groupId).Scan(&v))
 	return v
 }
 
@@ -437,14 +419,5 @@ func pctOver(got, baseline float64) float64 {
 	return (got - baseline) / baseline * 100
 }
 
-func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}
-
-func mustGroupID(g *consume.Consumer, err error) int64 { must(err); return g.Id }
+func step(s string)                                    { fmt.Printf("\n--- %s ---\n", s) }
+func mustGroupID(g *consume.Consumer, err error) int64 { common.Must(err); return g.Id }

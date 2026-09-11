@@ -26,12 +26,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/agentstax/sqlstreams/.tests/e2e/common"
 	"github.com/agentstax/sqlstreams/pkg/alert"
 	"github.com/agentstax/sqlstreams/pkg/alert/compactionreadcost"
 	alertcontroller "github.com/agentstax/sqlstreams/pkg/alert/controller"
 	"github.com/agentstax/sqlstreams/pkg/alert/partitioncount"
 	"github.com/agentstax/sqlstreams/pkg/alert/workerliveness"
-	"github.com/agentstax/sqlstreams/pkg/common"
+	iCommon "github.com/agentstax/sqlstreams/pkg/common"
 	compactioncontroller "github.com/agentstax/sqlstreams/pkg/compaction/controller"
 	"github.com/agentstax/sqlstreams/pkg/consume"
 	consumecontroller "github.com/agentstax/sqlstreams/pkg/consume/controller"
@@ -68,9 +69,9 @@ var (
 	prefix          string
 
 	partitionCountGroup int64
-	groupOwner          *common.Owner
+	groupOwner          *iCommon.Owner
 	testStream          *stream.Stream
-	testStreamOwner     *common.Owner
+	testStreamOwner     *iCommon.Owner
 	executorCapture     *captureLogger
 )
 
@@ -81,44 +82,26 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err = sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err = iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
-	must(client.System().Register(ctx, nil))
+	common.Must(err)
+	common.Must(client.System().Register(ctx, nil))
 
 	schedulesStream, err = client.Stream[sqlstreams.RawPayload](schedule.ScheduleStreamName).Get(ctx)
-	must(err)
+	common.Must(err)
 	alertsStream, err = client.Stream[sqlstreams.RawPayload](alert.AlertStreamName).Get(ctx)
-	must(err)
+	common.Must(err)
 	if schedulesStream == nil || alertsStream == nil {
-		die("RegisterSystem must create the schedules and alerts streams")
+		common.Die("RegisterSystem must create the schedules and alerts streams")
 	}
 
 	prefix = fmt.Sprintf("alert.%d", time.Now().UnixNano())
@@ -130,9 +113,9 @@ func run() (err error) {
 	// the executor's embedded consumer spawns a schedule producer -- suspend the
 	// alert schedules so only the e2e test's run-nows produce requests (a suspended
 	// job still runs on run-now)
-	must(client.Scheduler(partitioncount.JobName).Suspend(ctx))
-	must(client.Scheduler(compactionreadcost.JobName).Suspend(ctx))
-	must(client.Scheduler(workerliveness.JobName).Suspend(ctx))
+	common.Must(client.Scheduler(partitioncount.JobName).Suspend(ctx))
+	common.Must(client.Scheduler(compactionreadcost.JobName).Suspend(ctx))
+	common.Must(client.Scheduler(workerliveness.JobName).Suspend(ctx))
 
 	executorCapture = newCaptureLogger()
 	stopExecutor := startExecutor(ctx)
@@ -151,23 +134,23 @@ func seedingSection(ctx context.Context) {
 	step("seeding: jobs/groups/bindings/workers exist; declared threshold applies, suspended survives")
 
 	partitionCountJob, err := client.Scheduler(partitioncount.JobName).Get(ctx)
-	must(err)
+	common.Must(err)
 	if partitionCountJob == nil {
-		die("RegisterSystem must seed the " + partitioncount.JobName + " schedule")
+		common.Die("RegisterSystem must seed the " + partitioncount.JobName + " schedule")
 	}
 	var seeded alert.JobPayload
-	must(json.Unmarshal(partitionCountJob.Payload, &seeded))
-	if seeded.Threshold != 0 || partitionCountJob.Concurrency != common.ConcurrencyExclusive {
-		die(fmt.Sprintf("seeded job: want threshold 0 + defer, got %d %s", seeded.Threshold, partitionCountJob.Concurrency))
+	common.Must(json.Unmarshal(partitionCountJob.Payload, &seeded))
+	if seeded.Threshold != 0 || partitionCountJob.Concurrency != iCommon.ConcurrencyExclusive {
+		common.Die(fmt.Sprintf("seeded job: want threshold 0 + defer, got %d %s", seeded.Threshold, partitionCountJob.Concurrency))
 	}
 	readCostJob, err := client.Scheduler(compactionreadcost.JobName).Get(ctx)
-	must(err)
+	common.Must(err)
 	if readCostJob == nil {
-		die("RegisterSystem must seed the " + compactionreadcost.JobName + " schedule")
+		common.Die("RegisterSystem must seed the " + compactionreadcost.JobName + " schedule")
 	}
 
 	declarations, err := client.System().Bindings(ctx)
-	must(err)
+	common.Must(err)
 	for _, jobName := range []string{partitioncount.JobName, compactionreadcost.JobName} {
 		declared := false
 		for _, declaration := range declarations {
@@ -178,51 +161,51 @@ func seedingSection(ctx context.Context) {
 			}
 		}
 		if !declared {
-			die("group " + jobName + " must declare exactly its job name at RegisterSystem")
+			common.Die("group " + jobName + " must declare exactly its job name at RegisterSystem")
 		}
 	}
 
 	partitionCountGroup = scalarInt64(ctx,
 		fmt.Sprintf(`SELECT id FROM %s.consumer_group_config WHERE stream_id = $1 AND name = $2;`, ds.Schema),
 		schedulesStream.Id, partitioncount.JobName)
-	groupOwner, err = common.NewConsumerGroupOwner(schedulesStream.SystemId, schedulesStream.Id, partitionCountGroup, partitioncount.JobName)
-	must(err)
+	groupOwner, err = iCommon.NewConsumerGroupOwner(schedulesStream.SystemId, schedulesStream.Id, partitionCountGroup, partitioncount.JobName)
+	common.Must(err)
 	workers, err := workercontroller.NewWorkerController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	row, err := workers.GetWorker(ctx, partitioncount.JobName, groupOwner)
-	must(err)
+	common.Must(err)
 	if row == nil {
-		die("RegisterSystem must declare the " + partitioncount.JobName + " worker row")
+		common.Die("RegisterSystem must declare the " + partitioncount.JobName + " worker row")
 	}
 	fmt.Println("  ✓ both alert schedules, exact declarations, and the worker row exist")
 
 	// a declared threshold applies on every RegisterSystem, and a suspended
 	// alert job stays suspended through one
-	must(client.Scheduler(compactionreadcost.JobName).Suspend(ctx))
+	common.Must(client.Scheduler(compactionreadcost.JobName).Suspend(ctx))
 	declareThreshold(ctx, 7)
 
 	reread, err := client.Scheduler(partitioncount.JobName).Get(ctx)
-	must(err)
+	common.Must(err)
 	var redeclared alert.JobPayload
-	must(json.Unmarshal(reread.Payload, &redeclared))
+	common.Must(json.Unmarshal(reread.Payload, &redeclared))
 	if redeclared.Threshold != 7 {
-		die(fmt.Sprintf("declared threshold must apply on re-register, got %d", redeclared.Threshold))
+		common.Die(fmt.Sprintf("declared threshold must apply on re-register, got %d", redeclared.Threshold))
 	}
 	readCostJob, err = client.Scheduler(compactionreadcost.JobName).Get(ctx)
-	must(err)
+	common.Must(err)
 	if !readCostJob.Suspended {
-		die("a suspended alert schedule must survive re-register")
+		common.Die("a suspended alert schedule must survive re-register")
 	}
 
 	declareThreshold(ctx, 0)
-	must(client.Scheduler(compactionreadcost.JobName).Unsuspend(ctx))
+	common.Must(client.Scheduler(compactionreadcost.JobName).Unsuspend(ctx))
 	fmt.Println("  ✓ declared threshold applied, suspended state survived re-register")
 }
 
 // declareThreshold re-declares the partition_count alert at threshold, through
 // the same call a user changing it would make.
 func declareThreshold(ctx context.Context, threshold int64) {
-	must(client.System().Register(ctx, &sqlstreams.SystemConfig{
+	common.Must(client.System().Register(ctx, &sqlstreams.SystemConfig{
 		PartitionCountAlert: &alert.PartitionCountAlertConfig{Threshold: threshold, DisablePending: true},
 		MetricCollector:     &iMetrics.MetricCollectorWorkerConfig{PollRate: 100 * time.Millisecond},
 	}))
@@ -233,26 +216,26 @@ func classifySection(ctx context.Context) {
 
 	var err error
 	testStream, err = client.Stream[sqlstreams.RawPayload](prefix+".stream").Register(ctx, nil)
-	must(err)
-	testStreamOwner, err = common.NewStreamOwner(testStream.SystemId, testStream.Id, testStream.Name)
-	must(err)
+	common.Must(err)
+	testStreamOwner, err = iCommon.NewStreamOwner(testStream.SystemId, testStream.Id, testStream.Name)
+	common.Must(err)
 
 	// the alert controller takes the producer package's instance, not the
 	// client's wrapper
 	alertProducer, err := producer.NewProducer(ds)
-	must(err)
+	common.Must(err)
 	instance, err := alertProducer.Register[alert.Alert](ctx, alert.AlertStreamName, nil)
-	must(err)
+	common.Must(err)
 	heads, err := compactioncontroller.NewCompactionController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	capture := newCaptureLogger()
 	alerts, err := alertcontroller.NewAlertController(ctx, instance, ds, heads, classifyRepeat, capture)
-	must(err)
+	common.Must(err)
 
 	key, err := alert.MessageKey(testCheckName, testStreamOwner)
-	must(err)
+	common.Must(err)
 	found, err := alert.NewAlert(testCheckName, testStreamOwner, alert.AlertStatusActive, alert.AlertSeverityWarn, "testcheck condition holds", time.Now(), nil)
-	must(err)
+	common.Must(err)
 
 	record := func(found *alert.Alert, want alert.RecordOutcome, arm string) {
 		state := alert.AlertEvaluationStateHealthy
@@ -260,31 +243,31 @@ func classifySection(ctx context.Context) {
 			state = alert.AlertEvaluationStateActive
 		}
 		evaluation, err := alert.NewAlertEvaluationSnapshot(state, found, nil)
-		must(err)
+		common.Must(err)
 		outcome, err := alerts.Record(ctx, testCheckName, testStreamOwner, evaluation)
-		must(err)
+		common.Must(err)
 		if outcome != want {
-			die(fmt.Sprintf("%s: want outcome %q, got %q", arm, want, outcome))
+			common.Die(fmt.Sprintf("%s: want outcome %q, got %q", arm, want, outcome))
 		}
 	}
 
 	// active edge: first publish moves the head and WARNs once
 	record(found, alert.RecordOutcomeActive, "active edge")
 	if got := alertMessageCount(ctx, key); got != 1 {
-		die(fmt.Sprintf("active edge: want 1 published message, got %d", got))
+		common.Die(fmt.Sprintf("active edge: want 1 published message, got %d", got))
 	}
 	if got := headStatus(ctx, key); got != string(alert.AlertStatusActive) {
-		die(fmt.Sprintf("active edge: want head status active, got %q", got))
+		common.Die(fmt.Sprintf("active edge: want head status active, got %q", got))
 	}
 	if got := capture.count("warn", testCheckName, testStream.Name); got != 1 {
-		die(fmt.Sprintf("active edge: want 1 WARN, got %d", got))
+		common.Die(fmt.Sprintf("active edge: want 1 WARN, got %d", got))
 	}
 	fmt.Println("  ✓ active edge published the head and WARNed once")
 
 	// unchanged condition inside the repeat interval: nothing publishes
 	record(found, alert.RecordOutcomeNothing, "quiet hold")
 	if got := alertMessageCount(ctx, key); got != 1 {
-		die(fmt.Sprintf("quiet hold: want no republish inside the repeat interval, got %d messages", got))
+		common.Die(fmt.Sprintf("quiet hold: want no republish inside the repeat interval, got %d messages", got))
 	}
 	fmt.Println("  ✓ unchanged condition inside the interval published nothing")
 
@@ -295,13 +278,13 @@ func classifySection(ctx context.Context) {
 	time.Sleep(classifyRepeat + 500*time.Millisecond)
 	record(found, alert.RecordOutcomeActive, "repeat")
 	if got := alertMessageCount(ctx, key); got != 2 {
-		die(fmt.Sprintf("repeat: want a republish past the interval, got %d messages", got))
+		common.Die(fmt.Sprintf("repeat: want a republish past the interval, got %d messages", got))
 	}
 	if got := headId(ctx, key); got == firstHead {
-		die("repeat: the republish must move the head to the fresh row")
+		common.Die("repeat: the republish must move the head to the fresh row")
 	}
 	if got := capture.count("warn", testCheckName, testStream.Name); got != 1 {
-		die(fmt.Sprintf("repeat: the republish must be silent, got %d WARNs", got))
+		common.Die(fmt.Sprintf("repeat: the republish must be silent, got %d WARNs", got))
 	}
 	fmt.Println("  ✓ repeat republish refreshed the head silently")
 
@@ -311,34 +294,34 @@ func classifySection(ctx context.Context) {
 	exec(ctx, fmt.Sprintf(`UPDATE %s.%s SET payload = jsonb_set(payload, '{severity}', '"e2e-critical"') WHERE id = $1;`, ds.Schema, stream.MessageLogTable(alertsStream.Id)), headId(ctx, key))
 	record(found, alert.RecordOutcomeActive, "severity change")
 	if got := alertMessageCount(ctx, key); got != 3 {
-		die(fmt.Sprintf("severity change: want an immediate republish, got %d messages", got))
+		common.Die(fmt.Sprintf("severity change: want an immediate republish, got %d messages", got))
 	}
 	if got := capture.count("warn", testCheckName, testStream.Name); got != 1 {
-		die(fmt.Sprintf("severity change: the republish must be silent, got %d WARNs", got))
+		common.Die(fmt.Sprintf("severity change: the republish must be silent, got %d WARNs", got))
 	}
 	fmt.Println("  ✓ severity change republished immediately and silently")
 
 	// resolve edge: a nil finding resolves the head with one INFO
 	record(nil, alert.RecordOutcomeResolved, "resolve edge")
 	if got := alertMessageCount(ctx, key); got != 4 {
-		die(fmt.Sprintf("resolve edge: want a resolve publish, got %d messages", got))
+		common.Die(fmt.Sprintf("resolve edge: want a resolve publish, got %d messages", got))
 	}
 	if got := headStatus(ctx, key); got != string(alert.AlertStatusResolved) {
-		die(fmt.Sprintf("resolve edge: want head status resolved, got %q", got))
+		common.Die(fmt.Sprintf("resolve edge: want head status resolved, got %q", got))
 	}
 	if got := capture.count("info", testCheckName, testStream.Name); got != 1 {
-		die(fmt.Sprintf("resolve edge: want 1 INFO, got %d", got))
+		common.Die(fmt.Sprintf("resolve edge: want 1 INFO, got %d", got))
 	}
 
 	// resolved head + nil finding: nothing
 	record(nil, alert.RecordOutcomeNothing, "resolved + nothing found")
 	if got := alertMessageCount(ctx, key); got != 4 {
-		die(fmt.Sprintf("resolved + nothing found must publish nothing, got %d messages", got))
+		common.Die(fmt.Sprintf("resolved + nothing found must publish nothing, got %d messages", got))
 	}
 	fmt.Println("  ✓ resolve edge INFOed once, resolved head stayed silent")
 
 	concurrentAlerts, err := alertcontroller.NewAlertController(ctx, instance, ds, heads, 4*time.Hour, capture)
-	must(err)
+	common.Must(err)
 	for _, test := range []struct {
 		name    string
 		finding *alert.Alert
@@ -354,7 +337,7 @@ func classifySection(ctx context.Context) {
 			state = alert.AlertEvaluationStateActive
 		}
 		evaluation, err := alert.NewAlertEvaluationSnapshot(state, test.finding, nil)
-		must(err)
+		common.Must(err)
 		before := alertMessageCount(ctx, key)
 		start := make(chan struct{})
 		outcomes := make(chan alert.RecordOutcome, 16)
@@ -371,38 +354,38 @@ func classifySection(ctx context.Context) {
 			})
 		}
 		close(start)
-		must(routines.Wait())
+		common.Must(routines.Wait())
 		close(outcomes)
 		changed := 0
 		for outcome := range outcomes {
 			if outcome == test.changed {
 				changed++
 			} else if outcome != alert.RecordOutcomeNothing {
-				die(fmt.Sprintf("%s: unexpected outcome %q", test.name, outcome))
+				common.Die(fmt.Sprintf("%s: unexpected outcome %q", test.name, outcome))
 			}
 		}
 		if changed != test.count || alertMessageCount(ctx, key)-before != int64(test.count) {
-			die(fmt.Sprintf("%s: want %d transitions, got %d", test.name, test.count, changed))
+			common.Die(fmt.Sprintf("%s: want %d transitions, got %d", test.name, test.count, changed))
 		}
 	}
 	if capture.count("warn", testCheckName, testStream.Name) != 2 || capture.count("info", testCheckName, testStream.Name) != 2 {
-		die("concurrent checks must log each committed transition once")
+		common.Die("concurrent checks must log each committed transition once")
 	}
 	fmt.Println("  ✓ concurrent checks recorded and logged each transition once")
 
 	unencodable, err := alert.NewAlert(testCheckName, testStreamOwner, alert.AlertStatusActive, alert.AlertSeverityWarn, "testcheck condition holds", time.Now(), &alert.AlertOptions{
 		Data: map[string]any{"unencodable": make(chan struct{})},
 	})
-	must(err)
+	common.Must(err)
 	before := alertMessageCount(ctx, key)
 	evaluation, err := alert.NewAlertEvaluationSnapshot(alert.AlertEvaluationStateActive, unencodable, nil)
-	must(err)
+	common.Must(err)
 	outcome, err := concurrentAlerts.Record(ctx, testCheckName, testStreamOwner, evaluation)
 	if err == nil || outcome != "" || alertMessageCount(ctx, key) != before || headStatus(ctx, key) != string(alert.AlertStatusResolved) {
-		die("a rejected alert write must leave the resolved head and history unchanged")
+		common.Die("a rejected alert write must leave the resolved head and history unchanged")
 	}
 	if capture.count("warn", testCheckName, testStream.Name) != 2 || capture.count("info", testCheckName, testStream.Name) != 2 {
-		die("a rolled-back alert must not log a transition")
+		common.Die("a rolled-back alert must not log a transition")
 	}
 	fmt.Println("  ✓ rejected alert write left no transition or log")
 }
@@ -412,11 +395,11 @@ func executorSection(ctx context.Context) {
 
 	// one write gives the e2e test stream its first partition
 	testInstance, err := client.Stream[testMessage](testStream.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	_, err = testInstance.Produce(ctx, &testMessage{Value: "seed"}, nil)
-	must(err)
+	common.Must(err)
 	if observations := partitionObservations(ctx); len(observations) != 0 {
-		die("registration-time warnings must not store partition observations")
+		common.Die("registration-time warnings must not store partition observations")
 	}
 
 	otherGroup := registerGroup(ctx, prefix+".other", "some.other.job")
@@ -426,15 +409,15 @@ func executorSection(ctx context.Context) {
 	waitForCollector(ctx)
 
 	firstRun, err := client.Scheduler(partitioncount.JobName).Run(ctx, nil)
-	must(err)
+	common.Must(err)
 	waitDelivered(ctx, firstRun.Id, "success")
 	if observations := partitionObservations(ctx); len(observations) == 0 || observations[0].Message.Value != 1 {
-		die("collector must retain the partition count of 1")
+		common.Die("collector must retain the partition count of 1")
 	}
 
 	// the running executor's Register declared the group's set
 	declarations, err := client.System().Bindings(ctx)
-	must(err)
+	common.Must(err)
 	declared := false
 	for _, declaration := range declarations {
 		if declaration.ConsumerGroupName == partitioncount.JobName && declaration.StreamName == schedule.ScheduleStreamName &&
@@ -444,22 +427,22 @@ func executorSection(ctx context.Context) {
 		}
 	}
 	if !declared {
-		die("the live executor must declare exactly its job name")
+		common.Die("the live executor must declare exactly its job name")
 	}
 	fmt.Println("  ✓ the executor declared exactly its job name")
 
 	testKey := partitionCountKey(testStreamOwner)
-	schedulesOwner, err := common.NewStreamOwner(schedulesStream.SystemId, schedulesStream.Id, schedulesStream.Name)
-	must(err)
+	schedulesOwner, err := iCommon.NewStreamOwner(schedulesStream.SystemId, schedulesStream.Id, schedulesStream.Name)
+	common.Must(err)
 	schedulesKey := partitionCountKey(schedulesOwner)
 	if got := headStatus(ctx, testKey); got != string(alert.AlertStatusActive) {
-		die(fmt.Sprintf("threshold-1 run: want the e2e test stream's head active, got %q", got))
+		common.Die(fmt.Sprintf("threshold-1 run: want the e2e test stream's head active, got %q", got))
 	}
 	if got := headStatus(ctx, schedulesKey); got != string(alert.AlertStatusActive) {
-		die(fmt.Sprintf("threshold-1 run: want the schedules stream's head active, got %q", got))
+		common.Die(fmt.Sprintf("threshold-1 run: want the schedules stream's head active, got %q", got))
 	}
 	if got := executorCapture.count("warn", alert.AlertPartitionCount.Name, testStream.Name); got != 1 {
-		die(fmt.Sprintf("threshold-1 run: want 1 WARN edge for the e2e test stream, got %d", got))
+		common.Die(fmt.Sprintf("threshold-1 run: want 1 WARN edge for the e2e test stream, got %d", got))
 	}
 	fmt.Println("  ✓ threshold-1 run published active heads with WARN edges")
 
@@ -467,48 +450,48 @@ func executorSection(ctx context.Context) {
 	if summary[iMetrics.MetricCheckStreamsEvaluated.Name] < 2 ||
 		summary[iMetrics.MetricCheckStreamsFailed.Name] != 0 ||
 		summary[iMetrics.MetricCheckPublishedAlerts.Name] != summary[iMetrics.MetricCheckStreamsEvaluated.Name] {
-		die(fmt.Sprintf("threshold-1 run: want every evaluated stream published and none failed, got %v", summary))
+		common.Die(fmt.Sprintf("threshold-1 run: want every evaluated stream published and none failed, got %v", summary))
 	}
 	fmt.Println("  ✓ check summary: every evaluated stream published, none failed")
 
 	// inside the system's 4h repeat interval the same finding publishes nothing
 	published := alertMessageCount(ctx, testKey)
 	secondRun, err := client.Scheduler(partitioncount.JobName).Run(ctx, nil)
-	must(err)
+	common.Must(err)
 	waitDelivered(ctx, secondRun.Id, "success")
 	if observations := partitionObservations(ctx); len(observations) == 0 || observations[0].Message.Value != 1 {
-		die("quiet scheduled check must still have collector evidence")
+		common.Die("quiet scheduled check must still have collector evidence")
 	}
 	if got := alertMessageCount(ctx, testKey); got != published {
-		die(fmt.Sprintf("repeat-interval run: want no republish, got %d messages after %d", got, published))
+		common.Die(fmt.Sprintf("repeat-interval run: want no republish, got %d messages after %d", got, published))
 	}
 	if got := executorCapture.count("warn", alert.AlertPartitionCount.Name, testStream.Name); got != 1 {
-		die(fmt.Sprintf("repeat-interval run: want no new WARN, got %d", got))
+		common.Die(fmt.Sprintf("repeat-interval run: want no new WARN, got %d", got))
 	}
 	fmt.Println("  ✓ a second run inside the repeat interval published nothing")
 
 	summary = readCheckSummary(ctx)
 	if summary[iMetrics.MetricCheckPublishedAlerts.Name] != 0 ||
 		summary[iMetrics.MetricCheckStreamsFailed.Name] != 0 {
-		die(fmt.Sprintf("repeat-interval run: want a quiet summary, got %v", summary))
+		common.Die(fmt.Sprintf("repeat-interval run: want a quiet summary, got %v", summary))
 	}
 	fmt.Println("  ✓ check summary: the quiet run counted zero publishes")
 
 	// exact-name dispatch: the live consumer never claims another job's
 	// request, and alert traffic leaves other groups alone
 	readCostRun, err := client.Scheduler(compactionreadcost.JobName).Run(ctx, nil)
-	must(err)
+	common.Must(err)
 	thirdRun, err := client.Scheduler(partitioncount.JobName).Run(ctx, nil)
-	must(err)
+	common.Must(err)
 	waitDelivered(ctx, thirdRun.Id, "success")
 	if got := scalarInt64(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d AND message_id = %d;`, ds.Schema, stream.DeliveryLogTable(schedulesStream.Id), partitionCountGroup, readCostRun.Id)); got != 0 {
-		die(fmt.Sprintf("the executor must not claim another job's request, got %d delivery rows", got))
+		common.Die(fmt.Sprintf("the executor must not claim another job's request, got %d delivery rows", got))
 	}
 	for _, foreignGroup := range []int64{otherGroup, bindinglessGroup} {
 		claimed := scalarInt64(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d;`, ds.Schema, stream.ExceptionQueueTable(schedulesStream.Id), foreignGroup))
 		logged := scalarInt64(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = %d;`, ds.Schema, stream.DeliveryLogTable(schedulesStream.Id), foreignGroup))
 		if claimed != 0 || logged != 0 {
-			die(fmt.Sprintf("group %d must be untouched by alert runs, got %d claims %d log rows", foreignGroup, claimed, logged))
+			common.Die(fmt.Sprintf("group %d must be untouched by alert runs, got %d claims %d log rows", foreignGroup, claimed, logged))
 		}
 	}
 	fmt.Println("  ✓ foreign request unclaimed, other/bindingless groups untouched")
@@ -518,8 +501,8 @@ func isolationSection(ctx context.Context) {
 	step("isolation: a corrupted head fails its stream's Record, the others still resolve")
 
 	testKey := partitionCountKey(testStreamOwner)
-	schedulesOwner, err := common.NewStreamOwner(schedulesStream.SystemId, schedulesStream.Id, schedulesStream.Name)
-	must(err)
+	schedulesOwner, err := iCommon.NewStreamOwner(schedulesStream.SystemId, schedulesStream.Id, schedulesStream.Name)
+	common.Must(err)
 	schedulesKey := partitionCountKey(schedulesOwner)
 
 	// the head row stays, but its payload no longer unmarshals into an Alert
@@ -529,22 +512,22 @@ func isolationSection(ctx context.Context) {
 
 	declareThreshold(ctx, 0)
 	resolveRun, err := client.Scheduler(partitioncount.JobName).Run(ctx, nil)
-	must(err)
+	common.Must(err)
 
 	// the attempt fails on the corrupted owner -- but the same attempt
 	// already resolved every healthy stream
 	waitDelivered(ctx, resolveRun.Id, "failure")
 	if observations := partitionObservations(ctx); len(observations) == 0 || observations[0].Message.Value != 1 {
-		die("healthy partition evidence must survive failed alert recording")
+		common.Die("healthy partition evidence must survive failed alert recording")
 	}
 	if got := headStatus(ctx, schedulesKey); got != string(alert.AlertStatusResolved) {
-		die(fmt.Sprintf("isolation: healthy streams must resolve beside the failure, got %q", got))
+		common.Die(fmt.Sprintf("isolation: healthy streams must resolve beside the failure, got %q", got))
 	}
 	if got := executorCapture.count("info", alert.AlertPartitionCount.Name, schedulesStream.Name); got != 1 {
-		die(fmt.Sprintf("isolation: want 1 resolve INFO for the healthy stream, got %d", got))
+		common.Die(fmt.Sprintf("isolation: want 1 resolve INFO for the healthy stream, got %d", got))
 	}
 	if got := headId(ctx, testKey); got != corruptedHead {
-		die("isolation: the corrupted owner's head must not move")
+		common.Die("isolation: the corrupted owner's head must not move")
 	}
 	fmt.Println("  ✓ healthy streams resolved in the same attempt the corrupted owner failed")
 
@@ -553,7 +536,7 @@ func isolationSection(ctx context.Context) {
 	summary := readCheckSummary(ctx)
 	if summary[iMetrics.MetricCheckStreamsFailed.Name] != 1 ||
 		summary[iMetrics.MetricCheckPublishedAlerts.Name] != 0 {
-		die(fmt.Sprintf("isolation: the failed run must still produce its summary, got %v", summary))
+		common.Die(fmt.Sprintf("isolation: the failed run must still produce its summary, got %v", summary))
 	}
 	fmt.Println("  ✓ check summary went out on the failed run: exactly 1 stream failed")
 
@@ -561,17 +544,17 @@ func isolationSection(ctx context.Context) {
 	exec(ctx, fmt.Sprintf(`UPDATE %s.%s SET payload = $1::jsonb WHERE id = $2;`, ds.Schema, stream.MessageLogTable(alertsStream.Id)), saved, corruptedHead)
 	waitDelivered(ctx, resolveRun.Id, "success")
 	if got := headStatus(ctx, testKey); got != string(alert.AlertStatusResolved) {
-		die(fmt.Sprintf("isolation: want the fixed owner resolved on retry, got %q", got))
+		common.Die(fmt.Sprintf("isolation: want the fixed owner resolved on retry, got %q", got))
 	}
 	if got := executorCapture.count("info", alert.AlertPartitionCount.Name, testStream.Name); got != 1 {
-		die(fmt.Sprintf("isolation: want 1 resolve INFO for the fixed owner, got %d", got))
+		common.Die(fmt.Sprintf("isolation: want 1 resolve INFO for the fixed owner, got %d", got))
 	}
 	fmt.Println("  ✓ retry resolved the fixed owner; healthy streams resolved exactly once")
 
 	summary = readCheckSummary(ctx)
 	if summary[iMetrics.MetricCheckStreamsFailed.Name] != 0 ||
 		summary[iMetrics.MetricCheckResolvedAlerts.Name] != 1 {
-		die(fmt.Sprintf("isolation retry: want 0 failed and only the fixed owner resolved, got %v", summary))
+		common.Die(fmt.Sprintf("isolation retry: want 0 failed and only the fixed owner resolved, got %v", summary))
 	}
 	fmt.Println("  ✓ retry summary: zero failed, only the fixed owner resolved")
 }
@@ -588,29 +571,29 @@ func waitForCollector(ctx context.Context) {
 		select {
 		case <-ticker.C:
 			completion, err := client.System().Metrics().CollectorCompletedTimestamp().Latest(ctx)
-			must(err)
+			common.Must(err)
 			if completion != nil && completion.At.After(started) {
 				return
 			}
 		case <-deadline.C:
-			die("manager's collector did not complete a pass within 10s")
+			common.Die("manager's collector did not complete a pass within 10s")
 		case <-ctx.Done():
-			must(ctx.Err())
+			common.Must(ctx.Err())
 		}
 	}
 }
 
-func partitionObservations(ctx context.Context) []*common.StoredMessage[iMetrics.Measurement] {
+func partitionObservations(ctx context.Context) []*iCommon.StoredMessage[iMetrics.Measurement] {
 	metricStream, err := client.Stream[iMetrics.Measurement](iMetrics.MetricStreamName).Get(ctx)
-	must(err)
+	common.Must(err)
 	heads, err := compactioncontroller.NewCompactionController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	key := iMetrics.MeasurementKey(iMetrics.MetricStreamPartitions.Name, map[string]string{"stream": testStream.Name})
 	observations, err := heads.ListKeyMessages[iMetrics.Measurement](ctx, metricStream.Id, key, 100)
-	must(err)
+	common.Must(err)
 	for _, observation := range observations {
 		if observation.CompactionRank != 0 || observation.CreatedAt.IsZero() {
-			die("partition observations must use default rank and retain their storage timestamp")
+			common.Die("partition observations must use default rank and retain their storage timestamp")
 		}
 	}
 	return observations
@@ -620,13 +603,13 @@ func partitionObservations(ctx context.Context) []*common.StoredMessage[iMetrics
 // until the returned stop is called.
 func startExecutor(ctx context.Context) func() {
 	provisioner, err := partitioncount.NewPartitionCountProvisioner(ds, nil, executorCapture)
-	must(err)
+	common.Must(err)
 	workers, err := workercontroller.NewWorkerController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	row, err := workers.GetWorker(ctx, partitioncount.JobName, groupOwner)
-	must(err)
+	common.Must(err)
 	if row == nil {
-		die("the " + partitioncount.JobName + " worker row is missing")
+		common.Die("the " + partitioncount.JobName + " worker row is missing")
 	}
 
 	// a crashed earlier run's claim lingers until its InstanceTTL expires --
@@ -635,12 +618,12 @@ func startExecutor(ctx context.Context) func() {
 	deadline := time.Now().Add(60 * time.Second)
 	for {
 		execution, err = provisioner.Provision(ctx, row)
-		must(err)
+		common.Must(err)
 		if execution != nil {
 			break
 		}
 		if time.Now().After(deadline) {
-			die("the alert worker declined the instance for 60s -- is a daemon already running?")
+			common.Die("the alert worker declined the instance for 60s -- is a daemon already running?")
 		}
 		time.Sleep(time.Second)
 	}
@@ -650,7 +633,7 @@ func startExecutor(ctx context.Context) func() {
 	go func() { done <- execution.Run(runCtx) }()
 	return func() {
 		cancel()
-		must(<-done)
+		common.Must(<-done)
 	}
 }
 
@@ -658,28 +641,28 @@ func startExecutor(ctx context.Context) func() {
 // the given job names (none = bindingless), and returns its id.
 func registerGroup(ctx context.Context, name string, bindings ...string) int64 {
 	controller, err := consumecontroller.NewConsumeController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	group, err := controller.RegisterGroup(ctx, schedulesStream.Id, name, consume.Beginning())
-	must(err)
+	common.Must(err)
 	_, err = controller.DeclareBindings(ctx, schedulesStream.Id, group.Id, bindings, time.Now())
-	must(err)
+	common.Must(err)
 	return group.Id
 }
 
 func cleanup() {
 	ctx := context.Background()
 
-	must(client.Scheduler(partitioncount.JobName).Unsuspend(ctx))
-	must(client.Scheduler(compactionreadcost.JobName).Unsuspend(ctx))
+	common.Must(client.Scheduler(partitioncount.JobName).Unsuspend(ctx))
+	common.Must(client.Scheduler(compactionreadcost.JobName).Unsuspend(ctx))
 
 	testKey := partitionCountKey(testStreamOwner)
 	checkKey, err := alert.MessageKey(testCheckName, testStreamOwner)
-	must(err)
+	common.Must(err)
 	keys := []string{testKey, checkKey}
 	exec(ctx, fmt.Sprintf(`DELETE FROM %s.%s WHERE compaction_key = ANY($1);`, ds.Schema, stream.CompactionHeadTable(alertsStream.Id)), keys)
 	exec(ctx, fmt.Sprintf(`DELETE FROM %s.%s WHERE message_key = ANY($1);`, ds.Schema, stream.MessageLogTable(alertsStream.Id)), keys)
 
-	must(client.Stream[testMessage](testStream.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+	common.Must(client.Stream[testMessage](testStream.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 
 	for _, sql := range []string{
 		fmt.Sprintf(`DELETE FROM %s.%s WHERE consumer_group_id IN (SELECT id FROM %s.consumer_group_config WHERE name LIKE '%s.%%');`, ds.Schema, stream.ExceptionQueueTable(schedulesStream.Id), ds.Schema, prefix),
@@ -758,7 +741,7 @@ func (c *captureLogger) count(level string, alertName string, ownerName string) 
 // reads them.
 func readCheckSummary(ctx context.Context) map[string]float64 {
 	measurements, err := client.System().Metrics().Latest(ctx)
-	must(err)
+	common.Must(err)
 	attributes := map[string]string{"alert": alert.AlertPartitionCount.Name}
 	byKey := make(map[string]float64, len(measurements))
 	for _, measurement := range measurements {
@@ -773,16 +756,16 @@ func readCheckSummary(ctx context.Context) map[string]float64 {
 	} {
 		value, ok := byKey[iMetrics.MeasurementKey(name, attributes)]
 		if !ok {
-			die(fmt.Sprintf("no check summary head for %s", name))
+			common.Die(fmt.Sprintf("no check summary head for %s", name))
 		}
 		summary[name] = value
 	}
 	return summary
 }
 
-func partitionCountKey(owner *common.Owner) string {
+func partitionCountKey(owner *iCommon.Owner) string {
 	key, err := alert.MessageKey(alert.AlertPartitionCount.Name, owner)
-	must(err)
+	common.Must(err)
 	return key
 }
 
@@ -805,7 +788,7 @@ func headStatus(ctx context.Context, messageKey string) string {
 	`, ds.Schema, stream.CompactionHeadTable(alertsStream.Id), ds.Schema, stream.MessageLogTable(alertsStream.Id))
 	var status *string
 	err := ds.Pool.QueryRow(ctx, sql, messageKey).Scan(&status)
-	must(err)
+	common.Must(err)
 	if status == nil {
 		return ""
 	}
@@ -826,34 +809,24 @@ func waitForCount(ctx context.Context, sql string, want int64) {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	die("timed out waiting for: " + sql)
+	common.Die("timed out waiting for: " + sql)
 }
 
 func scalarInt64(ctx context.Context, sql string, args ...any) int64 {
 	var value int64
-	must(ds.Pool.QueryRow(ctx, sql, args...).Scan(&value))
+	common.Must(ds.Pool.QueryRow(ctx, sql, args...).Scan(&value))
 	return value
 }
 
 func scalarString(ctx context.Context, sql string, args ...any) string {
 	var value string
-	must(ds.Pool.QueryRow(ctx, sql, args...).Scan(&value))
+	common.Must(ds.Pool.QueryRow(ctx, sql, args...).Scan(&value))
 	return value
 }
 
 func exec(ctx context.Context, sql string, args ...any) {
 	_, err := ds.Pool.Exec(ctx, sql, args...)
-	must(err)
+	common.Must(err)
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-
-func die(msg string) {
-	panic(testFailure{message: msg})
-}

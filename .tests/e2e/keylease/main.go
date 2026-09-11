@@ -31,7 +31,8 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/.tests/e2e/common"
+	iCommon "github.com/agentstax/sqlstreams/pkg/common"
 	"github.com/agentstax/sqlstreams/pkg/consume"
 	keyleasecontroller "github.com/agentstax/sqlstreams/pkg/consume/base/controller"
 	consumecontroller "github.com/agentstax/sqlstreams/pkg/consume/controller"
@@ -63,52 +64,34 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err = iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	streamName := fmt.Sprintf("keylease.%d", time.Now().UnixNano())
 	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{})
-	must(err)
+	common.Must(err)
 	streamId = tp.Id
 
 	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	keyLeases, err := keyleasecontroller.NewKeyLeaseController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	janitorDatastore, err := janitordatastore.NewJanitorDatastore(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	wpInstance, err := client.Stream[Rec](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	g, err := cd.RegisterGroup(ctx, tp.Id, group, consume.Beginning())
-	must(err)
+	common.Must(err)
 	groupId = g.Id
 
 	step("seed: two versions of user:1 -- the newer is the compaction head")
@@ -117,42 +100,42 @@ func run() (err error) {
 	staleID := scalarInt64(ctx, fmt.Sprintf(`SELECT MIN(id) FROM %s.%s WHERE message_key = 'user:1'`, ds.Schema, stream.MessageLogTable(streamId)))
 	headID := scalarInt64(ctx, fmt.Sprintf(`SELECT message_id FROM %s.%s WHERE compaction_key = 'user:1'`, ds.Schema, stream.CompactionHeadTable(streamId)))
 	if staleID == headID {
-		die("seed broken: stale and head ids match")
+		common.Die("seed broken: stale and head ids match")
 	}
 	fmt.Printf("  stale=%d head=%d\n", staleID, headID)
 
 	step("stale message resolves superseded and never touches the lease row")
 	c := claim(ctx, keyLeases, "user:1", staleID, 30*time.Second)
 	if c.Verdict != keyleasecontroller.KeyLeaseSuperseded {
-		die(fmt.Sprintf("want superseded, got %s", c.Verdict))
+		common.Die(fmt.Sprintf("want superseded, got %s", c.Verdict))
 	}
 	if n := leaseCount(ctx); n != 0 {
-		die(fmt.Sprintf("superseded verdict created a lease row (count=%d) -- the head gate must run before the lease attempt", n))
+		common.Die(fmt.Sprintf("superseded verdict created a lease row (count=%d) -- the head gate must run before the lease attempt", n))
 	}
 	fmt.Println("  ✓ superseded, zero lease rows")
 
 	step("head message acquires when free; second attempt is busy")
 	held := claim(ctx, keyLeases, "user:1", headID, 30*time.Second)
 	if held.Verdict != keyleasecontroller.KeyLeaseAcquired || held.Token == uuid.Nil() {
-		die(fmt.Sprintf("want acquired with a token, got %s valid=%v", held.Verdict, held.Token != uuid.Nil()))
+		common.Die(fmt.Sprintf("want acquired with a token, got %s valid=%v", held.Verdict, held.Token != uuid.Nil()))
 	}
 	if c := claim(ctx, keyLeases, "user:1", headID, 30*time.Second); c.Verdict != keyleasecontroller.KeyLeaseBusy {
-		die(fmt.Sprintf("want busy while held, got %s", c.Verdict))
+		common.Die(fmt.Sprintf("want busy while held, got %s", c.Verdict))
 	}
 	if n := leaseCount(ctx); n != 1 {
-		die(fmt.Sprintf("want exactly 1 lease row, got %d", n))
+		common.Die(fmt.Sprintf("want exactly 1 lease row, got %d", n))
 	}
 	fmt.Println("  ✓ acquired, then busy")
 
 	step("stale message still resolves superseded while the key is held (gate beats busy)")
 	if c := claim(ctx, keyLeases, "user:1", staleID, 30*time.Second); c.Verdict != keyleasecontroller.KeyLeaseSuperseded {
-		die(fmt.Sprintf("want superseded (not busy) for a stale message on a held key, got %s", c.Verdict))
+		common.Die(fmt.Sprintf("want superseded (not busy) for a stale message on a held key, got %s", c.Verdict))
 	}
 	fmt.Println("  ✓ superseded takes precedence over busy")
 
 	step("a release inside a rolled-back txn leaves the lease held")
 	tx, err := ds.Pool.Begin(ctx)
-	must(err)
+	common.Must(err)
 	// mirrors consumebase.release's SQL (pkg/consume/base/controller/datastore/keylease.go) -- keep in sync
 	tag, err := tx.Exec(ctx, fmt.Sprintf(`
 		DELETE FROM %s.%s
@@ -160,52 +143,52 @@ func run() (err error) {
 			AND message_key = $2
 			AND token = $3;
 	`, ds.Schema, stream.MessageKeyLeaseTable(streamId)), groupId, "user:1", held.Token)
-	must(err)
+	common.Must(err)
 	if tag.RowsAffected() != 1 {
-		die("the in-txn release should have matched the held row")
+		common.Die("the in-txn release should have matched the held row")
 	}
-	must(tx.Rollback(ctx))
+	common.Must(tx.Rollback(ctx))
 	if c := claim(ctx, keyLeases, "user:1", headID, 30*time.Second); c.Verdict != keyleasecontroller.KeyLeaseBusy {
-		die(fmt.Sprintf("want busy after rolled-back release, got %s", c.Verdict))
+		common.Die(fmt.Sprintf("want busy after rolled-back release, got %s", c.Verdict))
 	}
 	fmt.Println("  ✓ rollback kept the lease")
 
 	step("release frees the key for immediate reacquire")
 	released, err := keyLeases.Release(ctx, held)
-	must(err)
+	common.Must(err)
 	if !released {
-		die("release of the live holder should match its row")
+		common.Die("release of the live holder should match its row")
 	}
 	short := claim(ctx, keyLeases, "user:1", headID, 300*time.Millisecond)
 	if short.Verdict != keyleasecontroller.KeyLeaseAcquired {
-		die(fmt.Sprintf("want reacquire after release, got %s", short.Verdict))
+		common.Die(fmt.Sprintf("want reacquire after release, got %s", short.Verdict))
 	}
 	fmt.Println("  ✓ released and reacquired")
 
 	step("takeover only after expiry; the expired holder's release matches 0 rows")
 	if c := claim(ctx, keyLeases, "user:1", headID, 30*time.Second); c.Verdict != keyleasecontroller.KeyLeaseBusy {
-		die(fmt.Sprintf("want busy before expiry, got %s", c.Verdict))
+		common.Die(fmt.Sprintf("want busy before expiry, got %s", c.Verdict))
 	}
 	time.Sleep(400 * time.Millisecond)
 	taker := claim(ctx, keyLeases, "user:1", headID, 30*time.Second)
 	if taker.Verdict != keyleasecontroller.KeyLeaseAcquired {
-		die(fmt.Sprintf("want takeover after expiry, got %s", taker.Verdict))
+		common.Die(fmt.Sprintf("want takeover after expiry, got %s", taker.Verdict))
 	}
 	if taker.Token == short.Token {
-		die("takeover must mint a fresh token")
+		common.Die("takeover must mint a fresh token")
 	}
 	staleReleased, err := keyLeases.Release(ctx, short)
-	must(err)
+	common.Must(err)
 	if staleReleased {
-		die("the expired holder's release matched a row -- it must not delete the new holder's row")
+		common.Die("the expired holder's release matched a row -- it must not delete the new holder's row")
 	}
 	if n := leaseCount(ctx); n != 1 {
-		die(fmt.Sprintf("the expired holder's release must not remove the new holder's row, count=%d", n))
+		common.Die(fmt.Sprintf("the expired holder's release must not remove the new holder's row, count=%d", n))
 	}
 	takerReleased, err := keyLeases.Release(ctx, taker)
-	must(err)
+	common.Must(err)
 	if !takerReleased {
-		die("the new holder's release should match its row")
+		common.Die("the new holder's release should match its row")
 	}
 	fmt.Println("  ✓ busy before expiry, taken over after, expired token matched nothing")
 
@@ -231,16 +214,16 @@ func run() (err error) {
 		case keyleasecontroller.KeyLeaseBusy:
 			busy++
 		default:
-			die(fmt.Sprintf("unexpected verdict %s in the race", r.Verdict))
+			common.Die(fmt.Sprintf("unexpected verdict %s in the race", r.Verdict))
 		}
 	}
 	if acquired != 1 || busy != workers-1 {
-		die(fmt.Sprintf("want exactly 1 winner, got acquired=%d busy=%d", acquired, busy))
+		common.Die(fmt.Sprintf("want exactly 1 winner, got acquired=%d busy=%d", acquired, busy))
 	}
 	released, err = keyLeases.Release(ctx, winner)
-	must(err)
+	common.Must(err)
 	if !released {
-		die("race winner's release should match its row")
+		common.Die("race winner's release should match its row")
 	}
 	fmt.Printf("  ✓ %d racers, 1 winner\n", workers)
 
@@ -249,29 +232,29 @@ func run() (err error) {
 	old3 := scalarInt64(ctx, fmt.Sprintf(`SELECT message_id FROM %s.%s WHERE compaction_key = 'user:3'`, ds.Schema, stream.CompactionHeadTable(streamId)))
 	holding := claim(ctx, keyLeases, "user:3", old3, 30*time.Second)
 	if holding.Verdict != keyleasecontroller.KeyLeaseAcquired {
-		die(fmt.Sprintf("want acquired on user:3, got %s", holding.Verdict))
+		common.Die(fmt.Sprintf("want acquired on user:3, got %s", holding.Verdict))
 	}
 	publish(ctx, wpInstance, "user:3", 2)
 	new3 := scalarInt64(ctx, fmt.Sprintf(`SELECT message_id FROM %s.%s WHERE compaction_key = 'user:3'`, ds.Schema, stream.CompactionHeadTable(streamId)))
 	if c := claim(ctx, keyLeases, "user:3", new3, 30*time.Second); c.Verdict != keyleasecontroller.KeyLeaseBusy {
-		die(fmt.Sprintf("want busy for the new head while the old holds the key, got %s", c.Verdict))
+		common.Die(fmt.Sprintf("want busy for the new head while the old holds the key, got %s", c.Verdict))
 	}
 	if c := claim(ctx, keyLeases, "user:3", old3, 30*time.Second); c.Verdict != keyleasecontroller.KeyLeaseSuperseded {
-		die(fmt.Sprintf("want superseded for the held message now that the head moved, got %s", c.Verdict))
+		common.Die(fmt.Sprintf("want superseded for the held message now that the head moved, got %s", c.Verdict))
 	}
 	released, err = keyLeases.Release(ctx, holding)
-	must(err)
+	common.Must(err)
 	if !released {
-		die("the old holder's release should match its row")
+		common.Die("the old holder's release should match its row")
 	}
 	after := claim(ctx, keyLeases, "user:3", new3, 30*time.Second)
 	if after.Verdict != keyleasecontroller.KeyLeaseAcquired {
-		die(fmt.Sprintf("want the new head to acquire after the release, got %s", after.Verdict))
+		common.Die(fmt.Sprintf("want the new head to acquire after the release, got %s", after.Verdict))
 	}
 	released, err = keyLeases.Release(ctx, after)
-	must(err)
+	common.Must(err)
 	if !released {
-		die("the new head's release should match its row")
+		common.Die("the new head's release should match its row")
 	}
 	fmt.Println("  ✓ new head waited out the old holder, then acquired")
 
@@ -280,29 +263,29 @@ func run() (err error) {
 	head2 := scalarInt64(ctx, fmt.Sprintf(`SELECT message_id FROM %s.%s WHERE compaction_key = 'user:2'`, ds.Schema, stream.CompactionHeadTable(streamId)))
 	expired := claim(ctx, keyLeases, "user:1", headID, 50*time.Millisecond)
 	if expired.Verdict != keyleasecontroller.KeyLeaseAcquired {
-		die(fmt.Sprintf("sweep setup: want acquired, got %s", expired.Verdict))
+		common.Die(fmt.Sprintf("sweep setup: want acquired, got %s", expired.Verdict))
 	}
 	live := claim(ctx, keyLeases, "user:2", head2, 30*time.Second)
 	if live.Verdict != keyleasecontroller.KeyLeaseAcquired {
-		die(fmt.Sprintf("sweep setup: want acquired, got %s", live.Verdict))
+		common.Die(fmt.Sprintf("sweep setup: want acquired, got %s", live.Verdict))
 	}
 	time.Sleep(100 * time.Millisecond)
-	must(janitorDatastore.SweepExpiredKeyLeases(ctx, streamId, 1)) // batchSize 1 forces the batch loop
+	common.Must(janitorDatastore.SweepExpiredKeyLeases(ctx, streamId, 1)) // batchSize 1 forces the batch loop
 	if n := leaseCount(ctx); n != 1 {
-		die(fmt.Sprintf("want only the live row to survive the sweep, count=%d", n))
+		common.Die(fmt.Sprintf("want only the live row to survive the sweep, count=%d", n))
 	}
 	survivor := scalarString(ctx, fmt.Sprintf(`SELECT message_key FROM %s.%s WHERE consumer_group_id = $1`, ds.Schema, stream.MessageKeyLeaseTable(streamId)), groupId)
 	if survivor != "user:2" {
-		die(fmt.Sprintf("sweep removed the wrong row, survivor=%s", survivor))
+		common.Die(fmt.Sprintf("sweep removed the wrong row, survivor=%s", survivor))
 	}
 	fmt.Println("  ✓ expired swept, live kept")
 
 	step("destroying the stream drops its message_key_lease table")
-	must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+	common.Must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	var keyLeaseTable *string
-	must(ds.Pool.QueryRow(ctx, `SELECT to_regclass($1)::text;`, fmt.Sprintf("%s.%s", ds.Schema, stream.MessageKeyLeaseTable(streamId))).Scan(&keyLeaseTable))
+	common.Must(ds.Pool.QueryRow(ctx, `SELECT to_regclass($1)::text;`, fmt.Sprintf("%s.%s", ds.Schema, stream.MessageKeyLeaseTable(streamId))).Scan(&keyLeaseTable))
 	if keyLeaseTable != nil {
-		die("destroy left the message_key_lease table behind")
+		common.Die("destroy left the message_key_lease table behind")
 	}
 	fmt.Println("  ✓ destroy dropped the table")
 
@@ -311,8 +294,8 @@ func run() (err error) {
 }
 
 func claim(ctx context.Context, cd *keyleasecontroller.KeyLeaseController, key string, msgID int64, d time.Duration) *keyleasecontroller.KeyLeaseClaim {
-	c, err := cd.Claim(ctx, streamId, groupId, key, msgID, true, common.ConcurrencyExclusive, keyleasecontroller.RangeBounds{}, d)
-	must(err)
+	c, err := cd.Claim(ctx, streamId, groupId, key, msgID, true, iCommon.ConcurrencyExclusive, keyleasecontroller.RangeBounds{}, d)
+	common.Must(err)
 	return c
 }
 
@@ -320,35 +303,25 @@ func publish(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[Rec], 
 	_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*Rec, error) {
 		return &Rec{Key: key, Version: version}, nil
 	}, &sqlstreams.ProduceOptions{MessageKey: key, Compaction: &sqlstreams.CompactionOptions{Enable: true}})
-	must(err)
+	common.Must(err)
 }
 
 func leaseCount(ctx context.Context) int {
 	var n int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = $1`, ds.Schema, stream.MessageKeyLeaseTable(streamId)), groupId).Scan(&n))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = $1`, ds.Schema, stream.MessageKeyLeaseTable(streamId)), groupId).Scan(&n))
 	return n
 }
 
 func scalarInt64(ctx context.Context, q string, args ...any) int64 {
 	var v int64
-	must(ds.Pool.QueryRow(ctx, q, args...).Scan(&v))
+	common.Must(ds.Pool.QueryRow(ctx, q, args...).Scan(&v))
 	return v
 }
 
 func scalarString(ctx context.Context, q string, args ...any) string {
 	var v string
-	must(ds.Pool.QueryRow(ctx, q, args...).Scan(&v))
+	common.Must(ds.Pool.QueryRow(ctx, q, args...).Scan(&v))
 	return v
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-
-func die(msg string) {
-	panic(testFailure{message: msg})
-}

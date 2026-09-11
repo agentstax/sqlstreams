@@ -38,46 +38,28 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	streamName := fmt.Sprintf("phase8a.partition.%d", time.Now().UnixNano())
 	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: partitionSize})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 
 	step("publish 14 messages -- each partition's 80% trigger creates the next ahead")
 	for i := int64(1); i <= 14; i++ {
@@ -115,7 +97,7 @@ func publish(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[common
 	_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 		return common.NewWork(30, "admin@example.com")
 	}, nil)
-	must(err)
+	common.Must(err)
 }
 
 func waitForPartition(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, n int64) {
@@ -123,13 +105,13 @@ func waitForPartition(ctx context.Context, ds *iDatastore.PostgresDatastore, str
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
 		var exists bool
-		must(ds.Pool.QueryRow(ctx, `SELECT to_regclass($1) IS NOT NULL;`, table).Scan(&exists))
+		common.Must(ds.Pool.QueryRow(ctx, `SELECT to_regclass($1) IS NOT NULL;`, table).Scan(&exists))
 		if exists {
 			return
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	die(fmt.Sprintf("%s was not created ahead within 10s", table))
+	common.Die(fmt.Sprintf("%s was not created ahead within 10s", table))
 }
 
 func countPartitions(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) int64 {
@@ -158,19 +140,19 @@ func explainReadMessages(ctx context.Context, ds *iDatastore.PostgresDatastore, 
 		ORDER BY m.id;
 	`, logTable, bindingTable, bindingTable)
 	rows, err := ds.Pool.Query(ctx, sql, low, high, 0) // no binding rows exist for group id 0 -- the NOT EXISTS arm is what the plan exercises
-	must(err)
+	common.Must(err)
 	defer rows.Close()
 
 	partitionRe := regexp.MustCompile(regexp.QuoteMeta(logName) + `_\d+`)
 	touched := map[string]bool{}
 	for rows.Next() {
 		var line string
-		must(rows.Scan(&line))
+		common.Must(rows.Scan(&line))
 		for _, m := range partitionRe.FindAllString(line, -1) {
 			touched[m] = true
 		}
 	}
-	must(rows.Err())
+	common.Must(rows.Err())
 
 	names := make([]string, 0, len(touched))
 	for n := range touched {
@@ -184,22 +166,14 @@ func explainReadMessages(ctx context.Context, ds *iDatastore.PostgresDatastore, 
 
 func scalar(ctx context.Context, ds *iDatastore.PostgresDatastore, q string, args ...any) int64 {
 	var v int64
-	must(ds.Pool.QueryRow(ctx, q, args...).Scan(&v))
+	common.Must(ds.Pool.QueryRow(ctx, q, args...).Scan(&v))
 	return v
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}
 func assertInt(label string, got, want int64) {
 	if got != want {
-		die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
+		common.Die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
 	}
 	fmt.Printf("  ✓ %s (%d)\n", label, got)
 }

@@ -1,16 +1,16 @@
 package datastore
 
 import (
+	"os"
 	"testing"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/sqlstreamstest"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Run only against a disposable database: CreateTables replaces lab's records.
 func TestMeasurementsWithOverlappingStreamIds(t *testing.T) {
-	connection := sqlstreamstest.DatabaseURL(t)
+	connection := databaseURL(t)
 	ctx := t.Context()
 	pool, err := pgxpool.New(ctx, connection)
 	if err != nil {
@@ -52,7 +52,7 @@ func TestMeasurementsWithOverlappingStreamIds(t *testing.T) {
 }
 
 func TestCompletionWithoutSuccessAuditRows(t *testing.T) {
-	connection := sqlstreamstest.DatabaseURL(t)
+	connection := databaseURL(t)
 	ctx := t.Context()
 	pool, err := pgxpool.New(ctx, connection)
 	if err != nil {
@@ -117,4 +117,15 @@ func TestCompletionWithoutSuccessAuditRows(t *testing.T) {
 	if measured.Count != 2 {
 		t.Fatalf("missing cursor count = %d, want 2", measured.Count)
 	}
+}
+
+// databaseURL is the disposable server SQLSTREAMS_TEST_DATABASE_URL names;
+// the test skips when it is unset.
+func databaseURL(t testing.TB) string {
+	t.Helper()
+	url := os.Getenv("SQLSTREAMS_TEST_DATABASE_URL")
+	if url == "" {
+		t.Skip("SQLSTREAMS_TEST_DATABASE_URL is unset -- set it to a disposable PostgreSQL database URL to run database tests")
+	}
+	return url
 }

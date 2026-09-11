@@ -41,55 +41,37 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	streamName := fmt.Sprintf("phase9.deletestream.%d", time.Now().UnixNano())
 	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: 1000})
-	must(err)
+	common.Must(err)
 
 	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	messageConsumers, err := messageconsumercontroller.NewMessageConsumerGroupController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	deliveryConsumers, err := deliveryconsumercontroller.NewDeliveryConsumerGroupController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 
 	step("seed a row in every stream-scoped table")
 
 	groupId := mustGroupID(cd.RegisterGroup(ctx, tp.Id, group, consume.Beginning()))
 	_, err = cd.DeclareBindings(ctx, tp.Id, groupId, []string{"orders.*"}, time.Now())
-	must(err)
+	common.Must(err)
 
 	fn := func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 		return common.NewWork(30, "admin@example.com")
@@ -97,26 +79,26 @@ func run() (err error) {
 	// Compaction seeds compaction_head; the default (protected) idempotency
 	// claim seeds idempotency_key -- one Produce call, two tables.
 	_, err = wpInstance.ProduceFunc(ctx, fn, &sqlstreams.ProduceOptions{RoutingKey: "orders.created", MessageKey: "seed-key", Compaction: &sqlstreams.CompactionOptions{Enable: true}})
-	must(err)
+	common.Must(err)
 
 	claim, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, 10, 3, 5*time.Second, stream.DeliveryLogModeFailures)
-	must(err)
+	common.Must(err)
 	if claim == nil {
-		die("expected a claim, got nil")
+		common.Die("expected a claim, got nil")
 	}
 	// deliberately never Commit -- leaves the lease open
 
-	must(deliveryConsumers.FanOut(ctx, tp.Id, groupId, 1, 100)) // materializes a 'ready' delivery row, left unclaimed
+	common.Must(deliveryConsumers.FanOut(ctx, tp.Id, groupId, 1, 100)) // materializes a 'ready' delivery row, left unclaimed
 
 	// claim it via the lifecycle path and fail it once -- status flips
 	// ready->inflight->ready in place (still 1 delivery row) while writing one
 	// delivery_log row, without touching cursor/lease (lifecycle path skips both).
 	claimedLifecycle, err := deliveryConsumers.ClaimMessagesWithLifecycle(ctx, tp.Id, groupId, 10)
-	must(err)
+	common.Must(err)
 	if len(claimedLifecycle) != 1 {
-		die(fmt.Sprintf("expected 1 lifecycle claim, got %d", len(claimedLifecycle)))
+		common.Die(fmt.Sprintf("expected 1 lifecycle claim, got %d", len(claimedLifecycle)))
 	}
-	must(deliveryConsumers.RecordFailure(ctx, 3, &claimedLifecycle[0], errors.New("seed failure"), tp.DeliveryLogMode))
+	common.Must(deliveryConsumers.RecordFailure(ctx, 3, &claimedLifecycle[0], errors.New("seed failure"), tp.DeliveryLogMode))
 
 	for _, table := range []string{"consumer_group_cursor", "claim_lease", "binding_config"} {
 		assertGroupRowCount(ctx, ds, fmt.Sprintf("%s.%s_%d", ds.Schema, table, tp.Id), groupId, 1, "before Destroy")
@@ -130,7 +112,7 @@ func run() (err error) {
 	assertIdempotencyKeyRowCount(ctx, ds, tp.Id, 1, "before Destroy")
 
 	step("Destroy the stream")
-	must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+	common.Must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 
 	assertGroupGone(ctx, ds, groupId)
 	for _, table := range []string{
@@ -151,18 +133,18 @@ func run() (err error) {
 
 func assertGroupRowCount(ctx context.Context, ds *iDatastore.PostgresDatastore, table string, groupId int64, want int, when string) {
 	var count int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s WHERE consumer_group_id = $1;`, table), groupId).Scan(&count))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s WHERE consumer_group_id = $1;`, table), groupId).Scan(&count))
 	if count != want {
-		die(fmt.Sprintf("%s[group %d] has %d rows %s, want %d", table, groupId, count, when, want))
+		common.Die(fmt.Sprintf("%s[group %d] has %d rows %s, want %d", table, groupId, count, when, want))
 	}
 	fmt.Printf("  ✓ %s has %d row(s) %s\n", table, count, when)
 }
 
 func assertCompactionHeadCount(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, want int, when string) {
 	var count int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s;`, ds.Schema, stream.CompactionHeadTable(streamId))).Scan(&count))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s;`, ds.Schema, stream.CompactionHeadTable(streamId))).Scan(&count))
 	if count != want {
-		die(fmt.Sprintf("compaction_head[stream %d] has %d rows %s, want %d", streamId, count, when, want))
+		common.Die(fmt.Sprintf("compaction_head[stream %d] has %d rows %s, want %d", streamId, count, when, want))
 	}
 	fmt.Printf("  ✓ compaction_head has %d row(s) %s\n", count, when)
 }
@@ -170,9 +152,9 @@ func assertCompactionHeadCount(ctx context.Context, ds *iDatastore.PostgresDatas
 // the stream's groups are destroyed WITH it, via the stream_id FK cascade.
 func assertGroupGone(ctx context.Context, ds *iDatastore.PostgresDatastore, groupId int64) {
 	var rows int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.consumer_group_config WHERE id = $1;`, ds.Schema), groupId).Scan(&rows))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.consumer_group_config WHERE id = $1;`, ds.Schema), groupId).Scan(&rows))
 	if rows != 0 {
-		die(fmt.Sprintf("consumer_group %d survived its stream's Destroy", groupId))
+		common.Die(fmt.Sprintf("consumer_group %d survived its stream's Destroy", groupId))
 	}
 	fmt.Printf("  ✓ the stream's group destroyed with it\n")
 }
@@ -182,9 +164,9 @@ func assertGroupGone(ctx context.Context, ds *iDatastore.PostgresDatastore, grou
 // in the table name), so it can't go through assertRowCount's generic form.
 func assertDeliveryRowCount(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, want int, when string) {
 	var count int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s;`, ds.Schema, stream.ExceptionQueueTable(streamId))).Scan(&count))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s;`, ds.Schema, stream.ExceptionQueueTable(streamId))).Scan(&count))
 	if count != want {
-		die(fmt.Sprintf("%s.%s has %d rows %s, want %d", ds.Schema, stream.ExceptionQueueTable(streamId), count, when, want))
+		common.Die(fmt.Sprintf("%s.%s has %d rows %s, want %d", ds.Schema, stream.ExceptionQueueTable(streamId), count, when, want))
 	}
 	fmt.Printf("  ✓ exception_queue_%d has %d row(s) %s\n", streamId, count, when)
 }
@@ -193,9 +175,9 @@ func assertDeliveryRowCount(ctx context.Context, ds *iDatastore.PostgresDatastor
 // same no-stream_id-column reason as assertDeliveryRowCount.
 func assertDeliveryLogRowCount(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, want int, when string) {
 	var count int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s;`, ds.Schema, stream.DeliveryLogTable(streamId))).Scan(&count))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s;`, ds.Schema, stream.DeliveryLogTable(streamId))).Scan(&count))
 	if count != want {
-		die(fmt.Sprintf("%s.%s has %d rows %s, want %d", ds.Schema, stream.DeliveryLogTable(streamId), count, when, want))
+		common.Die(fmt.Sprintf("%s.%s has %d rows %s, want %d", ds.Schema, stream.DeliveryLogTable(streamId), count, when, want))
 	}
 	fmt.Printf("  ✓ delivery_log_%d has %d row(s) %s\n", streamId, count, when)
 }
@@ -204,31 +186,22 @@ func assertDeliveryLogRowCount(ctx context.Context, ds *iDatastore.PostgresDatas
 // directly -- same no-stream_id-column reason as assertDeliveryRowCount.
 func assertIdempotencyKeyRowCount(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, want int, when string) {
 	var count int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s;`, ds.Schema, stream.IdempotencyKeyTable(streamId))).Scan(&count))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s;`, ds.Schema, stream.IdempotencyKeyTable(streamId))).Scan(&count))
 	if count != want {
-		die(fmt.Sprintf("%s.%s has %d rows %s, want %d", ds.Schema, stream.IdempotencyKeyTable(streamId), count, when, want))
+		common.Die(fmt.Sprintf("%s.%s has %d rows %s, want %d", ds.Schema, stream.IdempotencyKeyTable(streamId), count, when, want))
 	}
 	fmt.Printf("  ✓ idempotency_key_%d has %d row(s) %s\n", streamId, count, when)
 }
 
 func assertTableExists(ctx context.Context, ds *iDatastore.PostgresDatastore, table string, want bool) {
 	var exists *string
-	must(ds.Pool.QueryRow(ctx, `SELECT to_regclass($1)::text;`, table).Scan(&exists))
+	common.Must(ds.Pool.QueryRow(ctx, `SELECT to_regclass($1)::text;`, table).Scan(&exists))
 	got := exists != nil
 	if got != want {
-		die(fmt.Sprintf("%s exists=%v, want %v", table, got, want))
+		common.Die(fmt.Sprintf("%s exists=%v, want %v", table, got, want))
 	}
 	fmt.Printf("  ✓ %s exists=%v\n", table, got)
 }
 
-func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}
-
-func mustGroupID(g *consume.Consumer, err error) int64 { must(err); return g.Id }
+func step(s string)                                    { fmt.Printf("\n--- %s ---\n", s) }
+func mustGroupID(g *consume.Consumer, err error) int64 { common.Must(err); return g.Id }

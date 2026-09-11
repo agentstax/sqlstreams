@@ -13,6 +13,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/agentstax/sqlstreams/.tests/e2e/common"
 	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
 	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 	"github.com/agentstax/sqlstreams/pkg/stream"
@@ -49,32 +50,18 @@ func main() {
 	}
 }
 
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string { return f.message }
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 
 	ctx := context.Background()
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	streamName := fmt.Sprintf("compactionheadlock.%d", time.Now().UnixNano())
 	counters := client.Stream[Counter](streamName)
@@ -82,15 +69,15 @@ func run() (err error) {
 		PartitionSize:          1000,
 		EmptyCompactionHeadTTL: emptyHeadTTL,
 	})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(counters.Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(counters.Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	producer, err := counters.Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	janitor, err := janitorcontroller.NewJanitorController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 
 	firstWritesCompose(ctx, client, ds, producer, newLabKey(counters, "first-write"), &sqlstreams.CompactionOptions{Enable: true})
 	ordinaryProduceFillsEmptyRow(ctx, client, ds, producer, newLabKey(counters, "ordinary-fill"), &sqlstreams.CompactionOptions{Enable: true}, registered.Id)
@@ -114,7 +101,7 @@ func firstWritesCompose(ctx context.Context, client *sqlstreams.Client, ds *iDat
 			<-releaseFirst
 		})
 	}()
-	must(waitSignal(firstLocked, time.Second, "first transaction never locked the absent key"))
+	common.Must(waitSignal(firstLocked, time.Second, "first transaction never locked the absent key"))
 
 	secondDone := make(chan error, 1)
 	go func() {
@@ -122,16 +109,16 @@ func firstWritesCompose(ctx context.Context, client *sqlstreams.Client, ds *iDat
 	}()
 	if err := waitForQueryWait(ctx, ds, "compaction.ensureAndLockHead", "Lock", "", time.Second); err != nil {
 		close(releaseFirst)
-		must(<-firstDone)
-		must(<-secondDone)
-		die(err.Error())
+		common.Must(<-firstDone)
+		common.Must(<-secondDone)
+		common.Die(err.Error())
 	}
 	close(releaseFirst)
-	must(<-firstDone)
-	must(<-secondDone)
+	common.Must(<-firstDone)
+	common.Must(<-secondDone)
 
 	head, err := key.handle.CompactionHead(ctx)
-	must(err)
+	common.Must(err)
 	assertInt("composed value", head.Message.Value, 2)
 	fmt.Println("  ✓ second transaction waited on the first row lock")
 }
@@ -159,7 +146,7 @@ func increment(ctx context.Context, client *sqlstreams.Client, producer *sqlstre
 
 func ordinaryProduceFillsEmptyRow(ctx context.Context, client *sqlstreams.Client, ds *iDatastore.PostgresDatastore, producer *sqlstreams.ProducerInstance[Counter], key testKey, compaction *sqlstreams.CompactionOptions, streamId int64) {
 	step("ordinary compacted produce fills an existing null-head row")
-	must(lockOnly(ctx, client, key))
+	common.Must(lockOnly(ctx, client, key))
 	before, exists := readHeadRow(ctx, ds, streamId, key.name)
 	assertTrue("null-head row exists before produce", exists && before.MessageId == nil)
 
@@ -167,7 +154,7 @@ func ordinaryProduceFillsEmptyRow(ctx context.Context, client *sqlstreams.Client
 		MessageKey: key.name,
 		Compaction: compaction,
 	})
-	must(err)
+	common.Must(err)
 	after, exists := readHeadRow(ctx, ds, streamId, key.name)
 	assertTrue("row is materialized after ordinary produce", exists && after.MessageId != nil)
 	assertInt64("materialized head id", *after.MessageId, produced.Id)
@@ -177,10 +164,10 @@ func ordinaryProduceFillsEmptyRow(ctx context.Context, client *sqlstreams.Client
 func ttlRemovesOnlyEmptyRows(ctx context.Context, client *sqlstreams.Client, ds *iDatastore.PostgresDatastore, janitor *janitorcontroller.JanitorController, counters *sqlstreams.StreamHandle[Counter], streamId int64) {
 	step("TTL removes a committed lock-only row and preserves materialized heads")
 	empty := newLabKey(counters, "ttl-empty")
-	must(lockOnly(ctx, client, empty))
+	common.Must(lockOnly(ctx, client, empty))
 	time.Sleep(emptyHeadTTL + 50*time.Millisecond)
 
-	must(janitor.SweepExpiredEmptyCompactionHeads(ctx, streamId, emptyHeadTTL, batchSize))
+	common.Must(janitor.SweepExpiredEmptyCompactionHeads(ctx, streamId, emptyHeadTTL, batchSize))
 	_, exists := readHeadRow(ctx, ds, streamId, empty.name)
 	assertTrue("expired null-head row was removed", !exists)
 	assertMaterialized(ctx, newLabKey(counters, "first-write"), 2)
@@ -189,7 +176,7 @@ func ttlRemovesOnlyEmptyRows(ctx context.Context, client *sqlstreams.Client, ds 
 
 func lockerFirstSkipsWithoutWaiting(ctx context.Context, client *sqlstreams.Client, ds *iDatastore.PostgresDatastore, janitor *janitorcontroller.JanitorController, key testKey, streamId int64) {
 	step("locker-first: janitor skips the locked expired row without waiting")
-	must(lockOnly(ctx, client, key))
+	common.Must(lockOnly(ctx, client, key))
 	backdateHead(ctx, ds, streamId, key.name)
 
 	locked := make(chan struct{})
@@ -209,7 +196,7 @@ func lockerFirstSkipsWithoutWaiting(ctx context.Context, client *sqlstreams.Clie
 			return nil
 		})
 	}()
-	must(waitSignal(locked, time.Second, "locker-first transaction never acquired the row"))
+	common.Must(waitSignal(locked, time.Second, "locker-first transaction never acquired the row"))
 
 	sweepDone := make(chan error, 1)
 	go func() {
@@ -217,15 +204,15 @@ func lockerFirstSkipsWithoutWaiting(ctx context.Context, client *sqlstreams.Clie
 	}()
 	select {
 	case err := <-sweepDone:
-		must(err)
+		common.Must(err)
 		fmt.Println("  ✓ janitor returned while the locker still held the row")
 	case <-time.After(time.Second):
 		close(release)
-		must(<-lockerDone)
-		die("janitor blocked on the locker despite SKIP LOCKED")
+		common.Must(<-lockerDone)
+		common.Die("janitor blocked on the locker despite SKIP LOCKED")
 	}
 	close(release)
-	must(<-lockerDone)
+	common.Must(<-lockerDone)
 
 	row, exists := readHeadRow(ctx, ds, streamId, key.name)
 	assertTrue("locker-first row survived and remains empty", exists && row.MessageId == nil)
@@ -233,7 +220,7 @@ func lockerFirstSkipsWithoutWaiting(ctx context.Context, client *sqlstreams.Clie
 
 func janitorFirstDeletesThenLockerRecreates(ctx context.Context, client *sqlstreams.Client, ds *iDatastore.PostgresDatastore, janitor *janitorcontroller.JanitorController, key testKey, streamId int64) {
 	step("janitor-first: waiting locker recreates the row after deletion")
-	must(lockOnly(ctx, client, key))
+	common.Must(lockOnly(ctx, client, key))
 	backdateHead(ctx, ds, streamId, key.name)
 	removePause := installDeletePause(ctx, ds, streamId)
 	defer removePause()
@@ -242,13 +229,13 @@ func janitorFirstDeletesThenLockerRecreates(ctx context.Context, client *sqlstre
 	go func() {
 		sweepDone <- janitor.SweepExpiredEmptyCompactionHeads(ctx, streamId, emptyHeadTTL, batchSize)
 	}()
-	must(waitForQueryWait(ctx, ds, "streamjanitor.sweepEmptyCompactionHeadsBatch", "Timeout", "PgSleep", time.Second))
+	common.Must(waitForQueryWait(ctx, ds, "streamjanitor.sweepEmptyCompactionHeadsBatch", "Timeout", "PgSleep", time.Second))
 
 	lockerDone := make(chan error, 1)
 	go func() { lockerDone <- lockOnly(ctx, client, key) }()
-	must(waitForQueryWait(ctx, ds, "compaction.ensureAndLockHead", "Lock", "", time.Second))
-	must(<-sweepDone)
-	must(<-lockerDone)
+	common.Must(waitForQueryWait(ctx, ds, "compaction.ensureAndLockHead", "Lock", "", time.Second))
+	common.Must(<-sweepDone)
+	common.Must(<-lockerDone)
 
 	row, exists := readHeadRow(ctx, ds, streamId, key.name)
 	assertTrue("locker recreated the janitor-deleted row", exists && row.MessageId == nil)
@@ -277,7 +264,7 @@ func readHeadRow(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId
 	if errors.Is(err, pgx.ErrNoRows) {
 		return headRow{}, false
 	}
-	must(err)
+	common.Must(err)
 	return row, true
 }
 
@@ -287,7 +274,7 @@ func backdateHead(ctx context.Context, ds *iDatastore.PostgresDatastore, streamI
 		SET updated_at = NOW() - INTERVAL '1 hour'
 		WHERE compaction_key = $1 AND message_id IS NULL;
 	`, ds.Schema, stream.CompactionHeadTable(streamId)), messageKey)
-	must(err)
+	common.Must(err)
 }
 
 func installDeletePause(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) func() {
@@ -304,13 +291,13 @@ func installDeletePause(ctx context.Context, ds *iDatastore.PostgresDatastore, s
 			BEFORE DELETE ON %s.%s
 			FOR EACH ROW EXECUTE FUNCTION %s.%s();
 	`, ds.Schema, functionName, triggerName, ds.Schema, stream.CompactionHeadTable(streamId), ds.Schema, functionName))
-	must(err)
+	common.Must(err)
 	return func() {
 		_, err := ds.Pool.Exec(ctx, fmt.Sprintf(`
 			DROP TRIGGER IF EXISTS %s ON %s.%s;
 			DROP FUNCTION IF EXISTS %s.%s();
 		`, triggerName, ds.Schema, stream.CompactionHeadTable(streamId), ds.Schema, functionName))
-		must(err)
+		common.Must(err)
 	}
 }
 
@@ -352,7 +339,7 @@ func waitSignal(signal <-chan struct{}, timeout time.Duration, message string) e
 
 func assertMaterialized(ctx context.Context, key testKey, want int) {
 	head, err := key.handle.CompactionHead(ctx)
-	must(err)
+	common.Must(err)
 	assertInt(fmt.Sprintf("materialized key %q survived", key.name), head.Message.Value, want)
 }
 
@@ -361,27 +348,21 @@ func newLabKey(stream *sqlstreams.StreamHandle[Counter], name string) testKey {
 }
 
 func step(message string) { fmt.Printf("\n--- %s ---\n", message) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(message string) { panic(testFailure{message: message}) }
 func assertTrue(label string, got bool) {
 	if !got {
-		die(label)
+		common.Die(label)
 	}
 	fmt.Printf("  ✓ %s\n", label)
 }
 func assertInt(label string, got int, want int) {
 	if got != want {
-		die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
+		common.Die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
 	}
 	fmt.Printf("  ✓ %s (%d)\n", label, got)
 }
 func assertInt64(label string, got int64, want int64) {
 	if got != want {
-		die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
+		common.Die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
 	}
 	fmt.Printf("  ✓ %s (%d)\n", label, got)
 }

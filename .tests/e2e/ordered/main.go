@@ -22,6 +22,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/agentstax/sqlstreams/.tests/e2e/common"
 	"github.com/agentstax/sqlstreams/pkg/stream"
 	"os"
 	"sync"
@@ -50,60 +51,42 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[Adjustment](tp.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[Adjustment](tp.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	adjustments, err := client.Stream[Adjustment](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 
 	step("produce-time guards")
 	ordered := &sqlstreams.MessageOptions{Concurrency: sqlstreams.ConcurrencyOrdered}
 	if _, err := adjustments.Produce(ctx, &Adjustment{Account: "acct-0"}, &sqlstreams.ProduceOptions{Message: ordered}); err == nil {
-		die("ordered without a MessageKey must be refused")
+		common.Die("ordered without a MessageKey must be refused")
 	}
 	if _, err := adjustments.Produce(ctx, &Adjustment{Account: "acct-0"}, &sqlstreams.ProduceOptions{MessageKey: "acct-0", Message: ordered, Compaction: &sqlstreams.CompactionOptions{Enable: true}}); err == nil {
-		die("ordered with Compaction enabled must be refused")
+		common.Die("ordered with Compaction enabled must be refused")
 	}
 	fmt.Println("PASS: ordered needs a key and refuses compaction")
 
 	ids := map[string]int64{}
 	produce := func(account string, seq int) {
 		produced, err := adjustments.Produce(ctx, &Adjustment{Account: account, Seq: seq}, &sqlstreams.ProduceOptions{MessageKey: account, Message: ordered})
-		must(err)
+		common.Must(err)
 		ids[fmt.Sprintf("%s/%d", account, seq)] = produced.Id
 	}
 	produce("acct-1", 1)
@@ -124,7 +107,7 @@ func run() (err error) {
 		},
 	})
 
-	must(err)
+	common.Must(err)
 	groupId := groupIdOf(ctx, ds, tp.Id)
 
 	// seen[account] is the sequence of Seq values the handler was entered with
@@ -166,7 +149,7 @@ func run() (err error) {
 	waitForGone(ctx, ds, tp.Id, groupId, ids["acct-1/3"], 10*time.Second)
 	got := entries("acct-1")
 	if fmt.Sprint(got) != "[1 1 2 3]" {
-		die(fmt.Sprintf("acct-1 handler order %v, want [1 1 2 3]", got))
+		common.Die(fmt.Sprintf("acct-1 handler order %v, want [1 1 2 3]", got))
 	}
 	assertLogStatus(ctx, ds, tp.Id, groupId, ids["acct-1/2"], 0, "deferred")
 	assertLogStatus(ctx, ds, tp.Id, groupId, ids["acct-1/3"], 0, "deferred")
@@ -179,10 +162,10 @@ func run() (err error) {
 	got = entries("acct-2")
 	acct3 := len(entries("acct-3"))
 	if fmt.Sprint(got) != "[1 2]" {
-		die(fmt.Sprintf("acct-2 handler order %v, want [1 2]", got))
+		common.Die(fmt.Sprintf("acct-2 handler order %v, want [1 2]", got))
 	}
 	if acct3 != 1 {
-		die(fmt.Sprintf("acct-3 ran %d times, want 1", acct3))
+		common.Die(fmt.Sprintf("acct-3 ran %d times, want 1", acct3))
 	}
 	fmt.Println("PASS: 2 ran after 1 was dead-lettered; acct-3 was never held")
 
@@ -191,18 +174,18 @@ func run() (err error) {
 	got = entries("acct-4")
 	for i, seq := range got {
 		if seq != i+1 {
-			die(fmt.Sprintf("acct-4 handler order %v, want 1..20", got))
+			common.Die(fmt.Sprintf("acct-4 handler order %v, want 1..20", got))
 		}
 	}
 	waitForGone(ctx, ds, tp.Id, groupId, ids["acct-4/20"], 10*time.Second)
 	if deferred := deferredLogRows(ctx, ds, tp.Id, groupId, "acct-4"); deferred != 0 {
-		die(fmt.Sprintf("acct-4 wrote %d deferred log rows, want 0 -- the in-range chain should keep it off the exception path", deferred))
+		common.Die(fmt.Sprintf("acct-4 wrote %d deferred log rows, want 0 -- the in-range chain should keep it off the exception path", deferred))
 	}
 	fmt.Println("PASS: 1..20 in order, no deferred rows")
 
 	stop()
 	if err := <-consumeDone; err != nil && !errors.Is(err, context.Canceled) {
-		must(err)
+		common.Must(err)
 	}
 
 	fmt.Println("\n✅ ORDERED E2E TEST PASSED")
@@ -212,7 +195,7 @@ func run() (err error) {
 func rowStatus(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, groupId int64, messageId int64) string {
 	sql := fmt.Sprintf(`SELECT COALESCE(MAX(status), '') FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2`, ds.Schema, stream.ExceptionQueueTable(streamId))
 	var status string
-	must(ds.Pool.QueryRow(ctx, sql, groupId, messageId).Scan(&status))
+	common.Must(ds.Pool.QueryRow(ctx, sql, groupId, messageId).Scan(&status))
 	return status
 }
 
@@ -224,7 +207,7 @@ func waitFor(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	die(fmt.Sprintf("message %d never reached status %q (last %q)", messageId, want, rowStatus(ctx, ds, streamId, groupId, messageId)))
+	common.Die(fmt.Sprintf("message %d never reached status %q (last %q)", messageId, want, rowStatus(ctx, ds, streamId, groupId, messageId)))
 }
 
 func waitUntil(condition func() bool, timeout time.Duration, what string) {
@@ -235,7 +218,7 @@ func waitUntil(condition func() bool, timeout time.Duration, what string) {
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	die(fmt.Sprintf("timed out waiting for %s", what))
+	common.Die(fmt.Sprintf("timed out waiting for %s", what))
 }
 
 func waitForGone(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, groupId int64, messageId int64, timeout time.Duration) {
@@ -246,15 +229,15 @@ func waitForGone(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	die(fmt.Sprintf("message %d's row never went away (last %q)", messageId, rowStatus(ctx, ds, streamId, groupId, messageId)))
+	common.Die(fmt.Sprintf("message %d's row never went away (last %q)", messageId, rowStatus(ctx, ds, streamId, groupId, messageId)))
 }
 
 func assertLogStatus(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, groupId int64, messageId int64, attempt int, want string) {
 	sql := fmt.Sprintf(`SELECT COALESCE(MAX(status), '') FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2 AND attempt = $3`, ds.Schema, stream.DeliveryLogTable(streamId))
 	var status string
-	must(ds.Pool.QueryRow(ctx, sql, groupId, messageId, attempt).Scan(&status))
+	common.Must(ds.Pool.QueryRow(ctx, sql, groupId, messageId, attempt).Scan(&status))
 	if status != want {
-		die(fmt.Sprintf("message %d attempt %d log status %q, want %q", messageId, attempt, status, want))
+		common.Die(fmt.Sprintf("message %d attempt %d log status %q, want %q", messageId, attempt, status, want))
 	}
 }
 
@@ -266,22 +249,14 @@ func deferredLogRows(ctx context.Context, ds *iDatastore.PostgresDatastore, stre
 		WHERE l.consumer_group_id = $1 AND m.message_key = $2 AND l.status = 'deferred'
 	`, ds.Schema, stream.DeliveryLogTable(streamId), stream.MessageLogTable(streamId))
 	var count int
-	must(ds.Pool.QueryRow(ctx, sql, groupId, key).Scan(&count))
+	common.Must(ds.Pool.QueryRow(ctx, sql, groupId, key).Scan(&count))
 	return count
 }
 
 func groupIdOf(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) int64 {
 	var id int64
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT id FROM %s.consumer_group_config WHERE stream_id = $1 AND name = $2`, ds.Schema), streamId, group).Scan(&id))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT id FROM %s.consumer_group_config WHERE stream_id = $1 AND name = $2`, ds.Schema), streamId, group).Scan(&id))
 	return id
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}

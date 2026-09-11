@@ -47,32 +47,14 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", &sqlstreams.PostgresConnectionConfig{
+	pool, err := common.NewPool(ctx, &sqlstreams.PostgresConnectionConfig{
 		MaxConns: 50, // headroom above the keep-up scenario's 30 concurrent publishers + sweeper
 	})
-	must(err)
+	common.Must(err)
 	defer pool.Close()
 
 	accumulationScenario(ctx, pool)
@@ -91,20 +73,20 @@ func accumulationScenario(ctx context.Context, pool *pgxpool.Pool) {
 	step("accumulation: idempotency_key_<id> size vs. message_log size, no sweep running")
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	streamName := fmt.Sprintf("phase9.idempotencykeysgrowth.accum.%d", time.Now().UnixNano())
 	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: largePartitionSize, IdempotencyKeyTTL: time.Hour})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 
 	idkTable := fmt.Sprintf("%s.%s", ds.Schema, stream.IdempotencyKeyTable(tp.Id))
 
@@ -140,22 +122,22 @@ func sweepKeepUpScenario(ctx context.Context, pool *pgxpool.Pool) {
 	const publishers = 30
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	streamName := fmt.Sprintf("phase9.idempotencykeysgrowth.keepup.%d", time.Now().UnixNano())
 	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: largePartitionSize, IdempotencyKeyTTL: ttl})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	janitorDatastore, err := janitordatastore.NewJanitorDatastore(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 
 	idkTable := fmt.Sprintf("%s.%s", ds.Schema, stream.IdempotencyKeyTable(tp.Id))
 
@@ -174,7 +156,7 @@ func sweepKeepUpScenario(ctx context.Context, pool *pgxpool.Pool) {
 					_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 						return common.NewWork(30, "admin@example.com")
 					}, nil)
-					must(err)
+					common.Must(err)
 					published.Add(1)
 				}
 			}
@@ -192,7 +174,7 @@ func sweepKeepUpScenario(ctx context.Context, pool *pgxpool.Pool) {
 			case <-stop:
 				return
 			case <-ticker.C:
-				must(janitorDatastore.SweepExpiredIdempotencyKeys(ctx, tp.Id, ttl, sweepBatchSize))
+				common.Must(janitorDatastore.SweepExpiredIdempotencyKeys(ctx, tp.Id, ttl, sweepBatchSize))
 				if rows := tableRowCount(ctx, ds, idkTable); rows > peakRows.Load() {
 					peakRows.Store(rows)
 				}
@@ -208,7 +190,7 @@ func sweepKeepUpScenario(ctx context.Context, pool *pgxpool.Pool) {
 	// one final sweep pass past ttl, so a fully-drained table proves the
 	// sweep -- not just the test ending -- is what kept it bounded
 	time.Sleep(ttl + 100*time.Millisecond)
-	must(janitorDatastore.SweepExpiredIdempotencyKeys(ctx, tp.Id, ttl, sweepBatchSize))
+	common.Must(janitorDatastore.SweepExpiredIdempotencyKeys(ctx, tp.Id, ttl, sweepBatchSize))
 	finalRows := tableRowCount(ctx, ds, idkTable)
 
 	total := published.Load()
@@ -225,7 +207,7 @@ func sweepKeepUpScenario(ctx context.Context, pool *pgxpool.Pool) {
 	fmt.Printf("  final idempotency_key rows after one more pass past ttl: %d\n", finalRows)
 
 	if finalRows != 0 {
-		die(fmt.Sprintf("%s has %d rows after a full sweep pass past ttl, want 0", idkTable, finalRows))
+		common.Die(fmt.Sprintf("%s has %d rows after a full sweep pass past ttl, want 0", idkTable, finalRows))
 	}
 	// generous slop factor -- poll interval, batch granularity, and goroutine
 	// scheduling jitter all push peak above the exact Little's Law point
@@ -233,10 +215,10 @@ func sweepKeepUpScenario(ctx context.Context, pool *pgxpool.Pool) {
 	// below "grew unboundedly toward everything ever published."
 	bound := int64(littlesLawEstimate*10) + sweepBatchSize
 	if peak > bound {
-		die(fmt.Sprintf("peak rows (%d) exceeded %dx the Little's Law estimate + one batch (%d) -- sweep fell behind publish load", peak, 10, bound))
+		common.Die(fmt.Sprintf("peak rows (%d) exceeded %dx the Little's Law estimate + one batch (%d) -- sweep fell behind publish load", peak, 10, bound))
 	}
 	if peak >= total {
-		die(fmt.Sprintf("peak rows (%d) reached the full published count (%d) -- sweep never got ahead of publish load", peak, total))
+		common.Die(fmt.Sprintf("peak rows (%d) reached the full published count (%d) -- sweep never got ahead of publish load", peak, total))
 	}
 	fmt.Println("  ✓ steady-state size stayed bounded near the Little's Law estimate, and drained to 0 once ttl passed")
 }
@@ -258,7 +240,7 @@ func publishConcurrent(ctx context.Context, wpInstance *sqlstreams.ProducerInsta
 				_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 					return common.NewWork(30, "admin@example.com")
 				}, nil)
-				must(err)
+				common.Must(err)
 			}
 		})
 	}
@@ -267,13 +249,13 @@ func publishConcurrent(ctx context.Context, wpInstance *sqlstreams.ProducerInsta
 
 func tableByteSize(ctx context.Context, ds *iDatastore.PostgresDatastore, table string) int64 {
 	var size int64
-	must(ds.Pool.QueryRow(ctx, `SELECT pg_total_relation_size($1::regclass);`, table).Scan(&size))
+	common.Must(ds.Pool.QueryRow(ctx, `SELECT pg_total_relation_size($1::regclass);`, table).Scan(&size))
 	return size
 }
 
 func tableRowCount(ctx context.Context, ds *iDatastore.PostgresDatastore, table string) int64 {
 	var count int64
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s;`, table)).Scan(&count))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s;`, table)).Scan(&count))
 	return count
 }
 
@@ -296,11 +278,3 @@ func humanBytes(b int64) string {
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}

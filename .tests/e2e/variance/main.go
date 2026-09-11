@@ -53,7 +53,7 @@ func run() error {
 	defer stop()
 	time.AfterFunc(180*time.Second, stop) // watchdog
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", &sqlstreams.PostgresConnectionConfig{MaxConns: 20})
+	pool, err := common.NewPool(ctx, &sqlstreams.PostgresConnectionConfig{MaxConns: 20})
 	if err != nil {
 		return err
 	}

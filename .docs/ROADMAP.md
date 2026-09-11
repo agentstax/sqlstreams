@@ -53,12 +53,10 @@ the item is removed.
   root has its integration directory under `.tests/integration/` and the
   whole suite is green under -race; four `(checked)` rules in
   .tools/conventions test_kinds_test.go; `.tests/e2e/signal` behind
-  `just signal-e2e`. Left open:
-  - Delete `pkg/sqlstreamstest` once `.bench/reliability` measure_test
-    stops importing it (the last importer).
-  - The 55 e2e programs adopt `.tests/e2e/common` Must/Die/Assert/Recover
-    (signal uses them today); then the no-private-`must` rule becomes a
-    `(checked)` test.
+  `just signal-e2e`; every e2e program takes Must, Die, Assert, Recover,
+  and NewPool from `.tests/e2e/common` under a fifth `(checked)` rule;
+  `pkg/sqlstreamstest` is deleted. Left open: the HISTORY entry, after
+  which this item is removed.
 
 - **Move the public entry package out of pkg/** — follow through on [0665]
   and [0670] once its destination is selected. Update imports and path-aware

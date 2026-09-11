@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/agentstax/sqlstreams/.tests/e2e/common"
 	"github.com/agentstax/sqlstreams/pkg/datastore"
 	"os"
 	"time"
@@ -19,61 +20,43 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 	run := time.Now().UnixNano()
 	streamId := run // no real stream needs to exist -- the events just carry this id as data
 	group := fmt.Sprintf("abandonedroutinesnapshot.%d", run)
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := datastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
-	must(client.System().Register(ctx, nil))
+	common.Must(err)
+	common.Must(client.System().Register(ctx, nil))
 
 	metricController, err := metricscontroller.NewMetricsController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 
 	step("never-produced (stream, group) -> zeroes, not an error")
 	snapshot, err := metricController.AbandonedRoutineSnapshot(ctx, streamId, group)
-	must(err)
+	common.Must(err)
 	assertInt64("Total", snapshot.Total, 0)
 	assertInt64("Outstanding", snapshot.Outstanding, 0)
 	assertDuration("SelfClearLatencyAvg", snapshot.SelfClearLatencyAvg, 0)
 
 	step("two producers (simulating two processes) interleave abandoned/cleared for the same group")
 	producerA, err := metricsproducer.NewMetricsProducer(ds, &metricsproducer.MetricProducerConfig{SessionFlushRate: 100 * time.Millisecond}, ds.Logger)
-	must(err)
+	common.Must(err)
 	go func() {
-		must(producerA.Run(ctx, group, "abandonedroutinesnapshot", 1, "session-a"))
+		common.Must(producerA.Run(ctx, group, "abandonedroutinesnapshot", 1, "session-a"))
 	}()
 	producerB, err := metricsproducer.NewMetricsProducer(ds, &metricsproducer.MetricProducerConfig{SessionFlushRate: 100 * time.Millisecond}, ds.Logger)
-	must(err)
+	common.Must(err)
 	go func() {
-		must(producerB.Run(ctx, group, "abandonedroutinesnapshot", 1, "session-b"))
+		common.Must(producerB.Run(ctx, group, "abandonedroutinesnapshot", 1, "session-b"))
 	}()
 
 	producerA.RecordAbandoned(streamId, group, 1, 1) // matched pair, cleared by A
@@ -85,7 +68,7 @@ func run() (err error) {
 
 	// events are produced off the hot path, landing on the next flush tick --
 	// give them a moment to actually land
-	must(waitFor(10*time.Second, func() (bool, error) {
+	common.Must(waitFor(10*time.Second, func() (bool, error) {
 		s, err := metricController.AbandonedRoutineSnapshot(ctx, streamId, group)
 		if err != nil {
 			return false, err
@@ -94,18 +77,18 @@ func run() (err error) {
 	}))
 
 	snapshot, err = metricController.AbandonedRoutineSnapshot(ctx, streamId, group)
-	must(err)
+	common.Must(err)
 	assertInt64("Total", snapshot.Total, 3)
 	assertInt64("Outstanding", snapshot.Outstanding, 1)
 	if snapshot.SelfClearLatencyAvg <= 0 {
-		die(fmt.Sprintf("SelfClearLatencyAvg: expected > 0, got %v", snapshot.SelfClearLatencyAvg))
+		common.Die(fmt.Sprintf("SelfClearLatencyAvg: expected > 0, got %v", snapshot.SelfClearLatencyAvg))
 	}
 	fmt.Printf("  ✓ SelfClearLatencyAvg (%v)\n", snapshot.SelfClearLatencyAvg)
 
 	step("a different group on the same stream id sees none of the above")
 	otherGroup := fmt.Sprintf("abandonedroutinesnapshot.other.%d", run)
 	isolated, err := metricController.AbandonedRoutineSnapshot(ctx, streamId, otherGroup)
-	must(err)
+	common.Must(err)
 	assertInt64("Total", isolated.Total, 0)
 	assertInt64("Outstanding", isolated.Outstanding, 0)
 
@@ -132,24 +115,16 @@ func waitFor(timeout time.Duration, cond func() (bool, error)) error {
 
 func assertInt64(label string, got, want int64) {
 	if got != want {
-		die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
+		common.Die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
 	}
 	fmt.Printf("  ✓ %s (%d)\n", label, got)
 }
 
 func assertDuration(label string, got, want time.Duration) {
 	if got != want {
-		die(fmt.Sprintf("%s: got %v, want %v", label, got, want))
+		common.Die(fmt.Sprintf("%s: got %v, want %v", label, got, want))
 	}
 	fmt.Printf("  ✓ %s (%v)\n", label, got)
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}

@@ -56,41 +56,23 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 	run := time.Now().UnixNano()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	register := func(name string) *stream.Stream {
 		t, err := client.Stream[sqlstreams.RawPayload](name).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: partitionSize})
-		must(err)
+		common.Must(err)
 		return t
 	}
 	streamA := register(fmt.Sprintf("phase8b.stream.a.%d", run))
@@ -99,25 +81,25 @@ func run() (err error) {
 	streamD := register(fmt.Sprintf("phase8b.stream.d.%d", run))
 	defer func() {
 		for _, t := range []*stream.Stream{streamA, streamB, streamC, streamD} {
-			must(client.Stream[sqlstreams.RawPayload](t.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+			common.Must(client.Stream[sqlstreams.RawPayload](t.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 		}
 	}()
 
 	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	messageConsumers, err := messageconsumercontroller.NewMessageConsumerGroupController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	janitorDatastore, err := janitordatastore.NewJanitorDatastore(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	cursorAdvancerDatastore, err := cursoradvancerdatastore.NewCursorAdvancerDatastore(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 
 	// ===== PROOF 1: independent physical tables, independent dense id sequences =====
 	step("PROOF 1: two streams get independent physical tables and dense id sequences")
 	wpAInstance, err := client.Stream[common.Work](streamA.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	wpBInstance, err := client.Stream[common.Work](streamB.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	for range 3 {
 		publish(ctx, wpAInstance, "")
 	}
@@ -143,49 +125,49 @@ func run() (err error) {
 	groupB := "stream.groupB" // streamB's reader, registered but never advances -- badly lagging
 	mustGroupID(cd.RegisterGroup(ctx, streamB.Id, groupB, consume.Beginning()))
 
-	must(janitorDatastore.DropExpiredPartitions(ctx, streamA.Id, partitionSize, ttl, false, streamA.DeliveryLogMode))
+	common.Must(janitorDatastore.DropExpiredPartitions(ctx, streamA.Id, partitionSize, ttl, false, streamA.DeliveryLogMode))
 	assertPartitions(ctx, ds, streamA.Id, "streamA's partition 0 dropped, totally unaffected by streamB's lagging group", []int64{1})
 	fmt.Println("  -> this is the exact cross-stream contamination 8a's floor bug caused; each stream's floor is now its own")
 
 	// ===== PROOF 3: routing_key/bindings still behave as Phase 7/routing proved, now scoped to one stream =====
 	step("PROOF 3: routing_key/bindings behave as Phase 7 proved, scoped within one stream (condensed -- full suite in routing)")
 	wpCInstance, err := client.Stream[common.Work](streamC.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	groupRoute := "stream.route"
 	groupRouteID := mustGroupID(cd.RegisterGroup(ctx, streamC.Id, groupRoute, consume.Beginning()))
 
 	headBefore := head(ctx, ds, streamC.Id)     // streamC is fresh, this is 0
 	publish(ctx, wpCInstance, "orders.created") // id headBefore+1, published BEFORE any binding exists
 	_, err = cd.DeclareBindings(ctx, streamC.Id, groupRouteID, []string{"orders.*"}, time.Now())
-	must(err)
+	common.Must(err)
 	publish(ctx, wpCInstance, "orders.updated")  // id headBefore+2, matches, published AFTER the binding
 	publish(ctx, wpCInstance, "payments.charge") // id headBefore+3, does not match
 	fmt.Printf("  published ids %d,%d,%d (only %d predates the binding, only %d and %d match its pattern)\n",
 		headBefore+1, headBefore+2, headBefore+3, headBefore+1, headBefore+1, headBefore+2)
 
 	claim, err := messageConsumers.ClaimMessagesWithCursor(ctx, streamC.Id, groupRouteID, 1, 10, 3, 30*time.Second, stream.DeliveryLogModeFailures)
-	must(err)
+	common.Must(err)
 	if claim == nil {
-		die("expected a fresh claim, got nil")
+		common.Die("expected a fresh claim, got nil")
 	}
 	assertInt64s("retroactive binding applies to the pre-existing message, CURSOR path filters out the non-match",
 		ids(claim.Messages), []int64{headBefore + 1, headBefore + 2})
-	must(messageConsumers.Commit(ctx, streamC.Id, groupRouteID, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
+	common.Must(messageConsumers.Commit(ctx, streamC.Id, groupRouteID, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 	committed := advance(ctx, cursorAdvancerDatastore, streamC.Id, groupRouteID)
 	assertInt("committed still advances over the WHOLE range, not just the matches", committed, claim.Lease.High)
 
 	// ===== PROOF 4: two routing_key slices sharing ONE stream still share that stream's floor =====
 	step("PROOF 4: two routing_key slices sharing ONE stream still share that stream's drop floor (deliberately not fixed)")
 	wpDInstance, err := client.Stream[common.Work](streamD.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	groupX := "stream.sliceX" // reads only sliceX.* -- will be fully caught up
 	groupY := "stream.sliceY" // reads only sliceY.* -- registered but stays lagging
 	groupXID := mustGroupID(cd.RegisterGroup(ctx, streamD.Id, groupX, consume.Beginning()))
 	groupYID := mustGroupID(cd.RegisterGroup(ctx, streamD.Id, groupY, consume.Beginning()))
 	_, err = cd.DeclareBindings(ctx, streamD.Id, groupXID, []string{"sliceX.*"}, time.Now())
-	must(err)
+	common.Must(err)
 	_, err = cd.DeclareBindings(ctx, streamD.Id, groupYID, []string{"sliceY.*"}, time.Now())
-	must(err)
+	common.Must(err)
 
 	for range 4 { // 4 rows, all in sliceX -- the 4th builds partition 1 through create-ahead
 		publish(ctx, wpDInstance, "sliceX.event")
@@ -195,17 +177,17 @@ func run() (err error) {
 	time.Sleep(ttl + ttlMargin)
 
 	claimX, err := messageConsumers.ClaimMessagesWithCursor(ctx, streamD.Id, groupXID, 1, 10, 3, 30*time.Second, stream.DeliveryLogModeFailures)
-	must(err)
+	common.Must(err)
 	if claimX == nil {
-		die("expected groupX to claim a fresh range")
+		common.Die("expected groupX to claim a fresh range")
 	}
-	must(messageConsumers.Commit(ctx, streamD.Id, groupXID, claimX.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
+	common.Must(messageConsumers.Commit(ctx, streamD.Id, groupXID, claimX.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 	advance(ctx, cursorAdvancerDatastore, streamD.Id, groupXID)
 	fmt.Println("  groupX (sliceX reader) is now fully caught up on the only traffic that exists")
 	// groupY never published to or claimed anything -- its cursor sits at claimed=committed=0,
 	// simulating a slice consumer that's stuck or never started.
 
-	must(janitorDatastore.DropExpiredPartitions(ctx, streamD.Id, partitionSize, ttl, false, streamD.DeliveryLogMode))
+	common.Must(janitorDatastore.DropExpiredPartitions(ctx, streamD.Id, partitionSize, ttl, false, streamD.DeliveryLogMode))
 	assertPartitions(ctx, ds, streamD.Id, "partition 0 SURVIVES -- groupY's slice, though it has zero actual traffic, still pins this stream's one shared floor", []int64{0, 1})
 	fmt.Println("  -> this is the case 8b deliberately leaves unfixed: split into separate streams if slices need independent floors")
 
@@ -214,11 +196,11 @@ func run() (err error) {
 	bogusStreamID := streamD.Id + 999_999_999 // guaranteed to never have been registered
 	err = janitorDatastore.DropExpiredPartitions(ctx, bogusStreamID, partitionSize, ttl, false, stream.DeliveryLogModeFailures)
 	if err == nil {
-		die("expected an error operating against an unregistered stream id, got nil")
+		common.Die("expected an error operating against an unregistered stream id, got nil")
 	}
 	var pgErr *pgconn.PgError
 	if !errors.As(err, &pgErr) || pgErr.Code != "42P01" {
-		die(fmt.Sprintf("expected a Postgres 42P01 (undefined_table) error, got: %v", err))
+		common.Die(fmt.Sprintf("expected a Postgres 42P01 (undefined_table) error, got: %v", err))
 	}
 	fmt.Printf("  ✓ got the expected undefined_table error: %s\n", pgErr.Message)
 	fmt.Println("  -> no implicit stream/table creation as a side effect of a produce/claim call")
@@ -236,38 +218,38 @@ func publish(ctx context.Context, wp *sqlstreams.ProducerInstance[common.Work], 
 	_, err := wp.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 		return common.NewWork(30, "admin@example.com")
 	}, &sqlstreams.ProduceOptions{RoutingKey: routingKey})
-	must(err)
+	common.Must(err)
 }
 
 func advance(ctx context.Context, cursorAdvancerDatastore *cursoradvancerdatastore.CursorAdvancerDatastore, streamId int64, groupId int64) int64 {
 	c, err := cursorAdvancerDatastore.AdvanceCommitted(ctx, streamId, groupId)
-	must(err)
+	common.Must(err)
 	return c
 }
 
 func setCursor(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, groupId int64, claimed, committed int64) {
 	_, err := ds.Pool.Exec(ctx, fmt.Sprintf(`UPDATE %s.%s SET claimed=$2, committed=$3 WHERE consumer_group_id=$1`, ds.Schema, stream.ConsumerGroupCursorTable(streamId)), groupId, claimed, committed)
-	must(err)
+	common.Must(err)
 }
 
 func head(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) int64 {
 	var v int64
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COALESCE(MAX(id), 0) FROM %s.%s`, ds.Schema, stream.MessageLogTable(streamId))).Scan(&v))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COALESCE(MAX(id), 0) FROM %s.%s`, ds.Schema, stream.MessageLogTable(streamId))).Scan(&v))
 	return v
 }
 
 func allIds(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) []int64 {
 	rows, err := ds.Pool.Query(ctx, fmt.Sprintf(`SELECT id FROM %s.%s ORDER BY id`, ds.Schema, stream.MessageLogTable(streamId)))
-	must(err)
+	common.Must(err)
 	defer rows.Close()
 
 	var out []int64
 	for rows.Next() {
 		var id int64
-		must(rows.Scan(&id))
+		common.Must(rows.Scan(&id))
 		out = append(out, id)
 	}
-	must(rows.Err())
+	common.Must(rows.Err())
 	return out
 }
 
@@ -288,7 +270,7 @@ func waitForPartition(ctx context.Context, ds *iDatastore.PostgresDatastore, str
 			}
 		}
 		if time.Now().After(deadline) {
-			die(fmt.Sprintf("partition %d of stream %d never appeared", n, streamId))
+			common.Die(fmt.Sprintf("partition %d of stream %d never appeared", n, streamId))
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
@@ -305,16 +287,16 @@ func partitions(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId 
 			AND c.relname LIKE $2 || '%'
 		ORDER BY n;
 	`, fmt.Sprintf("%s.%s", ds.Schema, stream.MessageLogTable(streamId)), prefix)
-	must(err)
+	common.Must(err)
 	defer rows.Close()
 
 	var got []int64
 	for rows.Next() {
 		var n int64
-		must(rows.Scan(&n))
+		common.Must(rows.Scan(&n))
 		got = append(got, n)
 	}
-	must(rows.Err())
+	common.Must(rows.Err())
 	return got
 }
 
@@ -327,30 +309,22 @@ func ids(msgs []messageconsumercontroller.Message) []int64 {
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}
 func assertInt(label string, got, want int64) {
 	if got != want {
-		die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
+		common.Die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
 	}
 	fmt.Printf("  ✓ %s (%d)\n", label, got)
 }
 func assertInt64s(label string, got, want []int64) {
 	if len(got) != len(want) {
-		die(fmt.Sprintf("%s: got %v, want %v", label, got, want))
+		common.Die(fmt.Sprintf("%s: got %v, want %v", label, got, want))
 	}
 	for i := range got {
 		if got[i] != want[i] {
-			die(fmt.Sprintf("%s: got %v, want %v", label, got, want))
+			common.Die(fmt.Sprintf("%s: got %v, want %v", label, got, want))
 		}
 	}
 	fmt.Printf("  ✓ %s %v\n", label, got)
 }
 
-func mustGroupID(g *consume.Consumer, err error) int64 { must(err); return g.Id }
+func mustGroupID(g *consume.Consumer, err error) int64 { common.Must(err); return g.Id }

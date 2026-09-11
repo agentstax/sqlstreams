@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/agentstax/sqlstreams/.tests/e2e/common"
 	"github.com/agentstax/sqlstreams/pkg/datastore"
 	"os"
 	"time"
@@ -26,57 +27,39 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 	run := time.Now().UnixNano()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := datastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	name := fmt.Sprintf("listgroups.orders.%d", run)
 	registered, err := client.Stream[sqlstreams.RawPayload](name).Register(ctx, nil)
-	must(err)
+	common.Must(err)
 
 	groupController, err := consumecontroller.NewConsumeController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 
 	step("seed two groups on the stream")
 	for _, groupName := range []string{"beta", "alpha"} {
 		_, err := groupController.RegisterGroup(ctx, registered.Id, groupName, consume.Beginning())
-		must(err)
+		common.Must(err)
 	}
 
 	step("StreamHandle.Consumers returns both, ordered by name")
 	orders := client.Stream[sqlstreams.RawPayload](name)
 	groups, err := orders.Consumers(ctx)
-	must(err)
+	common.Must(err)
 	if len(groups) != 2 {
-		die(fmt.Sprintf("expected 2 groups, got %d", len(groups)))
+		common.Die(fmt.Sprintf("expected 2 groups, got %d", len(groups)))
 	}
 	assertString("first group", groups[0].Name, "alpha")
 	assertString("second group", groups[1].Name, "beta")
@@ -84,36 +67,36 @@ func run() (err error) {
 
 	step("Consumer.Get returns the row")
 	alpha, err := orders.Consumer("alpha").Get(ctx)
-	must(err)
+	common.Must(err)
 	if alpha == nil {
-		die("expected the alpha row, got nil")
+		common.Die("expected the alpha row, got nil")
 	}
 	assertInt64("alpha id", alpha.Id, groups[0].Id)
 
 	step("absence is (nil, nil) on Get only")
 	ghost, err := orders.Consumer("ghost").Get(ctx)
-	must(err)
+	common.Must(err)
 	if ghost != nil {
-		die(fmt.Sprintf("expected (nil, nil) for an unregistered group, got %+v", ghost))
+		common.Die(fmt.Sprintf("expected (nil, nil) for an unregistered group, got %+v", ghost))
 	}
 	ghostStream := client.Stream[sqlstreams.RawPayload](fmt.Sprintf("listgroups.ghost.%d", run))
 	row, err := ghostStream.Get(ctx)
-	must(err)
+	common.Must(err)
 	if row != nil {
-		die(fmt.Sprintf("expected (nil, nil) for an unregistered stream, got %+v", row))
+		common.Die(fmt.Sprintf("expected (nil, nil) for an unregistered stream, got %+v", row))
 	}
 	_, err = ghostStream.Consumers(ctx)
 	if !errors.Is(err, stream.ErrStreamNotFound) {
-		die(fmt.Sprintf("Consumers on an unregistered stream: expected ErrStreamNotFound, got %v", err))
+		common.Die(fmt.Sprintf("Consumers on an unregistered stream: expected ErrStreamNotFound, got %v", err))
 	}
 	fmt.Printf("  ✓ Consumers on an unregistered stream -> %v\n", err)
 
 	step("cleanup: Stream.Destroy drops the family")
-	must(orders.Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+	common.Must(orders.Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	gone, err := orders.Get(ctx)
-	must(err)
+	common.Must(err)
 	if gone != nil {
-		die("expected the stream row gone after Destroy")
+		common.Die("expected the stream row gone after Destroy")
 	}
 
 	fmt.Println("\n✅ LIST GROUPS E2E TEST PASSED")
@@ -122,24 +105,16 @@ func run() (err error) {
 
 func assertString(label string, got string, want string) {
 	if got != want {
-		die(fmt.Sprintf("%s: got %q, want %q", label, got, want))
+		common.Die(fmt.Sprintf("%s: got %q, want %q", label, got, want))
 	}
 	fmt.Printf("  ✓ %s (%q)\n", label, got)
 }
 
 func assertInt64(label string, got int64, want int64) {
 	if got != want {
-		die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
+		common.Die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
 	}
 	fmt.Printf("  ✓ %s (%d)\n", label, got)
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}

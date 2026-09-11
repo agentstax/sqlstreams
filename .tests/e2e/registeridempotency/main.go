@@ -23,6 +23,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/agentstax/sqlstreams/.tests/e2e/common"
 	"github.com/agentstax/sqlstreams/pkg/alert/partitioncount"
 	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
 	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
@@ -36,45 +37,27 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	schema := fmt.Sprintf("registeridempotency_%d", time.Now().UnixNano())
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{Schema: schema, AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.System().Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.System().Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 		_, err := pool.Exec(ctx, fmt.Sprintf(`
 			-- sqlstreams: registeridempotency.run
 			DROP SCHEMA IF EXISTS %[1]s;
 		`, schema))
-		must(err)
+		common.Must(err)
 	}()
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, &iDatastore.PostgresDatastoreConfig{Schema: schema})
-	must(err)
+	common.Must(err)
 
 	name := fmt.Sprintf("registeridempotency.e2e.%d", time.Now().UnixNano())
 	streamHandle := client.Stream[sqlstreams.RawPayload](name)
@@ -83,15 +66,15 @@ func run() (err error) {
 	for _, invalidName := range []string{"", "Orders!", "orders.*", "__system.evil"} {
 		_, err := client.Stream[sqlstreams.RawPayload](invalidName).Register(ctx, nil)
 		if err == nil {
-			die(fmt.Sprintf("name %q must be rejected", invalidName))
+			common.Die(fmt.Sprintf("name %q must be rejected", invalidName))
 		}
 		var exists bool
-		must(pool.QueryRow(ctx, `
+		common.Must(pool.QueryRow(ctx, `
 			-- sqlstreams: registeridempotency.run
 			SELECT to_regnamespace($1) IS NOT NULL;
 		`, schema).Scan(&exists))
 		if exists {
-			die(fmt.Sprintf("name %q created system resources", invalidName))
+			common.Die(fmt.Sprintf("name %q created system resources", invalidName))
 		}
 	}
 
@@ -105,34 +88,34 @@ func run() (err error) {
 	} {
 		_, err := streamHandle.Register(ctx, cfg)
 		if err == nil {
-			die(fmt.Sprintf("%s must be rejected", field))
+			common.Die(fmt.Sprintf("%s must be rejected", field))
 		}
 		var exists bool
-		must(pool.QueryRow(ctx, `
+		common.Must(pool.QueryRow(ctx, `
 			-- sqlstreams: registeridempotency.run
 			SELECT to_regnamespace($1) IS NOT NULL;
 		`, schema).Scan(&exists))
 		if exists {
-			die(fmt.Sprintf("%s created system resources", field))
+			common.Die(fmt.Sprintf("%s created system resources", field))
 		}
 	}
 
 	step("first register creates the stream")
 	created, err := streamHandle.Register(ctx, &sqlstreams.StreamConfig{RetentionTTL: 720 * time.Hour})
-	must(err)
+	common.Must(err)
 	system, err := client.System().Get(ctx)
-	must(err)
+	common.Must(err)
 	if system == nil || system.Id != created.SystemId {
-		die("valid stream registration must bootstrap its system")
+		common.Die("valid stream registration must bootstrap its system")
 	}
 	if count := streamLogCount(ctx, ds, created.Id); count != 1 {
-		die(fmt.Sprintf("stream_config_log rows after create = %d, want 1", count))
+		common.Die(fmt.Sprintf("stream_config_log rows after create = %d, want 1", count))
 	}
 	if created.EmptyCompactionHeadTTL != time.Hour {
-		die(fmt.Sprintf("default EmptyCompactionHeadTTL = %v, want 1h", created.EmptyCompactionHeadTTL))
+		common.Die(fmt.Sprintf("default EmptyCompactionHeadTTL = %v, want 1h", created.EmptyCompactionHeadTTL))
 	}
 	if ttl := streamLogEmptyCompactionHeadTTL(ctx, ds, created.Id); ttl != time.Hour {
-		die(fmt.Sprintf("stream_config_log EmptyCompactionHeadTTL after create = %v, want 1h", ttl))
+		common.Die(fmt.Sprintf("stream_config_log EmptyCompactionHeadTTL after create = %v, want 1h", ttl))
 	}
 	fmt.Printf("  ✓ created id=%d, first stream_config_log row appended\n", created.Id)
 
@@ -141,13 +124,13 @@ func run() (err error) {
 	// what it's given via WithDefaults, so don't reuse the first one.
 	again, err := client.Stream[sqlstreams.RawPayload](name).Register(ctx, &sqlstreams.StreamConfig{RetentionTTL: 720 * time.Hour})
 	if err != nil {
-		die(fmt.Sprintf("re-register with identical config must succeed, got: %v", err))
+		common.Die(fmt.Sprintf("re-register with identical config must succeed, got: %v", err))
 	}
 	if again.Id != created.Id {
-		die(fmt.Sprintf("re-register resolved a different id: got %d, want %d", again.Id, created.Id))
+		common.Die(fmt.Sprintf("re-register resolved a different id: got %d, want %d", again.Id, created.Id))
 	}
 	if count := streamLogCount(ctx, ds, created.Id); count != 1 {
-		die(fmt.Sprintf("stream_config_log rows after a no-change register = %d, want 1", count))
+		common.Die(fmt.Sprintf("stream_config_log rows after a no-change register = %d, want 1", count))
 	}
 	fmt.Printf("  ✓ re-register resolved same id=%d, no mismatch, nothing appended\n", again.Id)
 
@@ -156,21 +139,21 @@ func run() (err error) {
 		RetentionTTL:           168 * time.Hour,
 		EmptyCompactionHeadTTL: 2 * time.Hour,
 	})
-	must(err)
+	common.Must(err)
 	if redeclared.Id != created.Id {
-		die(fmt.Sprintf("re-declare resolved a different id: got %d, want %d", redeclared.Id, created.Id))
+		common.Die(fmt.Sprintf("re-declare resolved a different id: got %d, want %d", redeclared.Id, created.Id))
 	}
 	if redeclared.RetentionTTL != 168*time.Hour {
-		die(fmt.Sprintf("re-declared RetentionTTL = %v, want 168h", redeclared.RetentionTTL))
+		common.Die(fmt.Sprintf("re-declared RetentionTTL = %v, want 168h", redeclared.RetentionTTL))
 	}
 	if redeclared.EmptyCompactionHeadTTL != 2*time.Hour {
-		die(fmt.Sprintf("re-declared EmptyCompactionHeadTTL = %v, want 2h", redeclared.EmptyCompactionHeadTTL))
+		common.Die(fmt.Sprintf("re-declared EmptyCompactionHeadTTL = %v, want 2h", redeclared.EmptyCompactionHeadTTL))
 	}
 	if count := streamLogCount(ctx, ds, created.Id); count != 2 {
-		die(fmt.Sprintf("stream_config_log rows after a config change = %d, want 2", count))
+		common.Die(fmt.Sprintf("stream_config_log rows after a config change = %d, want 2", count))
 	}
 	if ttl := streamLogEmptyCompactionHeadTTL(ctx, ds, created.Id); ttl != 2*time.Hour {
-		die(fmt.Sprintf("stream_config_log EmptyCompactionHeadTTL after replace = %v, want 2h", ttl))
+		common.Die(fmt.Sprintf("stream_config_log EmptyCompactionHeadTTL after replace = %v, want 2h", ttl))
 	}
 	fmt.Printf("  ✓ newest declaration won: retention now %v on the same id=%d, snapshot appended\n", redeclared.RetentionTTL, redeclared.Id)
 
@@ -181,29 +164,29 @@ func run() (err error) {
 		EmptyCompactionHeadTTL: 2 * time.Hour,
 	})
 	if !errors.Is(err, stream.ErrStreamConfigMismatch) {
-		die(fmt.Sprintf("re-register with a different PartitionSize must return ErrStreamConfigMismatch, got: %v", err))
+		common.Die(fmt.Sprintf("re-register with a different PartitionSize must return ErrStreamConfigMismatch, got: %v", err))
 	}
 	fmt.Printf("  ✓ changed PartitionSize rejected with ErrStreamConfigMismatch\n")
 
 	step("nil stream config preserves a customized system declaration")
-	must(client.System().Register(ctx, &sqlstreams.SystemConfig{
+	common.Must(client.System().Register(ctx, &sqlstreams.SystemConfig{
 		PartitionCountAlert: &sqlstreams.PartitionCountAlertConfig{ScheduleExpression: "@daily"},
 	}))
 	before, err := client.Scheduler(partitioncount.JobName).Get(ctx)
-	must(err)
+	common.Must(err)
 	if before == nil || before.Expression != "@daily" {
-		die("custom system alert schedule must be installed")
+		common.Die("custom system alert schedule must be installed")
 	}
 	defaultStream := client.Stream[sqlstreams.RawPayload](name + ".defaults")
 	defaults, err := defaultStream.Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	if defaults.PartitionSize != 1_000_000 || defaults.EmptyCompactionHeadTTL != time.Hour {
-		die("nil stream config must use defaults")
+		common.Die("nil stream config must use defaults")
 	}
 	after, err := client.Scheduler(partitioncount.JobName).Get(ctx)
-	must(err)
+	common.Must(err)
 	if !reflect.DeepEqual(after, before) {
-		die("stream registration must preserve the custom system declaration")
+		common.Die("stream registration must preserve the custom system declaration")
 	}
 
 	fmt.Printf("\n✅ register idempotency e2e test PASSED\n")
@@ -214,22 +197,14 @@ func run() (err error) {
 // stream_config_log, so the e2e test asserts on the table itself.
 func streamLogCount(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) int {
 	var count int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.stream_config_log WHERE stream_id = $1;`, ds.Schema), streamId).Scan(&count))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.stream_config_log WHERE stream_id = $1;`, ds.Schema), streamId).Scan(&count))
 	return count
 }
 
 func streamLogEmptyCompactionHeadTTL(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) time.Duration {
 	var ttlNs int64
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT empty_compaction_head_ttl_ns FROM %s.stream_config_log WHERE stream_id = $1 ORDER BY id DESC LIMIT 1;`, ds.Schema), streamId).Scan(&ttlNs))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT empty_compaction_head_ttl_ns FROM %s.stream_config_log WHERE stream_id = $1 ORDER BY id DESC LIMIT 1;`, ds.Schema), streamId).Scan(&ttlNs))
 	return time.Duration(ttlNs)
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}

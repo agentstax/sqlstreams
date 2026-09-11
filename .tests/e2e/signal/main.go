@@ -81,7 +81,7 @@ func run() (err error) {
 
 func runParent() error {
 	ctx := context.Background()
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := common.NewPool(ctx, nil)
 	common.Must(err)
 	defer pool.Close()
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
@@ -266,7 +266,7 @@ func (c *child) await(prefix string) {
 				return
 			}
 		case <-deadline:
-			common.Die("%s did not print %q within %v", c.command.Args[2], prefix, lineTimeout)
+			common.Die(fmt.Sprintf("%s did not print %q within %v", c.command.Args[2], prefix, lineTimeout))
 		}
 	}
 }
@@ -284,7 +284,7 @@ func (c *child) wait() {
 			c.seen = append(c.seen, line)
 		case <-deadline:
 			_ = c.command.Process.Kill()
-			common.Die("%s did not exit within %v", c.command.Args[2], exitTimeout)
+			common.Die(fmt.Sprintf("%s did not exit within %v", c.command.Args[2], exitTimeout))
 		}
 	}
 }
@@ -296,7 +296,7 @@ func (c *child) exitCode() int {
 		return exitErr.ExitCode()
 	}
 	if c.exit != nil {
-		common.Die("%s wait error = %v", c.command.Args[2], c.exit)
+		common.Die(fmt.Sprintf("%s wait error = %v", c.command.Args[2], c.exit))
 	}
 	return 0
 }
@@ -314,7 +314,7 @@ func (c *child) countLines(prefix string) int64 {
 
 // childClient is a child's client and producer over the parent's stream.
 func childClient(ctx context.Context) (*sqlstreams.Client, *sqlstreams.ProducerInstance[common.Work]) {
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := common.NewPool(ctx, nil)
 	common.Must(err)
 	client, err := sqlstreams.NewClient(ctx, pool, nil)
 	common.Must(err)

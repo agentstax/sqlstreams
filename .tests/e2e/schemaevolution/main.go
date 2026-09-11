@@ -40,6 +40,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/agentstax/sqlstreams/.tests/e2e/common"
 	"github.com/agentstax/sqlstreams/pkg/stream"
 	"os"
 	"strconv"
@@ -79,61 +80,43 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	name := fmt.Sprintf("phase14a.schemaevolution.%d", time.Now().UnixNano())
 	registered, err := client.Stream[V1Order](name).Register(ctx, &sqlstreams.StreamConfig{})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[V1Order](name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[V1Order](name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	wp1Instance, err := client.Stream[V1Order](name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 
 	step("the stream holds live keyed V1Order traffic for 5 users")
 	for i, key := range keys {
 		cents := int64(i+1) * 100
 		_, err := wp1Instance.Produce(ctx, &V1Order{Key: key, Cents: cents}, &sqlstreams.ProduceOptions{MessageKey: key, Compaction: &sqlstreams.CompactionOptions{Enable: true}})
-		must(err)
+		common.Must(err)
 		fmt.Printf("  wrote %s cents=%d as V1Order\n", key, cents)
 	}
 
 	step("a V2Order producer registers on the same stream -- its rows carry schema_version 2")
 	wp2Instance, err := client.Stream[V2Order](name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 
 	step("user:1 cuts over to v2 BEFORE the bridge ever sees it (live-then-backfill)")
-	must(liveWrite(ctx, wp2Instance, "user:1", 999, "EUR"))
+	common.Must(liveWrite(ctx, wp2Instance, "user:1", 999, "EUR"))
 
 	// processed counts successful bridge writes; crashGate blocks the 3rd
 	// message the bridge reaches (user:4 -- user:1 is already superseded)
@@ -175,20 +158,20 @@ func run() (err error) {
 		cancelRun1()
 	}()
 	bridge1 := newBridgeConsumer(ctx, client, name)
-	must(bridge1.Consume(run1Ctx, bridgeFunc, bridgeConsumeOptions))
+	common.Must(bridge1.Consume(run1Ctx, bridgeFunc, bridgeConsumeOptions))
 	assertInt("exactly 2 messages landed before the crash", processed.Load(), 2)
 
 	step("user:2 cuts over to v2 AFTER the bridge already copied it (backfill-then-live)")
-	must(liveWrite(ctx, wp2Instance, "user:2", 888, "EUR"))
+	common.Must(liveWrite(ctx, wp2Instance, "user:2", 888, "EUR"))
 	close(crashGate) // release user:4, wherever it's stuck (fresh claim or a retried exception)
 
 	step("bridge run 2: a fresh instance, same group, resumes from the persisted cursor")
 	run2Ctx, cancelRun2 := context.WithCancel(ctx)
 	bridge2 := newBridgeConsumer(ctx, client, name)
 	go func() {
-		must(waitForCommitted(run2Ctx, ds, registered.Id, 10*time.Second, cancelRun2))
+		common.Must(waitForCommitted(run2Ctx, ds, registered.Id, 10*time.Second, cancelRun2))
 	}()
-	must(bridge2.Consume(run2Ctx, bridgeFunc, bridgeConsumeOptions))
+	common.Must(bridge2.Consume(run2Ctx, bridgeFunc, bridgeConsumeOptions))
 
 	step("verify the winners: live always beats the bridge, regardless of which arrived first")
 	assertWinner(ctx, ds, registered.Id, "user:1", 999, "EUR") // live arrived first, still wins
@@ -203,7 +186,7 @@ func run() (err error) {
 
 	step("the retire verdict is a query: v1 safe, v2 not")
 	health, err := client.Stream[V1Order](name).Health(ctx)
-	must(err)
+	common.Must(err)
 	v1Health := versionHealth(health, 1)
 	assertInt("no compaction head still points at a v1 row", v1Health.CompactionHeads, 0)
 	assertTrue("v1 is safe to retire", v1Health.Safe)
@@ -219,12 +202,12 @@ func run() (err error) {
 	orders := client.Stream[V1Order](name)
 	billing := orders.Consumer("schemaevolution.billing")
 	_, err = billing.Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	audit := orders.Consumer("schemaevolution.audit")
 	_, err = audit.Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	lagging, err := orders.Health(ctx)
-	must(err)
+	common.Must(err)
 	assertInt("version count is unchanged", int64(len(lagging)), int64(len(health)))
 	for i, version := range lagging {
 		assertInt("version ordering is unchanged", int64(version.Version), int64(health[i].Version))
@@ -268,7 +251,7 @@ func newBridgeConsumer(ctx context.Context, client *sqlstreams.Client, name stri
 		ExceptionInitialBackoff: 200 * time.Millisecond,
 	})
 
-	must(err)
+	common.Must(err)
 	return cInstance
 }
 
@@ -303,7 +286,7 @@ func waitForCommitted(ctx context.Context, ds *iDatastore.PostgresDatastore, str
 		case <-time.After(20 * time.Millisecond):
 		}
 	}
-	die(fmt.Sprintf("timed out waiting for the bridge's committed cursor to reach %d", lastV1))
+	common.Die(fmt.Sprintf("timed out waiting for the bridge's committed cursor to reach %d", lastV1))
 	return nil
 }
 
@@ -313,7 +296,7 @@ func versionHealth(all []*sqlstreams.StreamVersionHealth, version int) *sqlstrea
 			return h
 		}
 	}
-	die(fmt.Sprintf("no StreamVersionHealth entry for version %d", version))
+	common.Die(fmt.Sprintf("no StreamVersionHealth entry for version %d", version))
 	return nil
 }
 
@@ -336,43 +319,35 @@ func winner(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int6
 	var payload []byte
 	err := ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT m.payload FROM %s.%s ch JOIN %s.%s m ON m.id = ch.message_id WHERE ch.compaction_key=$1;`, ds.Schema, stream.CompactionHeadTable(streamId), ds.Schema, stream.MessageLogTable(streamId)),
 		key).Scan(&payload)
-	must(err)
+	common.Must(err)
 	var v V2Order
-	must(json.Unmarshal(payload, &v))
+	common.Must(json.Unmarshal(payload, &v))
 	return &v
 }
 
 func scalar(ctx context.Context, ds *iDatastore.PostgresDatastore, q string, args ...any) int64 {
 	var v int64
-	must(ds.Pool.QueryRow(ctx, q, args...).Scan(&v))
+	common.Must(ds.Pool.QueryRow(ctx, q, args...).Scan(&v))
 	return v
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}
 func assertInt(label string, got, want int64) {
 	if got != want {
-		die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
+		common.Die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
 	}
 	fmt.Printf("  ✓ %s (%d)\n", label, got)
 }
 func assertTrue(label string, cond bool) {
 	if !cond {
-		die(fmt.Sprintf("%s: got false, want true", label))
+		common.Die(fmt.Sprintf("%s: got false, want true", label))
 	}
 	fmt.Printf("  ✓ %s\n", label)
 }
 func assertWinner(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, key string, wantCents int64, wantCurrency string) {
 	got := winner(ctx, ds, streamId, key)
 	if got.Cents != wantCents || got.Currency != wantCurrency {
-		die(fmt.Sprintf("%s winner: got {%d %s}, want {%d %s}", key, got.Cents, got.Currency, wantCents, wantCurrency))
+		common.Die(fmt.Sprintf("%s winner: got {%d %s}, want {%d %s}", key, got.Cents, got.Currency, wantCents, wantCurrency))
 	}
 	fmt.Printf("  ✓ %s winner is {%d %s}\n", key, got.Cents, got.Currency)
 }

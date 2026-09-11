@@ -50,30 +50,12 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	concurrentRaceScenario(ctx, pool)
@@ -91,20 +73,20 @@ func concurrentRaceScenario(ctx context.Context, pool *pgxpool.Pool) {
 
 	const n = 50
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	streamName := fmt.Sprintf("phase8c.compactionheadrace.race.%d", time.Now().UnixNano())
 	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: 1000})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 
 	var wg sync.WaitGroup
 	for range n {
@@ -112,14 +94,14 @@ func concurrentRaceScenario(ctx context.Context, pool *pgxpool.Pool) {
 			_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 				return common.NewWork(30, "admin@example.com")
 			}, &sqlstreams.ProduceOptions{MessageKey: "hot-key", Compaction: &sqlstreams.CompactionOptions{Enable: true}})
-			must(err)
+			common.Must(err)
 		})
 	}
 	wg.Wait()
 
 	var trueMax, compactionHeadValue int64
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT MAX(id) FROM %s.%s WHERE message_key='hot-key';`, ds.Schema, stream.MessageLogTable(tp.Id))).Scan(&trueMax))
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT message_id FROM %s.%s WHERE compaction_key='hot-key';`, ds.Schema, stream.CompactionHeadTable(tp.Id))).Scan(&compactionHeadValue))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT MAX(id) FROM %s.%s WHERE message_key='hot-key';`, ds.Schema, stream.MessageLogTable(tp.Id))).Scan(&trueMax))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT message_id FROM %s.%s WHERE compaction_key='hot-key';`, ds.Schema, stream.CompactionHeadTable(tp.Id))).Scan(&compactionHeadValue))
 
 	assertInt64(fmt.Sprintf("compaction_head converged to the true max id across %d concurrent publishes", n), compactionHeadValue, trueMax)
 }
@@ -130,16 +112,16 @@ func scaleCurveScenario(ctx context.Context, pool *pgxpool.Pool) {
 	step("O(1) rerun: the same never-superseded row, re-measured against compaction_head as history grows")
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	streamName := fmt.Sprintf("phase8c.compactionheadrace.scale.%d", time.Now().UnixNano())
 	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: scalePartitionSize})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	insertStaleRow(ctx, ds, tp.Id)
@@ -180,9 +162,9 @@ func scaleCurveScenario(ctx context.Context, pool *pgxpool.Pool) {
 // its own compaction_head row is set directly alongside it.
 func insertStaleRow(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) {
 	_, err := ds.Pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (payload, schema_version, message_key, compaction_rank) VALUES ('{}'::jsonb, 1, 'stale', 0);`, ds.Schema, stream.MessageLogTable(streamId)))
-	must(err)
+	common.Must(err)
 	_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (compaction_key, message_id, schema_version, compaction_rank) VALUES ('stale', 1, 1, 0);`, ds.Schema, stream.CompactionHeadTable(streamId)))
-	must(err)
+	common.Must(err)
 }
 
 // createPartitions issues every CREATE TABLE ... PARTITION OF statement for
@@ -200,7 +182,7 @@ func createPartitions(ctx context.Context, ds *iDatastore.PostgresDatastore, str
 			logTable, n, logTable, n*scalePartitionSize, (n+1)*scalePartitionSize)
 	}
 	_, err := ds.Pool.Exec(ctx, sql.String())
-	must(err)
+	common.Must(err)
 }
 
 // bulkInsertFiller adds `count` unkeyed rows in one set-based INSERT --
@@ -216,7 +198,7 @@ func bulkInsertFiller(ctx context.Context, ds *iDatastore.PostgresDatastore, str
 		SELECT '{}'::jsonb, 1, NULL FROM generate_series(1, $1);
 	`, ds.Schema, stream.MessageLogTable(streamId))
 	_, err := ds.Pool.Exec(ctx, sql, count)
-	must(err)
+	common.Must(err)
 }
 
 // explainCompactionHeadLookup EXPLAIN ANALYZEs the production predicate --
@@ -236,7 +218,7 @@ func explainCompactionHeadLookup(ctx context.Context, ds *iDatastore.PostgresDat
 	`, logTable, ds.Schema, stream.CompactionHeadTable(streamId))
 
 	rows, err := ds.Pool.Query(ctx, sql)
-	must(err)
+	common.Must(err)
 	defer rows.Close()
 
 	partitionRe := regexp.MustCompile(regexp.QuoteMeta(logName) + `_\d+`)
@@ -245,7 +227,7 @@ func explainCompactionHeadLookup(ctx context.Context, ds *iDatastore.PostgresDat
 	var execMs float64
 	for rows.Next() {
 		var line string
-		must(rows.Scan(&line))
+		common.Must(rows.Scan(&line))
 
 		if m := execRe.FindStringSubmatch(line); m != nil {
 			execMs, _ = strconv.ParseFloat(m[1], 64)
@@ -258,22 +240,14 @@ func explainCompactionHeadLookup(ctx context.Context, ds *iDatastore.PostgresDat
 			executed[p] = true
 		}
 	}
-	must(rows.Err())
+	common.Must(rows.Err())
 	return len(executed), execMs
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}
 func assertInt64(label string, got, want int64) {
 	if got != want {
-		die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
+		common.Die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
 	}
 	fmt.Printf("  ✓ %s (%d)\n", label, got)
 }

@@ -45,48 +45,30 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	streamName := fmt.Sprintf("phase8a.sweep.%d", time.Now().UnixNano())
 	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: partitionSize})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	janitorDatastore, err := janitordatastore.NewJanitorDatastore(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 
 	step("publish 4 'old' messages, then let them age past ttl")
 	head0 := head(ctx, ds, tp.Id)
@@ -104,13 +86,13 @@ func run() (err error) {
 	fmt.Printf("  old ids (%d,%d], fresh ids (%d,%d]\n", oldLow, oldHigh, freshLow, freshHigh)
 
 	step("DropExpiredPartitions -- no-op, the stream's first partition is still active at this volume")
-	must(janitorDatastore.DropExpiredPartitions(ctx, tp.Id, partitionSize, ttl, true, tp.DeliveryLogMode))
+	common.Must(janitorDatastore.DropExpiredPartitions(ctx, tp.Id, partitionSize, ttl, true, tp.DeliveryLogMode))
 	assertInt("partition 0 survives", partitionCount(ctx, ds, tp.Id), 1)
 	assertInt("old rows untouched by drop", countInRange(ctx, ds, tp.Id, oldLow, oldHigh), 4)
 	assertInt("fresh rows untouched by drop", countInRange(ctx, ds, tp.Id, freshLow, freshHigh), 3)
 
 	step("SweepExpiredPartitions -- deletes exactly the expired prefix")
-	must(janitorDatastore.SweepExpiredPartitions(ctx, tp.Id, partitionSize, ttl, 0, true, batchSize, tp.DeliveryLogMode))
+	common.Must(janitorDatastore.SweepExpiredPartitions(ctx, tp.Id, partitionSize, ttl, 0, true, batchSize, tp.DeliveryLogMode))
 	assertInt("old rows swept", countInRange(ctx, ds, tp.Id, oldLow, oldHigh), 0)
 	assertInt("fresh rows survive -- not yet past ttl", countInRange(ctx, ds, tp.Id, freshLow, freshHigh), 3)
 	assertInt("partition 0 itself survives -- sweep deletes rows, not partitions", partitionCount(ctx, ds, tp.Id), 1)
@@ -127,7 +109,7 @@ func publish(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[common
 	_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 		return common.NewWork(30, "admin@example.com")
 	}, nil)
-	must(err)
+	common.Must(err)
 }
 
 func head(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) int64 {
@@ -148,22 +130,14 @@ func partitionCount(ctx context.Context, ds *iDatastore.PostgresDatastore, strea
 
 func scalar(ctx context.Context, ds *iDatastore.PostgresDatastore, q string, args ...any) int64 {
 	var v int64
-	must(ds.Pool.QueryRow(ctx, q, args...).Scan(&v))
+	common.Must(ds.Pool.QueryRow(ctx, q, args...).Scan(&v))
 	return v
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}
 func assertInt(label string, got, want int64) {
 	if got != want {
-		die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
+		common.Die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
 	}
 	fmt.Printf("  ✓ %s (%d)\n", label, got)
 }

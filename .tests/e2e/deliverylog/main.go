@@ -61,30 +61,12 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	scenarioFreshFailureAndSuccess(ctx, pool)
@@ -110,24 +92,24 @@ func scenarioFreshFailureAndSuccess(ctx context.Context, pool *pgxpool.Pool) {
 
 	tp, cd, wp, groupId := newStream(ctx, pool, "scenario1", sqlstreams.StreamConfig{})
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	defer func() {
-		must(client.Stream[common.Work](tp.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[common.Work](tp.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	seed(ctx, wp, 2)
 	claim, err := cd.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, 2, 3, 5*time.Second, tp.DeliveryLogMode)
-	must(err)
+	common.Must(err)
 	if claim == nil || len(claim.Messages) != 2 {
-		die("expected a fresh claim of 2 messages")
+		common.Die("expected a fresh claim of 2 messages")
 	}
 	failingId, successId := claim.Messages[0].Id, claim.Messages[1].Id
 
 	exceptions := []messageconsumercontroller.MessageOutcome{{MessageId: failingId, Kind: messageconsumercontroller.OutcomeException, Err: "simulated processing failure"}}
-	must(cd.Commit(ctx, tp.Id, groupId, claim.Lease.Token, exceptions, 300*time.Millisecond, tp.DeliveryLogMode))
+	common.Must(cd.Commit(ctx, tp.Id, groupId, claim.Lease.Token, exceptions, 300*time.Millisecond, tp.DeliveryLogMode))
 
 	assertDeliveryLogRow(ctx, ds, tp.Id, groupId, failingId, 0, "simulated processing failure", true)
 	assertDeliveryLogCount(ctx, ds, tp.Id, groupId, successId, 0)
@@ -141,38 +123,38 @@ func scenarioRetryDistinctAttempts(ctx context.Context, pool *pgxpool.Pool) {
 
 	tp, cd, wp, groupId := newStream(ctx, pool, "scenario2", sqlstreams.StreamConfig{})
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 	exceptionConsumers, err := exceptionconsumercontroller.NewExceptionConsumerGroupController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 
 	defer func() {
-		must(client.Stream[common.Work](tp.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[common.Work](tp.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	seed(ctx, wp, 1)
 	claim, err := cd.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, 1, 3, 5*time.Second, tp.DeliveryLogMode)
-	must(err)
+	common.Must(err)
 	if claim == nil {
-		die("expected a fresh claim")
+		common.Die("expected a fresh claim")
 	}
 	failingId := claim.Messages[0].Id
 
 	exceptions := []messageconsumercontroller.MessageOutcome{{MessageId: failingId, Kind: messageconsumercontroller.OutcomeException, Err: "attempt 0 failure"}}
-	must(cd.Commit(ctx, tp.Id, groupId, claim.Lease.Token, exceptions, 300*time.Millisecond, tp.DeliveryLogMode))
+	common.Must(cd.Commit(ctx, tp.Id, groupId, claim.Lease.Token, exceptions, 300*time.Millisecond, tp.DeliveryLogMode))
 	assertDeliveryLogRow(ctx, ds, tp.Id, groupId, failingId, 0, "attempt 0 failure", true)
 
 	const maxAttempts = 5 // stays well below dead-letter for both retries below
 	for _, attempt := range []int{1, 2} {
 		time.Sleep(1500 * time.Millisecond) // outlives both the 300ms initial and CalculateDelay(0)=1s can_run_after
 		claimed, err := exceptionConsumers.Claim(ctx, tp.Id, groupId, 1, 10, maxAttempts, 5*time.Second, tp.DeliveryLogMode)
-		must(err)
+		common.Must(err)
 		if len(claimed) != 1 || claimed[0].MessageId != failingId {
-			die(fmt.Sprintf("expected to claim exactly message %d, got %+v", failingId, claimed))
+			common.Die(fmt.Sprintf("expected to claim exactly message %d, got %+v", failingId, claimed))
 		}
 		errText := fmt.Sprintf("attempt %d failure", attempt)
-		must(exceptionConsumers.RecordFailure(ctx, (&iCommon.RetryPolicy{MaxRetries: maxAttempts}).WithDefaults(), &claimed[0], fmt.Errorf("%s", errText), tp.DeliveryLogMode, nil))
+		common.Must(exceptionConsumers.RecordFailure(ctx, (&iCommon.RetryPolicy{MaxRetries: maxAttempts}).WithDefaults(), &claimed[0], fmt.Errorf("%s", errText), tp.DeliveryLogMode, nil))
 		assertDeliveryLogRow(ctx, ds, tp.Id, groupId, failingId, attempt, errText, true)
 	}
 
@@ -187,12 +169,12 @@ func scenarioDeliveryLogOff(ctx context.Context, pool *pgxpool.Pool) {
 
 	tp, cd, wp, groupId := newStream(ctx, pool, "scenario3", sqlstreams.StreamConfig{DeliveryLogMode: stream.DeliveryLogModeOff})
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	defer func() {
-		must(client.Stream[common.Work](tp.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[common.Work](tp.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	// registration creates delivery_log_<id> regardless of the flag -- the
@@ -201,13 +183,13 @@ func scenarioDeliveryLogOff(ctx context.Context, pool *pgxpool.Pool) {
 
 	seed(ctx, wp, 1)
 	claim, err := cd.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, 1, 3, 5*time.Second, tp.DeliveryLogMode)
-	must(err)
+	common.Must(err)
 	if claim == nil {
-		die("expected a fresh claim")
+		common.Die("expected a fresh claim")
 	}
 	failingId := claim.Messages[0].Id
 	exceptions := []messageconsumercontroller.MessageOutcome{{MessageId: failingId, Kind: messageconsumercontroller.OutcomeException, Err: "should never be logged"}}
-	must(cd.Commit(ctx, tp.Id, groupId, claim.Lease.Token, exceptions, 300*time.Millisecond, tp.DeliveryLogMode))
+	common.Must(cd.Commit(ctx, tp.Id, groupId, claim.Lease.Token, exceptions, 300*time.Millisecond, tp.DeliveryLogMode))
 
 	assertDeliveryLogCount(ctx, ds, tp.Id, groupId, failingId, 0) // the failure was never logged
 	assertDeliveryRowCount(ctx, ds, tp.Id, 1)                     // the delivery row was still written
@@ -221,21 +203,21 @@ func scenarioDeliveryLogAll(ctx context.Context, pool *pgxpool.Pool) {
 
 	tp, cd, wp, groupId := newStream(ctx, pool, "scenario4all", sqlstreams.StreamConfig{DeliveryLogMode: stream.DeliveryLogModeAll})
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 	exceptionConsumers, err := exceptionconsumercontroller.NewExceptionConsumerGroupController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 
 	defer func() {
-		must(client.Stream[common.Work](tp.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[common.Work](tp.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	seed(ctx, wp, 2)
 	claim, err := cd.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, 2, 3, 5*time.Second, tp.DeliveryLogMode)
-	must(err)
+	common.Must(err)
 	if claim == nil || len(claim.Messages) != 2 {
-		die("expected a fresh claim of 2 messages")
+		common.Die("expected a fresh claim of 2 messages")
 	}
 	failingId, successId := claim.Messages[0].Id, claim.Messages[1].Id
 
@@ -246,7 +228,7 @@ func scenarioDeliveryLogAll(ctx context.Context, pool *pgxpool.Pool) {
 		{MessageId: failingId, Kind: messageconsumercontroller.OutcomeException, Err: "scenario 4 failure"},
 		{MessageId: successId, Kind: messageconsumercontroller.OutcomeSuccess},
 	}
-	must(cd.Commit(ctx, tp.Id, groupId, claim.Lease.Token, outcomes, 300*time.Millisecond, tp.DeliveryLogMode))
+	common.Must(cd.Commit(ctx, tp.Id, groupId, claim.Lease.Token, outcomes, 300*time.Millisecond, tp.DeliveryLogMode))
 
 	assertDeliveryLogStatus(ctx, ds, tp.Id, groupId, successId, 0, "success")
 	assertDeliveryLogStatus(ctx, ds, tp.Id, groupId, failingId, 0, "failure")
@@ -255,11 +237,11 @@ func scenarioDeliveryLogAll(ctx context.Context, pool *pgxpool.Pool) {
 	// deletion and its 'success' log row are one statement
 	time.Sleep(1500 * time.Millisecond) // outlives the 300ms initial can_run_after
 	claimed, err := exceptionConsumers.Claim(ctx, tp.Id, groupId, 1, 10, 5, 5*time.Second, tp.DeliveryLogMode)
-	must(err)
+	common.Must(err)
 	if len(claimed) != 1 || claimed[0].MessageId != failingId {
-		die(fmt.Sprintf("expected to claim exactly message %d, got %+v", failingId, claimed))
+		common.Die(fmt.Sprintf("expected to claim exactly message %d, got %+v", failingId, claimed))
 	}
-	must(exceptionConsumers.RecordSuccess(ctx, &claimed[0], tp.DeliveryLogMode, nil))
+	common.Must(exceptionConsumers.RecordSuccess(ctx, &claimed[0], tp.DeliveryLogMode, nil))
 
 	assertDeliveryLogStatus(ctx, ds, tp.Id, groupId, failingId, claimed[0].Attempts, "success")
 	assertDeliveryRowCount(ctx, ds, tp.Id, 0) // the success-deletion still happened
@@ -274,14 +256,14 @@ func scenarioRetentionDropPartition(ctx context.Context, pool *pgxpool.Pool) {
 	const partitionSize = int64(4)
 	tp, cd, wp, groupId := newStream(ctx, pool, "scenario4drop", sqlstreams.StreamConfig{PartitionSize: partitionSize})
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 	janitorDatastore, err := janitordatastore.NewJanitorDatastore(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 
 	defer func() {
-		must(client.Stream[common.Work](tp.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[common.Work](tp.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	dormantId := failOne(ctx, cd, wp, tp, groupId, 4) // fills partition 0 (ids 1-4), fails id 1
@@ -291,7 +273,7 @@ func scenarioRetentionDropPartition(ctx context.Context, pool *pgxpool.Pool) {
 	assertDeliveryLogCount(ctx, ds, tp.Id, groupId, dormantId, 1)
 	assertDeliveryLogCount(ctx, ds, tp.Id, groupId, aliveId, 1)
 
-	must(janitorDatastore.DropExpiredPartitions(ctx, tp.Id, partitionSize, ttl, true, tp.DeliveryLogMode))
+	common.Must(janitorDatastore.DropExpiredPartitions(ctx, tp.Id, partitionSize, ttl, true, tp.DeliveryLogMode))
 
 	assertDeliveryLogCount(ctx, ds, tp.Id, groupId, dormantId, 0)
 	assertDeliveryLogCount(ctx, ds, tp.Id, groupId, aliveId, 1)
@@ -304,14 +286,14 @@ func scenarioRetentionSweepBatch(ctx context.Context, pool *pgxpool.Pool) {
 	const partitionSize = int64(1000000) // never rolls -- exercises the sweep path instead of the drop
 	tp, cd, wp, groupId := newStream(ctx, pool, "scenario4sweep", sqlstreams.StreamConfig{PartitionSize: partitionSize})
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 	janitorDatastore, err := janitordatastore.NewJanitorDatastore(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 
 	defer func() {
-		must(client.Stream[common.Work](tp.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[common.Work](tp.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	dormantId := failOne(ctx, cd, wp, tp, groupId, 1)
@@ -321,7 +303,7 @@ func scenarioRetentionSweepBatch(ctx context.Context, pool *pgxpool.Pool) {
 	assertDeliveryLogCount(ctx, ds, tp.Id, groupId, dormantId, 1)
 	assertDeliveryLogCount(ctx, ds, tp.Id, groupId, aliveId, 1)
 
-	must(janitorDatastore.SweepExpiredPartitions(ctx, tp.Id, partitionSize, ttl, 0, true, 1000, tp.DeliveryLogMode))
+	common.Must(janitorDatastore.SweepExpiredPartitions(ctx, tp.Id, partitionSize, ttl, 0, true, 1000, tp.DeliveryLogMode))
 
 	assertDeliveryLogCount(ctx, ds, tp.Id, groupId, dormantId, 0)
 	assertDeliveryLogCount(ctx, ds, tp.Id, groupId, aliveId, 1)
@@ -335,37 +317,37 @@ func scenarioRedeferralSharesAttempt(ctx context.Context, pool *pgxpool.Pool) {
 
 	tp, _, _, groupId := newStream(ctx, pool, "scenario6", sqlstreams.StreamConfig{})
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 	exceptionConsumers, err := exceptionconsumercontroller.NewExceptionConsumerGroupController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 
 	defer func() {
-		must(client.Stream[common.Work](tp.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[common.Work](tp.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	// a keyed message with its first-delivery 'deferred' row, as the cursor path writes it
 	var messageId int64
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`INSERT INTO %s.%s (message_key, schema_version, payload) VALUES ('k', 1, '{}') RETURNING id`, ds.Schema, stream.MessageLogTable(tp.Id))).Scan(&messageId))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`INSERT INTO %s.%s (message_key, schema_version, payload) VALUES ('k', 1, '{}') RETURNING id`, ds.Schema, stream.MessageLogTable(tp.Id))).Scan(&messageId))
 	_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (consumer_group_id, message_id, status, concurrency, attempts) VALUES ($1, $2, 'deferred', 'exclusive', 0)`, ds.Schema, stream.ExceptionQueueTable(tp.Id)), groupId, messageId)
-	must(err)
+	common.Must(err)
 	_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (consumer_group_id, message_id, attempt, status, error) VALUES ($1, $2, 0, 'deferred', '')`, ds.Schema, stream.DeliveryLogTable(tp.Id)), groupId, messageId)
-	must(err)
+	common.Must(err)
 
 	claimed, err := exceptionConsumers.Claim(ctx, tp.Id, groupId, 1, 10, 3, 5*time.Second, tp.DeliveryLogMode)
-	must(err)
+	common.Must(err)
 	if len(claimed) != 1 || claimed[0].Attempts != 1 {
-		die(fmt.Sprintf("expected one claim at attempts 1, got %+v", claimed))
+		common.Die(fmt.Sprintf("expected one claim at attempts 1, got %+v", claimed))
 	}
-	must(exceptionConsumers.RecordDeferred(ctx, &claimed[0], iCommon.ConcurrencyExclusive, tp.DeliveryLogMode))
+	common.Must(exceptionConsumers.RecordDeferred(ctx, &claimed[0], iCommon.ConcurrencyExclusive, tp.DeliveryLogMode))
 
 	claimed, err = exceptionConsumers.Claim(ctx, tp.Id, groupId, 1, 10, 3, 5*time.Second, tp.DeliveryLogMode)
-	must(err)
+	common.Must(err)
 	if len(claimed) != 1 || claimed[0].Attempts != 1 {
-		die(fmt.Sprintf("expected the handed-back number 1 to be claimed again, got %+v", claimed))
+		common.Die(fmt.Sprintf("expected the handed-back number 1 to be claimed again, got %+v", claimed))
 	}
-	must(exceptionConsumers.RecordFailure(ctx, (&iCommon.RetryPolicy{MaxRetries: 3}).WithDefaults(), &claimed[0], fmt.Errorf("attempt 1 failure"), tp.DeliveryLogMode, nil))
+	common.Must(exceptionConsumers.RecordFailure(ctx, (&iCommon.RetryPolicy{MaxRetries: 3}).WithDefaults(), &claimed[0], fmt.Errorf("attempt 1 failure"), tp.DeliveryLogMode, nil))
 
 	assertDeliveryLogStatusesAt(ctx, ds, tp.Id, groupId, messageId, 1, []string{"deferred", "failure"})
 	assertDeliveryLogCount(ctx, ds, tp.Id, groupId, messageId, 3)
@@ -377,20 +359,20 @@ func scenarioRedeferralSharesAttempt(ctx context.Context, pool *pgxpool.Pool) {
 func newStream(ctx context.Context, pool *pgxpool.Pool, suffix string, cfg sqlstreams.StreamConfig) (*stream.Stream, *messageconsumercontroller.MessageConsumerGroupController, *sqlstreams.ProducerInstance[common.Work], int64) {
 	name := fmt.Sprintf("phase11.deliverylog.%s.%d", suffix, time.Now().UnixNano())
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 	tp, err := client.Stream[sqlstreams.RawPayload](name).Register(ctx, &cfg)
-	must(err)
+	common.Must(err)
 
 	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	groupId := mustGroupID(cd.RegisterGroup(ctx, tp.Id, group, consume.Beginning()))
 	messageConsumers, err := messageconsumercontroller.NewMessageConsumerGroupController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	return tp, messageConsumers, wpInstance, groupId
 }
 
@@ -399,7 +381,7 @@ func seed(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[common.Wo
 		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 			return common.NewWork(30, "admin@example.com")
 		}, nil)
-		must(err)
+		common.Must(err)
 	}
 }
 
@@ -409,13 +391,13 @@ func seed(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[common.Wo
 func failOne(ctx context.Context, cd *messageconsumercontroller.MessageConsumerGroupController, wpInstance *sqlstreams.ProducerInstance[common.Work], tp *stream.Stream, groupId int64, n int) int64 {
 	seed(ctx, wpInstance, n)
 	claim, err := cd.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, n, 3, 5*time.Second, tp.DeliveryLogMode)
-	must(err)
+	common.Must(err)
 	if claim == nil {
-		die("expected a fresh claim")
+		common.Die("expected a fresh claim")
 	}
 	failingId := claim.Messages[0].Id
 	exceptions := []messageconsumercontroller.MessageOutcome{{MessageId: failingId, Kind: messageconsumercontroller.OutcomeException, Err: "retention scenario failure"}}
-	must(cd.Commit(ctx, tp.Id, groupId, claim.Lease.Token, exceptions, 300*time.Millisecond, tp.DeliveryLogMode))
+	common.Must(cd.Commit(ctx, tp.Id, groupId, claim.Lease.Token, exceptions, 300*time.Millisecond, tp.DeliveryLogMode))
 	return failingId
 }
 
@@ -424,10 +406,10 @@ func assertDeliveryLogRow(ctx context.Context, ds *iDatastore.PostgresDatastore,
 	err := ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT error FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2 AND attempt = $3;`, ds.Schema, stream.DeliveryLogTable(streamId)), groupId, messageId, attempt).Scan(&gotErr)
 	exists := err == nil
 	if exists != wantExists {
-		die(fmt.Sprintf("%s.%s[group=%d message=%d attempt=%d] exists=%v, want %v (err=%v)", ds.Schema, stream.DeliveryLogTable(streamId), groupId, messageId, attempt, exists, wantExists, err))
+		common.Die(fmt.Sprintf("%s.%s[group=%d message=%d attempt=%d] exists=%v, want %v (err=%v)", ds.Schema, stream.DeliveryLogTable(streamId), groupId, messageId, attempt, exists, wantExists, err))
 	}
 	if wantExists && gotErr != wantErr {
-		die(fmt.Sprintf("%s.%s[message=%d attempt=%d] error=%q, want %q", ds.Schema, stream.DeliveryLogTable(streamId), messageId, attempt, gotErr, wantErr))
+		common.Die(fmt.Sprintf("%s.%s[message=%d attempt=%d] error=%q, want %q", ds.Schema, stream.DeliveryLogTable(streamId), messageId, attempt, gotErr, wantErr))
 	}
 	fmt.Printf("  ✓ delivery_log_%d[message=%d attempt=%d] exists=%v%s\n", streamId, messageId, attempt, exists, errSuffix(wantExists, gotErr))
 }
@@ -441,9 +423,9 @@ func errSuffix(wantExists bool, gotErr string) string {
 
 func assertDeliveryLogStatus(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, groupId int64, messageId int64, attempt int, wantStatus string) {
 	var gotStatus string
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT status FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2 AND attempt = $3;`, ds.Schema, stream.DeliveryLogTable(streamId)), groupId, messageId, attempt).Scan(&gotStatus))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT status FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2 AND attempt = $3;`, ds.Schema, stream.DeliveryLogTable(streamId)), groupId, messageId, attempt).Scan(&gotStatus))
 	if gotStatus != wantStatus {
-		die(fmt.Sprintf("%s.%s[message=%d attempt=%d] status=%q, want %q", ds.Schema, stream.DeliveryLogTable(streamId), messageId, attempt, gotStatus, wantStatus))
+		common.Die(fmt.Sprintf("%s.%s[message=%d attempt=%d] status=%q, want %q", ds.Schema, stream.DeliveryLogTable(streamId), messageId, attempt, gotStatus, wantStatus))
 	}
 	fmt.Printf("  ✓ delivery_log_%d[message=%d attempt=%d] status=%q\n", streamId, messageId, attempt, gotStatus)
 }
@@ -452,56 +434,47 @@ func assertDeliveryLogStatus(ctx context.Context, ds *iDatastore.PostgresDatasto
 // insertion order.
 func assertDeliveryLogStatusesAt(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, groupId int64, messageId int64, attempt int, want []string) {
 	rows, err := ds.Pool.Query(ctx, fmt.Sprintf(`SELECT status FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2 AND attempt = $3 ORDER BY id;`, ds.Schema, stream.DeliveryLogTable(streamId)), groupId, messageId, attempt)
-	must(err)
+	common.Must(err)
 	defer rows.Close()
 	var got []string
 	for rows.Next() {
 		var status string
-		must(rows.Scan(&status))
+		common.Must(rows.Scan(&status))
 		got = append(got, status)
 	}
 	if fmt.Sprint(got) != fmt.Sprint(want) {
-		die(fmt.Sprintf("%s.%s[message=%d attempt=%d] statuses=%v, want %v", ds.Schema, stream.DeliveryLogTable(streamId), messageId, attempt, got, want))
+		common.Die(fmt.Sprintf("%s.%s[message=%d attempt=%d] statuses=%v, want %v", ds.Schema, stream.DeliveryLogTable(streamId), messageId, attempt, got, want))
 	}
 	fmt.Printf("  ✓ delivery_log_%d[message=%d attempt=%d] statuses=%v\n", streamId, messageId, attempt, got)
 }
 
 func assertDeliveryLogCount(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, groupId int64, messageId int64, want int) {
 	var count int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2;`, ds.Schema, stream.DeliveryLogTable(streamId)), groupId, messageId).Scan(&count))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2;`, ds.Schema, stream.DeliveryLogTable(streamId)), groupId, messageId).Scan(&count))
 	if count != want {
-		die(fmt.Sprintf("%s.%s[message=%d] has %d rows, want %d", ds.Schema, stream.DeliveryLogTable(streamId), messageId, count, want))
+		common.Die(fmt.Sprintf("%s.%s[message=%d] has %d rows, want %d", ds.Schema, stream.DeliveryLogTable(streamId), messageId, count, want))
 	}
 	fmt.Printf("  ✓ delivery_log_%d[message=%d] has %d row(s)\n", streamId, messageId, count)
 }
 
 func assertDeliveryRowCount(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, want int) {
 	var count int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s;`, ds.Schema, stream.ExceptionQueueTable(streamId))).Scan(&count))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s;`, ds.Schema, stream.ExceptionQueueTable(streamId))).Scan(&count))
 	if count != want {
-		die(fmt.Sprintf("%s.%s has %d rows, want %d", ds.Schema, stream.ExceptionQueueTable(streamId), count, want))
+		common.Die(fmt.Sprintf("%s.%s has %d rows, want %d", ds.Schema, stream.ExceptionQueueTable(streamId), count, want))
 	}
 	fmt.Printf("  ✓ exception_queue_%d has %d row(s)\n", streamId, count)
 }
 
 func assertTableExists(ctx context.Context, ds *iDatastore.PostgresDatastore, table string, want bool) {
 	var exists *string
-	must(ds.Pool.QueryRow(ctx, `SELECT to_regclass($1)::text;`, table).Scan(&exists))
+	common.Must(ds.Pool.QueryRow(ctx, `SELECT to_regclass($1)::text;`, table).Scan(&exists))
 	got := exists != nil
 	if got != want {
-		die(fmt.Sprintf("%s exists=%v, want %v", table, got, want))
+		common.Die(fmt.Sprintf("%s exists=%v, want %v", table, got, want))
 	}
 	fmt.Printf("  ✓ %s exists=%v\n", table, got)
 }
 
-func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}
-
-func mustGroupID(g *consume.Consumer, err error) int64 { must(err); return g.Id }
+func step(s string)                                    { fmt.Printf("\n--- %s ---\n", s) }
+func mustGroupID(g *consume.Consumer, err error) int64 { common.Must(err); return g.Id }

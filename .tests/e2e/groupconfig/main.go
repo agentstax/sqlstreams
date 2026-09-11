@@ -22,6 +22,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/agentstax/sqlstreams/.tests/e2e/common"
 	"github.com/agentstax/sqlstreams/pkg/stream"
 	"os"
 	"sync"
@@ -44,47 +45,29 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	captureA := newCaptureLogger()
 	clientA, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true, Logger: captureA})
-	must(err)
+	common.Must(err)
 	captureB := newCaptureLogger()
 	clientB, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true, Logger: captureB})
-	must(err)
+	common.Must(err)
 
 	suffix := time.Now().UnixNano()
 	streamName := fmt.Sprintf("groupconfig.%d", suffix)
 	registered, err := clientA.Stream[testMessage](streamName).Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	defer func() {
 		if destroyErr := clientA.Stream[testMessage](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}); destroyErr != nil {
 			fmt.Printf("  cleanup: %s\n", destroyErr.Error())
@@ -98,12 +81,12 @@ func run() (err error) {
 		ExceptionInitialBackoff: 200 * time.Millisecond,
 	})
 
-	must(err)
+	common.Must(err)
 
 	var groupId int64
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT id FROM %s.consumer_group_config WHERE stream_id = $1 AND name = $2;`, ds.Schema), registered.Id, group).Scan(&groupId))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT id FROM %s.consumer_group_config WHERE stream_id = $1 AND name = $2;`, ds.Schema), registered.Id, group).Scan(&groupId))
 	var hasMessage, hasBackoff, hasReclaims bool
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`
 		SELECT
 			metadata ? 'message',
 			metadata ? 'exception_initial_backoff',
@@ -112,10 +95,10 @@ func run() (err error) {
 		WHERE consumer_group_id = $1 AND name = 'message_consumer';`, ds.Schema), groupId).
 		Scan(&hasMessage, &hasBackoff, &hasReclaims))
 	if !hasMessage || !hasBackoff {
-		die(fmt.Sprintf("stored document is missing declared keys: message=%t exception_initial_backoff=%t", hasMessage, hasBackoff))
+		common.Die(fmt.Sprintf("stored document is missing declared keys: message=%t exception_initial_backoff=%t", hasMessage, hasBackoff))
 	}
 	if hasReclaims {
-		die("stored document carries max_range_reclaims, which the declaration never set -- the document is not sparse")
+		common.Die("stored document carries max_range_reclaims, which the declaration never set -- the document is not sparse")
 	}
 	fmt.Println("  ✓ declared keys stored, undeclared keys absent")
 
@@ -125,40 +108,40 @@ func run() (err error) {
 		ExceptionInitialBackoff: 200 * time.Millisecond,
 	})
 
-	must(err)
+	common.Must(err)
 
 	if count := captureB.countCode("warn", "SQL0059"); count < 1 {
-		die(fmt.Sprintf("second declarer logged %d SQL0059 warns, want >= 1", count))
+		common.Die(fmt.Sprintf("second declarer logged %d SQL0059 warns, want >= 1", count))
 	}
 	if count := captureA.countCode("warn", "SQL0059"); count != 0 {
-		die(fmt.Sprintf("first declarer logged %d SQL0059 warns, want 0", count))
+		common.Die(fmt.Sprintf("first declarer logged %d SQL0059 warns, want 0", count))
 	}
 	var storedMaxRetries string
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`
 		SELECT metadata->'message'->'retry'->>'max_retries'
 		FROM %s.worker_config
 		WHERE consumer_group_id = $1 AND name = 'message_consumer';`, ds.Schema), groupId).
 		Scan(&storedMaxRetries))
 	if storedMaxRetries != "2" {
-		die(fmt.Sprintf("stored max_retries is %q, want \"2\" -- the newest declaration did not win", storedMaxRetries))
+		common.Die(fmt.Sprintf("stored max_retries is %q, want \"2\" -- the newest declaration did not win", storedMaxRetries))
 	}
 	var logRows int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`
 		SELECT COUNT(*)
 		FROM %s.worker_config_log l
 		JOIN %s.worker_config w ON w.id = l.worker_id
 		WHERE w.consumer_group_id = $1 AND w.name = 'message_consumer' AND l.declared_by <> '';`, ds.Schema, ds.Schema), groupId).
 		Scan(&logRows))
 	if logRows != 2 {
-		die(fmt.Sprintf("message_consumer has %d worker_config_log rows, want 2 (create + replace)", logRows))
+		common.Die(fmt.Sprintf("message_consumer has %d worker_config_log rows, want 2 (create + replace)", logRows))
 	}
 	fmt.Println("  ✓ SQL0059 on the second declarer only; log snapshots carry declared_by")
 
 	step("an instance registered before the replace consumes under the stored document")
 	produced, err := clientA.Stream[testMessage](streamName).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	_, err = produced.Produce(ctx, &testMessage{N: 1}, nil)
-	must(err)
+	common.Must(err)
 
 	consumeCtx, stopConsume := context.WithCancel(ctx)
 	var wg sync.WaitGroup
@@ -181,7 +164,7 @@ func run() (err error) {
 		if time.Now().After(deadline) {
 			stopConsume()
 			wg.Wait()
-			die("message never dead-lettered within 30s")
+			common.Die("message never dead-lettered within 30s")
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
@@ -191,7 +174,7 @@ func run() (err error) {
 	// the first declarer asked for 5 retries, the stored document says 2 --
 	// a budget past 3 attempts means the instance ran on its process copy
 	if attempts > 3 {
-		die(fmt.Sprintf("dead after %d attempts -- the instance consumed under its own declaration, not the stored one", attempts))
+		common.Die(fmt.Sprintf("dead after %d attempts -- the instance consumed under its own declaration, not the stored one", attempts))
 	}
 	fmt.Printf("  ✓ dead after %d attempts, the stored budget (declared 5, stored 2)\n", attempts)
 
@@ -203,11 +186,11 @@ func run() (err error) {
 		ExceptionInitialBackoff: 300 * time.Millisecond,
 	})
 
-	must(err)
+	common.Must(err)
 	var liveGroupId int64
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT id FROM %s.consumer_group_config WHERE stream_id = $1 AND name = $2;`, ds.Schema), registered.Id, liveGroup).Scan(&liveGroupId))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT id FROM %s.consumer_group_config WHERE stream_id = $1 AND name = $2;`, ds.Schema), registered.Id, liveGroup).Scan(&liveGroupId))
 	_, err = produced.Produce(ctx, &testMessage{N: 2}, nil)
-	must(err)
+	common.Must(err)
 
 	liveCtx, stopLive := context.WithCancel(ctx)
 	var liveWg sync.WaitGroup
@@ -232,13 +215,13 @@ func run() (err error) {
 		if err == nil && liveAttempts >= 2 && status == "ready" {
 			if liveAttempts > 2 {
 				stopLiveConsumer()
-				die(fmt.Sprintf("message already at attempt %d before the redeclare -- the backoff window was missed", liveAttempts))
+				common.Die(fmt.Sprintf("message already at attempt %d before the redeclare -- the backoff window was missed", liveAttempts))
 			}
 			break
 		}
 		if time.Now().After(deadline) {
 			stopLiveConsumer()
-			die("message never reached attempt 2 within 15s")
+			common.Die("message never reached attempt 2 within 15s")
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
@@ -251,7 +234,7 @@ func run() (err error) {
 
 	if err != nil {
 		stopLiveConsumer()
-		must(err)
+		common.Must(err)
 	}
 
 	deadline = time.Now().Add(30 * time.Second)
@@ -264,13 +247,13 @@ func run() (err error) {
 			// dead at 3 means the refresh never reached the running instance;
 			// dead at 5 means attempts 4 and 5 ran under the redeclared budget
 			if liveAttempts != 5 {
-				die(fmt.Sprintf("dead after %d attempts, want 5 -- the running instance did not pick up the redeclared budget", liveAttempts))
+				common.Die(fmt.Sprintf("dead after %d attempts, want 5 -- the running instance did not pick up the redeclared budget", liveAttempts))
 			}
 			break
 		}
 		if time.Now().After(deadline) {
 			stopLiveConsumer()
-			die("message never dead-lettered within 30s of the redeclare")
+			common.Die("message never dead-lettered within 30s of the redeclare")
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
@@ -285,16 +268,6 @@ func run() (err error) {
 
 func step(title string) {
 	fmt.Printf("\n== %s\n", title)
-}
-
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-
-func die(message string) {
-	panic(testFailure{message: message})
 }
 
 // captureLogger records every line so assertions can count warns by their

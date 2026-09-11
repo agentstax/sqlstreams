@@ -59,52 +59,34 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	streamName := fmt.Sprintf("phase8a.dropfloor.%d", time.Now().UnixNano())
 	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: partitionSize})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	messageConsumers, err := messageconsumercontroller.NewMessageConsumerGroupController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	janitorDatastore, err := janitordatastore.NewJanitorDatastore(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 
 	step("publish ids 1-4 into message_log_<id>_0, then let them age past ttl")
 	for range 4 {
@@ -125,7 +107,7 @@ func run() (err error) {
 	setCursor(ctx, ds, tp.Id, groupPast, 4, 4)
 
 	step("drop -- floor sits at groupPast's committed=4, exactly partition 0's last id, so it's not blocked")
-	must(janitorDatastore.DropExpiredPartitions(ctx, tp.Id, partitionSize, ttl, false, tp.DeliveryLogMode))
+	common.Must(janitorDatastore.DropExpiredPartitions(ctx, tp.Id, partitionSize, ttl, false, tp.DeliveryLogMode))
 	assertPartitions("partition 0 dropped", partitionNumbers(ctx, ds, tp.Id), []int64{1, 2})
 
 	step("groupPast claims on -- unaffected by the drop, reads real messages from partition 1")
@@ -151,11 +133,11 @@ func run() (err error) {
 	assertPartitions("partitions 1/2/3 exist (3 is pre-created headroom)", partitionNumbers(ctx, ds, tp.Id), []int64{1, 2, 3})
 
 	step("drop attempt -- groupInside's committed is still 0, floor blocks partition 1 (last id 9 > floor 0)")
-	must(janitorDatastore.DropExpiredPartitions(ctx, tp.Id, partitionSize, ttl, false, tp.DeliveryLogMode))
+	common.Must(janitorDatastore.DropExpiredPartitions(ctx, tp.Id, partitionSize, ttl, false, tp.DeliveryLogMode))
 	assertPartitions("partition 1 survives -- refused by the floor", partitionNumbers(ctx, ds, tp.Id), []int64{1, 2, 3})
 
 	step("same drop, AllowDropPastCommitted=true -- the floor check is waived outright")
-	must(janitorDatastore.DropExpiredPartitions(ctx, tp.Id, partitionSize, ttl, true, tp.DeliveryLogMode))
+	common.Must(janitorDatastore.DropExpiredPartitions(ctx, tp.Id, partitionSize, ttl, true, tp.DeliveryLogMode))
 	assertPartitions("partition 1 dropped once the floor is overridden", partitionNumbers(ctx, ds, tp.Id), []int64{2, 3})
 
 	fmt.Println("\n✅ DROP FLOOR E2E TEST PASSED")
@@ -170,7 +152,7 @@ func publish(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[common
 	_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 		return common.NewWork(30, "admin@example.com")
 	}, nil)
-	must(err)
+	common.Must(err)
 }
 
 // createPartition pre-creates message_log_<streamId>_<n> so the e2e test's ids stay
@@ -182,30 +164,30 @@ func createPartition(ctx context.Context, ds *iDatastore.PostgresDatastore, stre
 			PARTITION OF %[1]s.%[3]s
 			FOR VALUES FROM (%[4]d) TO (%[5]d);
 	`, ds.Schema, stream.MessageLogPartitionTable(streamId, n), stream.MessageLogTable(streamId), n*partitionSize, (n+1)*partitionSize))
-	must(err)
+	common.Must(err)
 }
 
 func reset(ctx context.Context, cd *consumecontroller.ConsumeController, ds *iDatastore.PostgresDatastore, streamId int64, group string) {
 	groupId = mustGroupID(cd.RegisterGroup(ctx, streamId, group, consume.Beginning()))
 	_, err := ds.Pool.Exec(ctx, fmt.Sprintf(`DELETE FROM %s.%s WHERE consumer_group_id=$1`, ds.Schema, stream.ClaimLeaseTable(streamId)), groupId)
-	must(err)
+	common.Must(err)
 	_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`DELETE FROM %s.%s WHERE consumer_group_id=$1`, ds.Schema, stream.ExceptionQueueTable(streamId)), groupId)
-	must(err)
+	common.Must(err)
 	_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`UPDATE %s.%s SET claimed=0, committed=0, settled_head=0, pending_head=0, pending_xid=NULL WHERE consumer_group_id=$1`, ds.Schema, stream.ConsumerGroupCursorTable(streamId)), groupId)
-	must(err)
+	common.Must(err)
 }
 
 func setCursor(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, group string, claimed, committed int64) {
 	_ = group // groups are id-keyed; the name stays in the signature for the call sites' readability
 	_, err := ds.Pool.Exec(ctx, fmt.Sprintf(`UPDATE %s.%s SET claimed=$2, committed=$3 WHERE consumer_group_id=$1`, ds.Schema, stream.ConsumerGroupCursorTable(streamId)), groupId, claimed, committed)
-	must(err)
+	common.Must(err)
 }
 
 func freshClaim(ctx context.Context, cd *messageconsumercontroller.MessageConsumerGroupController, streamId int64, group string, limit int) *messageconsumercontroller.ClaimedRange {
 	claim, err := cd.ClaimMessagesWithCursor(ctx, streamId, groupId, 1, limit, 3, 30*time.Second, stream.DeliveryLogModeFailures)
-	must(err)
+	common.Must(err)
 	if claim == nil {
-		die(fmt.Sprintf("%s: expected a claim, got nil (already caught up?)", group))
+		common.Die(fmt.Sprintf("%s: expected a claim, got nil (already caught up?)", group))
 	}
 	return claim
 }
@@ -221,44 +203,36 @@ func partitionNumbers(ctx context.Context, ds *iDatastore.PostgresDatastore, str
 			AND c.relname LIKE $2 || '%'
 		ORDER BY n;
 	`, fmt.Sprintf("%s.%s", ds.Schema, stream.MessageLogTable(streamId)), prefix)
-	must(err)
+	common.Must(err)
 	defer rows.Close()
 
 	var out []int64
 	for rows.Next() {
 		var n int64
-		must(rows.Scan(&n))
+		common.Must(rows.Scan(&n))
 		out = append(out, n)
 	}
-	must(rows.Err())
+	common.Must(rows.Err())
 	return out
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}
 func assertInt(label string, got, want int64) {
 	if got != want {
-		die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
+		common.Die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
 	}
 	fmt.Printf("  ✓ %s (%d)\n", label, got)
 }
 func assertPartitions(label string, got, want []int64) {
 	if len(got) != len(want) {
-		die(fmt.Sprintf("%s: got %v, want %v", label, got, want))
+		common.Die(fmt.Sprintf("%s: got %v, want %v", label, got, want))
 	}
 	for i := range got {
 		if got[i] != want[i] {
-			die(fmt.Sprintf("%s: got %v, want %v", label, got, want))
+			common.Die(fmt.Sprintf("%s: got %v, want %v", label, got, want))
 		}
 	}
 	fmt.Printf("  ✓ %s %v\n", label, got)
 }
 
-func mustGroupID(g *consume.Consumer, err error) int64 { must(err); return g.Id }
+func mustGroupID(g *consume.Consumer, err error) int64 { common.Must(err); return g.Id }

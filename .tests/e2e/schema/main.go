@@ -27,7 +27,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/.tests/e2e/common"
+	iCommon "github.com/agentstax/sqlstreams/pkg/common"
 	"github.com/agentstax/sqlstreams/pkg/common/logging"
 	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
 	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
@@ -48,26 +49,8 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so the
-// deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
 	// two schemas, not two databases -- the point is that one database holds
@@ -84,55 +67,55 @@ func run() (err error) {
 	defer rightDs.Pool.Close()
 	defer dropSchemas(ctx, leftDs, leftSchema, rightSchema)
 
-	must(left.System().Register(ctx, nil))
-	must(right.System().Register(ctx, nil))
+	common.Must(left.System().Register(ctx, nil))
+	common.Must(right.System().Register(ctx, nil))
 
 	fmt.Println("=== 1. isolation ===")
 
 	leftTables := tableCount(ctx, leftDs, leftSchema)
 	rightTables := tableCount(ctx, rightDs, rightSchema)
 	if leftTables == 0 || leftTables != rightTables {
-		die(fmt.Sprintf("each schema should hold its own full table set, got left %d right %d", leftTables, rightTables))
+		common.Die(fmt.Sprintf("each schema should hold its own full table set, got left %d right %d", leftTables, rightTables))
 	}
 	fmt.Printf("   ✅ both schemas hold their own %d tables\n", leftTables)
 
 	// the same name in both -- a name is unique per installation, not per database
 	const sharedName = "schema.orders"
 	leftStream, err := left.Stream[testMessage](sharedName).Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	rightStream, err := right.Stream[testMessage](sharedName).Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	fmt.Printf("   ✅ %q registered in both, each numbered by its own schema's sequence: left id %d, right id %d\n", sharedName, leftStream.Id, rightStream.Id)
 
 	leftStreams, err := left.Streams(ctx)
-	must(err)
+	common.Must(err)
 	rightStreams, err := right.Streams(ctx)
-	must(err)
+	common.Must(err)
 	if countNamed(leftStreams, sharedName) != 1 || countNamed(rightStreams, sharedName) != 1 {
-		die("each client should list its own stream exactly once")
+		common.Die("each client should list its own stream exactly once")
 	}
 	if len(leftStreams) != len(rightStreams) {
-		die(fmt.Sprintf("neither client should see the other's streams, got left %d right %d", len(leftStreams), len(rightStreams)))
+		common.Die(fmt.Sprintf("neither client should see the other's streams, got left %d right %d", len(leftStreams), len(rightStreams)))
 	}
 	fmt.Printf("   ✅ each client lists %d streams -- its own, not the other's\n", len(leftStreams))
 
 	leftBound, rightBound := boundSchemas(leftDs.Logger), boundSchemas(rightDs.Logger)
 	if len(leftBound) != 1 || leftBound[0] != leftSchema || len(rightBound) != 1 || rightBound[0] != rightSchema {
-		die(fmt.Sprintf("each datastore should bind only its own schema, got left %v right %v", leftBound, rightBound))
+		common.Die(fmt.Sprintf("each datastore should bind only its own schema, got left %v right %v", leftBound, rightBound))
 	}
 	fmt.Printf("   ✅ every line each datastore logs names one schema -- %q and %q\n", leftBound[0], rightBound[0])
 
 	fmt.Println("\n=== 2. independence ===")
 
 	leftProducer, err := left.Stream[testMessage](sharedName).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	_, err = leftProducer.Produce(ctx, &testMessage{Value: "left only"}, nil)
-	must(err)
+	common.Must(err)
 
 	leftCount := messageCount(ctx, leftDs, leftSchema, leftStream.Id)
 	rightCount := messageCount(ctx, rightDs, rightSchema, rightStream.Id)
 	if leftCount != 1 || rightCount != 0 {
-		die(fmt.Sprintf("a produce on one schema must not reach the other, got left %d right %d", leftCount, rightCount))
+		common.Die(fmt.Sprintf("a produce on one schema must not reach the other, got left %d right %d", leftCount, rightCount))
 	}
 	fmt.Printf("   ✅ one produce on left: left holds %d, right holds %d\n", leftCount, rightCount)
 
@@ -140,25 +123,25 @@ func run() (err error) {
 	// the pool sets no search_path [0632] -- so an unqualified CREATE lands
 	// where the caller's connection puts it, not inside sqlstreams's schema
 	const callerTable = "schema_caller_orders"
-	must(left.InTransaction(ctx, func(ctx context.Context, tx sqlstreams.Tx) error {
+	common.Must(left.InTransaction(ctx, func(ctx context.Context, tx sqlstreams.Tx) error {
 		_, err := tx.Exec(ctx, `CREATE TABLE IF NOT EXISTS `+callerTable+` (id BIGINT);`)
 		return err
 	}))
 	var landedIn string
-	must(leftDs.Pool.QueryRow(ctx,
+	common.Must(leftDs.Pool.QueryRow(ctx,
 		`SELECT schemaname FROM pg_tables WHERE tablename = $1;`, callerTable).Scan(&landedIn))
 	defer func() {
 		_, err := leftDs.Pool.Exec(ctx, `DROP TABLE IF EXISTS `+landedIn+`.`+callerTable+`;`)
-		must(err)
+		common.Must(err)
 	}()
 	if landedIn == leftSchema {
-		die("a caller's own CREATE inside InTransaction must not land in sqlstreams's schema, got " + landedIn)
+		common.Die("a caller's own CREATE inside InTransaction must not land in sqlstreams's schema, got " + landedIn)
 	}
 	fmt.Printf("   ✅ a caller's CREATE inside InTransaction lands in %q, not sqlstreams's %q\n", landedIn, leftSchema)
 
-	must(left.Stream[testMessage](sharedName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+	common.Must(left.Stream[testMessage](sharedName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	if _, err := right.Stream[testMessage](sharedName).Get(ctx); err != nil {
-		die("destroying the left stream must leave the right one readable: " + err.Error())
+		common.Die("destroying the left stream must leave the right one readable: " + err.Error())
 	}
 	fmt.Println("   ✅ destroying left's stream leaves right's standing")
 
@@ -172,14 +155,14 @@ func run() (err error) {
 	// so the catalog read raises undefined_table -- which the catalog reads
 	// map to absence, never to another installation's rows
 	found, err := empty.Stream[testMessage](sharedName).Get(ctx)
-	must(err)
+	common.Must(err)
 	if found != nil {
-		die("an unregistered schema must read no stream, got " + found.Name)
+		common.Die("an unregistered schema must read no stream, got " + found.Name)
 	}
 	fmt.Println("   ✅ Get on an unregistered schema is the (nil, nil) absence")
 
 	if _, err := empty.Stream[testMessage](sharedName).Health(ctx); !errors.Is(err, stream.ErrStreamNotFound) {
-		die(fmt.Sprintf("every verb but Get should raise absence, got %v", err))
+		common.Die(fmt.Sprintf("every verb but Get should raise absence, got %v", err))
 	}
 	fmt.Println("   ✅ every other verb raises ErrStreamNotFound rather than reading a neighbour")
 
@@ -189,20 +172,20 @@ func run() (err error) {
 	// that public happens to be empty.
 	publicClient, publicDs := openClient(ctx, "public", shared)
 	defer publicDs.Pool.Close()
-	must(publicClient.System().Register(ctx, nil))
-	defer func() { must(publicClient.System().Destroy(ctx, &sqlstreams.DestroyOptions{Force: true})) }()
+	common.Must(publicClient.System().Register(ctx, nil))
+	defer func() { common.Must(publicClient.System().Destroy(ctx, &sqlstreams.DestroyOptions{Force: true})) }()
 	_, err = publicClient.Stream[testMessage](sharedName).Register(ctx, nil)
-	must(err)
+	common.Must(err)
 
 	found, err = empty.Stream[testMessage](sharedName).Get(ctx)
-	must(err)
+	common.Must(err)
 	if found != nil {
-		die("a full installation in public must not become the empty schema's answer, got " + found.Name)
+		common.Die("a full installation in public must not become the empty schema's answer, got " + found.Name)
 	}
 	fmt.Println("   ✅ with a whole installation standing in public, Get is still the absence")
 
 	if _, err := empty.Stream[testMessage](sharedName).Health(ctx); !errors.Is(err, stream.ErrStreamNotFound) {
-		die(fmt.Sprintf("every verb but Get should still raise absence, got %v", err))
+		common.Die(fmt.Sprintf("every verb but Get should still raise absence, got %v", err))
 	}
 	fmt.Println("   ✅ ...and every other verb still raises ErrStreamNotFound")
 
@@ -211,23 +194,23 @@ func run() (err error) {
 	// hold the key sqlstreams derives for a register on the left schema -- the
 	// register blocking on it is what proves the datastore takes the same one
 	const lockedName = "schema.locked"
-	lockKey, err := common.NewAdvisoryLockKey("stream", leftSchema, lockedName)
-	must(err)
+	lockKey, err := iCommon.NewAdvisoryLockKey("stream", leftSchema, lockedName)
+	common.Must(err)
 
 	holder, err := leftDs.Pool.Acquire(ctx)
-	must(err)
+	common.Must(err)
 	defer holder.Release()
 	_, err = holder.Exec(ctx, `SELECT pg_advisory_lock($1);`, lockKey.Value())
-	must(err)
+	common.Must(err)
 
-	if lockKey.ClassId() != common.AdvisoryLockNamespace {
-		die(fmt.Sprintf("every key should carry the namespace, got classid %d", lockKey.ClassId()))
+	if lockKey.ClassId() != iCommon.AdvisoryLockNamespace {
+		common.Die(fmt.Sprintf("every key should carry the namespace, got classid %d", lockKey.ClassId()))
 	}
 
 	// the same predicate migrate.isLocked reads: finding the lock by the two
 	// halves proves ClassId and ObjId split it the way postgres filed it
 	var held int
-	must(leftDs.Pool.QueryRow(ctx, `
+	common.Must(leftDs.Pool.QueryRow(ctx, `
 		SELECT count(*) FROM pg_locks
 		WHERE locktype = 'advisory'
 			AND classid = $1
@@ -236,26 +219,26 @@ func run() (err error) {
 			AND granted;
 	`, lockKey.ClassId(), lockKey.ObjId()).Scan(&held))
 	if held != 1 {
-		die(fmt.Sprintf("pg_locks should hold the key under classid %d objid %d, found %d rows", lockKey.ClassId(), lockKey.ObjId(), held))
+		common.Die(fmt.Sprintf("pg_locks should hold the key under classid %d objid %d, found %d rows", lockKey.ClassId(), lockKey.ObjId(), held))
 	}
 	fmt.Printf("   ✅ the held lock reads back under classid %d -- sqlstreams's namespace -- and objid %d\n", lockKey.ClassId(), lockKey.ObjId())
 
 	blocked, cancelBlocked := context.WithTimeout(ctx, 2*time.Second)
 	defer cancelBlocked()
 	if _, err := left.Stream[sqlstreams.RawPayload](lockedName).Register(blocked, nil); err == nil {
-		die("registering under the held key should have waited, it returned")
+		common.Die("registering under the held key should have waited, it returned")
 	}
 	fmt.Println("   ✅ the same schema's register waits on the held key")
 
 	free, cancelFree := context.WithTimeout(ctx, 2*time.Second)
 	defer cancelFree()
 	if _, err := right.Stream[sqlstreams.RawPayload](lockedName).Register(free, nil); err != nil {
-		die("the other schema's register must not wait on it: " + err.Error())
+		common.Die("the other schema's register must not wait on it: " + err.Error())
 	}
 	fmt.Println("   ✅ the other schema's register takes a different key and completes")
 
 	_, err = holder.Exec(ctx, `SELECT pg_advisory_unlock($1);`, lockKey.Value())
-	must(err)
+	common.Must(err)
 
 	fmt.Println("\n✅ SCHEMA E2E TEST PASSED")
 	fmt.Println("   one schema is one installation: the same stream name registers in each,")
@@ -269,18 +252,18 @@ func run() (err error) {
 // ***************
 
 func openClient(ctx context.Context, schema string, cfg *sqlstreams.ClientConfig) (*sqlstreams.Client, *iDatastore.PostgresDatastore) {
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 
 	clientConfig := *cfg
 	clientConfig.Schema = schema
 
 	client, err := sqlstreams.NewClient(ctx, pool, &clientConfig)
-	must(err)
+	common.Must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, &iDatastore.PostgresDatastoreConfig{
 		Schema: clientConfig.Schema, Logger: clientConfig.Logger, Retry: clientConfig.Retry,
 	})
-	must(err)
+	common.Must(err)
 	return client, ds
 }
 
@@ -289,7 +272,7 @@ func openClient(ctx context.Context, schema string, cfg *sqlstreams.ClientConfig
 func boundSchemas(logger logging.Logger) []string {
 	pipeline, ok := logger.(*logging.PipelineLogger)
 	if !ok {
-		die("a datastore's logger should be a pipeline")
+		common.Die("a datastore's logger should be a pipeline")
 	}
 
 	found := []string{}
@@ -306,7 +289,7 @@ func tableCount(ctx context.Context, ds *iDatastore.PostgresDatastore, schema st
 	var count int
 	err := ds.Pool.QueryRow(ctx,
 		`SELECT count(*) FROM information_schema.tables WHERE table_schema = $1;`, schema).Scan(&count)
-	must(err)
+	common.Must(err)
 	return count
 }
 
@@ -314,7 +297,7 @@ func messageCount(ctx context.Context, ds *iDatastore.PostgresDatastore, schema 
 	var count int
 	err := ds.Pool.QueryRow(ctx,
 		fmt.Sprintf(`SELECT count(*) FROM %s.%s;`, schema, stream.MessageLogTable(streamId))).Scan(&count)
-	must(err)
+	common.Must(err)
 	return count
 }
 
@@ -334,14 +317,4 @@ func dropSchemas(ctx context.Context, ds *iDatastore.PostgresDatastore, schemas 
 			fmt.Printf("   cleanup: %s\n", err.Error())
 		}
 	}
-}
-
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-
-func die(msg string) {
-	panic(testFailure{message: msg})
 }

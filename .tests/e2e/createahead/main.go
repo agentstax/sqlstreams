@@ -39,30 +39,12 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	perCallScenario(ctx, pool)
@@ -82,7 +64,7 @@ func perCallScenario(ctx context.Context, pool *pgxpool.Pool) {
 	_, tp, wpInstance, warns, cleanup := register(ctx, pool, "percall")
 	defer cleanup()
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, &iDatastore.PostgresDatastoreConfig{Logger: warns})
-	must(err)
+	common.Must(err)
 
 	for range triggerPublishes {
 		publish(ctx, wpInstance)
@@ -102,7 +84,7 @@ func batchedScenario(ctx context.Context, pool *pgxpool.Pool) {
 	_, tp, wpInstance, warns, cleanup := register(ctx, pool, "batched")
 	defer cleanup()
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, &iDatastore.PostgresDatastoreConfig{Logger: warns})
-	must(err)
+	common.Must(err)
 
 	// 85 concurrent publishes cover id 80 inside some batch's range but stay
 	// well under the boundary at 100
@@ -120,12 +102,12 @@ func inTxScenario(ctx context.Context, pool *pgxpool.Pool) {
 	client, tp, wpInstance, warns, cleanup := register(ctx, pool, "intx")
 	defer cleanup()
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, &iDatastore.PostgresDatastoreConfig{Logger: warns})
-	must(err)
+	common.Must(err)
 
 	for range triggerPublishes - 1 {
 		publish(ctx, wpInstance)
 	}
-	must(client.InTransaction(ctx, func(ctx context.Context, tx sqlstreams.Tx) error {
+	common.Must(client.InTransaction(ctx, func(ctx context.Context, tx sqlstreams.Tx) error {
 		work, err := common.NewWork(30, "admin@example.com")
 		if err != nil {
 			return err
@@ -145,19 +127,19 @@ func inTxScenario(ctx context.Context, pool *pgxpool.Pool) {
 
 func register(ctx context.Context, pool *pgxpool.Pool, scenario string) (*sqlstreams.Client, *sqlstreams.Stream, *sqlstreams.ProducerInstance[common.Work], *WarnCounter, func()) {
 	warns, err := NewWarnCounter(logging.NewDefaultLogger(os.Stdout))
-	must(err)
+	common.Must(err)
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true, Logger: warns})
-	must(err)
+	common.Must(err)
 
 	streamName := fmt.Sprintf("createahead.%s.%d", scenario, time.Now().UnixNano())
 	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: partitionSize})
-	must(err)
+	common.Must(err)
 
 	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 
 	cleanup := func() {
-		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}
 	return client, tp, wpInstance, warns, cleanup
 }
@@ -168,7 +150,7 @@ func workFunc(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 
 func publish(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[common.Work]) {
 	_, err := wpInstance.ProduceFunc(ctx, workFunc, nil)
-	must(err)
+	common.Must(err)
 }
 
 func publishConcurrent(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[common.Work], workers int, perWorker int) {
@@ -179,9 +161,9 @@ func publishConcurrent(ctx context.Context, wpInstance *sqlstreams.ProducerInsta
 			defer wg.Done()
 			for range perWorker {
 				work, err := common.NewWork(30, "admin@example.com")
-				must(err)
+				common.Must(err)
 				_, err = wpInstance.Produce(ctx, work, nil)
-				must(err)
+				common.Must(err)
 			}
 		}()
 	}
@@ -201,7 +183,7 @@ func waitForPartition(ctx context.Context, ds *iDatastore.PostgresDatastore, str
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	die(fmt.Sprintf("%s was not created ahead within 10s", table))
+	common.Die(fmt.Sprintf("%s was not created ahead within 10s", table))
 }
 
 // assertCreateAheadWon: no heal warn, no drop warn, ids contiguous (a heal
@@ -213,7 +195,7 @@ func assertCreateAheadWon(ctx context.Context, ds *iDatastore.PostgresDatastore,
 
 	var count int64
 	var maxId int64
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`
 		SELECT count(*), COALESCE(max(id), 0) FROM %s.%s;
 	`, ds.Schema, stream.MessageLogTable(streamId))).Scan(&count, &maxId))
 	assertInt("every publish landed", count, totalPublishes)
@@ -222,14 +204,14 @@ func assertCreateAheadWon(ctx context.Context, ds *iDatastore.PostgresDatastore,
 	// a trigger creates the partition after the trigger id's own, so 105 ids
 	// reach partition 1 only; partition 3 would be a runaway chain.
 	if regclassExists(ctx, ds, fmt.Sprintf("%s.%s_3", ds.Schema, stream.MessageLogTable(streamId))) {
-		die("partition 3 exists -- create-ahead ran away past the trigger's reach")
+		common.Die("partition 3 exists -- create-ahead ran away past the trigger's reach")
 	}
 	fmt.Println("  ✓ no runaway creation past the triggers' reach")
 }
 
 func regclassExists(ctx context.Context, ds *iDatastore.PostgresDatastore, table string) bool {
 	var exists bool
-	must(ds.Pool.QueryRow(ctx, `SELECT to_regclass($1) IS NOT NULL;`, table).Scan(&exists))
+	common.Must(ds.Pool.QueryRow(ctx, `SELECT to_regclass($1) IS NOT NULL;`, table).Scan(&exists))
 	return exists
 }
 
@@ -282,17 +264,9 @@ func (w *WarnCounter) ErrorContext(ctx context.Context, msg string, args ...any)
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}
 func assertInt(label string, got, want int64) {
 	if got != want {
-		die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
+		common.Die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
 	}
 	fmt.Printf("  ✓ %s (%d)\n", label, got)
 }

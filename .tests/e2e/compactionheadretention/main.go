@@ -45,30 +45,12 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	dropPartitionScenario(ctx, pool)
@@ -86,22 +68,22 @@ func dropPartitionScenario(ctx context.Context, pool *pgxpool.Pool) {
 
 	const partitionSize = int64(4)
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	streamName := fmt.Sprintf("phase8c.compactionheadretention.drop.%d", time.Now().UnixNano())
 	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: partitionSize})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	janitorDatastore, err := janitordatastore.NewJanitorDatastore(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 
 	// fill partition 0 with a dormant key + filler, then age past ttl
 	publish(ctx, wpInstance, "dormant-key")
@@ -119,7 +101,7 @@ func dropPartitionScenario(ctx context.Context, pool *pgxpool.Pool) {
 	assertLatestExists(ctx, ds, tp.Id, "dormant-key", true)
 	assertLatestExists(ctx, ds, tp.Id, "alive-key", true)
 
-	must(janitorDatastore.DropExpiredPartitions(ctx, tp.Id, partitionSize, ttl, true, tp.DeliveryLogMode))
+	common.Must(janitorDatastore.DropExpiredPartitions(ctx, tp.Id, partitionSize, ttl, true, tp.DeliveryLogMode))
 
 	assertLatestExists(ctx, ds, tp.Id, "dormant-key", false)
 	assertLatestExists(ctx, ds, tp.Id, "alive-key", true)
@@ -130,22 +112,22 @@ func sweepBatchScenario(ctx context.Context, pool *pgxpool.Pool) {
 
 	const partitionSize = int64(1000000) // matches migration 001's original width -- never rolls
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	streamName := fmt.Sprintf("phase8c.compactionheadretention.sweep.%d", time.Now().UnixNano())
 	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: partitionSize})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	janitorDatastore, err := janitordatastore.NewJanitorDatastore(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 
 	publish(ctx, wpInstance, "dormant-key")
 	time.Sleep(ttl + ttlMargin)
@@ -154,7 +136,7 @@ func sweepBatchScenario(ctx context.Context, pool *pgxpool.Pool) {
 	assertLatestExists(ctx, ds, tp.Id, "dormant-key", true)
 	assertLatestExists(ctx, ds, tp.Id, "alive-key", true)
 
-	must(janitorDatastore.SweepExpiredPartitions(ctx, tp.Id, partitionSize, ttl, 0, true, batchSize, tp.DeliveryLogMode))
+	common.Must(janitorDatastore.SweepExpiredPartitions(ctx, tp.Id, partitionSize, ttl, 0, true, batchSize, tp.DeliveryLogMode))
 
 	assertLatestExists(ctx, ds, tp.Id, "dormant-key", false)
 	assertLatestExists(ctx, ds, tp.Id, "alive-key", true)
@@ -163,7 +145,7 @@ func sweepBatchScenario(ctx context.Context, pool *pgxpool.Pool) {
 	for range 3 {
 		publish(ctx, wpInstance, "alive-key")
 		time.Sleep(ttl / 4)
-		must(janitorDatastore.SweepExpiredPartitions(ctx, tp.Id, partitionSize, ttl, 0, true, batchSize, tp.DeliveryLogMode))
+		common.Must(janitorDatastore.SweepExpiredPartitions(ctx, tp.Id, partitionSize, ttl, 0, true, batchSize, tp.DeliveryLogMode))
 	}
 	assertLatestExists(ctx, ds, tp.Id, "alive-key", true)
 }
@@ -179,25 +161,17 @@ func publish(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[common
 	_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 		return common.NewWork(30, "admin@example.com")
 	}, opts)
-	must(err)
+	common.Must(err)
 }
 
 func assertLatestExists(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, key string, want bool) {
 	var count int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE compaction_key=$1;`, ds.Schema, stream.CompactionHeadTable(streamId)), key).Scan(&count))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE compaction_key=$1;`, ds.Schema, stream.CompactionHeadTable(streamId)), key).Scan(&count))
 	got := count > 0
 	if got != want {
-		die(fmt.Sprintf("compaction_head[%s] exists=%v, want %v", key, got, want))
+		common.Die(fmt.Sprintf("compaction_head[%s] exists=%v, want %v", key, got, want))
 	}
 	fmt.Printf("  ✓ compaction_head[%s] exists=%v\n", key, got)
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}

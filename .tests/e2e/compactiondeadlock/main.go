@@ -15,7 +15,7 @@ package main
 //   - two InTransaction callers producing the same two keys in reverse
 //     order genuinely deadlock: Postgres kills exactly one (40P01) after
 //     deadlock_timeout, the surfaced error classifies transient
-//     (common.IsTransientPgError), and rerunning the victim's closure --
+//     (iCommon.IsTransientPgError), and rerunning the victim's closure --
 //     the caller-side retry the InTransaction docs require -- lands both
 //     callers' messages and both keys' heads still converge.
 
@@ -23,13 +23,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/agentstax/sqlstreams/.tests/e2e/common"
 	"github.com/agentstax/sqlstreams/pkg/stream"
 	"os"
 	"sync"
 	"time"
 	"uuid"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
+	iCommon "github.com/agentstax/sqlstreams/pkg/common"
 	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
 	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -64,47 +65,29 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err = sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err = iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	streamName = fmt.Sprintf("compactiondeadlock.%d", time.Now().UnixNano())
 	registered, err := client.Stream[testMessage](streamName).Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	streamId = registered.Id
 	defer func() {
-		must(client.Stream[testMessage](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[testMessage](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	wpInstance, err = client.Stream[testMessage](streamName).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 
 	batcherAbsenceScenario(ctx)
 	produceInTxDeadlockScenario(ctx)
@@ -128,7 +111,7 @@ func batcherAbsenceScenario(ctx context.Context) {
 	instances := make([]*sqlstreams.ProducerInstance[testMessage], producerCount)
 	for i := range instances {
 		instance, err := client.Stream[testMessage](streamName).Producer().Register(ctx, nil)
-		must(err)
+		common.Must(err)
 		instances[i] = instance
 	}
 
@@ -157,7 +140,7 @@ func batcherAbsenceScenario(ctx context.Context) {
 		}(instances[i%producerCount], i)
 	}
 	wg.Wait()
-	must(firstErr)
+	common.Must(firstErr)
 	elapsed := time.Since(started)
 
 	total := goroutineCount * producesPerGoroutine
@@ -183,7 +166,7 @@ func produceInTxDeadlockScenario(ctx context.Context) {
 	// seed both head rows so the second produces contend on existing rows
 	for _, key := range []string{"tx-a", "tx-b"} {
 		_, err := wpInstance.Produce(ctx, &testMessage{Note: "seed"}, &sqlstreams.ProduceOptions{MessageKey: key, Compaction: &sqlstreams.CompactionOptions{Enable: true}})
-		must(err)
+		common.Must(err)
 	}
 	deadlocksBefore := deadlockCount(ctx)
 
@@ -202,7 +185,7 @@ func produceInTxDeadlockScenario(ctx context.Context) {
 	var victimWait time.Duration
 	for range 2 {
 		result := <-results
-		must(result.err)
+		common.Must(result.err)
 		deadlocksSeen += result.deadlocks
 		if result.victimWait > victimWait {
 			victimWait = result.victimWait
@@ -257,7 +240,7 @@ func runCallerWithRetry(ctx context.Context, firstKey string, secondKey string, 
 			result.err = fmt.Errorf("want only 40P01 surfacing: %w", err)
 			return result
 		}
-		if !common.IsTransientPgError(err) {
+		if !iCommon.IsTransientPgError(err) {
 			result.err = fmt.Errorf("40P01 must classify transient: %w", err)
 			return result
 		}
@@ -275,7 +258,7 @@ func produceKeyInTx(ctx context.Context, tx sqlstreams.Tx, key string, idempoten
 
 func deadlockCount(ctx context.Context) int64 {
 	var count int64
-	must(ds.Pool.QueryRow(ctx, `SELECT deadlocks FROM pg_stat_database WHERE datname = current_database();`).Scan(&count))
+	common.Must(ds.Pool.QueryRow(ctx, `SELECT deadlocks FROM pg_stat_database WHERE datname = current_database();`).Scan(&count))
 	return count
 }
 
@@ -289,10 +272,10 @@ func waitDeadlockCount(ctx context.Context, want int64) {
 			return
 		}
 		if got > want {
-			die(fmt.Sprintf("deadlock counter overshot: got %d, want %d", got, want))
+			common.Die(fmt.Sprintf("deadlock counter overshot: got %d, want %d", got, want))
 		}
 		if time.Now().After(deadline) {
-			die(fmt.Sprintf("deadlock counter never reached %d, still %d", want, got))
+			common.Die(fmt.Sprintf("deadlock counter never reached %d, still %d", want, got))
 		}
 		time.Sleep(200 * time.Millisecond)
 	}
@@ -300,14 +283,14 @@ func waitDeadlockCount(ctx context.Context, want int64) {
 
 func messageCount(ctx context.Context) int64 {
 	var count int64
-	must(ds.Pool.QueryRow(ctx,
+	common.Must(ds.Pool.QueryRow(ctx,
 		fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE message_key LIKE 'hot-%%';`, ds.Schema, stream.MessageLogTable(streamId))).Scan(&count))
 	return count
 }
 
 func keyMessageCount(ctx context.Context, key string) int64 {
 	var count int64
-	must(ds.Pool.QueryRow(ctx,
+	common.Must(ds.Pool.QueryRow(ctx,
 		fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE message_key = $1;`, ds.Schema, stream.MessageLogTable(streamId)), key).Scan(&count))
 	return count
 }
@@ -318,31 +301,21 @@ func keyMessageCount(ctx context.Context, key string) int64 {
 func assertHeadIsMaxId(ctx context.Context, key string) {
 	var headId int64
 	var maxId int64
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`
 		SELECT
 			h.message_id,
 			(SELECT MAX(id) FROM %s.%s WHERE message_key = $1)
 		FROM %s.%s h
 		WHERE h.compaction_key = $1;`, ds.Schema, stream.MessageLogTable(streamId), ds.Schema, stream.CompactionHeadTable(streamId)), key).Scan(&headId, &maxId))
 	if headId != maxId {
-		die(fmt.Sprintf("head for %q must converge to the max id: got %d, want %d", key, headId, maxId))
+		common.Die(fmt.Sprintf("head for %q must converge to the max id: got %d, want %d", key, headId, maxId))
 	}
 }
 
 func assertInt64(name string, got int64, want int64) {
 	if got != want {
-		die(fmt.Sprintf("%s: got %d, want %d", name, got, want))
+		common.Die(fmt.Sprintf("%s: got %d, want %d", name, got, want))
 	}
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-
-func die(msg string) {
-	panic(testFailure{message: msg})
-}

@@ -66,84 +66,66 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 	run := time.Now().UnixNano()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 
 	ds, err := datastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	step("declare the collector rate through the public system config")
-	must(client.System().Register(ctx, nil))
-	defer func() { must(client.System().Register(ctx, nil)) }()
+	common.Must(client.System().Register(ctx, nil))
+	defer func() { common.Must(client.System().Register(ctx, nil)) }()
 	system, err := client.System().Get(ctx)
-	must(err)
+	common.Must(err)
 	systemOwner, err := iCommon.NewSystemOwner(system.Id)
-	must(err)
+	common.Must(err)
 	workers, err := workercontroller.NewWorkerController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	row, err := workers.GetWorker(ctx, collector.WorkerMetricsCollector, systemOwner)
-	must(err)
+	common.Must(err)
 	collectorId := row.Id
 	for _, rate := range []time.Duration{0, 10 * time.Second, collectorRate} {
-		must(client.System().Register(ctx, &sqlstreams.SystemConfig{
+		common.Must(client.System().Register(ctx, &sqlstreams.SystemConfig{
 			MetricCollector: &sqlstreams.MetricCollectorWorkerConfig{PollRate: rate},
 		}))
 		row, err = workers.GetWorker(ctx, collector.WorkerMetricsCollector, systemOwner)
-		must(err)
+		common.Must(err)
 		stored, err := workercontroller.ParseMetadata[map[string]time.Duration](row.Metadata)
-		must(err)
+		common.Must(err)
 		expectedRate := rate
 		if expectedRate == 0 {
 			expectedRate = 30 * time.Second
 		}
 		if row.Id != collectorId || (*stored)["poll_rate"] != expectedRate {
-			die("collector declaration changed its identity or stored the wrong rate")
+			common.Die("collector declaration changed its identity or stored the wrong rate")
 		}
 	}
 	err = client.System().Register(ctx, &sqlstreams.SystemConfig{
 		MetricCollector: &sqlstreams.MetricCollectorWorkerConfig{PollRate: -time.Second},
 	})
 	if err == nil || !strings.Contains(err.Error(), "MetricCollector: PollRate") {
-		die("negative collector rate did not report its config field")
+		common.Die("negative collector rate did not report its config field")
 	}
 	row, err = workers.GetWorker(ctx, collector.WorkerMetricsCollector, systemOwner)
-	must(err)
+	common.Must(err)
 	stored, err := workercontroller.ParseMetadata[map[string]time.Duration](row.Metadata)
-	must(err)
+	common.Must(err)
 	if (*stored)["poll_rate"] != collectorRate {
-		die("rejected collector rate changed stored metadata")
+		common.Die("rejected collector rate changed stored metadata")
 	}
 
 	step("seed 6 streams x 2 groups x 5 messages -- more streams than StreamConcurrency")
 	consumers, err := consumecontroller.NewConsumeController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 
 	streamNames := make([]string, 0, streamCount)
 	groupNames := make([]string, 0, groupsPerStream)
@@ -153,24 +135,24 @@ func run() (err error) {
 	for t := range streamCount {
 		name := fmt.Sprintf("metricscollector.%d.%d", run, t)
 		registered, err := client.Stream[common.Work](name).Register(ctx, &sqlstreams.StreamConfig{})
-		must(err)
+		common.Must(err)
 		streamNames = append(streamNames, name)
 		defer func() {
-			must(client.Stream[common.Work](name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+			common.Must(client.Stream[common.Work](name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 		}()
 
 		for _, group := range groupNames {
 			_, err := consumers.RegisterGroup(ctx, registered.Id, group, consume.Beginning())
-			must(err)
+			common.Must(err)
 		}
 
 		instance, err := client.Stream[common.Work](name).Producer().Register(ctx, nil)
-		must(err)
+		common.Must(err)
 		for range messagesPerStream {
 			work, err := common.NewWork(30, "admin@example.com")
-			must(err)
+			common.Must(err)
 			_, err = instance.Produce(ctx, work, nil)
-			must(err)
+			common.Must(err)
 		}
 	}
 
@@ -180,29 +162,29 @@ func run() (err error) {
 		map[string]string{"run": fmt.Sprint(run)},
 	)
 	latest, err := missingSeries.Latest(ctx)
-	must(err)
+	common.Must(err)
 	if latest != nil {
-		die("unpublished series returned a latest measurement")
+		common.Die("unpublished series returned a latest measurement")
 	}
 	history, err := missingSeries.History(ctx, 10)
-	must(err)
+	common.Must(err)
 	if history == nil || len(history) != 0 {
-		die("unpublished series did not return an empty history")
+		common.Die("unpublished series did not return an empty history")
 	}
 	_, err = missingSeries.History(ctx, 0)
 	if err == nil {
-		die("history accepted a non-positive limit")
+		common.Die("history accepted a non-positive limit")
 	}
 	fmt.Println("  ✓ Latest is nil, History is empty, and limit must be positive")
 
 	step("claim the real metrics_collector worker at a fast poll rate")
 	row, err = workers.GetWorker(ctx, collector.WorkerMetricsCollector, systemOwner)
-	must(err)
+	common.Must(err)
 
 	provisioner, err := collector.NewMetricsCollectorProvisioner(ds, &collector.MetricCollectorConfig{
 		StreamConcurrency: 4,
 	}, ds.Logger)
-	must(err)
+	common.Must(err)
 
 	// a crashed earlier run's claim lingers until its InstanceTTL expires --
 	// retry past it instead of dying
@@ -210,12 +192,12 @@ func run() (err error) {
 	deadline := time.Now().Add(60 * time.Second)
 	for {
 		execution, err = provisioner.Provision(ctx, row)
-		must(err)
+		common.Must(err)
 		if execution != nil {
 			break
 		}
 		if time.Now().After(deadline) {
-			die("metrics collector declined the instance for 60s -- is another claimant running?")
+			common.Die("metrics collector declined the instance for 60s -- is another claimant running?")
 		}
 		time.Sleep(time.Second)
 	}
@@ -249,7 +231,7 @@ func run() (err error) {
 		}
 	}
 	var measurements []*metric.Measurement
-	must(waitFor(30*time.Second, func() (bool, error) {
+	common.Must(waitFor(30*time.Second, func() (bool, error) {
 		measurements, err = client.System().Metrics().Latest(ctx)
 		if err != nil {
 			return false, err
@@ -277,7 +259,7 @@ func run() (err error) {
 		byKey[messageKey] = measurement
 		if measurement.Attributes["stream"] == metric.MetricStreamName &&
 			measurement.Name != metric.MetricStreamPartitions.Name && measurement.Name != metric.MetricStreamUnclaimedWorkers.Name {
-			die(fmt.Sprintf("measurement %s adds metrics-stream self-observation beyond alert evidence", messageKey))
+			common.Die(fmt.Sprintf("measurement %s adds metrics-stream self-observation beyond alert evidence", messageKey))
 		}
 	}
 	for _, streamName := range streamNames {
@@ -298,7 +280,7 @@ func run() (err error) {
 
 	step("history accumulates under the head -- one row per collection pass")
 	historySeries := client.Stream[common.Work](streamNames[0]).Consumer(groupNames[0]).Metrics().CursorBacklog()
-	must(waitFor(10*time.Second, func() (bool, error) {
+	common.Must(waitFor(10*time.Second, func() (bool, error) {
 		history, err := historySeries.History(ctx, 10)
 		if err != nil {
 			return false, err
@@ -306,14 +288,14 @@ func run() (err error) {
 		return len(history) >= 2, nil
 	}))
 	latest, err = historySeries.Latest(ctx)
-	must(err)
+	common.Must(err)
 	if latest == nil || latest.At.IsZero() || latest.Name != metric.MetricCursorBacklog.Name {
-		die("typed backlog series did not return its collected measurement")
+		common.Die("typed backlog series did not return its collected measurement")
 	}
 	fmt.Println("  ✓ typed backlog selector returns Latest and >= 2 retained History values")
 
 	cancel()
-	must(<-collectorDone)
+	common.Must(<-collectorDone)
 
 	step("sqlstreams manager run --metrics-address serves the heads as Prometheus text")
 	manager := exec.Command("./.bin/sqlstreams", "manager", "run",
@@ -321,10 +303,10 @@ func run() (err error) {
 		"--database-url", databaseURL,
 	)
 	manager.Stderr = os.Stderr
-	must(manager.Start())
+	common.Must(manager.Start())
 
 	var scrape string
-	must(waitFor(15*time.Second, func() (bool, error) {
+	common.Must(waitFor(15*time.Second, func() (bool, error) {
 		response, err := http.Get("http://" + metricsAddress + "/metrics")
 		if err != nil {
 			return false, nil // not listening yet
@@ -345,13 +327,13 @@ func run() (err error) {
 		fmt.Sprintf("sqlstreams_stream_state_compacted{stream=%q} 0", streamNames[streamCount-1]),
 	} {
 		if !strings.Contains(scrape, series) {
-			die(fmt.Sprintf("scrape missing %q", series))
+			common.Die(fmt.Sprintf("scrape missing %q", series))
 		}
 		fmt.Printf("  ✓ %s\n", strings.TrimRight(series, " "))
 	}
 
-	must(manager.Process.Signal(syscall.SIGTERM))
-	must(manager.Wait())
+	common.Must(manager.Process.Signal(syscall.SIGTERM))
+	common.Must(manager.Wait())
 	fmt.Println("  ✓ manager process exited cleanly on SIGTERM")
 
 	fmt.Println("\n✅ METRICS COLLECTOR E2E TEST PASSED")
@@ -364,10 +346,10 @@ func assertValue(byKey map[string]*metric.Measurement, name string, attributes m
 	key := metric.MeasurementKey(name, attributes)
 	head, ok := byKey[key]
 	if !ok {
-		die(fmt.Sprintf("no head for %s", key))
+		common.Die(fmt.Sprintf("no head for %s", key))
 	}
 	if head.Value != want {
-		die(fmt.Sprintf("%s: got %v, want %v", key, head.Value, want))
+		common.Die(fmt.Sprintf("%s: got %v, want %v", key, head.Value, want))
 	}
 }
 
@@ -389,11 +371,3 @@ func waitFor(timeout time.Duration, cond func() (bool, error)) error {
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}

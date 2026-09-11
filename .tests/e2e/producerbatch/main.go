@@ -51,38 +51,20 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", &sqlstreams.PostgresConnectionConfig{
+	pool, err := common.NewPool(ctx, &sqlstreams.PostgresConnectionConfig{
 		MaxConns: 60, // headroom above the per-call arms' 50 concurrent publishers -- batched callers wait on a channel, not a connection, so even the 800-caller saturated arm needs no more
 	})
-	must(err)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	batchedExactlyOnceScenario(ctx, client, ds)
 	produceBatchScenario(ctx, client, ds)
@@ -110,7 +92,7 @@ func batchedExactlyOnceScenario(ctx context.Context, client *sqlstreams.Client, 
 	defer cleanup()
 
 	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 
 	produceConcurrently(producers, msgs, func(p, s int) error {
 		work, err := common.NewWork(30, "admin@example.com")
@@ -127,13 +109,13 @@ func batchedExactlyOnceScenario(ctx context.Context, client *sqlstreams.Client, 
 
 	// rows committed by one txn share xmin -- any multi-row xmin proves grouping
 	var sharedTxns, largestBatch int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`
 		SELECT count(*), COALESCE(max(c), 0) FROM (
 			SELECT count(*) AS c FROM %s.%s GROUP BY xmin HAVING count(*) > 1
 		) shared;
 	`, ds.Schema, stream.MessageLogTable(tp.Id))).Scan(&sharedTxns, &largestBatch))
 	if sharedTxns == 0 {
-		die("no shared transactions observed -- 50 concurrent callers never grouped into a batch")
+		common.Die("no shared transactions observed -- 50 concurrent callers never grouped into a batch")
 	}
 	fmt.Printf("  ✓ calls genuinely shared transactions (%d shared txns, largest batch %d)\n", sharedTxns, largestBatch)
 
@@ -141,9 +123,9 @@ func batchedExactlyOnceScenario(ctx context.Context, client *sqlstreams.Client, 
 	key := uuid.NewV7().String()
 	for range 2 {
 		work, err := common.NewWork(31, "keyed@example.com")
-		must(err)
+		common.Must(err)
 		_, err = wpInstance.Produce(ctx, work, &sqlstreams.ProduceOptions{IdempotencyKey: key})
-		must(err)
+		common.Must(err)
 	}
 	assertCount(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, stream.MessageLogTable(tp.Id)), total+1, "a caller-keyed Produce routed per-call and deduped its retry")
 }
@@ -159,32 +141,32 @@ func produceBatchScenario(ctx context.Context, client *sqlstreams.Client, ds *iD
 	defer cleanup()
 
 	wpInstance, err := client.Stream[rawPayload](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 
 	items := make([]*sqlstreams.ProduceItem[rawPayload], 0, total)
 	for s := range total {
 		payload := rawPayload(fmt.Sprintf(`{"seq": %d}`, s))
 		item, err := sqlstreams.NewProduceItem(&payload, nil)
-		must(err)
+		common.Must(err)
 		items = append(items, item)
 	}
 	results, err := wpInstance.ProduceBatch(ctx, items...)
-	must(err)
+	common.Must(err)
 	if len(results) != total {
-		die(fmt.Sprintf("want %d results, got %d", total, len(results)))
+		common.Die(fmt.Sprintf("want %d results, got %d", total, len(results)))
 	}
 	for s := 1; s < len(results); s++ {
 		if results[s].Id <= results[s-1].Id {
-			die(fmt.Sprintf("result %d id %d not after result %d id %d -- argument order broken", s, results[s].Id, s-1, results[s-1].Id))
+			common.Die(fmt.Sprintf("result %d id %d not after result %d id %d -- argument order broken", s, results[s].Id, s-1, results[s-1].Id))
 		}
 	}
 	fmt.Println("  ✓ ids strictly ascending in argument order")
 	assertCount(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, stream.MessageLogTable(tp.Id)), total, "every item landed")
 
 	var txns int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT count(DISTINCT xmin::text) FROM %s.%s;`, ds.Schema, stream.MessageLogTable(tp.Id))).Scan(&txns))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT count(DISTINCT xmin::text) FROM %s.%s;`, ds.Schema, stream.MessageLogTable(tp.Id))).Scan(&txns))
 	if txns != 1 {
-		die(fmt.Sprintf("batch spread across %d transactions, want 1", txns))
+		common.Die(fmt.Sprintf("batch spread across %d transactions, want 1", txns))
 	}
 	fmt.Printf("  ✓ all %d rows share one transaction\n", total)
 
@@ -197,25 +179,25 @@ func produceBatchScenario(ctx context.Context, client *sqlstreams.Client, ds *iD
 			payload = rawPayload(`{"seq": "\u0000"}`)
 		}
 		item, err := sqlstreams.NewProduceItem(&payload, nil)
-		must(err)
+		common.Must(err)
 		badItems = append(badItems, item)
 	}
 	_, err = wpInstance.ProduceBatch(ctx, badItems...)
 	if err == nil {
-		die("a batch with a poisoned item committed")
+		common.Die("a batch with a poisoned item committed")
 	}
 	if !strings.Contains(err.Error(), "item 2") {
-		die(fmt.Sprintf("batch error must name the failed item, got: %v", err))
+		common.Die(fmt.Sprintf("batch error must name the failed item, got: %v", err))
 	}
 	assertCount(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, stream.MessageLogTable(tp.Id)), total, "the poisoned batch rolled back whole -- nothing landed")
 
 	// caller keys are single-Produce-only; an empty batch is a usage error
 	keyedPayload := rawPayload(`{"seq": 0}`)
 	if _, err := sqlstreams.NewProduceItem(&keyedPayload, &sqlstreams.ProduceOptions{IdempotencyKey: uuid.NewV7().String()}); err == nil {
-		die("NewProduceItem accepted a caller IdempotencyKey")
+		common.Die("NewProduceItem accepted a caller IdempotencyKey")
 	}
 	if _, err := wpInstance.ProduceBatch(ctx); err == nil {
-		die("an empty ProduceBatch did not error")
+		common.Die("an empty ProduceBatch did not error")
 	}
 	fmt.Println("  ✓ caller IdempotencyKey and empty batch rejected")
 }
@@ -233,7 +215,7 @@ func faultIsolationScenario(ctx context.Context, client *sqlstreams.Client, ds *
 	defer cleanup()
 
 	wpInstance, err := client.Stream[rawPayload](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 
 	errs := make([]error, total)
 	var wg sync.WaitGroup
@@ -255,11 +237,11 @@ func faultIsolationScenario(ctx context.Context, client *sqlstreams.Client, ds *
 		switch s {
 		case poisonSeq, brokenSeq:
 			if err == nil {
-				die(fmt.Sprintf("bad payload %d produced without error", s))
+				common.Die(fmt.Sprintf("bad payload %d produced without error", s))
 			}
 		default:
 			if err != nil {
-				die(fmt.Sprintf("good payload %d caught its batchmate's error: %v", s, err))
+				common.Die(fmt.Sprintf("good payload %d caught its batchmate's error: %v", s, err))
 			}
 		}
 	}
@@ -281,7 +263,7 @@ func hotCompactedKeysScenario(ctx context.Context, client *sqlstreams.Client, ds
 
 	// tiny cap -> backlog pressure -> concurrent workers -> real lock contention
 	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, &sqlstreams.ProducerConfig{Batch: sqlstreams.BatcherConfig{MaxSize: 5}})
-	must(err)
+	common.Must(err)
 
 	produceConcurrently(producers, msgs, func(p, s int) error {
 		work, err := common.NewWork(30, "admin@example.com")
@@ -296,7 +278,7 @@ func hotCompactedKeysScenario(ctx context.Context, client *sqlstreams.Client, ds
 	assertCount(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, stream.MessageLogTable(tp.Id)), total, fmt.Sprintf("%d hot-keyed publishes all landed, none deadlocked", total))
 
 	var stale int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`
 		SELECT count(*) FROM %s.%s lk
 		JOIN (
 			SELECT message_key, max(id) AS max_id FROM %s.%s GROUP BY message_key
@@ -304,7 +286,7 @@ func hotCompactedKeysScenario(ctx context.Context, client *sqlstreams.Client, ds
 		WHERE lk.message_id <> m.max_id;
 	`, ds.Schema, stream.CompactionHeadTable(tp.Id), ds.Schema, stream.MessageLogTable(tp.Id))).Scan(&stale))
 	if stale != 0 {
-		die(fmt.Sprintf("%d compaction_head rows not pointing at their key's max id", stale))
+		common.Die(fmt.Sprintf("%d compaction_head rows not pointing at their key's max id", stale))
 	}
 	fmt.Printf("  ✓ every compaction_head row points at its key's max id across %d hot keys\n", keys)
 }
@@ -320,13 +302,13 @@ func partitionHealScenario(ctx context.Context, client *sqlstreams.Client, ds *i
 
 	// a batch of 5 can straddle a 10-row boundary: the rerun heals a second time
 	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, &sqlstreams.ProducerConfig{Batch: sqlstreams.BatcherConfig{MaxSize: 5}})
-	must(err)
+	common.Must(err)
 
 	for range 15 {
 		work, err := common.NewWork(30, "admin@example.com")
-		must(err)
+		common.Must(err)
 		_, err = wpInstance.Produce(ctx, work, nil)
-		must(err)
+		common.Must(err)
 	}
 	produceConcurrently(8, 5, func(p, s int) error {
 		work, err := common.NewWork(30, "admin@example.com")
@@ -387,7 +369,7 @@ func timeArm(ctx context.Context, client *sqlstreams.Client, ds *iDatastore.Post
 	defer cleanup()
 
 	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 
 	// warm pool connections so the first arm doesn't pay the dial cost
 	warm := producers
@@ -419,9 +401,9 @@ func timeArm(ctx context.Context, client *sqlstreams.Client, ds *iDatastore.Post
 func registerStream(ctx context.Context, client *sqlstreams.Client, label string, partitionSize int64) (*sqlstreams.Stream, *sqlstreams.Client, func()) {
 	name := fmt.Sprintf("producerbatch.%s.%d", label, time.Now().UnixNano())
 	tp, err := client.Stream[sqlstreams.RawPayload](name).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: partitionSize})
-	must(err)
+	common.Must(err)
 	return tp, client, func() {
-		must(client.Stream[sqlstreams.RawPayload](name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[sqlstreams.RawPayload](name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}
 }
 
@@ -442,28 +424,20 @@ func produceConcurrently(producers, msgs int, produce func(p, s int) error) {
 	wg.Wait()
 	close(errCh)
 	for err := range errCh {
-		die(err.Error())
+		common.Die(err.Error())
 	}
 }
 
 func assertCount(ctx context.Context, ds *iDatastore.PostgresDatastore, table string, want int, label string) {
 	var count int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s;`, table)).Scan(&count))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s;`, table)).Scan(&count))
 	if count != want {
-		die(fmt.Sprintf("%s: %s has %d rows, want %d", label, table, count, want))
+		common.Die(fmt.Sprintf("%s: %s has %d rows, want %d", label, table, count, want))
 	}
 	fmt.Printf("  ✓ %s (%d)\n", label, count)
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}
 
 // rawPayload carries hand-written JSON bytes so the e2e test can produce a
 // deliberately broken document; encoding/json validates MarshalJSON's

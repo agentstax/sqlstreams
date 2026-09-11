@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/agentstax/sqlstreams/.tests/e2e/common"
 	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 )
 
@@ -19,46 +20,18 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
-	must(client.System().Register(ctx, nil))
+	common.Must(client.System().Register(ctx, nil))
 	fmt.Println("system registered")
 	return nil
-}
-
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-
-func die(msg string) {
-	panic(testFailure{message: msg})
 }

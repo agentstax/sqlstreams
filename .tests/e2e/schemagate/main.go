@@ -20,12 +20,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/agentstax/sqlstreams/.tests/e2e/common"
 	"github.com/agentstax/sqlstreams/pkg/datastore"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
+	iCommon "github.com/agentstax/sqlstreams/pkg/common"
 	"github.com/agentstax/sqlstreams/pkg/migrate"
 	migratecontroller "github.com/agentstax/sqlstreams/pkg/migrate/controller"
 	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
@@ -41,52 +42,34 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := datastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	name := fmt.Sprintf("schemagate.e2e.%d", time.Now().UnixNano())
 	siblingName := name + ".sibling"
 	streamRow, err := client.Stream[event](name).Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	_, err = client.Stream[event](siblingName).Register(ctx, nil)
-	must(err)
+	common.Must(err)
 
 	controller, err := migratecontroller.NewController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	sysOwner, err := controller.SystemOwner(ctx)
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[event](name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
-		must(client.Stream[event](siblingName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[event](name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[event](siblingName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	// 1. supported schema -> Register succeeds -----------------------------------
@@ -112,7 +95,7 @@ func run() (err error) {
 
 	// 4. breaking step past ONE stream -> that stream refused, sibling accepted ----
 	section("breaking step past one stream -> that stream refused, sibling accepted")
-	streamOwner := mustOwner(common.NewStreamOwner(streamRow.SystemId, streamRow.Id, streamRow.Name))
+	streamOwner := mustOwner(iCommon.NewStreamOwner(streamRow.SystemId, streamRow.Id, streamRow.Name))
 	bump(ctx, pool, ds.Schema, streamOwner, 2, 2)
 	_, err = client.Stream[event](name).Producer().Register(ctx, nil)
 	show(err)
@@ -130,18 +113,18 @@ func run() (err error) {
 // bump records a success at ver, so the gate reads that scope as version ver
 // without any matching schema change -- a database a newer binary migrated.
 // minCompatibleVersion 0 forges an additive step, ver forges a breaking one.
-func bump(ctx context.Context, pool *pgxpool.Pool, schema string, owner *common.Owner, ver int64, minCompatibleVersion int64) {
+func bump(ctx context.Context, pool *pgxpool.Pool, schema string, owner *iCommon.Owner, ver int64, minCompatibleVersion int64) {
 	columns := datastore.NewOwnerColumns(*owner)
 
 	_, err := pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.migration_log (system_id, stream_id, consumer_group_id, version, min_compatible_version, status) VALUES ($1, $2, $3, $4, $5, 'success');`, schema), columns.SystemId, columns.StreamId, columns.ConsumerGroupId, ver, minCompatibleVersion)
-	must(err)
+	common.Must(err)
 }
 
-func unbump(ctx context.Context, pool *pgxpool.Pool, schema string, owner *common.Owner, ver int64) {
+func unbump(ctx context.Context, pool *pgxpool.Pool, schema string, owner *iCommon.Owner, ver int64) {
 	columns := datastore.NewOwnerColumns(*owner)
 
 	_, err := pool.Exec(ctx, fmt.Sprintf(`DELETE FROM %s.migration_log WHERE system_id IS NOT DISTINCT FROM $1 AND stream_id IS NOT DISTINCT FROM $2 AND consumer_group_id IS NOT DISTINCT FROM $3 AND version = $4;`, schema), columns.SystemId, columns.StreamId, columns.ConsumerGroupId, ver)
-	must(err)
+	common.Must(err)
 }
 
 func section(title string) { fmt.Printf("\n--- %s ---\n", title) }
@@ -155,16 +138,6 @@ func check(cond bool, msg string) {
 	fmt.Printf("  ✓ %s\n", msg)
 }
 
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-
-func die(msg string) {
-	panic(testFailure{message: msg})
-}
-
-func mustOwner(o *common.Owner, err error) *common.Owner { must(err); return o }
+func mustOwner(o *iCommon.Owner, err error) *iCommon.Owner { common.Must(err); return o }
 
 func (event) SchemaVersion() int { return 1 }

@@ -11,11 +11,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/agentstax/sqlstreams/.tests/e2e/common"
 	"github.com/agentstax/sqlstreams/pkg/stream"
 	"os"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
+	iCommon "github.com/agentstax/sqlstreams/pkg/common"
 	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
 	metricscontroller "github.com/agentstax/sqlstreams/pkg/metric/controller"
 	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
@@ -36,67 +37,49 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	streamName := fmt.Sprintf("dutybackoff.%d", time.Now().UnixNano())
 	// retention on: the sweep's drop pass reads message_log's head every tick,
 	// which is the read the rename below breaks
 	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{RetentionTTL: time.Hour})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	janitorProvisioner, err := janitor.NewJanitorProvisioner(ds, &janitor.JanitorConfig{
-		SweepRetry: &common.RetryPolicy{BaseDelay: backoffBase, MaxDelay: backoffMax},
+		SweepRetry: &iCommon.RetryPolicy{BaseDelay: backoffBase, MaxDelay: backoffMax},
 	}, ds.Logger)
-	must(err)
+	common.Must(err)
 	workers, err := workercontroller.NewWorkerController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 
 	// RegisterStream already declared the janitor row -- claim it directly with
 	// the e2e test's own fast tick
-	owner, err := common.NewStreamOwner(tp.SystemId, tp.Id, tp.Name)
-	must(err)
+	owner, err := iCommon.NewStreamOwner(tp.SystemId, tp.Id, tp.Name)
+	common.Must(err)
 	row, err := workers.GetWorker(ctx, janitor.WorkerStreamJanitor, owner)
-	must(err)
+	common.Must(err)
 	row.Metadata = map[string]any{
 		"poll_rate":        int64(pollRate),
 		"sweep_batch_size": 1000,
 	}
 	execution, err := janitorProvisioner.Provision(ctx, row)
-	must(err)
+	common.Must(err)
 	if execution == nil {
-		die("janitor declined the instance -- is another claimant running?")
+		common.Die("janitor declined the instance -- is another claimant running?")
 	}
 
 	runCtx, cancel := context.WithCancel(ctx)
@@ -130,39 +113,39 @@ func run() (err error) {
 		time.Sleep(20 * time.Millisecond)
 	}
 	if len(samples) < 6 {
-		die(fmt.Sprintf("expected attempts to climb to at least 5, got samples: %+v", samples))
+		common.Die(fmt.Sprintf("expected attempts to climb to at least 5, got samples: %+v", samples))
 	}
 
 	firstGap := samples[2].at - samples[1].at
 	lastGap := samples[len(samples)-1].at - samples[len(samples)-2].at
 	fmt.Printf("  ✓ first gap %v, last gap %v (cap %v)\n", firstGap, lastGap, backoffMax)
 	if firstGap >= backoffBase*3 {
-		die(fmt.Sprintf("first backoff gap %v looked capped already, want close to SweepRetry's BaseDelay (%v)", firstGap, backoffBase))
+		common.Die(fmt.Sprintf("first backoff gap %v looked capped already, want close to SweepRetry's BaseDelay (%v)", firstGap, backoffBase))
 	}
 	if lastGap <= firstGap {
-		die(fmt.Sprintf("backoff gap didn't grow: first=%v last=%v", firstGap, lastGap))
+		common.Die(fmt.Sprintf("backoff gap didn't grow: first=%v last=%v", firstGap, lastGap))
 	}
 	if lastGap > backoffMax+pollRate*4 {
-		die(fmt.Sprintf("backoff gap %v exceeded SweepRetry's MaxDelay (%v) by more than jitter/poll slack", lastGap, backoffMax))
+		common.Die(fmt.Sprintf("backoff gap %v exceeded SweepRetry's MaxDelay (%v) by more than jitter/poll slack", lastGap, backoffMax))
 	}
 
 	step("confirming WorkerSnapshots surfaces the failing streak")
 	metricController, err := metricscontroller.NewMetricsController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	snapshots, err := metricController.WorkerSnapshots(ctx)
-	must(err)
+	common.Must(err)
 	found := false
 	for _, s := range snapshots {
 		if s.Owner.Name == streamName && s.Name == janitor.WorkerStreamJanitor {
 			found = true
 			if s.Attempts == 0 {
-				die("expected WorkerSnapshot.Attempts > 0 for the failing janitor")
+				common.Die("expected WorkerSnapshot.Attempts > 0 for the failing janitor")
 			}
 			fmt.Printf("  ✓ WorkerSnapshot: status=%s attempts=%d\n", s.Status, s.Attempts)
 		}
 	}
 	if !found {
-		die("janitor worker not found in WorkerSnapshots")
+		common.Die("janitor worker not found in WorkerSnapshots")
 	}
 
 	step("healing: renaming the table back and waiting for attempts to reset")
@@ -178,12 +161,12 @@ func run() (err error) {
 		time.Sleep(50 * time.Millisecond)
 	}
 	if final != 0 {
-		die(fmt.Sprintf("expected attempts to reset to 0 after recovery, got %d", final))
+		common.Die(fmt.Sprintf("expected attempts to reset to 0 after recovery, got %d", final))
 	}
 	fmt.Println("  ✓ attempts reset to 0 after a successful sweep")
 
 	cancel()
-	must(<-done)
+	common.Must(<-done)
 
 	fmt.Println("\n✅ DUTY BACKOFF E2E TEST PASSED")
 	return nil
@@ -191,23 +174,13 @@ func run() (err error) {
 
 func exec(ctx context.Context, ds *iDatastore.PostgresDatastore, sql string) {
 	_, err := ds.Pool.Exec(ctx, sql)
-	must(err)
+	common.Must(err)
 }
 
 func scalarInt(ctx context.Context, ds *iDatastore.PostgresDatastore, q string, args ...any) int {
 	var v int
-	must(ds.Pool.QueryRow(ctx, q, args...).Scan(&v))
+	common.Must(ds.Pool.QueryRow(ctx, q, args...).Scan(&v))
 	return v
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-
-func die(msg string) {
-	panic(testFailure{message: msg})
-}

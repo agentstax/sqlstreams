@@ -22,6 +22,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/agentstax/sqlstreams/.tests/e2e/common"
 	"github.com/agentstax/sqlstreams/pkg/stream"
 	"os"
 	"regexp"
@@ -61,42 +62,24 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	streamName := fmt.Sprintf("phase8c.compactionscale.%d", time.Now().UnixNano())
 	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: partitionSize})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	step("insert the never-superseded row -- id=1, message_key=\"stale\"")
@@ -152,7 +135,7 @@ func run() (err error) {
 func insertStaleRow(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) {
 	sql := fmt.Sprintf(`INSERT INTO %s.%s (payload, schema_version, message_key, compaction_rank) VALUES ('{}'::jsonb, 1, 'stale', 0);`, ds.Schema, stream.MessageLogTable(streamId))
 	_, err := ds.Pool.Exec(ctx, sql)
-	must(err)
+	common.Must(err)
 }
 
 // createPartitions issues every CREATE TABLE ... PARTITION OF statement for
@@ -170,7 +153,7 @@ func createPartitions(ctx context.Context, ds *iDatastore.PostgresDatastore, str
 			logTable, n, logTable, n*partitionSize, (n+1)*partitionSize)
 	}
 	_, err := ds.Pool.Exec(ctx, sql.String())
-	must(err)
+	common.Must(err)
 }
 
 // bulkInsertFiller adds `count` unkeyed rows in one set-based INSERT --
@@ -186,7 +169,7 @@ func bulkInsertFiller(ctx context.Context, ds *iDatastore.PostgresDatastore, str
 		SELECT '{}'::jsonb, 1, NULL FROM generate_series(1, $1);
 	`, ds.Schema, stream.MessageLogTable(streamId))
 	_, err := ds.Pool.Exec(ctx, sql, count)
-	must(err)
+	common.Must(err)
 }
 
 // explainStaleNegative EXPLAIN ANALYZEs whether id=1 ("stale") is still the
@@ -207,7 +190,7 @@ func explainStaleNegative(ctx context.Context, ds *iDatastore.PostgresDatastore,
 	`, logTable, logTable)
 
 	rows, err := ds.Pool.Query(ctx, sql)
-	must(err)
+	common.Must(err)
 	defer rows.Close()
 
 	partitionRe := regexp.MustCompile(regexp.QuoteMeta(logName) + `_\d+`)
@@ -217,7 +200,7 @@ func explainStaleNegative(ctx context.Context, ds *iDatastore.PostgresDatastore,
 	var plan strings.Builder
 	for rows.Next() {
 		var line string
-		must(rows.Scan(&line))
+		common.Must(rows.Scan(&line))
 		plan.WriteString(line)
 		plan.WriteString("\n")
 
@@ -232,22 +215,14 @@ func explainStaleNegative(ctx context.Context, ds *iDatastore.PostgresDatastore,
 			executed[p] = true
 		}
 	}
-	must(rows.Err())
+	common.Must(rows.Err())
 	return len(executed), execMs, plan.String()
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}
 func assertTrue(label string, cond bool) {
 	if !cond {
-		die(fmt.Sprintf("%s: got false, want true", label))
+		common.Die(fmt.Sprintf("%s: got false, want true", label))
 	}
 	fmt.Printf("  ✓ %s\n", label)
 }

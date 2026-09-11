@@ -23,6 +23,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/agentstax/sqlstreams/.tests/e2e/common"
 	"github.com/agentstax/sqlstreams/pkg/consume"
 	consumejanitorcontroller "github.com/agentstax/sqlstreams/pkg/consume/janitor/controller"
 	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
@@ -53,62 +54,44 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err = sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err = iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	streamName = fmt.Sprintf("binding.%d", time.Now().UnixNano())
 	registered, err := client.Stream[testMessage](streamName).Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	streamId = registered.Id
 	defer func() {
-		must(client.Stream[testMessage](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[testMessage](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	// ===== install + join =====
 	step("Register declares the set; a same-set Register joins without writing")
 	incumbent, err := registerConsumer(ctx, []string{"orders.*"})
-	must(err)
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT id FROM %s.consumer_group_config WHERE stream_id = $1 AND name = $2;`, ds.Schema),
+	common.Must(err)
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT id FROM %s.consumer_group_config WHERE stream_id = $1 AND name = $2;`, ds.Schema),
 		registered.Id, groupName).Scan(&groupId))
 	assertInt("one installed row", installedRows(ctx), 1)
 	assertString("binding rows", bindingDisplays(ctx), "orders.*")
 
 	_, err = registerConsumer(ctx, []string{"orders.*"})
-	must(err)
+	common.Must(err)
 	assertInt("still one installed row after the same set re-registers", installedRows(ctx), 1)
 	assertString("Binding().Get reads the installed set", patterns(testBinding(ctx)), "orders.*")
 	absent, err := client.Stream[testMessage](streamName).Consumer("binding.never-declared").Binding().Get(ctx)
-	must(err)
+	common.Must(err)
 	if absent != nil {
-		die("Binding().Get on an unregistered group must return nil")
+		common.Die("Binding().Get on an unregistered group must return nil")
 	}
 	fmt.Println("  ✓ installed once, joined on re-register; Get reads the set, nil for an absent group")
 
@@ -124,7 +107,7 @@ func run() (err error) {
 	waitLiveInstance(ctx)
 
 	divergent, err := registerConsumer(ctx, []string{"payments.*"})
-	must(err)
+	common.Must(err)
 	received := make(chan string, 1)
 	divergentCtx, stopDivergent := context.WithCancel(ctx)
 	divergentDone := make(chan error, 1)
@@ -142,19 +125,19 @@ func run() (err error) {
 	time.Sleep(1500 * time.Millisecond)
 	select {
 	case err := <-divergentDone:
-		die(fmt.Sprintf("the divergent Consume must stay blocked, returned %v", err))
+		common.Die(fmt.Sprintf("the divergent Consume must stay blocked, returned %v", err))
 	default:
 	}
 	assertString("binding rows still the incumbent's", bindingDisplays(ctx), "orders.*")
 	if got := waitingRows(ctx); got < 2 {
-		die(fmt.Sprintf("want the wait re-appended as rows, got %d", got))
+		common.Die(fmt.Sprintf("want the wait re-appended as rows, got %d", got))
 	}
 	installed, waiter := testDeclarations(ctx)
 	if installed == nil || patterns(installed) != "orders.*" {
-		die("listing must show the incumbent's set as installed")
+		common.Die("listing must show the incumbent's set as installed")
 	}
 	if waiter == nil || patterns(waiter) != "payments.*" {
-		die("listing must show the divergent set as waiting")
+		common.Die("listing must show the divergent set as waiting")
 	}
 	assertString("Binding().Get still reads the incumbent's set during the wait", patterns(testBinding(ctx)), "orders.*")
 	fmt.Println("  ✓ waited: rows appended, effective set untouched, listing shows the open wait")
@@ -162,37 +145,37 @@ func run() (err error) {
 	// ===== the deploy kills the incumbent; the waiter converges =====
 	step("stopping the incumbent lets the waiter install, swap, and consume")
 	stopIncumbent()
-	must(<-incumbentDone)
+	common.Must(<-incumbentDone)
 
 	deadline := time.Now().Add(30 * time.Second)
 	for bindingDisplays(ctx) != "payments.*" {
 		if time.Now().After(deadline) {
-			die("the waiter never installed after the incumbent stopped")
+			common.Die("the waiter never installed after the incumbent stopped")
 		}
 		time.Sleep(200 * time.Millisecond)
 	}
 	installed, waiter = testDeclarations(ctx)
 	if installed == nil || patterns(installed) != "payments.*" {
-		die("listing must show the swapped set as installed")
+		common.Die("listing must show the swapped set as installed")
 	}
 	if waiter != nil {
-		die("the ended wait must leave the listing")
+		common.Die("the ended wait must leave the listing")
 	}
 	assertString("Binding().Get reads the swapped set", patterns(testBinding(ctx)), "payments.*")
 	fmt.Println("  ✓ swapped once the incumbent's heartbeats lapsed; wait left the listing")
 
 	wpInstance, err := client.Stream[testMessage](streamName).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	_, err = wpInstance.Produce(ctx, &testMessage{Note: "charged"}, &sqlstreams.ProduceOptions{RoutingKey: "payments.charge"})
-	must(err)
+	common.Must(err)
 	select {
 	case note := <-received:
 		assertString("consumed under the new set", note, "charged")
 	case <-time.After(30 * time.Second):
-		die("the installed consumer never consumed a message routed to its set")
+		common.Die("the installed consumer never consumed a message routed to its set")
 	}
 	stopDivergent()
-	must(<-divergentDone)
+	common.Must(<-divergentDone)
 	fmt.Println("  ✓ consumed a message routed to the new set, stopped clean")
 
 	// ===== retention: the janitor sweeps superseded waiting rows =====
@@ -202,26 +185,26 @@ func run() (err error) {
 	_, err = ds.Pool.Exec(ctx,
 		fmt.Sprintf(`UPDATE %s.%s SET attempted_at = attempted_at - interval '8 days' WHERE consumer_group_id = $1;`, ds.Schema, stream.BindingConfigLogTable(streamId)),
 		groupId)
-	must(err)
+	common.Must(err)
 
 	sweepController, err := consumejanitorcontroller.NewJanitorController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	swept, err := sweepController.SweepExpiredWaitingDeclarations(ctx, 7*24*time.Hour, 1000)
-	must(err)
+	common.Must(err)
 	assertInt("swept superseded waiting rows", int(swept), beforeSweep-2)
 	assertInt("one waiting row per declarer survives past the TTL", waitingRows(ctx), 2)
 	assertInt("installed rows untouched", installedRows(ctx), 2)
 
 	var survivingSyntheticId int64
-	must(ds.Pool.QueryRow(ctx,
+	common.Must(ds.Pool.QueryRow(ctx,
 		fmt.Sprintf(`SELECT id FROM %s.%s WHERE consumer_group_id = $1 AND declared_by = 'binding.dead-declarer';`, ds.Schema, stream.BindingConfigLogTable(streamId)),
 		groupId).Scan(&survivingSyntheticId))
 	if survivingSyntheticId != syntheticNewestId {
-		die(fmt.Sprintf("the dead declarer's newest waiting row must survive: got id %d, want %d", survivingSyntheticId, syntheticNewestId))
+		common.Die(fmt.Sprintf("the dead declarer's newest waiting row must survive: got id %d, want %d", survivingSyntheticId, syntheticNewestId))
 	}
 
 	swept, err = sweepController.SweepExpiredWaitingDeclarations(ctx, 7*24*time.Hour, 1000)
-	must(err)
+	common.Must(err)
 	assertInt("a second sweep deletes nothing", int(swept), 0)
 	fmt.Println("  ✓ superseded rows swept; each declarer's newest waiting row and all installed rows kept")
 
@@ -251,7 +234,7 @@ func waitLiveInstance(ctx context.Context) {
 	deadline := time.Now().Add(30 * time.Second)
 	for {
 		var live bool
-		must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`
+		common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`
 			SELECT EXISTS (
 				SELECT 1
 				FROM %s.worker_instance
@@ -262,7 +245,7 @@ func waitLiveInstance(ctx context.Context) {
 			return
 		}
 		if time.Now().After(deadline) {
-			die("the incumbent never wrote a live worker_instance row")
+			common.Die("the incumbent never wrote a live worker_instance row")
 		}
 		time.Sleep(200 * time.Millisecond)
 	}
@@ -274,7 +257,7 @@ func waitLiveInstance(ctx context.Context) {
 func insertSyntheticWaits(ctx context.Context) int64 {
 	var newestId int64
 	for range 3 {
-		must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`
+		common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`
 			INSERT INTO %s.%s (consumer_group_id, status, patterns, declared_by, declared_at)
 			VALUES ($1, 'waiting', '{"refunds.*"}', 'binding.dead-declarer', now())
 			RETURNING id;`, ds.Schema, stream.BindingConfigLogTable(streamId)), groupId).Scan(&newestId))
@@ -284,7 +267,7 @@ func insertSyntheticWaits(ctx context.Context) int64 {
 
 func installedRows(ctx context.Context) int {
 	var count int
-	must(ds.Pool.QueryRow(ctx,
+	common.Must(ds.Pool.QueryRow(ctx,
 		fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = $1 AND status = 'installed';`, ds.Schema, stream.BindingConfigLogTable(streamId)),
 		groupId).Scan(&count))
 	return count
@@ -292,7 +275,7 @@ func installedRows(ctx context.Context) int {
 
 func waitingRows(ctx context.Context) int {
 	var count int
-	must(ds.Pool.QueryRow(ctx,
+	common.Must(ds.Pool.QueryRow(ctx,
 		fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = $1 AND status = 'waiting';`, ds.Schema, stream.BindingConfigLogTable(streamId)),
 		groupId).Scan(&count))
 	return count
@@ -300,7 +283,7 @@ func waitingRows(ctx context.Context) int {
 
 func bindingDisplays(ctx context.Context) string {
 	var displays string
-	must(ds.Pool.QueryRow(ctx,
+	common.Must(ds.Pool.QueryRow(ctx,
 		fmt.Sprintf(`SELECT COALESCE(string_agg(pattern, ',' ORDER BY pattern), '') FROM %s.%s WHERE consumer_group_id = $1;`, ds.Schema, stream.BindingConfigTable(streamId)),
 		groupId).Scan(&displays))
 	return displays
@@ -310,7 +293,7 @@ func bindingDisplays(ctx context.Context) string {
 // installed row and open waiting row (nil when absent).
 func testDeclarations(ctx context.Context) (*consume.Binding, *consume.Binding) {
 	declarations, err := client.System().Bindings(ctx)
-	must(err)
+	common.Must(err)
 	var installed *consume.Binding
 	var waiter *consume.Binding
 	for _, declaration := range declarations {
@@ -330,9 +313,9 @@ func testDeclarations(ctx context.Context) (*consume.Binding, *consume.Binding) 
 // testBinding reads the e2e test group's effective set through the group handle.
 func testBinding(ctx context.Context) *consume.Binding {
 	binding, err := client.Stream[testMessage](streamName).Consumer(groupName).Binding().Get(ctx)
-	must(err)
+	common.Must(err)
 	if binding == nil {
-		die("Binding().Get must find the e2e test group's installed set")
+		common.Die("Binding().Get must find the e2e test group's installed set")
 	}
 	return binding
 }
@@ -350,24 +333,14 @@ func patterns(declaration *consume.Binding) string {
 
 func assertInt(name string, got int, want int) {
 	if got != want {
-		die(fmt.Sprintf("%s: got %d, want %d", name, got, want))
+		common.Die(fmt.Sprintf("%s: got %d, want %d", name, got, want))
 	}
 }
 
 func assertString(name string, got string, want string) {
 	if got != want {
-		die(fmt.Sprintf("%s: got %q, want %q", name, got, want))
+		common.Die(fmt.Sprintf("%s: got %q, want %q", name, got, want))
 	}
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-
-func die(msg string) {
-	panic(testFailure{message: msg})
-}

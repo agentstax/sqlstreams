@@ -46,63 +46,45 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 	run := time.Now().UnixNano()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := datastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	streamName := fmt.Sprintf("metrics.%d", run)
 	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	for range 4 {
 		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 			return common.NewWork(30, "admin@example.com")
 		}, nil)
-		must(err)
+		common.Must(err)
 	}
 
 	step("a lock-only key is visible without making the stream compacted")
 	emptySnapshot, err := streamMetrics(ctx, client, streamName)
-	must(err)
+	common.Must(err)
 	assertInt64("headless compaction rows before lock", emptySnapshot.CompactionRowsWithoutHead, 0)
 	if emptySnapshot.OldestCompactionRowWithoutHeadAge != 0 {
-		die(fmt.Sprintf("oldest headless row age before lock = %v, want 0", emptySnapshot.OldestCompactionRowWithoutHeadAge))
+		common.Die(fmt.Sprintf("oldest headless row age before lock = %v, want 0", emptySnapshot.OldestCompactionRowWithoutHeadAge))
 	}
 	emptyKey := client.Stream[common.Work](tp.Name).Key("lock-only")
-	must(client.InTransaction(ctx, func(ctx context.Context, tx sqlstreams.Tx) error {
+	common.Must(client.InTransaction(ctx, func(ctx context.Context, tx sqlstreams.Tx) error {
 		head, err := emptyKey.LockCompactionHead(ctx, tx)
 		if err != nil {
 			return err
@@ -114,13 +96,13 @@ func run() (err error) {
 	}))
 	time.Sleep(10 * time.Millisecond)
 	streamSnapshot, err := streamMetrics(ctx, client, streamName)
-	must(err)
+	common.Must(err)
 	if streamSnapshot.Compacted {
-		die("lock-only key made Compacted true")
+		common.Die("lock-only key made Compacted true")
 	}
 	assertInt64("headless compaction rows", streamSnapshot.CompactionRowsWithoutHead, 1)
 	if streamSnapshot.OldestCompactionRowWithoutHeadAge <= 0 {
-		die("expected OldestCompactionRowWithoutHeadAge > 0")
+		common.Die("expected OldestCompactionRowWithoutHeadAge > 0")
 	}
 	fmt.Printf("  ✓ oldest headless row age (%v)\n", streamSnapshot.OldestCompactionRowWithoutHeadAge)
 
@@ -145,13 +127,13 @@ func run() (err error) {
 	defer cancel()
 
 	consumerDatastore, err := consumecontroller.NewConsumeController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	g, err := consumerDatastore.RegisterGroup(ctx, tp.Id, group, consumermessage.Beginning())
-	must(err)
+	common.Must(err)
 	owner, err := iCommon.NewConsumerGroupOwner(tp.SystemId, tp.Id, g.Id, g.Name)
-	must(err)
+	common.Must(err)
 	workers, err := workercontroller.NewWorkerController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 
 	step("two independent consumer processes claim the same group's cursor")
 	var wg sync.WaitGroup
@@ -159,23 +141,23 @@ func run() (err error) {
 	// of the same row
 	startConsumer := func(label string) {
 		abandonedEvents, err := metricsproducer.NewMetricsProducer(ds, &metricsproducer.MetricProducerConfig{SessionFlushRate: 100 * time.Millisecond}, ds.Logger)
-		must(err)
-		go func() { must(abandonedEvents.Run(runCtx, g.Name, tp.Name, 1, label)) }()
+		common.Must(err)
+		go func() { common.Must(abandonedEvents.Run(runCtx, g.Name, tp.Name, 1, label)) }()
 
 		provisioner, err := messageconsumer.NewMessageConsumerProvisioner(ds, consumerFunc, 1, abandonedEvents, cfg, ds.Logger)
-		must(err)
-		must(provisioner.Declare(runCtx, owner))
+		common.Must(err)
+		common.Must(provisioner.Declare(runCtx, owner))
 
 		row, err := workers.GetWorker(runCtx, provisioner.Definition().Name, owner)
-		must(err)
+		common.Must(err)
 		execution, err := provisioner.Provision(runCtx, row)
-		must(err)
+		common.Must(err)
 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			if err := execution.Run(runCtx); err != nil && runCtx.Err() == nil {
-				die(fmt.Sprintf("%s: Run returned %v", label, err))
+				common.Die(fmt.Sprintf("%s: Run returned %v", label, err))
 			}
 		}()
 	}
@@ -183,7 +165,7 @@ func run() (err error) {
 	startConsumer("process B")
 
 	step("wait for all 4 messages to hard-timeout across both processes")
-	must(waitFor(10*time.Second, func() (bool, error) {
+	common.Must(waitFor(10*time.Second, func() (bool, error) {
 		snap, err := streamMetrics(ctx, client, streamName)
 		if err != nil || snap == nil || len(snap.Groups) == 0 {
 			return false, err
@@ -197,7 +179,7 @@ func run() (err error) {
 	step("release 2 of the 4 -- outstanding falls, self-clear latency becomes measurable")
 	gates.release(1)
 	gates.release(2)
-	must(waitFor(10*time.Second, func() (bool, error) {
+	common.Must(waitFor(10*time.Second, func() (bool, error) {
 		snap := mustStreamMetrics(ctx, client, streamName)
 		return snap.Groups[0].AbandonedRoutines.Outstanding == 2, nil
 	}))
@@ -205,7 +187,7 @@ func run() (err error) {
 	assertInt64("Total unchanged", snap.Groups[0].AbandonedRoutines.Total, 4)
 	assertInt64("Outstanding falls to 2", snap.Groups[0].AbandonedRoutines.Outstanding, 2)
 	if snap.Groups[0].AbandonedRoutines.SelfClearLatencyAvg <= 0 {
-		die("expected SelfClearLatencyAvg > 0 once some events cleared")
+		common.Die("expected SelfClearLatencyAvg > 0 once some events cleared")
 	}
 	fmt.Printf("  ✓ SelfClearLatencyAvg (%v)\n", snap.Groups[0].AbandonedRoutines.SelfClearLatencyAvg)
 
@@ -253,9 +235,9 @@ func streamMetrics(ctx context.Context, client *sqlstreams.Client, name string) 
 
 func mustStreamMetrics(ctx context.Context, client *sqlstreams.Client, name string) *iMetrics.StreamSnapshot {
 	snap, err := streamMetrics(ctx, client, name)
-	must(err)
+	common.Must(err)
 	if len(snap.Groups) == 0 {
-		die("expected at least one bound group")
+		common.Die("expected at least one bound group")
 	}
 	return snap
 }
@@ -279,17 +261,9 @@ func waitFor(timeout time.Duration, cond func() (bool, error)) error {
 
 func assertInt64(label string, got, want int64) {
 	if got != want {
-		die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
+		common.Die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
 	}
 	fmt.Printf("  ✓ %s (%d)\n", label, got)
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}

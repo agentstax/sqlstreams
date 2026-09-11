@@ -45,7 +45,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/agentstax/sqlstreams/.tests/e2e/common"
+	iCommon "github.com/agentstax/sqlstreams/pkg/common"
 	"github.com/agentstax/sqlstreams/pkg/consume"
 	consumecontroller "github.com/agentstax/sqlstreams/pkg/consume/controller"
 	"github.com/agentstax/sqlstreams/pkg/consume/exceptionconsumer"
@@ -87,51 +88,33 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err = iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	streamName := fmt.Sprintf("exclusive.%d", time.Now().UnixNano())
 	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{})
-	must(err)
+	common.Must(err)
 	streamId = tp.Id
 
 	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	exceptionConsumers, err := exceptionconsumercontroller.NewExceptionConsumerGroupController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	wpInstance, err := client.Stream[Rec](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 
 	step("exclusive on a free key: runs holding the key lease, releases on success")
-	publish(ctx, wpInstance, "u:1", 1, common.ConcurrencyExclusive)
+	publish(ctx, wpInstance, "u:1", 1, iCommon.ConcurrencyExclusive)
 	g1 := groupId(ctx, cd, "exclusive.g1")
 	var heldDuringRun int
 	consumeGroup(ctx, tp.Name, "exclusive.g1", nil, 3, func(ctx context.Context, message *Rec) error {
@@ -142,13 +125,13 @@ func run() (err error) {
 		return nil
 	}, func() bool { return ran("u:1", 1) })
 	if heldDuringRun != 1 {
-		die(fmt.Sprintf("want the key lease held during the run, count=%d", heldDuringRun))
+		common.Die(fmt.Sprintf("want the key lease held during the run, count=%d", heldDuringRun))
 	}
 	if n := leaseCount(ctx, g1); n != 0 {
-		die(fmt.Sprintf("want the key released after success, count=%d", n))
+		common.Die(fmt.Sprintf("want the key released after success, count=%d", n))
 	}
 	if n := deliveryCount(ctx, g1, ""); n != 0 {
-		die(fmt.Sprintf("a clean Exclusive run must leave no delivery rows, got %d", n))
+		common.Die(fmt.Sprintf("a clean Exclusive run must leave no delivery rows, got %d", n))
 	}
 	fmt.Println("  ✓ held during, released after, no rows")
 
@@ -164,7 +147,7 @@ func run() (err error) {
 		return nil
 	}, func() bool { return ran("u:2", 1) })
 	if allowHeld != 0 {
-		die(fmt.Sprintf("an Parallel run must not hold a key lease, count=%d", allowHeld))
+		common.Die(fmt.Sprintf("an Parallel run must not hold a key lease, count=%d", allowHeld))
 	}
 	fmt.Println("  ✓ no lease rows")
 
@@ -172,7 +155,7 @@ func run() (err error) {
 	publishUnkeyed(ctx, wpInstance, 1)
 	g3 := groupId(ctx, cd, "exclusive.g3")
 	unkeyedHeld := -1
-	consumeGroup(ctx, tp.Name, "exclusive.g3", &messageconsumer.MessageConsumerConfig{ConcurrencyOverride: common.ConcurrencyExclusive}, 3, func(ctx context.Context, message *Rec) error {
+	consumeGroup(ctx, tp.Name, "exclusive.g3", &messageconsumer.MessageConsumerConfig{ConcurrencyOverride: iCommon.ConcurrencyExclusive}, 3, func(ctx context.Context, message *Rec) error {
 		if message.Key == "" {
 			unkeyedHeld = leaseCount(ctx, g3)
 		}
@@ -180,15 +163,15 @@ func run() (err error) {
 		return nil
 	}, func() bool { return ran("", 1) })
 	if unkeyedHeld != 0 {
-		die(fmt.Sprintf("an unkeyed run must not hold a key lease even under override Exclusive, count=%d", unkeyedHeld))
+		common.Die(fmt.Sprintf("an unkeyed run must not hold a key lease even under override Exclusive, count=%d", unkeyedHeld))
 	}
 	fmt.Println("  ✓ no lease rows")
 
 	step("ConcurrencyOverride Parallel beats a message's own Exclusive")
-	publish(ctx, wpInstance, "u:3", 1, common.ConcurrencyExclusive)
+	publish(ctx, wpInstance, "u:3", 1, iCommon.ConcurrencyExclusive)
 	g4 := groupId(ctx, cd, "exclusive.g4")
 	overrideHeld := -1
-	consumeGroup(ctx, tp.Name, "exclusive.g4", &messageconsumer.MessageConsumerConfig{ConcurrencyOverride: common.ConcurrencyParallel}, 3, func(ctx context.Context, message *Rec) error {
+	consumeGroup(ctx, tp.Name, "exclusive.g4", &messageconsumer.MessageConsumerConfig{ConcurrencyOverride: iCommon.ConcurrencyParallel}, 3, func(ctx context.Context, message *Rec) error {
 		if message.Key == "u:3" {
 			overrideHeld = leaseCount(ctx, g4)
 		}
@@ -196,7 +179,7 @@ func run() (err error) {
 		return nil
 	}, func() bool { return ran("u:3", 1) })
 	if overrideHeld != 0 {
-		die(fmt.Sprintf("override Parallel must skip the key lease, count=%d", overrideHeld))
+		common.Die(fmt.Sprintf("override Parallel must skip the key lease, count=%d", overrideHeld))
 	}
 	fmt.Println("  ✓ ran without a lease")
 
@@ -205,7 +188,7 @@ func run() (err error) {
 	started := make(chan struct{})
 	release := make(chan struct{})
 	var startOnce sync.Once
-	publish(ctx, wpInstance, "u:4", 1, common.ConcurrencyExclusive)
+	publish(ctx, wpInstance, "u:4", 1, iCommon.ConcurrencyExclusive)
 	v1 := messageId(ctx, "u:4", 1)
 
 	done := make(chan struct{})
@@ -222,38 +205,38 @@ func run() (err error) {
 	}()
 
 	<-started // v1 is running and holds the key
-	publish(ctx, wpInstance, "u:4", 2, common.ConcurrencyExclusive)
+	publish(ctx, wpInstance, "u:4", 2, iCommon.ConcurrencyExclusive)
 	v2 := messageId(ctx, "u:4", 2)
 	waitFor(func() bool { return deliveryStatus(ctx, g5, v2) == "deferred" }, "v2's 'deferred' row")
 
-	publish(ctx, wpInstance, "u:4", 3, common.ConcurrencyExclusive)
+	publish(ctx, wpInstance, "u:4", 3, iCommon.ConcurrencyExclusive)
 	v3 := messageId(ctx, "u:4", 3)
 	waitFor(func() bool { return deliveryStatus(ctx, g5, v3) == "deferred" }, "v3's 'deferred' row")
 	if s := deliveryStatus(ctx, g5, v2); s != "deferred" {
-		die(fmt.Sprintf("v2's 'deferred' row must sit untouched next to v3's, got status %q", s))
+		common.Die(fmt.Sprintf("v2's 'deferred' row must sit untouched next to v3's, got status %q", s))
 	}
 	if n := deliveryCount(ctx, g5, "deferred"); n != 2 {
-		die(fmt.Sprintf("want a 'deferred' row for each head deferred during the hold, got %d", n))
+		common.Die(fmt.Sprintf("want a 'deferred' row for each head deferred during the hold, got %d", n))
 	}
 	for _, v := range []int64{v2, v3} {
 		if n := logCount(ctx, g5, v); n != 1 {
-			die(fmt.Sprintf("want one 'deferred' log row for message %d, got %d", v, n))
+			common.Die(fmt.Sprintf("want one 'deferred' log row for message %d, got %d", v, n))
 		}
 		if s, _ := logRow(ctx, g5, v); s != "deferred" {
-			die(fmt.Sprintf("message %d's log row status = %q, want deferred", v, s))
+			common.Die(fmt.Sprintf("message %d's log row status = %q, want deferred", v, s))
 		}
 	}
 
 	close(release)
 	<-done // v1 finished
 	if n := leaseCount(ctx, g5); n != 0 {
-		die(fmt.Sprintf("want the key released after the holder finished, count=%d", n))
+		common.Die(fmt.Sprintf("want the key released after the holder finished, count=%d", n))
 	}
 	if ran("u:4", 2) || ran("u:4", 3) {
-		die("deferred messages must stay inert until an ExceptionConsumer runs")
+		common.Die("deferred messages must stay inert until an ExceptionConsumer runs")
 	}
 	if deliveryStatus(ctx, g5, v2) != "deferred" || deliveryStatus(ctx, g5, v3) != "deferred" {
-		die("both 'deferred' rows must survive the holder's release untouched")
+		common.Die("both 'deferred' rows must survive the holder's release untouched")
 	}
 	fmt.Printf("  ✓ v2 and v3 each hold a 'deferred' row, key freed (v1=%d v2=%d v3=%d)\n", v1, v2, v3)
 
@@ -263,7 +246,7 @@ func run() (err error) {
 	blockRelease := make(chan struct{})
 	var blockOnce sync.Once
 	publishUnkeyed(ctx, wpInstance, 2) // the blocker -- pins the single processor
-	publish(ctx, wpInstance, "u:5", 1, common.ConcurrencyExclusive)
+	publish(ctx, wpInstance, "u:5", 1, iCommon.ConcurrencyExclusive)
 	v5old := messageId(ctx, "u:5", 1)
 
 	done6 := make(chan struct{})
@@ -280,24 +263,24 @@ func run() (err error) {
 	}()
 
 	<-blockStarted // u:5 v1 is claimed and queued behind the blocker
-	publish(ctx, wpInstance, "u:5", 2, common.ConcurrencyExclusive)
+	publish(ctx, wpInstance, "u:5", 2, iCommon.ConcurrencyExclusive)
 	close(blockRelease)
 	<-done6 // v2 ran -- so v1 resolved before it
 	if ran("u:5", 1) {
-		die("the stale claimed message ran -- dispatch must re-check the head")
+		common.Die("the stale claimed message ran -- dispatch must re-check the head")
 	}
 	status6, _ := logRow(ctx, g6, v5old)
 	if status6 != "superseded" {
-		die(fmt.Sprintf("stale message's log row status = %q, want superseded", status6))
+		common.Die(fmt.Sprintf("stale message's log row status = %q, want superseded", status6))
 	}
 	if s := deliveryStatus(ctx, g6, v5old); s != "" {
-		die(fmt.Sprintf("a dispatch-superseded message must not enter the delivery window, got status %q", s))
+		common.Die(fmt.Sprintf("a dispatch-superseded message must not enter the delivery window, got status %q", s))
 	}
 	fmt.Println("  ✓ never ran, logged superseded, no delivery row")
 
 	step("a failing Exclusive message frees the key")
 	g7 := groupId(ctx, cd, "exclusive.g7")
-	publish(ctx, wpInstance, "u:6", 1, common.ConcurrencyExclusive)
+	publish(ctx, wpInstance, "u:6", 1, iCommon.ConcurrencyExclusive)
 	v6 := messageId(ctx, "u:6", 1)
 	consumeGroup(ctx, tp.Name, "exclusive.g7", nil, 3, func(ctx context.Context, message *Rec) error {
 		record(message)
@@ -307,11 +290,11 @@ func run() (err error) {
 		return nil
 	}, func() bool { return deliveryStatus(ctx, g7, v6) == "ready" })
 	if n := leaseCount(ctx, g7); n != 0 {
-		die(fmt.Sprintf("want the key released after the exception, count=%d", n))
+		common.Die(fmt.Sprintf("want the key released after the exception, count=%d", n))
 	}
 	status7, _ := logRow(ctx, g7, v6)
 	if status7 != "failure" {
-		die(fmt.Sprintf("exception log row status = %q, want failure", status7))
+		common.Die(fmt.Sprintf("exception log row status = %q, want failure", status7))
 	}
 	fmt.Println("  ✓ key freed, 'ready' row, status failure")
 
@@ -327,22 +310,22 @@ func run() (err error) {
 	}, "v3 to run and pop, v2 to resolve superseded")
 	stopRedeem()
 	if ran("u:4", 2) {
-		die("a stale 'deferred' message must never run")
+		common.Die("a stale 'deferred' message must never run")
 	}
 	if n := deliveryAttempts(ctx, g5, v2); n != 0 {
-		die(fmt.Sprintf("a superseded 'deferred' row never ran, attempts must net 0, got %d", n))
+		common.Die(fmt.Sprintf("a superseded 'deferred' row never ran, attempts must net 0, got %d", n))
 	}
 	// v2's audit trail: 'deferred' at attempt 0 from its range commit,
 	// 'superseded' at attempt 1 from redemption
 	statuses := logStatuses(ctx, g5, v2)
 	if len(statuses) != 2 || statuses[0] != "deferred" || statuses[1] != "superseded" {
-		die(fmt.Sprintf("v2's log rows = %v, want deferred at 0 and superseded at 1", statuses))
+		common.Die(fmt.Sprintf("v2's log rows = %v, want deferred at 0 and superseded at 1", statuses))
 	}
 	if n := logCount(ctx, g5, v3); n != 1 {
-		die(fmt.Sprintf("a redeemed success leaves only its commit-time 'deferred' log row, got %d rows", n))
+		common.Die(fmt.Sprintf("a redeemed success leaves only its commit-time 'deferred' log row, got %d rows", n))
 	}
 	if n := leaseCount(ctx, g5); n != 0 {
-		die(fmt.Sprintf("want the key released after redemption, count=%d", n))
+		common.Die(fmt.Sprintf("want the key released after redemption, count=%d", n))
 	}
 	fmt.Println("  ✓ v2 superseded with full audit, v3 ran and popped")
 
@@ -359,9 +342,9 @@ func run() (err error) {
 		record(message)
 		return nil
 	})
-	publish(ctx, wpInstance, "u:7", 1, common.ConcurrencyExclusive)
+	publish(ctx, wpInstance, "u:7", 1, iCommon.ConcurrencyExclusive)
 	<-started8 // v1 is running and holds the key
-	publish(ctx, wpInstance, "u:7", 2, common.ConcurrencyExclusive)
+	publish(ctx, wpInstance, "u:7", 2, iCommon.ConcurrencyExclusive)
 	v7 := messageId(ctx, "u:7", 2)
 	waitFor(func() bool { return deliveryStatus(ctx, g8, v7) == "deferred" }, "v2's 'deferred' row")
 
@@ -370,25 +353,25 @@ func run() (err error) {
 	// the row mid-check.
 	execSql(ctx, fmt.Sprintf(`UPDATE %s.%s SET attempts = 99, lease_expires_at = now() - interval '1 minute' WHERE consumer_group_id = $1 AND message_id = $2`, ds.Schema, stream.ExceptionQueueTable(streamId)), g8, v7)
 	if _, err := exceptionConsumers.Kill(ctx, tp.Id, g8, 3, stream.DeliveryLogModeFailures); err != nil {
-		die(fmt.Sprintf("Kill: %v", err))
+		common.Die(fmt.Sprintf("Kill: %v", err))
 	}
 	if s := deliveryStatus(ctx, g8, v7); s != "deferred" {
-		die(fmt.Sprintf("the kill backstop must never touch a 'deferred' row, got status %q", s))
+		common.Die(fmt.Sprintf("the kill backstop must never touch a 'deferred' row, got status %q", s))
 	}
 	if _, err := exceptionConsumers.Claim(ctx, tp.Id, g8, 1, 10, 3, 5*time.Second, stream.DeliveryLogModeFailures); err != nil {
-		die(fmt.Sprintf("ClaimExceptions: %v", err))
+		common.Die(fmt.Sprintf("ClaimExceptions: %v", err))
 	}
 	if n := deliveryAttempts(ctx, g8, v7); n != 99 {
-		die(fmt.Sprintf("an exhausted row must not be claimed, attempts = %d", n))
+		common.Die(fmt.Sprintf("an exhausted row must not be claimed, attempts = %d", n))
 	}
 	// the unexpired message_key_lease row alone must exclude the row -- attempts back at
 	// 0, well under the ceiling
 	execSql(ctx, fmt.Sprintf(`UPDATE %s.%s SET attempts = 0 WHERE consumer_group_id = $1 AND message_id = $2`, ds.Schema, stream.ExceptionQueueTable(streamId)), g8, v7)
 	if _, err := exceptionConsumers.Claim(ctx, tp.Id, g8, 1, 10, 3, 5*time.Second, stream.DeliveryLogModeFailures); err != nil {
-		die(fmt.Sprintf("ClaimExceptions: %v", err))
+		common.Die(fmt.Sprintf("ClaimExceptions: %v", err))
 	}
 	if s, n := deliveryStatus(ctx, g8, v7), deliveryAttempts(ctx, g8, v7); s != "deferred" || n != 0 {
-		die(fmt.Sprintf("a row whose message key has an unexpired lease must not be claimed, got status %q attempts %d", s, n))
+		common.Die(fmt.Sprintf("a row whose message key has an unexpired lease must not be claimed, got status %q attempts %d", s, n))
 	}
 
 	stopRedeem8 := startExceptionConsumer(ctx, tp.Name, "exclusive.g8", nil, func(ctx context.Context, message *Rec) error {
@@ -397,15 +380,15 @@ func run() (err error) {
 	})
 	time.Sleep(300 * time.Millisecond) // several claim polls against the held key
 	if ran("u:7", 2) {
-		die("nothing may run while another delivery holds the key")
+		common.Die("nothing may run while another delivery holds the key")
 	}
 	// the row is never claimed while the key is held -- status and attempts
 	// hold still, so read them directly, no sampling
 	if s, n := deliveryStatus(ctx, g8, v7), deliveryAttempts(ctx, g8, v7); s != "deferred" || n != 0 {
-		die(fmt.Sprintf("live claim polls must leave the excluded row untouched, got status %q attempts %d", s, n))
+		common.Die(fmt.Sprintf("live claim polls must leave the excluded row untouched, got status %q attempts %d", s, n))
 	}
 	if n := logCount(ctx, g8, v7); n != 1 {
-		die(fmt.Sprintf("an unclaimed row must not grow log rows, got %d", n))
+		common.Die(fmt.Sprintf("an unclaimed row must not grow log rows, got %d", n))
 	}
 
 	close(release8)
@@ -426,10 +409,10 @@ func run() (err error) {
 	}
 	stopCursor9 := startConsumer(ctx, tp.Name, "exclusive.g9", nil, 3, failV1)
 	stopRedeem9 := startExceptionConsumer(ctx, tp.Name, "exclusive.g9", nil, failV1)
-	publish(ctx, wpInstance, "u:8", 1, common.ConcurrencyExclusive)
+	publish(ctx, wpInstance, "u:8", 1, iCommon.ConcurrencyExclusive)
 	v8old := messageId(ctx, "u:8", 1)
 	waitFor(func() bool { return deliveryStatus(ctx, g9, v8old) == "ready" }, "v1 to fail and go 'ready'")
-	publish(ctx, wpInstance, "u:8", 2, common.ConcurrencyExclusive)
+	publish(ctx, wpInstance, "u:8", 2, iCommon.ConcurrencyExclusive)
 	waitFor(func() bool { return ran("u:8", 2) }, "v2 to run on the freed key")
 	waitFor(func() bool { return deliveryStatus(ctx, g9, v8old) == "superseded" }, "v1's retry to resolve superseded")
 	stopCursor9()
@@ -444,13 +427,13 @@ func run() (err error) {
 		}
 	}
 	if sup == -1 {
-		die(fmt.Sprintf("v1's log rows = %v, want a superseded row", statuses9))
+		common.Die(fmt.Sprintf("v1's log rows = %v, want a superseded row", statuses9))
 	}
 	if att := deliveryAttempts(ctx, g9, v8old); sup != att+1 {
-		die(fmt.Sprintf("superseded logged at attempt %d with attempts %d, want attempts + 1", sup, att))
+		common.Die(fmt.Sprintf("superseded logged at attempt %d with attempts %d, want attempts + 1", sup, att))
 	}
 	if n := leaseCount(ctx, g9); n != 0 {
-		die(fmt.Sprintf("want the key released, count=%d", n))
+		common.Die(fmt.Sprintf("want the key released, count=%d", n))
 	}
 	fmt.Println("  ✓ retry gate refused v1, attempts decremented back, superseded logged")
 
@@ -458,7 +441,7 @@ func run() (err error) {
 	g10 := groupId(ctx, cd, "exclusive.g10")
 	// a crashed holder's message_key_lease row: unexpired, never released
 	execSql(ctx, fmt.Sprintf(`INSERT INTO %s.%s (consumer_group_id, message_key, token, expires_at) VALUES ($1, 'u:10', gen_random_uuid(), now() + interval '1500 milliseconds')`, ds.Schema, stream.MessageKeyLeaseTable(streamId)), g10)
-	publish(ctx, wpInstance, "u:10", 1, common.ConcurrencyExclusive)
+	publish(ctx, wpInstance, "u:10", 1, iCommon.ConcurrencyExclusive)
 	v10 := messageId(ctx, "u:10", 1)
 	stopCursor10 := startConsumer(ctx, tp.Name, "exclusive.g10", nil, 3, func(ctx context.Context, message *Rec) error {
 		record(message)
@@ -470,7 +453,7 @@ func run() (err error) {
 	})
 	waitFor(func() bool { return deliveryStatus(ctx, g10, v10) == "deferred" }, "v1 to wait behind the crashed holder's key")
 	if ran("u:10", 1) {
-		die("nothing may run while the crashed holder's lease is live")
+		common.Die("nothing may run while the crashed holder's lease is live")
 	}
 	waitFor(func() bool { return ran("u:10", 1) }, "redemption to take the expired key over")
 	waitFor(func() bool { return deliveryStatus(ctx, g10, v10) == "" && leaseCount(ctx, g10) == 0 }, "the row to pop and the key to free")
@@ -479,8 +462,8 @@ func run() (err error) {
 	fmt.Println("  ✓ deferred behind the crashed holder, ran after expiry via takeover")
 
 	step("Exclusive without a MessageKey is refused at produce time")
-	if _, err := wpInstance.Produce(ctx, &Rec{Version: 1}, &sqlstreams.ProduceOptions{Message: &common.MessageOptions{Concurrency: common.ConcurrencyExclusive}}); err == nil {
-		die("produce must refuse Exclusive without a MessageKey")
+	if _, err := wpInstance.Produce(ctx, &Rec{Version: 1}, &sqlstreams.ProduceOptions{Message: &iCommon.MessageOptions{Concurrency: iCommon.ConcurrencyExclusive}}); err == nil {
+		common.Die("produce must refuse Exclusive without a MessageKey")
 	}
 	fmt.Println("  ✓ refused")
 
@@ -514,9 +497,9 @@ func run() (err error) {
 	waitFor(func() bool { return deliveryStatus(ctx, g12, uc3) == "deferred" }, "v3's 'deferred' row")
 
 	var headRows12 int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE compaction_key = 'uc:1';`, ds.Schema, stream.CompactionHeadTable(tp.Id))).Scan(&headRows12))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE compaction_key = 'uc:1';`, ds.Schema, stream.CompactionHeadTable(tp.Id))).Scan(&headRows12))
 	if headRows12 != 0 {
-		die(fmt.Sprintf("an uncompacted produce must not write a compaction head, got %d rows", headRows12))
+		common.Die(fmt.Sprintf("an uncompacted produce must not write a compaction head, got %d rows", headRows12))
 	}
 
 	close(release12)
@@ -536,11 +519,11 @@ func run() (err error) {
 
 	for version, id := range map[int]int64{1: uc1, 2: uc2, 3: uc3} {
 		if n := runCount("uc:1", version); n != 1 {
-			die(fmt.Sprintf("version %d must run exactly once, ran %d times", version, n))
+			common.Die(fmt.Sprintf("version %d must run exactly once, ran %d times", version, n))
 		}
 		for _, status := range logStatuses(ctx, g12, id) {
 			if status == "superseded" {
-				die(fmt.Sprintf("version %d resolved superseded -- an uncompacted key must keep every version", version))
+				common.Die(fmt.Sprintf("version %d resolved superseded -- an uncompacted key must keep every version", version))
 			}
 		}
 	}
@@ -551,10 +534,10 @@ func run() (err error) {
 	// a short per-message Timeout so v1's sleeping run is abandoned mid-hold --
 	// its failure recording frees the key while the goroutine sleeps on
 	tortureMessageCfg := func() *messageconsumer.MessageConsumerConfig {
-		return &messageconsumer.MessageConsumerConfig{Message: &common.MessageOptions{Timeout: 500 * time.Millisecond}}
+		return &messageconsumer.MessageConsumerConfig{Message: &iCommon.MessageOptions{Timeout: 500 * time.Millisecond}}
 	}
 	tortureExceptionCfg := func() *exceptionconsumer.ExceptionConsumerConfig {
-		return &exceptionconsumer.ExceptionConsumerConfig{Message: &common.MessageOptions{Timeout: 500 * time.Millisecond}}
+		return &exceptionconsumer.ExceptionConsumerConfig{Message: &iCommon.MessageOptions{Timeout: 500 * time.Millisecond}}
 	}
 	started11 := make(chan struct{})
 	var once11 sync.Once
@@ -571,12 +554,12 @@ func run() (err error) {
 	stopRedeem11a := startExceptionConsumer(ctx, tp.Name, "exclusive.g11", tortureExceptionCfg(), tortureFunc)
 	stopRedeem11b := startExceptionConsumer(ctx, tp.Name, "exclusive.g11", tortureExceptionCfg(), tortureFunc)
 
-	publish(ctx, wpInstance, "u:11", 1, common.ConcurrencyExclusive)
+	publish(ctx, wpInstance, "u:11", 1, iCommon.ConcurrencyExclusive)
 	tv1 := messageId(ctx, "u:11", 1)
 	<-started11 // v1 runs holding the key
-	publish(ctx, wpInstance, "u:11", 2, common.ConcurrencyExclusive)
-	publish(ctx, wpInstance, "u:11", 3, common.ConcurrencyExclusive)
-	publish(ctx, wpInstance, "u:11", 4, common.ConcurrencyExclusive)
+	publish(ctx, wpInstance, "u:11", 2, iCommon.ConcurrencyExclusive)
+	publish(ctx, wpInstance, "u:11", 3, iCommon.ConcurrencyExclusive)
+	publish(ctx, wpInstance, "u:11", 4, iCommon.ConcurrencyExclusive)
 	tv2 := messageId(ctx, "u:11", 2)
 	tv3 := messageId(ctx, "u:11", 3)
 	tv4 := messageId(ctx, "u:11", 4)
@@ -599,21 +582,21 @@ func run() (err error) {
 	stopRedeem11b()
 
 	if n := runCount("u:11", 1); n != 1 {
-		die(fmt.Sprintf("the abandoned holder must have run exactly once, ran %d times", n))
+		common.Die(fmt.Sprintf("the abandoned holder must have run exactly once, ran %d times", n))
 	}
 	if n := runCount("u:11", 4); n != 1 {
-		die(fmt.Sprintf("the final head must run exactly once across four racing consumers, ran %d times", n))
+		common.Die(fmt.Sprintf("the final head must run exactly once across four racing consumers, ran %d times", n))
 	}
 	// a non-head ends one of three ways: claim-time compacted (no rows at
 	// all -- the documented silent drop), dispatch-superseded (log row only),
 	// or 'deferred' then redemption-superseded (delivery row + log row)
 	for version, id := range map[int]int64{2: tv2, 3: tv3} {
 		if ran("u:11", version) {
-			die(fmt.Sprintf("non-head v%d must never run", version))
+			common.Die(fmt.Sprintf("non-head v%d must never run", version))
 		}
 		status := deliveryStatus(ctx, g11, id)
 		if status != "superseded" && status != "" {
-			die(fmt.Sprintf("v%d must end superseded or dropped, got status %q", version, status))
+			common.Die(fmt.Sprintf("v%d must end superseded or dropped, got status %q", version, status))
 		}
 		sup := 0
 		for _, s := range logStatuses(ctx, g11, id) {
@@ -622,16 +605,16 @@ func run() (err error) {
 			}
 		}
 		if sup > 1 {
-			die(fmt.Sprintf("v%d must never audit more than one 'superseded' log row, got %d", version, sup))
+			common.Die(fmt.Sprintf("v%d must never audit more than one 'superseded' log row, got %d", version, sup))
 		}
 		if status == "superseded" && sup != 1 {
-			die(fmt.Sprintf("v%d's 'superseded' delivery row needs its log row, got %d", version, sup))
+			common.Die(fmt.Sprintf("v%d's 'superseded' delivery row needs its log row, got %d", version, sup))
 		}
 	}
 	fmt.Printf("  ✓ v4 ran once, v1-v3 audited out superseded (v1=%d v2=%d v3=%d v4=%d)\n", tv1, tv2, tv3, tv4)
 
 	step("destroying the stream drops the exception queue")
-	must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+	common.Must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	fmt.Println("  ✓ destroyed")
 
 	fmt.Println("\n✅ EXCLUSIVE E2E TEST PASSED")
@@ -652,7 +635,7 @@ func consumeGroup(ctx context.Context, streamName, group string, cfg *messagecon
 
 	owner := groupOwner(ctx, streamName, group)
 	definition, err := messageconsumer.NewMessageConsumerProvisioner(ds, consumerFunc, 1, abandonedEventProducer(ctx), cfg, ds.Logger)
-	must(err)
+	common.Must(err)
 
 	runCtx, cancel := context.WithCancel(ctx)
 	execution := claimOne(runCtx, definition, owner)
@@ -663,13 +646,13 @@ func consumeGroup(ctx context.Context, streamName, group string, cfg *messagecon
 	for !done() {
 		if time.Since(start) > 10*time.Second {
 			cancel()
-			die(fmt.Sprintf("timed out waiting for %s to finish, Run returned: %v", group, <-errCh))
+			common.Die(fmt.Sprintf("timed out waiting for %s to finish, Run returned: %v", group, <-errCh))
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
 	cancel()
 	if err := <-errCh; err != nil && !errors.Is(err, context.Canceled) {
-		die(fmt.Sprintf("Run returned an unexpected error: %v", err))
+		common.Die(fmt.Sprintf("Run returned an unexpected error: %v", err))
 	}
 }
 
@@ -686,7 +669,7 @@ func startConsumer(ctx context.Context, streamName, group string, cfg *messageco
 
 	owner := groupOwner(ctx, streamName, group)
 	definition, err := messageconsumer.NewMessageConsumerProvisioner(ds, consumerFunc, 1, abandonedEventProducer(ctx), cfg, ds.Logger)
-	must(err)
+	common.Must(err)
 
 	runCtx, cancel := context.WithCancel(ctx)
 	execution := claimOne(runCtx, definition, owner)
@@ -701,7 +684,7 @@ func startConsumer(ctx context.Context, streamName, group string, cfg *messageco
 	return func() {
 		cancel()
 		if err := <-errCh; err != nil && !errors.Is(err, context.Canceled) {
-			die(fmt.Sprintf("Run returned an unexpected error: %v", err))
+			common.Die(fmt.Sprintf("Run returned an unexpected error: %v", err))
 		}
 	}
 }
@@ -718,7 +701,7 @@ func startExceptionConsumer(ctx context.Context, streamName, group string, cfg *
 
 	owner := groupOwner(ctx, streamName, group)
 	definition, err := exceptionconsumer.NewExceptionConsumerProvisioner(ds, consumerFunc, 1, abandonedEventProducer(ctx), cfg, ds.Logger)
-	must(err)
+	common.Must(err)
 
 	runCtx, cancel := context.WithCancel(ctx)
 	execution := claimOne(runCtx, definition, owner)
@@ -733,48 +716,48 @@ func startExceptionConsumer(ctx context.Context, streamName, group string, cfg *
 	return func() {
 		cancel()
 		if err := <-errCh; err != nil && !errors.Is(err, context.Canceled) {
-			die(fmt.Sprintf("exception Run returned an unexpected error: %v", err))
+			common.Die(fmt.Sprintf("exception Run returned an unexpected error: %v", err))
 		}
 	}
 }
 
-func groupOwner(ctx context.Context, streamName string, group string) *common.Owner {
+func groupOwner(ctx context.Context, streamName string, group string) *iCommon.Owner {
 	streamController, err := streamcontroller.NewStreamController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	tp, err := streamController.Get(ctx, streamName)
-	must(err)
+	common.Must(err)
 
 	consumerDatastore, err := consumecontroller.NewConsumeController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	g, err := consumerDatastore.RegisterGroup(ctx, tp.Id, group, consume.Beginning())
-	must(err)
+	common.Must(err)
 
-	owner, err := common.NewConsumerGroupOwner(tp.SystemId, tp.Id, g.Id, g.Name)
-	must(err)
+	owner, err := iCommon.NewConsumerGroupOwner(tp.SystemId, tp.Id, g.Id, g.Name)
+	common.Must(err)
 	return owner
 }
 
 func abandonedEventProducer(ctx context.Context) *metricsproducer.MetricProducer {
 	events, err := metricsproducer.NewMetricsProducer(ds, nil, ds.Logger)
-	must(err)
+	common.Must(err)
 	go func() {
-		must(events.Run(ctx, "exclusive", "exclusive", 1, "exclusive-session"))
+		common.Must(events.Run(ctx, "exclusive", "exclusive", 1, "exclusive-session"))
 	}()
 	return events
 }
 
 // no manager, so nothing respawns the execution -- the e2e test decides exactly how
 // many run
-func claimOne(ctx context.Context, provisioner declaringProvisioner, owner *common.Owner) worker.Execution {
-	must(provisioner.Declare(ctx, owner))
+func claimOne(ctx context.Context, provisioner declaringProvisioner, owner *iCommon.Owner) worker.Execution {
+	common.Must(provisioner.Declare(ctx, owner))
 
 	workers, err := workercontroller.NewWorkerController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	row, err := workers.GetWorker(ctx, provisioner.Definition().Name, owner)
-	must(err)
+	common.Must(err)
 
 	execution, err := provisioner.Provision(ctx, row)
-	must(err)
+	common.Must(err)
 	return execution
 }
 
@@ -802,15 +785,15 @@ func ran(key string, version int) bool {
 	return runs[fmt.Sprintf("%s:%d", key, version)] > 0
 }
 
-func publish(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[Rec], key string, version int, policy common.ConcurrencyPolicy) {
+func publish(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[Rec], key string, version int, policy iCommon.ConcurrencyPolicy) {
 	opts := &sqlstreams.ProduceOptions{MessageKey: key, Compaction: &sqlstreams.CompactionOptions{Enable: true}}
 	if policy != "" {
-		opts.Message = &common.MessageOptions{Concurrency: policy}
+		opts.Message = &iCommon.MessageOptions{Concurrency: policy}
 	}
 	_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*Rec, error) {
 		return &Rec{Key: key, Version: version}, nil
 	}, opts)
-	must(err)
+	common.Must(err)
 }
 
 // publishUncompacted produces a Exclusive message with a key and no Compaction --
@@ -820,35 +803,35 @@ func publishUncompacted(ctx context.Context, wpInstance *sqlstreams.ProducerInst
 		return &Rec{Key: key, Version: version}, nil
 	}, &sqlstreams.ProduceOptions{
 		MessageKey: key,
-		Message:    &common.MessageOptions{Concurrency: common.ConcurrencyExclusive},
+		Message:    &iCommon.MessageOptions{Concurrency: iCommon.ConcurrencyExclusive},
 	})
-	must(err)
+	common.Must(err)
 }
 
 func publishUnkeyed(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[Rec], version int) {
 	_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*Rec, error) {
 		return &Rec{Version: version}, nil
 	}, nil)
-	must(err)
+	common.Must(err)
 }
 
 func groupId(ctx context.Context, cd *consumecontroller.ConsumeController, name string) int64 {
 	g, err := cd.RegisterGroup(ctx, streamId, name, consume.Beginning())
-	must(err)
+	common.Must(err)
 	return g.Id
 }
 
 func messageId(ctx context.Context, key string, version int) int64 {
 	var id int64
 	sql := fmt.Sprintf(`SELECT id FROM %s.%s WHERE message_key = $1 AND (payload->>'version')::int = $2`, ds.Schema, stream.MessageLogTable(streamId))
-	must(ds.Pool.QueryRow(ctx, sql, key, version).Scan(&id))
+	common.Must(ds.Pool.QueryRow(ctx, sql, key, version).Scan(&id))
 	return id
 }
 
 func leaseCount(ctx context.Context, groupId int64) int {
 	var n int
 	sql := fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = $1`, ds.Schema, stream.MessageKeyLeaseTable(streamId))
-	must(ds.Pool.QueryRow(ctx, sql, groupId).Scan(&n))
+	common.Must(ds.Pool.QueryRow(ctx, sql, groupId).Scan(&n))
 	return n
 }
 
@@ -856,7 +839,7 @@ func leaseCount(ctx context.Context, groupId int64) int {
 func deliveryCount(ctx context.Context, groupId int64, status string) int {
 	var n int
 	sql := fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = $1 AND ($2 = '' OR status = $2)`, ds.Schema, stream.ExceptionQueueTable(streamId))
-	must(ds.Pool.QueryRow(ctx, sql, groupId, status).Scan(&n))
+	common.Must(ds.Pool.QueryRow(ctx, sql, groupId, status).Scan(&n))
 	return n
 }
 
@@ -864,14 +847,14 @@ func deliveryCount(ctx context.Context, groupId int64, status string) int {
 func deliveryStatus(ctx context.Context, groupId int64, messageId int64) string {
 	var s string
 	sql := fmt.Sprintf(`SELECT COALESCE(MAX(status), '') FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2`, ds.Schema, stream.ExceptionQueueTable(streamId))
-	must(ds.Pool.QueryRow(ctx, sql, groupId, messageId).Scan(&s))
+	common.Must(ds.Pool.QueryRow(ctx, sql, groupId, messageId).Scan(&s))
 	return s
 }
 
 func deliveryAttempts(ctx context.Context, groupId int64, messageId int64) int {
 	var n int
 	sql := fmt.Sprintf(`SELECT attempts FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2`, ds.Schema, stream.ExceptionQueueTable(streamId))
-	must(ds.Pool.QueryRow(ctx, sql, groupId, messageId).Scan(&n))
+	common.Must(ds.Pool.QueryRow(ctx, sql, groupId, messageId).Scan(&n))
 	return n
 }
 
@@ -879,29 +862,29 @@ func deliveryAttempts(ctx context.Context, groupId int64, messageId int64) int {
 func logStatuses(ctx context.Context, groupId int64, messageId int64) map[int]string {
 	sql := fmt.Sprintf(`SELECT attempt, status FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2`, ds.Schema, stream.DeliveryLogTable(streamId))
 	rows, err := ds.Pool.Query(ctx, sql, groupId, messageId)
-	must(err)
+	common.Must(err)
 	defer rows.Close()
 
 	statuses := map[int]string{}
 	for rows.Next() {
 		var attempt int
 		var status string
-		must(rows.Scan(&attempt, &status))
+		common.Must(rows.Scan(&attempt, &status))
 		statuses[attempt] = status
 	}
-	must(rows.Err())
+	common.Must(rows.Err())
 	return statuses
 }
 
 func execSql(ctx context.Context, sql string, args ...any) {
 	_, err := ds.Pool.Exec(ctx, sql, args...)
-	must(err)
+	common.Must(err)
 }
 
 func logCount(ctx context.Context, groupId int64, messageId int64) int {
 	var n int
 	sql := fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2`, ds.Schema, stream.DeliveryLogTable(streamId))
-	must(ds.Pool.QueryRow(ctx, sql, groupId, messageId).Scan(&n))
+	common.Must(ds.Pool.QueryRow(ctx, sql, groupId, messageId).Scan(&n))
 	return n
 }
 
@@ -909,7 +892,7 @@ func logCount(ctx context.Context, groupId int64, messageId int64) int {
 func logRow(ctx context.Context, groupId int64, messageId int64) (string, string) {
 	var status, logErr string
 	sql := fmt.Sprintf(`SELECT status, error FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2`, ds.Schema, stream.DeliveryLogTable(streamId))
-	must(ds.Pool.QueryRow(ctx, sql, groupId, messageId).Scan(&status, &logErr))
+	common.Must(ds.Pool.QueryRow(ctx, sql, groupId, messageId).Scan(&status, &logErr))
 	return status, logErr
 }
 
@@ -918,24 +901,14 @@ func waitFor(cond func() bool, what string) {
 	for !cond() {
 		select {
 		case err := <-backgroundRunErrors:
-			die(fmt.Sprintf("a background Run returned an unexpected error while waiting for %s: %v", what, err))
+			common.Die(fmt.Sprintf("a background Run returned an unexpected error while waiting for %s: %v", what, err))
 		default:
 		}
 		if time.Since(start) > 10*time.Second {
-			die("timed out waiting for " + what)
+			common.Die("timed out waiting for " + what)
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-
-func die(msg string) {
-	panic(testFailure{message: msg})
-}

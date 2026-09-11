@@ -47,7 +47,7 @@ var fn = func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 // work is what fn returns, for the value-taking verbs.
 func work() *common.Work {
 	built, err := common.NewWork(30, "admin@example.com")
-	must(err)
+	common.Must(err)
 	return built
 }
 
@@ -58,36 +58,18 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	atomicPublishScenario(ctx, client, ds)
 	rollbackOnFailureScenario(ctx, client, ds)
@@ -119,7 +101,7 @@ func atomicPublishScenario(ctx context.Context, client *sqlstreams.Client, ds *i
 		_, err := wpB.ProduceInTx(ctx, tx, work(), nil)
 		return err
 	})
-	must(err)
+	common.Must(err)
 
 	assertMessageLogCount(ctx, ds, streamA.Id, 1)
 	assertMessageLogCount(ctx, ds, streamB.Id, 1)
@@ -145,7 +127,7 @@ func rollbackOnFailureScenario(ctx context.Context, client *sqlstreams.Client, d
 		return err
 	})
 	if !errors.Is(err, wantErr) {
-		die(fmt.Sprintf("InTransaction returned %v, want %v surfaced as-is", err, wantErr))
+		common.Die(fmt.Sprintf("InTransaction returned %v, want %v surfaced as-is", err, wantErr))
 	}
 
 	assertMessageLogCount(ctx, ds, streamA.Id, 0)
@@ -164,7 +146,7 @@ func partitionSelfHealIsolationScenario(ctx context.Context, client *sqlstreams.
 	defer cleanupB()
 
 	_, err := wpB.ProduceFunc(ctx, fn, nil)
-	must(err)
+	common.Must(err)
 	assertMessageLogCount(ctx, ds, streamB.Id, 1)
 
 	betweenCalls := 0
@@ -176,10 +158,10 @@ func partitionSelfHealIsolationScenario(ctx context.Context, client *sqlstreams.
 		_, err := wpB.ProduceInTx(ctx, tx, work(), nil) // misses its partition, self-heals
 		return err
 	})
-	must(err)
+	common.Must(err)
 
 	if betweenCalls != 1 {
-		die(fmt.Sprintf("side effect between targets fired %d times, want exactly 1 -- B's self-heal retry must not rerun anything before it", betweenCalls))
+		common.Die(fmt.Sprintf("side effect between targets fired %d times, want exactly 1 -- B's self-heal retry must not rerun anything before it", betweenCalls))
 	}
 	assertMessageLogCount(ctx, ds, streamA.Id, 1)
 	assertMessageLogCount(ctx, ds, streamB.Id, 2) // 1 seeded + 1 self-healed into a fresh partition
@@ -211,10 +193,10 @@ func ambiguousCommitScenario(ctx context.Context, client *sqlstreams.Client, ds 
 
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if !ok || pgErr.Code != "23503" {
-		die(fmt.Sprintf("expected the raw foreign_key_violation (23503) from tx.Commit, got %v", err))
+		common.Die(fmt.Sprintf("expected the raw foreign_key_violation (23503) from tx.Commit, got %v", err))
 	}
 	if _, ok := errors.AsType[*diagnostic.DiagnosticError](err); ok {
-		die("InTransaction wrapped the commit error in an diagnostic.DiagnosticError -- it must never classify, only surface as-is")
+		common.Die("InTransaction wrapped the commit error in an diagnostic.DiagnosticError -- it must never classify, only surface as-is")
 	}
 
 	assertMessageLogCount(ctx, ds, streamA.Id, 0)
@@ -246,8 +228,8 @@ func callerKeyRetryScenario(ctx context.Context, client *sqlstreams.Client, ds *
 		return err
 	}
 
-	must(client.InTransaction(ctx, closure)) // the publish whose confirmation was "lost"
-	must(client.InTransaction(ctx, closure)) // the caller's retry
+	common.Must(client.InTransaction(ctx, closure)) // the publish whose confirmation was "lost"
+	common.Must(client.InTransaction(ctx, closure)) // the caller's retry
 
 	assertMessageLogCount(ctx, ds, streamA.Id, 1)
 	assertMessageLogCount(ctx, ds, streamB.Id, 1)
@@ -259,12 +241,12 @@ func callerKeyRetryScenario(ctx context.Context, client *sqlstreams.Client, ds *
 func newTarget(ctx context.Context, client *sqlstreams.Client, label string, partitionSize int64) (*sqlstreams.Stream, *sqlstreams.ProducerInstance[common.Work], func()) {
 	name := fmt.Sprintf("multitarget.%s.%d", label, time.Now().UnixNano())
 	tp, err := client.Stream[sqlstreams.RawPayload](name).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: partitionSize})
-	must(err)
+	common.Must(err)
 
 	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	return tp, wpInstance, func() {
-		must(client.Stream[sqlstreams.RawPayload](name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[sqlstreams.RawPayload](name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}
 }
 
@@ -272,8 +254,8 @@ func newTarget(ctx context.Context, client *sqlstreams.Client, label string, par
 // only checked at COMMIT, not at INSERT -- the only way to force a genuine
 // Commit-time failure on demand.
 func setupDeferredFKFixture(ctx context.Context, ds *iDatastore.PostgresDatastore) {
-	must(exec(ctx, ds, `CREATE TABLE IF NOT EXISTS multitarget_deferred_parent (id BIGINT PRIMARY KEY);`))
-	must(exec(ctx, ds, `
+	common.Must(exec(ctx, ds, `CREATE TABLE IF NOT EXISTS multitarget_deferred_parent (id BIGINT PRIMARY KEY);`))
+	common.Must(exec(ctx, ds, `
 		CREATE TABLE IF NOT EXISTS multitarget_deferred_child (
 			id BIGSERIAL PRIMARY KEY,
 			parent_id BIGINT NOT NULL,
@@ -284,8 +266,8 @@ func setupDeferredFKFixture(ctx context.Context, ds *iDatastore.PostgresDatastor
 }
 
 func teardownDeferredFKFixture(ctx context.Context, ds *iDatastore.PostgresDatastore) {
-	must(exec(ctx, ds, `DROP TABLE IF EXISTS multitarget_deferred_child;`))
-	must(exec(ctx, ds, `DROP TABLE IF EXISTS multitarget_deferred_parent;`))
+	common.Must(exec(ctx, ds, `DROP TABLE IF EXISTS multitarget_deferred_child;`))
+	common.Must(exec(ctx, ds, `DROP TABLE IF EXISTS multitarget_deferred_parent;`))
 }
 
 func exec(ctx context.Context, ds *iDatastore.PostgresDatastore, sql string) error {
@@ -297,18 +279,10 @@ func exec(ctx context.Context, ds *iDatastore.PostgresDatastore, sql string) err
 
 func assertMessageLogCount(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, want int) {
 	var count int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s;`, ds.Schema, stream.MessageLogTable(streamId))).Scan(&count))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s;`, ds.Schema, stream.MessageLogTable(streamId))).Scan(&count))
 	if count != want {
-		die(fmt.Sprintf("%s.%s has %d rows, want %d", ds.Schema, stream.MessageLogTable(streamId), count, want))
+		common.Die(fmt.Sprintf("%s.%s has %d rows, want %d", ds.Schema, stream.MessageLogTable(streamId), count, want))
 	}
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}

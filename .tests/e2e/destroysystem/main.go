@@ -50,49 +50,31 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err = iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
-	must(client.System().Register(ctx, nil))
+	common.Must(err)
+	common.Must(client.System().Register(ctx, nil))
 
 	step("seed a user stream with messages")
 	streamName := fmt.Sprintf("destroysystem.%d", time.Now().UnixNano())
 	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	for range 3 {
 		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 			return common.NewWork(30, "admin@example.com")
 		}, nil)
-		must(err)
+		common.Must(err)
 	}
 
 	step("a registered user stream refuses the destroy")
@@ -101,7 +83,7 @@ func run() (err error) {
 
 	step("a running consumer refuses it first -- the worker guard outranks the stream guard")
 	wcInstance, err := client.Stream[common.Work](tp.Name).Consumer("destroysystem-group").Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	consumeCtx, stopConsumer := context.WithCancel(ctx)
 	consumeDone := make(chan error, 1)
 	go func() {
@@ -118,7 +100,7 @@ func run() (err error) {
 	assertErrorIs("ErrSystemLive", err, system.ErrSystemLive)
 
 	stopConsumer()
-	must(<-consumeDone)
+	common.Must(<-consumeDone)
 	waitLiveInstances(ctx, false)
 
 	step("consumer stopped: the stream guard is back")
@@ -129,10 +111,10 @@ func run() (err error) {
 	// a system stream's id, so the teardown assert can cover a physical
 	// table the destroy itself must drop (not one DestroyStream already took)
 	var alertsStreamId int64
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT id FROM %s.stream_config WHERE name = '__system.alerts';`, ds.Schema)).Scan(&alertsStreamId))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT id FROM %s.stream_config WHERE name = '__system.alerts';`, ds.Schema)).Scan(&alertsStreamId))
 
-	must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
-	must(client.System().Destroy(ctx, nil))
+	common.Must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+	common.Must(client.System().Destroy(ctx, nil))
 
 	for _, table := range controlPlaneTables {
 		assertTableExists(ctx, ds.Schema+"."+table, false)
@@ -140,16 +122,16 @@ func run() (err error) {
 	assertTableExists(ctx, fmt.Sprintf("%s.%s", ds.Schema, stream.MessageLogTable(alertsStreamId)), false)
 
 	step("a second destroy is a no-op, not an error")
-	must(client.System().Destroy(ctx, nil))
+	common.Must(client.System().Destroy(ctx, nil))
 	fmt.Println("  ✓ destroy of an already-destroyed system returned nil")
 
 	step("RegisterSystem stands the schema back up")
-	must(client.System().Register(ctx, nil))
+	common.Must(client.System().Register(ctx, nil))
 	for _, table := range controlPlaneTables {
 		assertTableExists(ctx, ds.Schema+"."+table, true)
 	}
 	var streamCount int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.stream_config;`, ds.Schema)).Scan(&streamCount))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.stream_config;`, ds.Schema)).Scan(&streamCount))
 	assertTrue(fmt.Sprintf("the 3 system streams re-registered (got %d)", streamCount), streamCount == 3)
 
 	fmt.Println("\n✅ DESTROY SYSTEM E2E TEST PASSED")
@@ -167,14 +149,14 @@ func waitLiveInstances(ctx context.Context, want bool) {
 	deadline := time.Now().Add(30 * time.Second)
 	for {
 		var live bool
-		must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`
+		common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`
 			SELECT EXISTS (SELECT 1 FROM %s.worker_instance WHERE expires_at > now());
 		`, ds.Schema)).Scan(&live))
 		if live == want {
 			return
 		}
 		if time.Now().After(deadline) {
-			die(fmt.Sprintf("live worker instances never became %v", want))
+			common.Die(fmt.Sprintf("live worker instances never became %v", want))
 		}
 		time.Sleep(200 * time.Millisecond)
 	}
@@ -182,33 +164,25 @@ func waitLiveInstances(ctx context.Context, want bool) {
 
 func assertTableExists(ctx context.Context, table string, want bool) {
 	var exists bool
-	must(ds.Pool.QueryRow(ctx, `SELECT to_regclass($1) IS NOT NULL;`, table).Scan(&exists))
+	common.Must(ds.Pool.QueryRow(ctx, `SELECT to_regclass($1) IS NOT NULL;`, table).Scan(&exists))
 	if exists != want {
-		die(fmt.Sprintf("table %s exists=%v, want %v", table, exists, want))
+		common.Die(fmt.Sprintf("table %s exists=%v, want %v", table, exists, want))
 	}
 	fmt.Printf("  ✓ table %s exists=%v\n", table, exists)
 }
 
 func assertErrorIs(label string, err error, target error) {
 	if !errors.Is(err, target) {
-		die(fmt.Sprintf("%s: got %v", label, err))
+		common.Die(fmt.Sprintf("%s: got %v", label, err))
 	}
 	fmt.Printf("  ✓ refused with %s: %v\n", label, err)
 }
 
 func assertTrue(label string, cond bool) {
 	if !cond {
-		die(fmt.Sprintf("%s: got false, want true", label))
+		common.Die(fmt.Sprintf("%s: got false, want true", label))
 	}
 	fmt.Printf("  ✓ %s\n", label)
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}

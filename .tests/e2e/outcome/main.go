@@ -25,6 +25,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/agentstax/sqlstreams/.tests/e2e/common"
 	"github.com/agentstax/sqlstreams/pkg/stream"
 	"os"
 	"strings"
@@ -54,50 +55,32 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[Payment](tp.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[Payment](tp.Name).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	payments, err := client.Stream[Payment](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 
 	ids := map[string]int64{}
 	for _, branch := range []string{"ok", "retry", "declined", "settles-later"} {
 		produced, err := payments.Produce(ctx, &Payment{Branch: branch}, nil)
-		must(err)
+		common.Must(err)
 		ids[branch] = produced.Id
 	}
 
@@ -109,7 +92,7 @@ func run() (err error) {
 		},
 	})
 
-	must(err)
+	common.Must(err)
 	groupId := groupIdOf(ctx, ds, tp.Id)
 
 	// runs[branch] counts handler entries; the second Delay ends the e2e test
@@ -137,10 +120,10 @@ func run() (err error) {
 				return sqlstreams.Terminal(errors.New("issuer said no"))
 			case "settles-later":
 				if run == 1 && (meta.Attempts != 0 || meta.Delays != 0) {
-					die(fmt.Sprintf("first run: meta.Attempts=%d meta.Delays=%d, want 0/0", meta.Attempts, meta.Delays))
+					common.Die(fmt.Sprintf("first run: meta.Attempts=%d meta.Delays=%d, want 0/0", meta.Attempts, meta.Delays))
 				}
 				if run == 2 && (meta.Attempts != 1 || meta.Delays != 1) {
-					die(fmt.Sprintf("second run: meta.Attempts=%d meta.Delays=%d, want 1/1", meta.Attempts, meta.Delays))
+					common.Die(fmt.Sprintf("second run: meta.Attempts=%d meta.Delays=%d, want 1/1", meta.Attempts, meta.Delays))
 				}
 				return sqlstreams.Delay(delay)
 			}
@@ -156,21 +139,21 @@ func run() (err error) {
 
 	row := readRow(ctx, ds, tp.Id, groupId, ids["retry"])
 	if row.status != "ready" || row.attempts != 0 || row.delays != 0 {
-		die(fmt.Sprintf("plain error row: %+v, want ready/0/0", row))
+		common.Die(fmt.Sprintf("plain error row: %+v, want ready/0/0", row))
 	}
 	assertLogStatus(ctx, ds, tp.Id, groupId, ids["retry"], 0, "failure")
 	fmt.Println("PASS: plain error -> ready, attempts 0, 'failure' log row")
 
 	row = readRow(ctx, ds, tp.Id, groupId, ids["declined"])
 	if row.status != "dead" || row.attempts != 0 || !strings.Contains(row.lastError, "[SQL0055]: issuer said no") {
-		die(fmt.Sprintf("terminal error row: %+v, want dead/0 with [SQL0055]: issuer said no", row))
+		common.Die(fmt.Sprintf("terminal error row: %+v, want dead/0 with [SQL0055]: issuer said no", row))
 	}
 	assertLogStatus(ctx, ds, tp.Id, groupId, ids["declined"], 0, "failure")
 	fmt.Println("PASS: Terminal -> dead after one run, attempts 0, code and cause in last_error")
 
 	row = readRow(ctx, ds, tp.Id, groupId, ids["settles-later"])
 	if row.status != "ready" || row.attempts != 0 || row.delays != 1 || row.runsIn <= 0 {
-		die(fmt.Sprintf("delayed row: %+v, want ready/0/1 with can_run_after in the future", row))
+		common.Die(fmt.Sprintf("delayed row: %+v, want ready/0/1 with can_run_after in the future", row))
 	}
 	assertLogStatus(ctx, ds, tp.Id, groupId, ids["settles-later"], 0, "delayed")
 	fmt.Println("PASS: Delay -> ready, delays 1, attempts 0, can_run_after ahead, 'delayed' log row")
@@ -179,7 +162,7 @@ func run() (err error) {
 	waitFor(ctx, ds, tp.Id, groupId, ids["settles-later"], "dead", delay+10*time.Second)
 	row = readRow(ctx, ds, tp.Id, groupId, ids["settles-later"])
 	if row.attempts != 1 || row.delays != 1 || !strings.Contains(row.lastError, "[SQL0054]") {
-		die(fmt.Sprintf("delay past MaxDelays: %+v, want dead/attempts 1/delays 1 with [SQL0054]", row))
+		common.Die(fmt.Sprintf("delay past MaxDelays: %+v, want dead/attempts 1/delays 1 with [SQL0054]", row))
 	}
 	assertLogStatus(ctx, ds, tp.Id, groupId, ids["settles-later"], 1, "failure")
 	fmt.Println("PASS: second Delay past MaxDelays 1 -> dead, attempts - delays still 0")
@@ -190,7 +173,7 @@ func run() (err error) {
 
 	stop()
 	if err := <-consumeDone; err != nil && !errors.Is(err, context.Canceled) {
-		must(err)
+		common.Must(err)
 	}
 
 	fmt.Println("\n✅ OUTCOME E2E TEST PASSED")
@@ -210,14 +193,14 @@ type queueRow struct {
 func readRow(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, groupId int64, messageId int64) queueRow {
 	sql := fmt.Sprintf(`SELECT status, attempts, delays, COALESCE(last_error, ''), can_run_after - now() FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2`, ds.Schema, stream.ExceptionQueueTable(streamId))
 	var row queueRow
-	must(ds.Pool.QueryRow(ctx, sql, groupId, messageId).Scan(&row.status, &row.attempts, &row.delays, &row.lastError, &row.runsIn))
+	common.Must(ds.Pool.QueryRow(ctx, sql, groupId, messageId).Scan(&row.status, &row.attempts, &row.delays, &row.lastError, &row.runsIn))
 	return row
 }
 
 func rowStatus(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, groupId int64, messageId int64) string {
 	sql := fmt.Sprintf(`SELECT COALESCE(MAX(status), '') FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2`, ds.Schema, stream.ExceptionQueueTable(streamId))
 	var status string
-	must(ds.Pool.QueryRow(ctx, sql, groupId, messageId).Scan(&status))
+	common.Must(ds.Pool.QueryRow(ctx, sql, groupId, messageId).Scan(&status))
 	return status
 }
 
@@ -229,7 +212,7 @@ func waitFor(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	die(fmt.Sprintf("message %d never reached status %q (last %q)", messageId, want, rowStatus(ctx, ds, streamId, groupId, messageId)))
+	common.Die(fmt.Sprintf("message %d never reached status %q (last %q)", messageId, want, rowStatus(ctx, ds, streamId, groupId, messageId)))
 }
 
 func waitForGone(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, groupId int64, messageId int64, timeout time.Duration) {
@@ -240,38 +223,28 @@ func waitForGone(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	die(fmt.Sprintf("message %d's row never went away (last %q)", messageId, rowStatus(ctx, ds, streamId, groupId, messageId)))
+	common.Die(fmt.Sprintf("message %d's row never went away (last %q)", messageId, rowStatus(ctx, ds, streamId, groupId, messageId)))
 }
 
 func assertNoRow(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, groupId int64, messageId int64) {
 	if status := rowStatus(ctx, ds, streamId, groupId, messageId); status != "" {
-		die(fmt.Sprintf("message %d has a delivery row with status %q, want none", messageId, status))
+		common.Die(fmt.Sprintf("message %d has a delivery row with status %q, want none", messageId, status))
 	}
 }
 
 func assertLogStatus(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, groupId int64, messageId int64, attempt int, want string) {
 	sql := fmt.Sprintf(`SELECT COALESCE(MAX(status), '') FROM %s.%s WHERE consumer_group_id = $1 AND message_id = $2 AND attempt = $3`, ds.Schema, stream.DeliveryLogTable(streamId))
 	var status string
-	must(ds.Pool.QueryRow(ctx, sql, groupId, messageId, attempt).Scan(&status))
+	common.Must(ds.Pool.QueryRow(ctx, sql, groupId, messageId, attempt).Scan(&status))
 	if status != want {
-		die(fmt.Sprintf("message %d attempt %d: delivery_log status %q, want %q", messageId, attempt, status, want))
+		common.Die(fmt.Sprintf("message %d attempt %d: delivery_log status %q, want %q", messageId, attempt, status, want))
 	}
 }
 
 func groupIdOf(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) int64 {
 	var id int64
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT id FROM %s.consumer_group_config WHERE stream_id = $1 AND name = $2`, ds.Schema), streamId, group).Scan(&id))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT id FROM %s.consumer_group_config WHERE stream_id = $1 AND name = $2`, ds.Schema), streamId, group).Scan(&id))
 	return id
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-
-func die(msg string) {
-	panic(testFailure{message: msg})
-}

@@ -21,6 +21,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/agentstax/sqlstreams/.tests/e2e/common"
 	"github.com/agentstax/sqlstreams/pkg/stream"
 	"os"
 	"regexp"
@@ -52,56 +53,38 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	narrowName := fmt.Sprintf("phase8c.compactionwidth.narrow.%d", time.Now().UnixNano())
 	narrow, err := client.Stream[sqlstreams.RawPayload](narrowName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: narrowPartitionSize})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[sqlstreams.RawPayload](narrowName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[sqlstreams.RawPayload](narrowName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	wideName := fmt.Sprintf("phase8c.compactionwidth.wide.%d", time.Now().UnixNano())
 	wide, err := client.Stream[sqlstreams.RawPayload](wideName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: widePartitionSize})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[sqlstreams.RawPayload](wideName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[sqlstreams.RawPayload](wideName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	step("seed both streams with the identical 40-message workload")
 	narrowProducerInstance, err := client.Stream[Record](narrow.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	wideProducerInstance, err := client.Stream[Record](wide.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	seed(ctx, narrowProducerInstance)
 	seed(ctx, wideProducerInstance)
 
@@ -165,7 +148,7 @@ func publish(ctx context.Context, wp *sqlstreams.ProducerInstance[Record], key s
 	_, err := wp.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*Record, error) {
 		return &Record{Key: key}, nil
 	}, &sqlstreams.ProduceOptions{MessageKey: key, Compaction: &sqlstreams.CompactionOptions{Enable: true}})
-	must(err)
+	common.Must(err)
 }
 
 // keyId reads back one seeded row's real id -- aggregate is MIN or MAX,
@@ -208,7 +191,7 @@ func explainCompactionTouches(ctx context.Context, ds *iDatastore.PostgresDatast
 	`, logTable, logTable)
 
 	rows, err := ds.Pool.Query(ctx, sql, id)
-	must(err)
+	common.Must(err)
 	defer rows.Close()
 
 	partitionRe := regexp.MustCompile(regexp.QuoteMeta(logName) + `_\d+`)
@@ -216,7 +199,7 @@ func explainCompactionTouches(ctx context.Context, ds *iDatastore.PostgresDatast
 	var plan strings.Builder
 	for rows.Next() {
 		var line string
-		must(rows.Scan(&line))
+		common.Must(rows.Scan(&line))
 		plan.WriteString(line)
 		plan.WriteString("\n")
 		matches := partitionRe.FindAllString(line, -1)
@@ -230,7 +213,7 @@ func explainCompactionTouches(ctx context.Context, ds *iDatastore.PostgresDatast
 			executed[m] = true
 		}
 	}
-	must(rows.Err())
+	common.Must(rows.Err())
 
 	names := make([]string, 0, len(executed))
 	for n := range executed {
@@ -243,22 +226,14 @@ func explainCompactionTouches(ctx context.Context, ds *iDatastore.PostgresDatast
 
 func scalar(ctx context.Context, ds *iDatastore.PostgresDatastore, q string, args ...any) int64 {
 	var v int64
-	must(ds.Pool.QueryRow(ctx, q, args...).Scan(&v))
+	common.Must(ds.Pool.QueryRow(ctx, q, args...).Scan(&v))
 	return v
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}
 func assertTrue(label string, cond bool) {
 	if !cond {
-		die(fmt.Sprintf("%s: got false, want true", label))
+		common.Die(fmt.Sprintf("%s: got false, want true", label))
 	}
 	fmt.Printf("  ✓ %s\n", label)
 }

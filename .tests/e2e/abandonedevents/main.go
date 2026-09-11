@@ -32,57 +32,39 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 	run := time.Now().UnixNano()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
-	must(client.System().Register(ctx, nil))
+	common.Must(err)
+	common.Must(client.System().Register(ctx, nil))
 
 	metricStream, err := client.Stream[sqlstreams.RawPayload](iMetrics.MetricStreamName).Get(ctx)
-	must(err)
+	common.Must(err)
 	if metricStream == nil {
-		die("expected __system.metrics to exist after RegisterSystem")
+		common.Die("expected __system.metrics to exist after RegisterSystem")
 	}
 
 	streamName := fmt.Sprintf("%s.%d", group, run)
 	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	before := metricRowCount(ctx, ds, metricStream.Id)
 
 	step("driving a hard timeout so one message gets abandoned then self-clears")
 	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	seed(ctx, wpInstance, 3)
 
 	cfg := &messageconsumer.MessageConsumerConfig{
@@ -93,18 +75,18 @@ func run() (err error) {
 		TimeoutGrace:       50 * time.Millisecond,
 	}
 	consumerDatastore, err := consumecontroller.NewConsumeController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	g, err := consumerDatastore.RegisterGroup(ctx, tp.Id, group, consume.Beginning())
-	must(err)
+	common.Must(err)
 	owner, err := iCommon.NewConsumerGroupOwner(tp.SystemId, tp.Id, g.Id, g.Name)
-	must(err)
+	common.Must(err)
 
 	// the abandoned-event producer outlives any one claim -- the events it
 	// carries are generated as the consumer shuts down
 	abandonedEvents, err := metricsproducer.NewMetricsProducer(ds, &metricsproducer.MetricProducerConfig{SessionFlushRate: 100 * time.Millisecond}, ds.Logger)
-	must(err)
+	common.Must(err)
 	go func() {
-		must(abandonedEvents.Run(ctx, group, tp.Name, 1, "abandonedevents-session"))
+		common.Must(abandonedEvents.Run(ctx, group, tp.Name, 1, "abandonedevents-session"))
 	}()
 
 	var calls atomic.Int64
@@ -116,8 +98,8 @@ func run() (err error) {
 	}
 
 	definition, err := messageconsumer.NewMessageConsumerProvisioner(ds, consumerFunc, 1, abandonedEvents, cfg, ds.Logger)
-	must(err)
-	must(definition.Declare(ctx, owner))
+	common.Must(err)
+	common.Must(definition.Declare(ctx, owner))
 
 	runProcessUntil(ctx, ds, definition, owner, 5*time.Second, func() bool {
 		return calls.Load() == 3
@@ -135,7 +117,7 @@ func run() (err error) {
 	}
 
 	if len(rows) != 2 {
-		die(fmt.Sprintf("expected exactly 2 abandoned-routine events on __system.metrics, got %d: %+v", len(rows), rows))
+		common.Die(fmt.Sprintf("expected exactly 2 abandoned-routine events on __system.metrics, got %d: %+v", len(rows), rows))
 	}
 
 	abandoned, cleared := rows[0], rows[1]
@@ -163,7 +145,7 @@ func metricRowCount(ctx context.Context, ds *iDatastore.PostgresDatastore, strea
 	// the session counters flush to the same stream -- only the
 	// abandoned-routine events are this e2e test's subject
 	var count int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE routing_key LIKE 'abandoned_routine.%%'`, ds.Schema, stream.MessageLogTable(streamId))).Scan(&count))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.%s WHERE routing_key LIKE 'abandoned_routine.%%'`, ds.Schema, stream.MessageLogTable(streamId))).Scan(&count))
 	return count
 }
 
@@ -174,7 +156,7 @@ func metricRowsSince(ctx context.Context, ds *iDatastore.PostgresDatastore, stre
 		ORDER BY id
 		OFFSET %d
 	`, ds.Schema, stream.MessageLogTable(streamId), sinceCount))
-	must(err)
+	common.Must(err)
 	defer rows.Close()
 
 	var out []metricRow
@@ -182,10 +164,10 @@ func metricRowsSince(ctx context.Context, ds *iDatastore.PostgresDatastore, stre
 		var id int64
 		var routingKey *string
 		var payload []byte
-		must(rows.Scan(&id, &routingKey, &payload))
+		common.Must(rows.Scan(&id, &routingKey, &payload))
 
 		var event iMetrics.GoRoutineEvent
-		must(json.Unmarshal(payload, &event))
+		common.Must(json.Unmarshal(payload, &event))
 
 		rk := ""
 		if routingKey != nil {
@@ -193,7 +175,7 @@ func metricRowsSince(ctx context.Context, ds *iDatastore.PostgresDatastore, stre
 		}
 		out = append(out, metricRow{Id: id, RoutingKey: rk, Event: event})
 	}
-	must(rows.Err())
+	common.Must(rows.Err())
 	return out
 }
 
@@ -202,7 +184,7 @@ func seed(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[common.Wo
 		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 			return common.NewWork(30, "admin@example.com")
 		}, nil)
-		must(err)
+		common.Must(err)
 	}
 }
 
@@ -210,13 +192,13 @@ func seed(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[common.Wo
 // consuming life
 func runProcessUntil(ctx context.Context, ds *iDatastore.PostgresDatastore, provisioner worker.Provisioner, owner *iCommon.Owner, timeout time.Duration, done func() bool) {
 	workers, err := workercontroller.NewWorkerController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	row, err := workers.GetWorker(ctx, provisioner.Definition().Name, owner)
-	must(err)
+	common.Must(err)
 
 	runCtx, cancel := context.WithCancel(ctx)
 	execution, err := provisioner.Provision(runCtx, row)
-	must(err)
+	common.Must(err)
 
 	errCh := make(chan error, 1)
 	go func() { errCh <- execution.Run(runCtx) }()
@@ -225,30 +207,22 @@ func runProcessUntil(ctx context.Context, ds *iDatastore.PostgresDatastore, prov
 	for !done() {
 		if time.Since(start) > timeout {
 			cancel()
-			die(fmt.Sprintf("timed out waiting for the expected condition, Process returned: %v", <-errCh))
+			common.Die(fmt.Sprintf("timed out waiting for the expected condition, Process returned: %v", <-errCh))
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
 
 	cancel()
 	if err := <-errCh; err != nil && !errors.Is(err, context.Canceled) {
-		die(fmt.Sprintf("Process returned an unexpected error: %v", err))
+		common.Die(fmt.Sprintf("Process returned an unexpected error: %v", err))
 	}
 }
 
 func assertEqual(label string, got, want string) {
 	if got != want {
-		die(fmt.Sprintf("%s: got %q, want %q", label, got, want))
+		common.Die(fmt.Sprintf("%s: got %q, want %q", label, got, want))
 	}
 	fmt.Printf("  ✓ %s (%s)\n", label, got)
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}

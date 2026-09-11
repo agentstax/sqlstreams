@@ -69,54 +69,36 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	streamName := fmt.Sprintf("phase9.shutdowntruncation.%d", time.Now().UnixNano())
 	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	messageConsumers, err := messageconsumercontroller.NewMessageConsumerGroupController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	exceptionConsumers, err := exceptionconsumercontroller.NewExceptionConsumerGroupController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	cursorAdvancerDatastore, err := cursoradvancerdatastore.NewCursorAdvancerDatastore(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 
 	groupId = mustGroupID(cd.RegisterGroup(ctx, tp.Id, group, consume.Beginning()))
 	seed(ctx, wpInstance, 3)
@@ -130,11 +112,11 @@ func run() (err error) {
 		RecordMargin:       500 * time.Millisecond, // also PartialCommit's/ForceReclaimRange's own detached-ctx budget
 	}
 	owner, err := iCommon.NewConsumerGroupOwner(tp.SystemId, tp.Id, groupId, group)
-	must(err)
+	common.Must(err)
 	abandonedEvents, err := metricsproducer.NewMetricsProducer(ds, nil, ds.Logger)
-	must(err)
+	common.Must(err)
 	go func() {
-		must(abandonedEvents.Run(ctx, group, tp.Name, 1, "shutdowntruncation-session"))
+		common.Must(abandonedEvents.Run(ctx, group, tp.Name, 1, "shutdowntruncation-session"))
 	}()
 
 	step("WORKER claims all 3, shutdown fires after message 2 -- message 3 never attempted")
@@ -148,74 +130,74 @@ func run() (err error) {
 			cancel() // shutdown signal arrives -- this message still finishes though
 			return errors.New("simulated failure")
 		default:
-			die(fmt.Sprintf("consumerFunc called a %dth time -- message 3 must never be attempted", n))
+			common.Die(fmt.Sprintf("consumerFunc called a %dth time -- message 3 must never be attempted", n))
 			return nil
 		}
 	}
 	// claimed straight off the provisioner -- no manager, so nothing respawns the
 	// execution and the truncation the e2e test asserts on is the only one
 	provisioner, err := messageconsumer.NewMessageConsumerProvisioner(ds, consumerFunc, 1, abandonedEvents, cfg, ds.Logger)
-	must(err)
-	must(provisioner.Declare(ctx, owner))
+	common.Must(err)
+	common.Must(provisioner.Declare(ctx, owner))
 
 	workers, err := workercontroller.NewWorkerController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	row, err := workers.GetWorker(ctx, provisioner.Definition().Name, owner)
-	must(err)
+	common.Must(err)
 	execution, err := provisioner.Provision(runCtx, row)
-	must(err)
+	common.Must(err)
 
 	// Run blocks until runCtx cancels (cancel() fires synchronously inside
 	// consumerFunc above) -- N=1 pool means dispatch can't reach message 3
 	// before that cancellation is already visible to it.
 	if err := execution.Run(runCtx); err != nil && !errors.Is(err, context.Canceled) {
-		die(fmt.Sprintf("Run returned an unexpected error: %v", err))
+		common.Die(fmt.Sprintf("Run returned an unexpected error: %v", err))
 	}
-	assert("exactly 2 messages attempted", calls.Load(), 2)
+	assertInt64("exactly 2 messages attempted", calls.Load(), 2)
 
 	lb := onlyLease(ctx, ds, tp.Id)
 	fmt.Printf("  lease narrowed: (%d,%d] (was (0,%d])\n", lb.low, lb.high, lb.high)
-	assert("lease survives (not deleted)", leases(ctx, ds, tp.Id), 1)
-	assert("lease high unchanged", lb.high, 3)
-	assert("lease low narrowed to message 2", lb.low, 2)
-	assert("exactly 1 unresolved exception (message 2)", deliveries(ctx, ds, tp.Id), 1)
+	assertInt64("lease survives (not deleted)", leases(ctx, ds, tp.Id), 1)
+	assertInt64("lease high unchanged", lb.high, 3)
+	assertInt64("lease low narrowed to message 2", lb.low, 2)
+	assertInt64("exactly 1 unresolved exception (message 2)", deliveries(ctx, ds, tp.Id), 1)
 	assertStatus(ctx, ds, tp.Id, 2, "ready")
 
 	step("committed stays pinned behind the unresolved exception, even though the lease is already narrowed past it")
 	committed := advance(ctx, cursorAdvancerDatastore, tp.Id)
-	assert("committed blocked at message 1 (exception at 2 still unresolved)", committed, 1)
+	assertInt64("committed blocked at message 1 (exception at 2 still unresolved)", committed, 1)
 
 	step("sleep 5.5s — let the unresolved exception's initial backoff pass")
 	time.Sleep(5500 * time.Millisecond)
 
 	step("resolve the exception -- committed jumps to the narrowed low, no need to wait on the untouched suffix's lease")
 	claimedExceptions, err := exceptionConsumers.Claim(ctx, tp.Id, groupId, 1, 10, 3, lease, tp.DeliveryLogMode)
-	must(err)
+	common.Must(err)
 	if len(claimedExceptions) != 1 {
-		die(fmt.Sprintf("expected 1 claimed exception, got %d", len(claimedExceptions)))
+		common.Die(fmt.Sprintf("expected 1 claimed exception, got %d", len(claimedExceptions)))
 	}
-	must(exceptionConsumers.RecordSuccess(ctx, &claimedExceptions[0], tp.DeliveryLogMode, nil))
+	common.Must(exceptionConsumers.RecordSuccess(ctx, &claimedExceptions[0], tp.DeliveryLogMode, nil))
 	committed = advance(ctx, cursorAdvancerDatastore, tp.Id)
-	assert("committed advances to the narrowed low", committed, 2)
-	assert("deliveries drained (exception pop-deleted)", deliveries(ctx, ds, tp.Id), 0)
+	assertInt64("committed advances to the narrowed low", committed, 2)
+	assertInt64("deliveries drained (exception pop-deleted)", deliveries(ctx, ds, tp.Id), 0)
 
 	// the narrowed lease's 2s duration already elapsed during the 5.5s backoff
 	// sleep above -- no separate wait needed before reclaiming it.
 	step("reclaim: only the untouched suffix comes back, not the resolved prefix")
 	claim2, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, 3, 3, lease, stream.DeliveryLogModeFailures)
-	must(err)
+	common.Must(err)
 	if claim2 == nil {
-		die("expected a reclaim, got nil")
+		common.Die("expected a reclaim, got nil")
 	}
-	assert("reclaimed range starts at the narrowed low", claim2.Lease.Low, 2)
-	assert("reclaimed range ends at the original high", claim2.Lease.High, 3)
-	assert("reclaimed exactly the untouched suffix (1 message)", int64(len(claim2.Messages)), 1)
-	assert("reclaimed message is the one never attempted", claim2.Messages[0].Id, 3)
+	assertInt64("reclaimed range starts at the narrowed low", claim2.Lease.Low, 2)
+	assertInt64("reclaimed range ends at the original high", claim2.Lease.High, 3)
+	assertInt64("reclaimed exactly the untouched suffix (1 message)", int64(len(claim2.Messages)), 1)
+	assertInt64("reclaimed message is the one never attempted", claim2.Messages[0].Id, 3)
 
-	must(messageConsumers.Commit(ctx, tp.Id, groupId, claim2.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
+	common.Must(messageConsumers.Commit(ctx, tp.Id, groupId, claim2.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 	committed = advance(ctx, cursorAdvancerDatastore, tp.Id)
-	assert("committed reaches head", committed, 3)
-	assert("no leases left open", leases(ctx, ds, tp.Id), 0)
+	assertInt64("committed reaches head", committed, 3)
+	assertInt64("no leases left open", leases(ctx, ds, tp.Id), 0)
 
 	fmt.Println("\n✅ SHUTDOWN LEASE TRUNCATION E2E TEST PASSED")
 	fmt.Println("   an interruption mid-range records what resolved and narrows the lease to the")
@@ -232,13 +214,13 @@ func seed(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[common.Wo
 		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 			return common.NewWork(30, "admin@example.com")
 		}, nil)
-		must(err)
+		common.Must(err)
 	}
 }
 
 func advance(ctx context.Context, cursorAdvancerDatastore *cursoradvancerdatastore.CursorAdvancerDatastore, streamId int64) int64 {
 	c, err := cursorAdvancerDatastore.AdvanceCommitted(ctx, streamId, groupId)
-	must(err)
+	common.Must(err)
 	return c
 }
 
@@ -246,7 +228,7 @@ type leaseBounds struct{ low, high int64 }
 
 func onlyLease(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64) leaseBounds {
 	var lb leaseBounds
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT low, high FROM %s.%s WHERE consumer_group_id=$1`, ds.Schema, stream.ClaimLeaseTable(streamId)), groupId).Scan(&lb.low, &lb.high))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT low, high FROM %s.%s WHERE consumer_group_id=$1`, ds.Schema, stream.ClaimLeaseTable(streamId)), groupId).Scan(&lb.low, &lb.high))
 	return lb
 }
 
@@ -259,33 +241,25 @@ func deliveries(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId 
 
 func scalar(ctx context.Context, ds *iDatastore.PostgresDatastore, q string, args ...any) int64 {
 	var v int64
-	must(ds.Pool.QueryRow(ctx, q, args...).Scan(&v))
+	common.Must(ds.Pool.QueryRow(ctx, q, args...).Scan(&v))
 	return v
 }
 
 func assertStatus(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId, messageId int64, want string) {
 	var got string
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT status FROM %s.%s WHERE consumer_group_id=$1 AND message_id=$2`, ds.Schema, stream.ExceptionQueueTable(streamId)), groupId, messageId).Scan(&got))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT status FROM %s.%s WHERE consumer_group_id=$1 AND message_id=$2`, ds.Schema, stream.ExceptionQueueTable(streamId)), groupId, messageId).Scan(&got))
 	if got != want {
-		die(fmt.Sprintf("message %d status: got %q, want %q", messageId, got, want))
+		common.Die(fmt.Sprintf("message %d status: got %q, want %q", messageId, got, want))
 	}
 	fmt.Printf("  ✓ message %d status = %q\n", messageId, got)
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}
-func assert(label string, got, want int64) {
+func assertInt64(label string, got, want int64) {
 	if got != want {
-		die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
+		common.Die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
 	}
 	fmt.Printf("  ✓ %s (%d)\n", label, got)
 }
 
-func mustGroupID(g *consume.Consumer, err error) int64 { must(err); return g.Id }
+func mustGroupID(g *consume.Consumer, err error) int64 { common.Must(err); return g.Id }

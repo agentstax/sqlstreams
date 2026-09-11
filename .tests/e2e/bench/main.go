@@ -46,7 +46,7 @@ func run() error {
 	// safety watchdog: never let a stalled run hang the sweep
 	time.AfterFunc(180*time.Second, stop)
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", &sqlstreams.PostgresConnectionConfig{MaxConns: *maxConnsPtr})
+	pool, err := common.NewPool(ctx, &sqlstreams.PostgresConnectionConfig{MaxConns: *maxConnsPtr})
 	if err != nil {
 		return err
 	}

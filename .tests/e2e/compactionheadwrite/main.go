@@ -42,32 +42,14 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", &sqlstreams.PostgresConnectionConfig{
+	pool, err := common.NewPool(ctx, &sqlstreams.PostgresConnectionConfig{
 		MaxConns: 60, // headroom above the hot-key scenario's 50 concurrent goroutines
 	})
-	must(err)
+	common.Must(err)
 	defer pool.Close()
 
 	fixedCostScenario(ctx, pool)
@@ -86,17 +68,17 @@ func fixedCostScenario(ctx context.Context, pool *pgxpool.Pool) {
 
 	const n = 500
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 
 	streamName := fmt.Sprintf("phase8c.compactionheadwrite.fixed.%d", time.Now().UnixNano())
 	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: largePartitionSize})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 
 	unkeyedMs := timeSequential(ctx, wpInstance, n, func(i int) string { return "" })
 	freshKeyMs := timeSequential(ctx, wpInstance, n, func(i int) string { return fmt.Sprintf("fresh-%d", i) })
@@ -117,23 +99,23 @@ func hotKeyContentionScenario(ctx context.Context, pool *pgxpool.Pool) {
 	const perGoroutine = 20
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	manyKeysMs, manyKeysStream := timeConcurrent(ctx, pool, "manykeys", goroutines, perGoroutine, func(g, i int) string {
 		return fmt.Sprintf("key-%d", g) // each goroutine owns a distinct key -- no cross-goroutine contention
 	})
 	defer func() {
-		must(client.Stream[sqlstreams.RawPayload](manyKeysStream).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[sqlstreams.RawPayload](manyKeysStream).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	oneKeyMs, oneKeyStream := timeConcurrent(ctx, pool, "onekey", goroutines, perGoroutine, func(g, i int) string {
 		return "hot-key" // every goroutine hammers the SAME row
 	})
 	defer func() {
-		must(client.Stream[sqlstreams.RawPayload](oneKeyStream).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[sqlstreams.RawPayload](oneKeyStream).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	time.Sleep(1 * time.Second) // let PG's stats collector flush before reading it
@@ -167,7 +149,7 @@ func timeSequential(ctx context.Context, wpInstance *sqlstreams.ProducerInstance
 		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 			return common.NewWork(30, "admin@example.com")
 		}, opts)
-		must(err)
+		common.Must(err)
 	}
 	return float64(time.Since(start).Microseconds()) / 1000.0
 }
@@ -177,14 +159,14 @@ func timeSequential(ctx context.Context, wpInstance *sqlstreams.ProducerInstance
 // elapsed time plus the stream name (caller destroys it once done reading it).
 func timeConcurrent(ctx context.Context, pool *pgxpool.Pool, label string, goroutines, perGoroutine int, keyFn func(g, i int) string) (float64, string) {
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 
 	name := fmt.Sprintf("phase8c.compactionheadwrite.%s.%d", label, time.Now().UnixNano())
 	tp, err := client.Stream[sqlstreams.RawPayload](name).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: largePartitionSize})
-	must(err)
+	common.Must(err)
 
 	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 
 	start := time.Now()
 	var wg sync.WaitGroup
@@ -194,7 +176,7 @@ func timeConcurrent(ctx context.Context, pool *pgxpool.Pool, label string, gorou
 				_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 					return common.NewWork(30, "admin@example.com")
 				}, &sqlstreams.ProduceOptions{MessageKey: keyFn(g, i), Compaction: &sqlstreams.CompactionOptions{Enable: true}})
-				must(err)
+				common.Must(err)
 			}
 		})
 	}
@@ -215,7 +197,7 @@ type tableStats struct {
 // the name comes back bare: its one reader matches pg_stat_user_tables.relname
 func compactionHeadTable(ctx context.Context, ds *iDatastore.PostgresDatastore, streamName string) string {
 	var id int64
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT id FROM %s.stream_config WHERE name = $1;`, ds.Schema), streamName).Scan(&id))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT id FROM %s.stream_config WHERE name = $1;`, ds.Schema), streamName).Scan(&id))
 	return stream.CompactionHeadTable(id)
 }
 
@@ -226,7 +208,7 @@ func dumpTableStats(ctx context.Context, ds *iDatastore.PostgresDatastore, table
 		FROM pg_stat_user_tables
 		WHERE relname = $1;
 	`
-	must(ds.Pool.QueryRow(ctx, sql, table).Scan(&s.liveTup, &s.deadTup, &s.tupUpd))
+	common.Must(ds.Pool.QueryRow(ctx, sql, table).Scan(&s.liveTup, &s.deadTup, &s.tupUpd))
 	return s
 }
 
@@ -238,11 +220,3 @@ func pctOver(got, baseline float64) float64 {
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}

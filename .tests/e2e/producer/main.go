@@ -38,7 +38,7 @@ func run() error {
 	// SETUP
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
+	pool, err := common.NewPool(ctx, nil)
 	if err != nil {
 		return err
 	}

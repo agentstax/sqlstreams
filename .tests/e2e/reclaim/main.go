@@ -49,59 +49,41 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	streamName := fmt.Sprintf("phase65b.reclaim.%d", time.Now().UnixNano())
 	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	messageConsumers, err := messageconsumercontroller.NewMessageConsumerGroupController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	cursorAdvancerDatastore, err := cursoradvancerdatastore.NewCursorAdvancerDatastore(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 
 	groupId = mustGroupID(cd.RegisterGroup(ctx, tp.Id, group, consume.Beginning()))
 	for range seedRows {
 		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 			return common.NewWork(30, "admin@example.com")
 		}, nil)
-		must(err)
+		common.Must(err)
 	}
 	head := scalar(ctx, ds, fmt.Sprintf(`SELECT COALESCE(max(id),0) FROM %s.%s`, ds.Schema, stream.MessageLogTable(tp.Id)))
 	fmt.Printf("stream=%q id=%d message_log head = %d, group = %q\n", streamName, tp.Id, head, group)
@@ -113,9 +95,9 @@ func run() (err error) {
 	// ===== WORKER 1: claim a range, tick the roller, then CRASH (never commit) =====
 	step("WORKER 1 claims a range, then crashes mid-range (never Commit)")
 	claim1, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, batch, maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
-	must(err)
+	common.Must(err)
 	if claim1 == nil {
-		die("expected a fresh claim, got nil (no work?)")
+		common.Die("expected a fresh claim, got nil (no work?)")
 	}
 	fmt.Printf("  claimed (%d,%d]  ids=%v  lease=%s\n",
 		claim1.Lease.Low, claim1.Lease.High, ids(claim1.Messages), shortTok(claim1.Lease.Token))
@@ -125,10 +107,10 @@ func run() (err error) {
 	oldTok := shortTok(claim1.Lease.Token)
 
 	snapshot(ctx, ds, tp.Id, "AFTER CRASH")
-	assert("no exception rows written", deliveries(ctx, ds, tp.Id), 0)
-	assert("committed pinned at range lo", committedCol(ctx, ds, tp.Id), claim1.Lease.Low)
-	assert("claimed sits at range hi", claimedCol(ctx, ds, tp.Id), claim1.Lease.High)
-	assert("exactly one open lease", leases(ctx, ds, tp.Id), 1)
+	assertInt64("no exception rows written", deliveries(ctx, ds, tp.Id), 0)
+	assertInt64("committed pinned at range lo", committedCol(ctx, ds, tp.Id), claim1.Lease.Low)
+	assertInt64("claimed sits at range hi", claimedCol(ctx, ds, tp.Id), claim1.Lease.High)
+	assertInt64("exactly one open lease", leases(ctx, ds, tp.Id), 1)
 
 	// ===== lease expiry =====
 	step(fmt.Sprintf("sleep %s — let the crashed lease expire", lease+500*time.Millisecond))
@@ -137,57 +119,57 @@ func run() (err error) {
 	// ===== WORKER 2: Reclaim-before-Claim grabs the EXACT expired range =====
 	step("WORKER 2 polls: Reclaim-before-Claim picks up the expired lease")
 	claim2, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, batch, maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
-	must(err)
+	common.Must(err)
 	if claim2 == nil {
-		die("expected a reclaim, got nil")
+		common.Die("expected a reclaim, got nil")
 	}
 	fmt.Printf("  reclaimed (%d,%d]  ids=%v  NEW lease=%s (was %s)\n",
 		claim2.Lease.Low, claim2.Lease.High, ids(claim2.Messages), shortTok(claim2.Lease.Token), oldTok)
-	assert("reclaim re-reads exact range lo", claim2.Lease.Low, claim1.Lease.Low)
-	assert("reclaim re-reads exact range hi", claim2.Lease.High, claim1.Lease.High)
-	assert("reclaim re-reads same message count", int64(len(claim2.Messages)), int64(len(claim1.Messages)))
+	assertInt64("reclaim re-reads exact range lo", claim2.Lease.Low, claim1.Lease.Low)
+	assertInt64("reclaim re-reads exact range hi", claim2.Lease.High, claim1.Lease.High)
+	assertInt64("reclaim re-reads same message count", int64(len(claim2.Messages)), int64(len(claim1.Messages)))
 	if shortTok(claim2.Lease.Token) == oldTok {
-		die("token was NOT rotated — R5 violated")
+		common.Die("token was NOT rotated — R5 violated")
 	}
 	fmt.Println("  token rotated -> the dead worker's stale commit will now no-op")
 
 	// committed is still pinned at lo while the reclaimed range is in-flight again
 	committed = advance(ctx, cursorAdvancerDatastore, tp.Id)
 	fmt.Printf("  roller tick (mid-reclaim) -> committed = %d\n", committed)
-	assert("committed still pinned during reclaim", committedCol(ctx, ds, tp.Id), claim1.Lease.Low)
+	assertInt64("committed still pinned during reclaim", committedCol(ctx, ds, tp.Id), claim1.Lease.Low)
 
 	// the dead WORKER 1 "resurrects" and tries to commit with its STALE token: rejected
 	if err := messageConsumers.Commit(ctx, tp.Id, groupId, claim1.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures); !errors.Is(err, iCommon.ErrLeaseLost) {
-		die(fmt.Sprintf("stale commit: want ErrLeaseLost, got %v", err))
+		common.Die(fmt.Sprintf("stale commit: want ErrLeaseLost, got %v", err))
 	}
-	assert("stale commit freed nothing (live lease survives)", leases(ctx, ds, tp.Id), 1)
-	assert("stale commit did not move committed", committedCol(ctx, ds, tp.Id), claim1.Lease.Low)
+	assertInt64("stale commit freed nothing (live lease survives)", leases(ctx, ds, tp.Id), 1)
+	assertInt64("stale commit did not move committed", committedCol(ctx, ds, tp.Id), claim1.Lease.Low)
 	fmt.Println("  dead worker's stale Commit was rejected with ErrLeaseLost")
 
 	// WORKER 2 finishes the range for real -> free lease, roller advances
-	must(messageConsumers.Commit(ctx, tp.Id, groupId, claim2.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
+	common.Must(messageConsumers.Commit(ctx, tp.Id, groupId, claim2.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 	committed = advance(ctx, cursorAdvancerDatastore, tp.Id)
 	fmt.Printf("  reclaim committed -> roller tick -> committed = %d\n", committed)
 
 	snapshot(ctx, ds, tp.Id, "AFTER RECLAIM COMMITTED")
-	assert("committed released past reclaimed range", committedCol(ctx, ds, tp.Id), claim1.Lease.High)
-	assert("crashed lease is gone", leases(ctx, ds, tp.Id), 0)
-	assert("still no exception rows", deliveries(ctx, ds, tp.Id), 0)
+	assertInt64("committed released past reclaimed range", committedCol(ctx, ds, tp.Id), claim1.Lease.High)
+	assertInt64("crashed lease is gone", leases(ctx, ds, tp.Id), 0)
+	assertInt64("still no exception rows", deliveries(ctx, ds, tp.Id), 0)
 
 	// ===== drain the rest so committed reaches head =====
 	step("drain remaining ranges -> committed reaches head")
 	for range 10 {
 		c, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, batch, maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
-		must(err)
+		common.Must(err)
 		if c == nil {
 			break // caught up
 		}
-		must(messageConsumers.Commit(ctx, tp.Id, groupId, c.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
+		common.Must(messageConsumers.Commit(ctx, tp.Id, groupId, c.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 		fmt.Printf("  drained (%d,%d] -> committed = %d\n", c.Lease.Low, c.Lease.High, advance(ctx, cursorAdvancerDatastore, tp.Id))
 	}
-	assert("committed reached head", committedCol(ctx, ds, tp.Id), head)
-	assert("no leases left open", leases(ctx, ds, tp.Id), 0)
-	assert("exception queue stayed empty the whole e2e test", deliveries(ctx, ds, tp.Id), 0)
+	assertInt64("committed reached head", committedCol(ctx, ds, tp.Id), head)
+	assertInt64("no leases left open", leases(ctx, ds, tp.Id), 0)
+	assertInt64("exception queue stayed empty the whole e2e test", deliveries(ctx, ds, tp.Id), 0)
 
 	fmt.Println("\n✅ PHASE 6.5b E2E TEST PASSED")
 	fmt.Println("   crash mid-range -> lease expired -> exact range reclaimed (token rotated) ->")
@@ -199,7 +181,7 @@ func run() (err error) {
 
 func advance(ctx context.Context, cursorAdvancerDatastore *cursoradvancerdatastore.CursorAdvancerDatastore, streamId int64) int64 {
 	c, err := cursorAdvancerDatastore.AdvanceCommitted(ctx, streamId, groupId)
-	must(err)
+	common.Must(err)
 	return c
 }
 
@@ -223,7 +205,7 @@ func deliveries(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId 
 
 func scalar(ctx context.Context, ds *iDatastore.PostgresDatastore, q string, args ...any) int64 {
 	var v int64
-	must(ds.Pool.QueryRow(ctx, q, args...).Scan(&v))
+	common.Must(ds.Pool.QueryRow(ctx, q, args...).Scan(&v))
 	return v
 }
 
@@ -244,19 +226,11 @@ func shortTok[T fmt.Stringer](t T) string {
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}
-func assert(label string, got, want int64) {
+func assertInt64(label string, got, want int64) {
 	if got != want {
-		die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
+		common.Die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
 	}
 	fmt.Printf("  ✓ %s (%d)\n", label, got)
 }
 
-func mustGroupID(g *consume.Consumer, err error) int64 { must(err); return g.Id }
+func mustGroupID(g *consume.Consumer, err error) int64 { common.Must(err); return g.Id }

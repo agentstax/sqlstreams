@@ -39,32 +39,14 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", &sqlstreams.PostgresConnectionConfig{
+	pool, err := common.NewPool(ctx, &sqlstreams.PostgresConnectionConfig{
 		MaxConns: 60, // headroom above both scenarios' 50 concurrent publishers
 	})
-	must(err)
+	common.Must(err)
 	defer pool.Close()
 
 	sameKeyConcurrentScenario(ctx, pool)
@@ -85,20 +67,20 @@ func sameKeyConcurrentScenario(ctx context.Context, pool *pgxpool.Pool) {
 
 	const n = 50
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	streamName := fmt.Sprintf("phase9.idempotencykeysrace.same.%d", time.Now().UnixNano())
 	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: 1000})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 
 	key := uuid.NewV7().String()
 
@@ -109,7 +91,7 @@ func sameKeyConcurrentScenario(ctx context.Context, pool *pgxpool.Pool) {
 			produced, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 				return common.NewWork(30, "admin@example.com")
 			}, &sqlstreams.ProduceOptions{IdempotencyKey: key})
-			must(err)
+			common.Must(err)
 			if produced.Duplicate {
 				duplicateCount.Add(1)
 			}
@@ -118,16 +100,16 @@ func sameKeyConcurrentScenario(ctx context.Context, pool *pgxpool.Pool) {
 	wg.Wait()
 
 	if duplicateCount.Load() != n-1 {
-		die(fmt.Sprintf("%d of %d calls reported Duplicate, want %d -- exactly 1 winner", duplicateCount.Load(), n, n-1))
+		common.Die(fmt.Sprintf("%d of %d calls reported Duplicate, want %d -- exactly 1 winner", duplicateCount.Load(), n, n-1))
 	}
 	fmt.Printf("  ✓ exactly 1 of %d concurrent calls stored the message, %d reported Duplicate\n", n, n-1)
 	assertCount(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, stream.MessageLogTable(tp.Id)), 1, fmt.Sprintf("%d concurrent publishes under one shared key landed exactly 1 message", n))
 	assertCount(ctx, ds, fmt.Sprintf("%s.%s", ds.Schema, stream.IdempotencyKeyTable(tp.Id)), 1, fmt.Sprintf("%d concurrent publishes under one shared key left exactly 1 claim row", n))
 
 	var exists bool
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT EXISTS(SELECT 1 FROM %s.%s WHERE idempotency_key = $1);`, ds.Schema, stream.IdempotencyKeyTable(tp.Id)), key).Scan(&exists))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT EXISTS(SELECT 1 FROM %s.%s WHERE idempotency_key = $1);`, ds.Schema, stream.IdempotencyKeyTable(tp.Id)), key).Scan(&exists))
 	if !exists {
-		die("the one surviving claim row is not keyed to the idempotency key every goroutine shared")
+		common.Die("the one surviving claim row is not keyed to the idempotency key every goroutine shared")
 	}
 	fmt.Println("  ✓ the surviving claim row is keyed to the shared idempotency key")
 }
@@ -140,20 +122,20 @@ func distinctKeysConcurrentScenario(ctx context.Context, pool *pgxpool.Pool) {
 
 	const n = 50
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	streamName := fmt.Sprintf("phase9.idempotencykeysrace.distinct.%d", time.Now().UnixNano())
 	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{PartitionSize: 1000})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 
 	var wg sync.WaitGroup
 	for range n {
@@ -162,7 +144,7 @@ func distinctKeysConcurrentScenario(ctx context.Context, pool *pgxpool.Pool) {
 			_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 				return common.NewWork(30, "admin@example.com")
 			}, &sqlstreams.ProduceOptions{IdempotencyKey: key})
-			must(err)
+			common.Must(err)
 		})
 	}
 	wg.Wait()
@@ -175,19 +157,11 @@ func distinctKeysConcurrentScenario(ctx context.Context, pool *pgxpool.Pool) {
 
 func assertCount(ctx context.Context, ds *iDatastore.PostgresDatastore, table string, want int, label string) {
 	var count int
-	must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s;`, table)).Scan(&count))
+	common.Must(ds.Pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s;`, table)).Scan(&count))
 	if count != want {
-		die(fmt.Sprintf("%s: %s has %d rows, want %d", label, table, count, want))
+		common.Die(fmt.Sprintf("%s: %s has %d rows, want %d", label, table, count, want))
 	}
 	fmt.Printf("  ✓ %s (%d)\n", label, count)
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}

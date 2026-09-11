@@ -50,54 +50,36 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	streamName := fmt.Sprintf("phase7.routing.%d", time.Now().UnixNano())
 	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	messageConsumers, err := messageconsumercontroller.NewMessageConsumerGroupController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	deliveryConsumers, err := deliveryconsumercontroller.NewDeliveryConsumerGroupController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	cursorAdvancerDatastore, err := cursoradvancerdatastore.NewCursorAdvancerDatastore(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 
 	head, gids := reset(ctx, ds, cd, tp.Id, cursorGroup, controlGroup, lifecycleGroup)
 	cursorGroupID, controlGroupID, lifecycleGroupID := gids[cursorGroup], gids[controlGroup], gids[lifecycleGroup]
@@ -111,9 +93,9 @@ func run() (err error) {
 	// ===== bind cursorGroup and lifecycleGroup, THEN publish the rest =====
 	step("bind cursorGroup to orders.*.created, lifecycleGroup to payments.*")
 	_, err = cd.DeclareBindings(ctx, tp.Id, cursorGroupID, []string{"orders.*.created"}, time.Now())
-	must(err)
+	common.Must(err)
 	_, err = cd.DeclareBindings(ctx, tp.Id, lifecycleGroupID, []string{"payments.*"}, time.Now())
-	must(err)
+	common.Must(err)
 
 	msg2 := publish(ctx, wpInstance, "orders.us.central1.created") // deeper hierarchy, still matches (true wildcard)
 	msg3 := publish(ctx, wpInstance, "orders.eu.updated")          // wrong tail, does not match
@@ -128,9 +110,9 @@ func run() (err error) {
 	// ===== CURSOR path: cursorGroup only sees the 2 matching messages =====
 	step("cursorGroup claims (head, head+5] -- expect only msg1 and msg2 back")
 	claim, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, cursorGroupID, 1, limit, maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
-	must(err)
+	common.Must(err)
 	if claim == nil {
-		die("expected a fresh claim, got nil (no work?)")
+		common.Die("expected a fresh claim, got nil (no work?)")
 	}
 	fmt.Printf("  claimed (%d,%d]  ids=%v\n", claim.Lease.Low, claim.Lease.High, ids(claim.Messages))
 	assertInt("range low is head", claim.Lease.Low, head)
@@ -138,29 +120,29 @@ func run() (err error) {
 	assertIDs("only msg1 (published before the binding existed) and msg2 (deeper hierarchy) match",
 		ids(claim.Messages), []int64{head + 1, head + 2})
 
-	must(messageConsumers.Commit(ctx, tp.Id, cursorGroupID, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
+	common.Must(messageConsumers.Commit(ctx, tp.Id, cursorGroupID, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 	committed := advance(ctx, cursorAdvancerDatastore, tp.Id, cursorGroupID)
 	assertInt("committed advances over the WHOLE range regardless of match", committed, head+5)
 
 	// ===== CURSOR path: controlGroup has no binding, sees every message =====
 	step("controlGroup claims the identical range -- expect all 5 back, unaffected by cursorGroup's binding")
 	claim, err = messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, controlGroupID, 1, limit, maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
-	must(err)
+	common.Must(err)
 	if claim == nil {
-		die("expected a fresh claim, got nil (no work?)")
+		common.Die("expected a fresh claim, got nil (no work?)")
 	}
 	fmt.Printf("  claimed (%d,%d]  ids=%v\n", claim.Lease.Low, claim.Lease.High, ids(claim.Messages))
 	assertIDs("an unbound group receives every message, including the NULL routing_key one",
 		ids(claim.Messages), []int64{head + 1, head + 2, head + 3, head + 4, head + 5})
 
-	must(messageConsumers.Commit(ctx, tp.Id, controlGroupID, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
+	common.Must(messageConsumers.Commit(ctx, tp.Id, controlGroupID, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 	advance(ctx, cursorAdvancerDatastore, tp.Id, controlGroupID)
 
 	// ===== LIFECYCLE path: only a matching message ever gets a delivery row =====
 	step("FanOut lifecycleGroup -- expect exactly 1 delivery row (msg4, payments.charge)")
-	must(deliveryConsumers.FanOut(ctx, tp.Id, lifecycleGroupID, 1, 100))
+	common.Must(deliveryConsumers.FanOut(ctx, tp.Id, lifecycleGroupID, 1, 100))
 	deliveries, err := deliveryConsumers.ClaimMessagesWithLifecycle(ctx, tp.Id, lifecycleGroupID, limit)
-	must(err)
+	common.Must(err)
 	fmt.Printf("  claimed deliveries: %v\n", deliveryIDs(deliveries))
 	assertIDs("payments.charge is the only message materialized as a delivery",
 		deliveryIDs(deliveries), []int64{head + 4})
@@ -178,7 +160,7 @@ func publish(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[common
 	produced, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 		return common.NewWork(30, "admin@example.com")
 	}, &sqlstreams.ProduceOptions{RoutingKey: routingKey})
-	must(err)
+	common.Must(err)
 	return fmt.Sprintf("work=%s routing_key=%q", produced.Message.Id, routingKey)
 }
 
@@ -192,29 +174,29 @@ func reset(ctx context.Context, ds *iDatastore.PostgresDatastore, cd *consumecon
 		gID := mustGroupID(cd.RegisterGroup(ctx, streamId, g, consume.Beginning()))
 		gids[g] = gID
 		_, err := ds.Pool.Exec(ctx, fmt.Sprintf(`DELETE FROM %s.%s WHERE consumer_group_id=$1`, ds.Schema, stream.ClaimLeaseTable(streamId)), gID)
-		must(err)
+		common.Must(err)
 		_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`DELETE FROM %s.%s WHERE consumer_group_id=$1`, ds.Schema, stream.ExceptionQueueTable(streamId)), gID)
-		must(err)
+		common.Must(err)
 		_, err = cd.DeclareBindings(ctx, streamId, gID, nil, time.Now())
-		must(err)
+		common.Must(err)
 		// settled/pending must ride along -- the claim gate assumes
 		// gate >= settled >= claimed; bumping claimed alone breaks that and a
 		// poll where the fresh pair doesn't prove would regress the cursor
 		_, err = ds.Pool.Exec(ctx, fmt.Sprintf(`UPDATE %s.%s SET claimed=$2, committed=$2, settled_head=$2, pending_head=$2, pending_xid=NULL WHERE consumer_group_id=$1`, ds.Schema, stream.ConsumerGroupCursorTable(streamId)), gID, head)
-		must(err)
+		common.Must(err)
 	}
 	return head, gids
 }
 
 func advance(ctx context.Context, cursorAdvancerDatastore *cursoradvancerdatastore.CursorAdvancerDatastore, streamId int64, groupId int64) int64 {
 	c, err := cursorAdvancerDatastore.AdvanceCommitted(ctx, streamId, groupId)
-	must(err)
+	common.Must(err)
 	return c
 }
 
 func scalar(ctx context.Context, ds *iDatastore.PostgresDatastore, q string, args ...any) int64 {
 	var v int64
-	must(ds.Pool.QueryRow(ctx, q, args...).Scan(&v))
+	common.Must(ds.Pool.QueryRow(ctx, q, args...).Scan(&v))
 	return v
 }
 
@@ -235,30 +217,22 @@ func deliveryIDs(rows []deliveryconsumercontroller.Delivery) []int64 {
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}
 func assertInt(label string, got, want int64) {
 	if got != want {
-		die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
+		common.Die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
 	}
 	fmt.Printf("  ✓ %s (%d)\n", label, got)
 }
 func assertIDs(label string, got, want []int64) {
 	if len(got) != len(want) {
-		die(fmt.Sprintf("%s: got %v, want %v", label, got, want))
+		common.Die(fmt.Sprintf("%s: got %v, want %v", label, got, want))
 	}
 	for i := range got {
 		if got[i] != want[i] {
-			die(fmt.Sprintf("%s: got %v, want %v", label, got, want))
+			common.Die(fmt.Sprintf("%s: got %v, want %v", label, got, want))
 		}
 	}
 	fmt.Printf("  ✓ %s %v\n", label, got)
 }
 
-func mustGroupID(g *consume.Consumer, err error) int64 { must(err); return g.Id }
+func mustGroupID(g *consume.Consumer, err error) int64 { common.Must(err); return g.Id }

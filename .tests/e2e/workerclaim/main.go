@@ -47,51 +47,33 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	streamName := fmt.Sprintf("workerclaim.%d", time.Now().UnixNano())
 	tp, err := client.Stream[common.Work](streamName).Register(ctx, &sqlstreams.StreamConfig{})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[common.Work](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[common.Work](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	wpInstance, err := client.Stream[common.Work](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	for range seedRows {
 		_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*common.Work, error) {
 			return common.NewWork(30, "admin@example.com")
 		}, nil)
-		must(err)
+		common.Must(err)
 	}
 	head := scalar(ctx, ds, fmt.Sprintf(`SELECT COALESCE(max(id),0) FROM %s.%s`, ds.Schema, stream.MessageLogTable(tp.Id)))
 	fmt.Printf("stream=%q id=%d seeded head=%d, instance ttl=%s, %d consumers\n", streamName, tp.Id, head, instanceTTL, consumers)
@@ -155,13 +137,13 @@ type runningConsumer struct {
 
 func (rc *runningConsumer) stop() {
 	rc.cancel()
-	must(<-rc.done)
+	common.Must(<-rc.done)
 }
 
 func start(ctx context.Context, client *sqlstreams.Client, streamName string, i int) *runningConsumer {
 	lifecycleCtx, cancel := context.WithCancel(ctx)
 	cInstance, err := client.Stream[common.Work](streamName).Consumer(group).Register(lifecycleCtx, nil)
-	must(err)
+	common.Must(err)
 
 	options := &sqlstreams.ConsumeOptions{
 		BatchLimit:         50,
@@ -198,17 +180,17 @@ func sampleLive(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId 
 			WHERE w.stream_id = $1
 				OR w.consumer_group_id = $2
 			GROUP BY w.name`, ds.Schema, ds.Schema), streamId, groupId)
-		must(err)
+		common.Must(err)
 		for rows.Next() {
 			var name string
 			var n int
-			must(rows.Scan(&name, &n))
+			common.Must(rows.Scan(&name, &n))
 			live[name] = n
 			if n > maxLive[name] {
 				maxLive[name] = n
 			}
 		}
-		must(rows.Err())
+		common.Must(rows.Err())
 		rows.Close()
 		time.Sleep(50 * time.Millisecond)
 	}
@@ -219,25 +201,15 @@ func sampleLive(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId 
 
 func scalar(ctx context.Context, ds *iDatastore.PostgresDatastore, q string, args ...any) int64 {
 	var v int64
-	must(ds.Pool.QueryRow(ctx, q, args...).Scan(&v))
+	common.Must(ds.Pool.QueryRow(ctx, q, args...).Scan(&v))
 	return v
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
 
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-
-func die(msg string) {
-	panic(testFailure{message: msg})
-}
-
 func assertInt(label string, got, want int64) {
 	if got != want {
-		die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
+		common.Die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
 	}
 	fmt.Printf("  ✓ %s (%d)\n", label, got)
 }

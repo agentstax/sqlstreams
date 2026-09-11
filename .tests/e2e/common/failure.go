@@ -14,15 +14,15 @@ func (f Failure) Error() string {
 	return f.Message
 }
 
-// Die fails the program with the formatted message.
-func Die(format string, args ...any) {
-	panic(Failure{Message: fmt.Sprintf(format, args...)})
+// Die fails the program with the message.
+func Die(message string) {
+	panic(Failure{Message: message})
 }
 
 // Must fails the program on a non-nil error.
 func Must(err error) {
 	if err != nil {
-		Die("%s", err.Error())
+		Die(err.Error())
 	}
 }
 
@@ -30,7 +30,7 @@ func Must(err error) {
 // false.
 func Assert(condition bool, format string, args ...any) {
 	if !condition {
-		Die(format, args...)
+		Die(fmt.Sprintf(format, args...))
 	}
 }
 

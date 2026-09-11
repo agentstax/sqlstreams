@@ -23,6 +23,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/agentstax/sqlstreams/.tests/e2e/common"
 	"github.com/agentstax/sqlstreams/pkg/consume"
 	consumecontroller "github.com/agentstax/sqlstreams/pkg/consume/controller"
 	messageconsumercontroller "github.com/agentstax/sqlstreams/pkg/consume/messageconsumer/controller"
@@ -49,50 +50,32 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	streamName := fmt.Sprintf("phase14a.compactionrank.%d", time.Now().UnixNano())
 	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{})
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	cd, err := consumecontroller.NewConsumeController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	messageConsumers, err := messageconsumercontroller.NewMessageConsumerGroupController(ds, ds.Logger)
-	must(err)
+	common.Must(err)
 	wpInstance, err := client.Stream[RankedRecord](tp.Name).Producer().Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	groupId := mustGroupID(cd.RegisterGroup(ctx, tp.Id, group, consume.Beginning()))
 
 	const lease = 5 * time.Second
@@ -108,12 +91,12 @@ func run() (err error) {
 	assertInt("compaction_head still points at the pin despite two higher-id normal writes after it", headID(ctx, ds, tp.Id, "user:1"), 2)
 
 	claim, err := messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, 10, maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
-	must(err)
+	common.Must(err)
 	if claim == nil {
-		die("expected a fresh claim, got nil")
+		common.Die("expected a fresh claim, got nil")
 	}
 	assertIDs("only the pinned row comes back for user:1", ids(claim.Messages), []int64{2})
-	must(messageConsumers.Commit(ctx, tp.Id, groupId, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
+	common.Must(messageConsumers.Commit(ctx, tp.Id, groupId, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 	assertInt("v1/v3/v4 still physically exist -- compaction filters, never deletes", rowCount(ctx, ds, tp.Id), 4)
 
 	// ===== the bridge interleaving: -1 never beats 0, either arrival order (ids 5-8) =====
@@ -128,12 +111,12 @@ func run() (err error) {
 	assertInt("compaction_head points at the live write", headID(ctx, ds, tp.Id, "user:3"), 8)
 
 	claim, err = messageConsumers.ClaimMessagesWithCursor(ctx, tp.Id, groupId, 1, 10, maxRangeReclaims, lease, stream.DeliveryLogModeFailures)
-	must(err)
+	common.Must(err)
 	if claim == nil {
-		die("expected a fresh claim, got nil")
+		common.Die("expected a fresh claim, got nil")
 	}
 	assertIDs("only the two live-rank winners come back, neither backfill", ids(claim.Messages), []int64{5, 8})
-	must(messageConsumers.Commit(ctx, tp.Id, groupId, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
+	common.Must(messageConsumers.Commit(ctx, tp.Id, groupId, claim.Lease.Token, nil, 5*time.Second, stream.DeliveryLogModeFailures))
 
 	step("both backfill rows still physically exist, just never claimed")
 	assertTrue("user:2's backfill row (id 6) still exists", rowExists(ctx, ds, tp.Id, 6))
@@ -153,7 +136,7 @@ func publish(ctx context.Context, wpInstance *sqlstreams.ProducerInstance[Ranked
 	_, err := wpInstance.ProduceFunc(ctx, func(ctx context.Context, tx sqlstreams.Tx) (*RankedRecord, error) {
 		return &RankedRecord{Key: key, Label: label}, nil
 	}, &sqlstreams.ProduceOptions{MessageKey: key, Compaction: &sqlstreams.CompactionOptions{Enable: true, Rank: rank}})
-	must(err)
+	common.Must(err)
 }
 
 func headID(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId int64, key string) int64 {
@@ -170,7 +153,7 @@ func rowExists(ctx context.Context, ds *iDatastore.PostgresDatastore, streamId, 
 
 func scalar(ctx context.Context, ds *iDatastore.PostgresDatastore, q string, args ...any) int64 {
 	var v int64
-	must(ds.Pool.QueryRow(ctx, q, args...).Scan(&v))
+	common.Must(ds.Pool.QueryRow(ctx, q, args...).Scan(&v))
 	return v
 }
 
@@ -183,36 +166,28 @@ func ids(msgs []messageconsumercontroller.Message) []int64 {
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}
 func assertInt(label string, got, want int64) {
 	if got != want {
-		die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
+		common.Die(fmt.Sprintf("%s: got %d, want %d", label, got, want))
 	}
 	fmt.Printf("  ✓ %s (%d)\n", label, got)
 }
 func assertIDs(label string, got, want []int64) {
 	if len(got) != len(want) {
-		die(fmt.Sprintf("%s: got %v, want %v", label, got, want))
+		common.Die(fmt.Sprintf("%s: got %v, want %v", label, got, want))
 	}
 	for i := range got {
 		if got[i] != want[i] {
-			die(fmt.Sprintf("%s: got %v, want %v", label, got, want))
+			common.Die(fmt.Sprintf("%s: got %v, want %v", label, got, want))
 		}
 	}
 	fmt.Printf("  ✓ %s %v\n", label, got)
 }
 func assertTrue(label string, cond bool) {
 	if !cond {
-		die(fmt.Sprintf("%s: got false, want true", label))
+		common.Die(fmt.Sprintf("%s: got false, want true", label))
 	}
 	fmt.Printf("  ✓ %s\n", label)
 }
 
-func mustGroupID(g *consume.Consumer, err error) int64 { must(err); return g.Id }
+func mustGroupID(g *consume.Consumer, err error) int64 { common.Must(err); return g.Id }

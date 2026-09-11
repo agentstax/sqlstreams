@@ -37,42 +37,24 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 
 	streamName := fmt.Sprintf("managerautorun.%d", time.Now().UnixNano())
 	_, err = client.Stream[common.Work](streamName).Register(ctx, nil)
-	must(err)
+	common.Must(err)
 	defer func() {
-		must(client.Stream[common.Work](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+		common.Must(client.Stream[common.Work](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 	}()
 
 	// the row is the e2e test's whole subject -- a stale installation still
@@ -81,7 +63,7 @@ func run() (err error) {
 	target := scalar(ctx, ds, fmt.Sprintf(`SELECT target_instances FROM %s.worker_config WHERE name='manager' AND system_id IS NOT NULL`, ds.Schema))
 	fmt.Printf("  target_instances=%d\n", target)
 	if target != 1 {
-		die(fmt.Sprintf("system manager row has target_instances=%d, want 1 -- re-declaration only updates metadata, so an installation created before the gate needs a drop+recreate of its schema", target))
+		common.Die(fmt.Sprintf("system manager row has target_instances=%d, want 1 -- re-declaration only updates metadata, so an installation created before the gate needs a drop+recreate of its schema", target))
 	}
 
 	// ===== phase 1: two sessions, one claim =====
@@ -101,7 +83,7 @@ func run() (err error) {
 	assertLive(ctx, ds, "the first process claims", 1)
 
 	secondClient, err := sqlstreams.NewClient(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 	waiting := start(ctx, secondClient, streamName, "managerautorun-b")
 	assertLive(ctx, ds, "the second process is declined -- still one claim", 1)
 
@@ -117,11 +99,11 @@ func run() (err error) {
 
 	capture := newCaptureLogger()
 	suspendedClient, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{Logger: capture})
-	must(err)
+	common.Must(err)
 	suspended := start(ctx, suspendedClient, streamName, "managerautorun-a")
 	assertLive(ctx, ds, "a suspended row runs no manager", 0)
 	if count := capture.countCode("warn", "SQL0035"); count < 1 {
-		die(fmt.Sprintf("the suspended session logged %d SQL0035 warns, want >= 1", count))
+		common.Die(fmt.Sprintf("the suspended session logged %d SQL0035 warns, want >= 1", count))
 	}
 	fmt.Printf("  ✓ SQL0035 warned %d time(s) -- the operator hears why\n", capture.countCode("warn", "SQL0035"))
 	suspended.stop()
@@ -131,7 +113,7 @@ func run() (err error) {
 	// ===== phase 4: the opt-out =====
 	step("PHASE 4: DisableManager runs no manager at all")
 	disabledClient, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{DisableManager: true})
-	must(err)
+	common.Must(err)
 	disabled := start(ctx, disabledClient, streamName, "managerautorun-a")
 	assertLive(ctx, ds, "a DisableManager session runs no manager", 0)
 	disabled.stop()
@@ -145,7 +127,7 @@ func run() (err error) {
 	assertLive(ctx, ds, "the explicit run and the session share one claim", 1)
 
 	stopExplicit()
-	must(<-explicitDone)
+	common.Must(<-explicitDone)
 	waitLive(ctx, ds, "the session carries upkeep once the explicit run stops", 1, takeoverWindow)
 	session.stop()
 	assertLive(ctx, ds, "released with the session", 0)
@@ -165,7 +147,7 @@ type runningSession struct {
 
 func (s *runningSession) stop() {
 	s.cancel()
-	must(<-s.done)
+	common.Must(<-s.done)
 	// a released row is gone at once, but the release lands after Consume's
 	// own return -- give the manager's drain a moment to finish
 	time.Sleep(2 * time.Second)
@@ -174,7 +156,7 @@ func (s *runningSession) stop() {
 func start(ctx context.Context, client *sqlstreams.Client, streamName string, group string) *runningSession {
 	lifecycleCtx, cancel := context.WithCancel(ctx)
 	instance, err := client.Stream[common.Work](streamName).Consumer(group).Register(lifecycleCtx, nil)
-	must(err)
+	common.Must(err)
 
 	done := make(chan error, 1)
 	go func() {
@@ -202,7 +184,7 @@ func liveManagers(ctx context.Context, ds *iDatastore.PostgresDatastore) int64 {
 func assertLive(ctx context.Context, ds *iDatastore.PostgresDatastore, label string, want int64) {
 	got := liveManagers(ctx, ds)
 	if got != want {
-		die(fmt.Sprintf("%s: %d live system managers, want %d", label, got, want))
+		common.Die(fmt.Sprintf("%s: %d live system managers, want %d", label, got, want))
 	}
 	fmt.Printf("  ✓ %s (live=%d)\n", label, got)
 }
@@ -218,7 +200,7 @@ func waitLive(ctx context.Context, ds *iDatastore.PostgresDatastore, label strin
 			return
 		}
 		if time.Now().After(deadline) {
-			die(fmt.Sprintf("%s: %d live system managers after %s, want %d", label, got, within, want))
+			common.Die(fmt.Sprintf("%s: %d live system managers after %s, want %d", label, got, within, want))
 		}
 		time.Sleep(time.Second)
 	}
@@ -226,13 +208,13 @@ func waitLive(ctx context.Context, ds *iDatastore.PostgresDatastore, label strin
 
 func setTarget(ctx context.Context, ds *iDatastore.PostgresDatastore, target int) {
 	_, err := ds.Pool.Exec(ctx, fmt.Sprintf(`UPDATE %s.worker_config SET target_instances=$1 WHERE name='manager' AND system_id IS NOT NULL`, ds.Schema), target)
-	must(err)
+	common.Must(err)
 	fmt.Printf("  target_instances set to %d\n", target)
 }
 
 func scalar(ctx context.Context, ds *iDatastore.PostgresDatastore, sql string, args ...any) int64 {
 	var value int64
-	must(ds.Pool.QueryRow(ctx, sql, args...).Scan(&value))
+	common.Must(ds.Pool.QueryRow(ctx, sql, args...).Scan(&value))
 	return value
 }
 
@@ -294,13 +276,3 @@ func (c *captureLogger) countCode(level string, code string) int {
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-
-func die(message string) {
-	panic(testFailure{message: message})
-}

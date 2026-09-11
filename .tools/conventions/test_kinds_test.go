@@ -29,6 +29,10 @@ var connectVerbs = map[string][]string{
 // testDatabaseSeam is the one reader of the SQLSTREAMS_TEST_* variables.
 const testDatabaseSeam = ".tests/integration/postgres"
 
+// privateHelperNames are the e2e helpers .tests/e2e/common declares; a
+// program declaring its own copy drifts from the shared shape.
+var privateHelperNames = map[string]bool{"must": true, "die": true, "assert": true, "testFailure": true}
+
 // A unit test runs with nothing installed, so no _test.go beside the code
 // opens a connection. A test that needs Postgres is an integration test
 // under .tests/integration/, where the container is the test's own.
@@ -110,6 +114,29 @@ func TestTestDatabaseVariablesReadOnlyThroughTheSeam(t *testing.T) {
 	}
 	if len(files) == 0 {
 		t.Fatal("no file reached the walk -- check unitTestRoots")
+	}
+}
+
+// Every e2e program takes must, die, assert, and the pool from
+// .tests/e2e/common -- never a private copy.
+func TestE2eProgramsDeclareNoPrivateHelpers(t *testing.T) {
+	files := goFiles(t, ".tests/e2e")
+	walked := 0
+	for _, file := range files {
+		if strings.HasPrefix(file.Relative, ".tests/e2e/common/") {
+			continue
+		}
+		walked++
+		parsed, fileSet := parseGoFile(t, file.Path)
+		for _, declaration := range parsed.Decls {
+			name, position := declaredName(declaration, fileSet)
+			if privateHelperNames[name] {
+				t.Errorf("%s:%d declares %s -- take it from .tests/e2e/common", file.Relative, position, name)
+			}
+		}
+	}
+	if walked == 0 {
+		t.Fatal("no e2e program reached the walk -- check .tests/e2e")
 	}
 }
 
@@ -215,4 +242,22 @@ func calledFunction(call *ast.CallExpr, imports map[string]string) (string, stri
 		}
 	}
 	return "", ""
+}
+
+// declaredName is a top-level declaration's name and line: a func without
+// a receiver, or a single type.
+func declaredName(declaration ast.Decl, fileSet *token.FileSet) (string, int) {
+	switch typed := declaration.(type) {
+	case *ast.FuncDecl:
+		if typed.Recv == nil {
+			return typed.Name.Name, fileSet.Position(typed.Pos()).Line
+		}
+	case *ast.GenDecl:
+		for _, spec := range typed.Specs {
+			if typeSpec, ok := spec.(*ast.TypeSpec); ok {
+				return typeSpec.Name.Name, fileSet.Position(typeSpec.Pos()).Line
+			}
+		}
+	}
+	return "", 0
 }

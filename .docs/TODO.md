@@ -44,7 +44,7 @@ test -race -count=1 ./reliability/...`, then `just reliability-lab dev`
 green, then the chunk's own sabotage. A green run is trusted only after
 the sabotage turns it.
 
-### Scratch/lab recording isolation (2026-09-11, in progress)
+### Scratch/lab recording isolation (2026-09-11, comparison complete)
 
 - Comparing the original scratch workload with the actual lab record writers
   enabled and disabled in the same producer/consumer processes. Five-minute
@@ -66,6 +66,31 @@ the sabotage turns it.
   are unchanged (only two test files differ). Both batch APIs generate UUIDv7
   keys, and both unpaced loops use four persistent callers. Remaining differences
   include payload construction/shape, recording, monitoring, and startup timing.
+
+- Completed all four measured windows, produced/consumed per second:
+  recording on 61,681/61,755; off 63,331/62,850;
+  on 56,382/56,759; off 67,669/68,537. Equal-window producer means
+  59,032 on versus 65,500 off (9.88% lower). Consumer endpoint differences
+  include backlog draining; these short windows are diagnostic, not a new
+  sustained maximum. Recording wrote 40.2–44.1 MB/s of additional JSON evidence.
+- Recording-on consumer CPU was 128.7–143.9% of one core versus 70.5–79.1%
+  off; producer 39.8–43.3% versus 31.6–35.3%. The recording path adds CPU
+  work and writes, but this experiment does not separate their throughput costs.
+  Both off windows recovered with the same database/processes. This is stronger
+  evidence than the prior cross-program comparison, but does not prove every
+  point of the lab gap or rule out checkpoint/cleanup timing effects.
+- Verified 78,172,500 identities exactly once, zero errors/duplicates,
+  zero logged maintenance failures or sampled retries; no host-guard violation.
+  Peak combined storage 92.596 GB, minimum host free 96.198 GB. Expired keys
+  at producer-stop cutoff: zero. Owned database removed, native settings restored.
+  Full-run identity bitset retained; JSON records cover recording-on periods only.
+  Recording files compressed from 15.286 GB to 0.703 GB with SHA256 round-trip
+  verification before removing raw files; zero swapouts (136 swapin pages).
+  Evidence and reproducible analysis: `recording_fence_validation_20260911_123246`.
+- Next useful isolation is recording's encode/flush cost versus its physical
+  file writes, with a clearly diagnostic sink and the independent scratch oracle.
+  Do not change PostgreSQL maintenance or claim payload construction is a
+  demonstrated bottleneck. Default lab code remains unchanged by this experiment.
 
 ### Native scratch reference reconfirmation (2026-09-11, complete)
 

@@ -9,6 +9,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/agentstax/sqlstreams/.tests/e2e/common"
 	"github.com/agentstax/sqlstreams/pkg/datastore"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"os"
@@ -30,48 +31,30 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 	run := time.Now().UnixNano()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, &sqlstreams.ClientConfig{AllowDestroy: true})
-	must(err)
+	common.Must(err)
 
 	streamName := fmt.Sprintf("scheduleconcurrency.reports.%d", run)
 	_, err = client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, nil)
-	must(err)
+	common.Must(err)
 
 	step("RegisterSchedule returns an instance; Scheduler.Get reads the row")
 	scheduleName := fmt.Sprintf("scheduleconcurrency.nightly.%d", run)
 	nightly, err := client.Scheduler(scheduleName).Register[ReportRequestedV1](ctx, streamName, "0 3 * * *", &ReportRequestedV1{Kind: "nightly"}, nil)
-	must(err)
+	common.Must(err)
 	row, err := client.Scheduler(scheduleName).Get(ctx)
-	must(err)
+	common.Must(err)
 	if row == nil {
-		die("expected the declared schedule row, got nil")
+		common.Die("expected the declared schedule row, got nil")
 	}
 	assertString("schedule name", row.Name, scheduleName)
 
@@ -93,9 +76,9 @@ func run() (err error) {
 	time.Sleep(5 * time.Second)
 	select {
 	case err := <-firstDone:
-		die(fmt.Sprintf("first scheduler instance run exited early: %v", err))
+		common.Die(fmt.Sprintf("first scheduler instance run exited early: %v", err))
 	case err := <-secondDone:
-		die(fmt.Sprintf("second manager run was refused: %v", err))
+		common.Die(fmt.Sprintf("second manager run was refused: %v", err))
 	default:
 	}
 	live := scalar(ctx, pool, `
@@ -106,24 +89,24 @@ func run() (err error) {
 			AND w.system_id IS NOT NULL
 			AND i.expires_at > now()`)
 	if live != 1 {
-		die(fmt.Sprintf("%d live system manager instances, want 1 -- the row's claim gate admits one, so an installation created before the gate (target_instances -1) needs a drop+recreate of its schema", live))
+		common.Die(fmt.Sprintf("%d live system manager instances, want 1 -- the row's claim gate admits one, so an installation created before the gate (target_instances -1) needs a drop+recreate of its schema", live))
 	}
 	fmt.Println("  ✓ both runs admitted, one live manager instance between them")
 
 	step("each run stops clean on its own ctx")
 	stopSecond()
 	if err := <-secondDone; err != nil {
-		die(fmt.Sprintf("second manager run: expected nil on requested stop, got %v", err))
+		common.Die(fmt.Sprintf("second manager run: expected nil on requested stop, got %v", err))
 	}
 	stopRun()
 	if err := <-firstDone; err != nil {
-		die(fmt.Sprintf("first scheduler instance run: expected nil on requested stop, got %v", err))
+		common.Die(fmt.Sprintf("first scheduler instance run: expected nil on requested stop, got %v", err))
 	}
 	fmt.Println("  ✓ both returned nil on a requested stop")
 
 	step("cleanup")
-	must(client.Scheduler(scheduleName).Destroy(ctx))
-	must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
+	common.Must(client.Scheduler(scheduleName).Destroy(ctx))
+	common.Must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
 
 	fmt.Println("\n✅ SCHEDULE CONCURRENCY E2E TEST PASSED")
 	return nil
@@ -133,23 +116,15 @@ func run() (err error) {
 // schema at verb [1].
 func scalar(ctx context.Context, pool *pgxpool.Pool, sql string) int64 {
 	var value int64
-	must(pool.QueryRow(ctx, fmt.Sprintf(sql, datastore.DefaultSchema)).Scan(&value))
+	common.Must(pool.QueryRow(ctx, fmt.Sprintf(sql, datastore.DefaultSchema)).Scan(&value))
 	return value
 }
 
 func assertString(label string, got string, want string) {
 	if got != want {
-		die(fmt.Sprintf("%s: got %q, want %q", label, got, want))
+		common.Die(fmt.Sprintf("%s: got %q, want %q", label, got, want))
 	}
 	fmt.Printf("  ✓ %s (%q)\n", label, got)
 }
 
 func step(s string) { fmt.Printf("\n--- %s ---\n", s) }
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-func die(msg string) {
-	panic(testFailure{message: msg})
-}

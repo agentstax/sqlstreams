@@ -1185,10 +1185,9 @@ trees: `integration/` for integration tests and `e2e/` for e2e programs.
 - End-to-end tests and their support programs live under `.tests/e2e/`,
   in the `.tests` module. The root Justfile exposes the tests as `*-e2e`
   recipes.
-- Every program is `run() error` recovering one private failure value
-  and exiting 1; `must`, `die`, `assert`, and the pool from
-  `SQLSTREAMS_TEST_DATABASE_URL` come from `.tests/e2e/common`, never a private
-  copy.
+- Every program is `run() error` deferring `common.Recover` and exiting
+  1; `Must`, `Die`, `Assert`, and the development-database pool
+  (`NewPool`) come from `.tests/e2e/common`, never a private copy. (checked)
 - A new single-process scenario is an integration test, not an e2e
   program.
 - E2E tests assert on log events by level and attributes through a

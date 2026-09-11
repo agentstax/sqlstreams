@@ -20,6 +20,7 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/agentstax/sqlstreams/.tests/e2e/common"
 	"github.com/agentstax/sqlstreams/pkg/common/logging"
 	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
 	"github.com/agentstax/sqlstreams/pkg/migrate"
@@ -41,44 +42,26 @@ func main() {
 	}
 }
 
-// testFailure is what die panics with; run recovers it into its error so
-// main's deferred cleanup runs on a failed assertion.
-type testFailure struct {
-	message string
-}
-
-func (f testFailure) Error() string {
-	return f.message
-}
-
 func run() (err error) {
-	defer func() {
-		switch recovered := recover().(type) {
-		case nil:
-		case testFailure:
-			err = recovered
-		default:
-			panic(recovered)
-		}
-	}()
+	defer common.Recover(&err)
 	ctx := context.Background()
 
-	pool, err := sqlstreams.NewPostgresPool(ctx, "example_user", "example_password", "localhost", "example_db", nil)
-	must(err)
+	pool, err := common.NewPool(ctx, nil)
+	common.Must(err)
 	defer pool.Close()
 
 	client, err := sqlstreams.NewClient(ctx, pool, nil)
-	must(err)
+	common.Must(err)
 	ds, err := iDatastore.NewPostgresDatastore(ctx, pool, nil)
-	must(err)
-	must(client.System().Register(ctx, nil))
+	common.Must(err)
+	common.Must(client.System().Register(ctx, nil))
 
 	controller, err := migratecontroller.NewController(ds, logging.NewDefaultLogger(os.Stderr, slog.LevelError))
-	must(err)
+	common.Must(err)
 	reg := fixture()
 
 	sysOwner, err := controller.SystemOwner(ctx)
-	must(err)
+	common.Must(err)
 	sysId := sysOwner.SystemId
 
 	reset(ctx, pool, ds.Schema, sysId) // clear leftovers from any prior crashed run
@@ -86,31 +69,31 @@ func run() (err error) {
 
 	// 1. fresh == migrate ------------------------------------------------------
 	section("migrate v1 -> v4 builds the same schema as a fresh create-at-4")
-	must(controller.RunOnce(ctx, maxV, sysOwner, reg))
-	must(createFresh(ctx, pool, ds.Schema))
+	common.Must(controller.RunOnce(ctx, maxV, sysOwner, reg))
+	common.Must(createFresh(ctx, pool, ds.Schema))
 	check(sameColumns(ctx, pool, ds.Schema), "stepwise migration == fresh-create-at-4 (information_schema)")
 
 	// 2. up -> down -> up ------------------------------------------------------
 	section("Down inverts Up, and re-up reproduces the schema")
-	must(controller.RunOnce(ctx, 1, sysOwner, reg))
+	common.Must(controller.RunOnce(ctx, 1, sysOwner, reg))
 	check(!tableExists(ctx, pool, ds.Schema, stepwise), "full down dropped the table")
-	must(controller.RunOnce(ctx, maxV, sysOwner, reg))
+	common.Must(controller.RunOnce(ctx, maxV, sysOwner, reg))
 	check(sameColumns(ctx, pool, ds.Schema), "re-up reproduced the identical schema")
 
 	// 3. Up idempotency: version says v3 but the DDL is already at v4, so the
 	// re-run re-applies step 4's Up against an object that already exists.
 	section("Up is idempotent under an ambiguous-commit re-run")
 	forgetVersion(ctx, pool, ds.Schema, sysId, maxV)
-	must(controller.RunOnce(ctx, maxV, sysOwner, reg))
+	common.Must(controller.RunOnce(ctx, maxV, sysOwner, reg))
 	check(currentVersion(ctx, pool, ds.Schema, sysId) == maxV && sameColumns(ctx, pool, ds.Schema),
 		"re-applied Up over existing schema -> no-op, schema unchanged")
 
 	// 4. Down idempotency: drop c3 (now at v3), then claim v4 again so the
 	// re-run re-applies step 4's Down against a column that's already gone.
 	section("Down is idempotent under an ambiguous-commit re-run")
-	must(controller.RunOnce(ctx, maxV-1, sysOwner, reg))
+	common.Must(controller.RunOnce(ctx, maxV-1, sysOwner, reg))
 	claimVersion(ctx, pool, ds.Schema, sysId, maxV)
-	must(controller.RunOnce(ctx, maxV-1, sysOwner, reg))
+	common.Must(controller.RunOnce(ctx, maxV-1, sysOwner, reg))
 	check(currentVersion(ctx, pool, ds.Schema, sysId) == maxV-1 && !hasColumn(ctx, pool, ds.Schema, stepwise, "c3"),
 		"re-applied Down over absent column -> no-op")
 
@@ -158,16 +141,16 @@ func sameColumns(ctx context.Context, pool *pgxpool.Pool, schema string) bool {
 func columns(ctx context.Context, pool *pgxpool.Pool, schema string, table string) []string {
 	rows, err := pool.Query(ctx,
 		`SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 ORDER BY ordinal_position;`, schema, table)
-	must(err)
+	common.Must(err)
 	defer rows.Close()
 
 	var cols []string
 	for rows.Next() {
 		var name, typ string
-		must(rows.Scan(&name, &typ))
+		common.Must(rows.Scan(&name, &typ))
 		cols = append(cols, name+":"+typ)
 	}
-	must(rows.Err())
+	common.Must(rows.Err())
 	return cols
 }
 
@@ -185,19 +168,19 @@ func equal(a, b []string) bool {
 
 func tableExists(ctx context.Context, pool *pgxpool.Pool, schema string, table string) bool {
 	var exists bool
-	must(pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = $1 AND table_name = $2);`, schema, table).Scan(&exists))
+	common.Must(pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = $1 AND table_name = $2);`, schema, table).Scan(&exists))
 	return exists
 }
 
 func hasColumn(ctx context.Context, pool *pgxpool.Pool, schema string, table string, col string) bool {
 	var exists bool
-	must(pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 AND column_name = $3);`, schema, table, col).Scan(&exists))
+	common.Must(pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 AND column_name = $3);`, schema, table, col).Scan(&exists))
 	return exists
 }
 
 func currentVersion(ctx context.Context, pool *pgxpool.Pool, schema string, sysId int64) int64 {
 	var v int64
-	must(pool.QueryRow(ctx, fmt.Sprintf(`SELECT version FROM %s.migration_log WHERE system_id = $1 AND status = 'success' ORDER BY id DESC LIMIT 1;`, schema), sysId).Scan(&v))
+	common.Must(pool.QueryRow(ctx, fmt.Sprintf(`SELECT version FROM %s.migration_log WHERE system_id = $1 AND status = 'success' ORDER BY id DESC LIMIT 1;`, schema), sysId).Scan(&v))
 	return v
 }
 
@@ -205,14 +188,14 @@ func currentVersion(ctx context.Context, pool *pgxpool.Pool, schema string, sysI
 // current version as v-1 while the DDL is already at v -- an interrupted migrate.
 func forgetVersion(ctx context.Context, pool *pgxpool.Pool, schema string, sysId int64, v int64) {
 	_, err := pool.Exec(ctx, fmt.Sprintf(`DELETE FROM %s.migration_log WHERE system_id = $1 AND version >= $2;`, schema), sysId, v)
-	must(err)
+	common.Must(err)
 }
 
 // claimVersion records a success at v without doing v's DDL -- the mirror of
 // forgetVersion, so the engine believes it's ahead of where the schema is.
 func claimVersion(ctx context.Context, pool *pgxpool.Pool, schema string, sysId int64, v int64) {
 	_, err := pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.migration_log (system_id, version, status) VALUES ($1, $2, 'success');`, schema), sysId, v)
-	must(err)
+	common.Must(err)
 }
 
 // reset drops the scratch tables and returns the system migration_log to exactly
@@ -220,11 +203,11 @@ func claimVersion(ctx context.Context, pool *pgxpool.Pool, schema string, sysId 
 // round trips leave extra v1 rows (each down-to-baseline records one).
 func reset(ctx context.Context, pool *pgxpool.Pool, schema string, sysId int64) {
 	_, err := pool.Exec(ctx, fmt.Sprintf(`DROP TABLE IF EXISTS %[1]s.`+stepwise+`, %[1]s.`+fresh+`;`, schema))
-	must(err)
+	common.Must(err)
 	_, err = pool.Exec(ctx, fmt.Sprintf(`DELETE FROM %s.migration_log WHERE system_id = $1;`, schema), sysId)
-	must(err)
+	common.Must(err)
 	_, err = pool.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.migration_log (system_id, version, status) VALUES ($1, 1, 'success');`, schema), sysId)
-	must(err)
+	common.Must(err)
 }
 
 func section(title string) { fmt.Printf("\n--- %s ---\n", title) }
@@ -235,14 +218,4 @@ func check(cond bool, msg string) {
 		os.Exit(1)
 	}
 	fmt.Printf("  ✓ %s\n", msg)
-}
-
-func must(err error) {
-	if err != nil {
-		die(err.Error())
-	}
-}
-
-func die(msg string) {
-	panic(testFailure{message: msg})
 }
