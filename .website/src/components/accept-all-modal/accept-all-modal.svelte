@@ -52,7 +52,14 @@
 			</div>
 		</dl>
 		<div class="modal-actions">
-			<a class="era-button" target="_blank" rel="noreferrer" href={repositoryUrl}>
+			<a
+				class="era-button modal-plea"
+				data-bait="true"
+				target="_blank"
+				rel="noreferrer"
+        onclick={onDismiss}
+				href={repositoryUrl}
+			>
 				please no, I'll do anything
 			</a>
 			<button type="button" class="era-button" onclick={onDismiss}>accept fate</button>

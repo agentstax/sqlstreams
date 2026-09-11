@@ -17,18 +17,6 @@
 	box-shadow: var(--shadow-console);
 }
 
-@media (prefers-reduced-motion: no-preference) {
-	.cookie-notice {
-		animation: cookie-notice-rise 200ms ease-out;
-	}
-
-	@keyframes cookie-notice-rise {
-		from {
-			transform: translateY(100%);
-		}
-	}
-}
-
 .notice-title {
 	margin: 0;
 	font-family: var(--font-chrome);
@@ -49,12 +37,21 @@
 .notice-actions {
 	display: flex;
 	flex-wrap: wrap;
-	align-items: stretch;
+	/* each button keeps its own height: a stretched row would pull the
+	   other two up to Accept all's size and undo the hierarchy */
+	align-items: center;
 	gap: var(--space-8);
 }
 
-/* Manage preferences, set as the de-emphasized link a real banner buries
-   it as -- the reader who hunts for it has already earned its answer */
+/* Accept all, a step above its neighbour; the gold rim comes with the
+   era button's data-bait state */
+.notice-accept {
+	padding: var(--space-4) var(--space-14);
+	font-size: 11px;
+}
+
+/* Manage preferences, buried as the footnote a real banner makes it --
+   the reader who hunts for it has already earned its answer */
 .notice-policy {
 	background: none;
 	border: none;
@@ -64,6 +61,18 @@
 	color: var(--color-link);
 	text-decoration: underline;
 	cursor: pointer;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.cookie-notice {
+		animation: cookie-notice-rise 200ms ease-out;
+	}
+
+	@keyframes cookie-notice-rise {
+		from {
+			transform: translateY(100%);
+		}
+	}
 }
 
 /* the bit is a desktop bit: at phone widths the bar would eat a third

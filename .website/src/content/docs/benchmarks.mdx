@@ -63,8 +63,8 @@ the rules under which they were produced.
 Per-message recording is disabled to avoid its JSON and disk-write overhead.
 Aggregate counters measure rates and totals; they do not prove that every
 individual message was handled exactly once. Detailed latency is unavailable
-in these runs. The reliability scenarios retain full recording for their
-identity checks ([0687](/decisions/0687/)).
+in these runs. The quiet and multistream scenarios retain full recording for
+their identity checks ([0687](/decisions/0687/)).
 
 ## Configuration
 
@@ -105,7 +105,12 @@ not the library defaults or a recommendation to retain production messages
 for two minutes. Application work inside the handler, remote database access,
 additional consumer groups, and a different payload change the workload.
 
-## Reproduce
+## Reproduce the published runs
+
+The current runner uses `just bench <scenario>`, with `just bench-smoke` for
+a one-minute quiet run and `just bench-report <scenario>` for saved results.
+The commands below use the frozen source that produced these published
+results, including its original paths and binary names.
 
 Use PostgreSQL 18.6 and Go 1.27. Download the source archive and
 [PostgreSQL configuration][postgres-config] into an evidence directory outside

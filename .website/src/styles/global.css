@@ -176,6 +176,23 @@
 		   like amber this is stated once and the night sheet inherits it. */
 		--color-hacked-veil: var(--veil-pitch);
 
+		/* The bait button: the one control a surface wants pressed wears the
+		   compliance vendor's dark pattern, a gold rim the eye cannot skip,
+		   drawn as a conic gradient whose angle the utility animates. Amber
+		   is stated once, so the night sheet inherits this like the veil. */
+		--era-bait-rim: conic-gradient(
+			from var(--era-bait-rim-angle),
+			var(--amber-shade),
+			var(--amber-light),
+			var(--amber),
+			var(--amber-shade),
+			var(--amber-light),
+			var(--amber-shade)
+		);
+		--era-bait-face: var(--button-gradient) padding-box, var(--era-bait-rim) border-box;
+		--shadow-era-bait: var(--lacquer-bright), 0 0 4px var(--folder-updated-glow);
+		--shadow-era-bait-peak: var(--lacquer-bright), 0 0 12px var(--folder-updated-glow);
+
 		--flag-body: var(--amber-dark);
 		--flag-face: var(--amber);
 		--flag-highlight: var(--amber-light);
@@ -619,4 +636,43 @@
 			font-size: 12px;
 		}
 	}
+
+	/* The dark pattern: the one button a surface wants pressed wears a
+	   gold rim that never stops turning. The rim is the border-box paint
+	   layer under the face; the angle is a registered property so the
+	   gradient itself turns. Size stays with the surface, which already
+	   sets its own buttons. */
+	.era-button[data-bait='true'] {
+		border: var(--space-3) solid transparent;
+		background: var(--era-bait-face);
+		box-shadow: var(--shadow-era-bait);
+	}
+
+	@media (prefers-reduced-motion: no-preference) {
+		.era-button[data-bait='true'] {
+			animation:
+				era-bait-rim-turn 1400ms linear infinite,
+				era-bait-pulse 900ms ease-in-out infinite alternate;
+		}
+
+		@keyframes era-bait-rim-turn {
+			to {
+				--era-bait-rim-angle: 360deg;
+			}
+		}
+
+		@keyframes era-bait-pulse {
+			to {
+				box-shadow: var(--shadow-era-bait-peak);
+			}
+		}
+	}
+}
+
+/* registered outside the layers: @property is not cascaded, and the
+   utility's keyframes animate the angle it declares */
+@property --era-bait-rim-angle {
+	syntax: '<angle>';
+	inherits: false;
+	initial-value: 0deg;
 }

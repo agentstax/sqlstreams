@@ -40,7 +40,12 @@
 			non-essential" to allow only what the site needs to work.
 		</p>
 		<div class="notice-actions">
-			<button type="button" class="era-button" onclick={() => void acceptAll()}>
+			<button
+				type="button"
+				class="era-button notice-accept"
+				data-bait="true"
+				onclick={() => void acceptAll()}
+			>
 				Accept all
 			</button>
 			<button type="button" class="era-button" onclick={() => cookieNotice.recordAnswer('reject')}>

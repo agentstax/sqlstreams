@@ -11,6 +11,8 @@ and the scrolling text should slowly get larger and larger
 
 Should be able to click on SQLStreams; header icon and it takes you back to home page
 
+try to optimize profile pic for size (mobile users will thanks us)
+
 roadmap later item for review code for interesting design decisions to write articles on (big or small things)
 - diagnostic code system
 - suppression logger

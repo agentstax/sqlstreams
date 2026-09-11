@@ -93,10 +93,19 @@
 .modal-actions {
 	display: flex;
 	flex-wrap: wrap;
-	align-items: stretch;
+	/* each button keeps its own height: a stretched row would pull
+	   accept fate up to the plea's size and undo the hierarchy */
+	align-items: center;
 	gap: var(--space-8);
 }
 
 .modal-actions .era-button {
 	padding: var(--space-6) var(--space-12);
+}
+
+/* the plea is the button this screen wants pressed -- it is the star --
+   so it is a step larger and wears the era button's data-bait rim */
+.modal-actions .modal-plea {
+	padding: var(--space-7) var(--space-14);
+	font-size: 11px;
 }
