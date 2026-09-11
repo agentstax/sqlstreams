@@ -152,3 +152,31 @@ func TestDropPartitionDeletesTheRowsInItsIdRange(t *testing.T) {
 		t.Errorf("compaction_head message ids after the second drop = %v, want none", ids)
 	}
 }
+
+// invariant (idempotent retry): a drop pass rerun with the same arguments
+// after one already dropped its partitions -- a retry after an ambiguous
+// commit -- succeeds and drops nothing more.
+func TestDropExpiredPartitionsRunTwiceDropsNothingMore(t *testing.T) {
+	// setup
+	janitor, orders := newPartitionedJanitor(t)
+	ctx := t.Context()
+	seedMessages(t, janitor, orders, 8)
+	ageMessages(t, janitor, orders, 1, 3)
+	if err := janitor.DropExpiredPartitions(ctx, orders.Id, orders.PartitionSize, time.Hour, true, stream.DeliveryLogModeOff); err != nil {
+		t.Fatal(err)
+	}
+
+	// test
+	err := janitor.DropExpiredPartitions(ctx, orders.Id, orders.PartitionSize, time.Hour, true, stream.DeliveryLogModeOff)
+
+	// verify
+	if err != nil {
+		t.Fatalf("DropExpiredPartitions(ttl 1h) rerun error = %v, want nil", err)
+	}
+	if partitions := listPartitions(t, janitor, orders, 4); !slices.Equal(partitions, []int64{2, 3, 4}) {
+		t.Errorf("partitions after the rerun = %v, want the first pass's result kept [2 3 4]", partitions)
+	}
+	if ids := listMessageIds(t, janitor, janitor.Datastore.Schema+"."+stream.MessageLogTable(orders.Id)); !slices.Equal(ids, []int64{4, 5, 6, 7, 8}) {
+		t.Errorf("message ids after the rerun = %v, want [4 5 6 7 8]", ids)
+	}
+}

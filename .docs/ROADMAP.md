@@ -75,9 +75,9 @@ the item is removed.
     the in-flight message committed; a consumer under SIGTERM exits 0
     promptly; a second SIGTERM past a hung handler force-exits with status
     128 plus the signal, never waiting out Timeout plus TimeoutGrace.
-  - Pending integration test: `DropExpiredPartitions` called twice succeeds
-    (a retry after an ambiguous commit), once a droppable-partition fixture
-    exists.
+  - Integration test `DropExpiredPartitions` called twice succeeds (a retry
+    after an ambiguous commit): written 2026-09-10 in
+    `.tests/integration/stream/drop_test.go`, unrun.
 
 - **Move the public entry package out of pkg/** — follow through on [0665]
   and [0670] once its destination is selected. Update imports and path-aware

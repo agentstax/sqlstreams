@@ -621,6 +621,23 @@ the other session's janitor benchmark saturating the machine.
   `.bench/reliability` measure_test use `DatabaseURL(t)`.
 - Those janitor tests belong under `.tests/integration/stream` by the rule; not moved
   (another session's in-flight work).
+- Written 2026-09-10 under the hold, compiled only: the DropExpiredPartitions
+  rerun test (drop_test.go, `TestDropExpiredPartitionsRunTwiceDropsNothingMore`),
+  and two unit tests -- `pkg/schedule/idempotency_key_test.go` (deterministic,
+  distinct per schedule in one ms, time-ordered, version and variant bits)
+  and `pkg/schedule/controller/datastore/messages_test.go` (the superseded-by
+  pointer). `go test ./...` from the root runs the unit ones.
+- Close-out facts gathered 2026-09-10, nothing acted on: `cmd/sqlstreams`
+  conn_test's pool-ownership test dials Postgres from a `_test.go` beside
+  the code, against Part 5; with `.bench/reliability` measure_test it is
+  what still imports pkg/sqlstreamstest. The `(checked)` candidates each
+  need a rule settled first: two surviving pkg unit tests import pgx types
+  (retry_datastore_test, pool_test) without dialing; table_ddl_test reads
+  CREATE TABLE text as data; the env-var rule fails until sqlstreamstest
+  goes; 55 e2e programs declare their own `must` and `.tests/e2e/common`
+  holds only work.go, so the CONVENTIONS line about a shared must is ahead
+  of the code. `.tests/e2e/signal` needs a justfile recipe (the other
+  session's file) and that common package.
 - Worker, consume, and stream are green (stream: 18 tests, the 12 below
   plus the other session's six, ran 2026-09-10 under -race). Files:
   stream_test.go (1-6), drop_test.go (8-10), sweep_test.go (11 appended
