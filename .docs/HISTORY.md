@@ -5,6 +5,15 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-11 — Results retained by maintained scenario family [0751]
+
+Renamed dev results to quiet without changing recorded declarations, durations,
+identities, or verdicts. Kept max-throughput, multitopic family results, and
+published evidence. Removed throughput exploration, check-* validation runs,
+_controls, the retired-source archive, and fingerprint/statistics scratch.
+The user also removed the historical experiments preserved in the earlier
+cleanup. Updated report instructions, current references, and ignore rules.
+
 ## 2026-09-11 — Benchmark workloads reduced to recurring questions [0750]
 
 Quiet and max-throughput remain the steady-delivery and sustained-capacity

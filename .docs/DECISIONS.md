@@ -519,4 +519,6 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 
 - 0749 2026-09-11 accepted (pre-v1) — Benchmark runner lives at the .bench root
 
-- 0750 2026-09-11 accepted (pre-v1) — Benchmarks retain recurring workloads and freeze completed investigations
+- 0750 2026-09-11 superseded (pre-v1) — Benchmarks retain recurring workloads and freeze completed investigations
+
+- 0751 2026-09-11 accepted (pre-v1) — Results follow maintained scenario families

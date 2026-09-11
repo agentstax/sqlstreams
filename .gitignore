@@ -28,9 +28,6 @@ go.work.sum
 *.pprof
 __debug_bin*
 
-# Native scratch benchmark evidence is retained locally.
-.bench/results/historical/scratchnative/results/evidence/
-
 # goreleaser output
 /.dist/
 
@@ -38,8 +35,3 @@ __debug_bin*
 
 # Evidence selected for the public throughput report.
 !.bench/results/published/2026-09-11/
-
-# Historical benchmark records keep their tracked evidence and local scratch.
-!.bench/results/historical/*/
-.bench/results/historical/idempotency/*
-!.bench/results/historical/idempotency/RESULTS.md

@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded
 date: 2026-09-11
 phase: "pre-v1"
 ---
@@ -40,3 +40,5 @@ No new workload engine or fault mechanism is introduced. Historical report
 names remain readable; new smoke runs record under quiet. Idle-fleet costs,
 automatic-batching capacity, and recovery under load remain separate research
 questions. Historical source is available without being maintained as live code.
+
+Evidence retention superseded by [0751](0751-results-follow-maintained-scenario-families.md).

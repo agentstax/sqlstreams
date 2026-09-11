@@ -29,10 +29,11 @@ and key vacuum enabled. It disables per-message recording and reports aggregate
 counters; its verdict does not prove message identity checks or detailed latency.
 The [throughput benchmark](/benchmarks/) records the workload and evidence.
 
-The old `dev` and `throughput` declarations are retired. Their recorded results
-remain available through `just reliability-report dev` and
-`just reliability-report throughput`. New short quiet runs are recorded under
-`quiet`, with their time scale included in the report's comparison identity.
+The old `dev` declaration was the short quiet workload. Its results now live
+under `quiet` and are available through `just reliability-report quiet`.
+Original declarations, durations, and verdicts remain unchanged, so those runs
+retain their measurement identity. Results from the retired `throughput`
+exploration and temporary checker controls have been removed.
 Sections headed "Proposed" describe work not yet built. The [demo page](/demo/)
 is the same idea packaged for you to run in five minutes.
 

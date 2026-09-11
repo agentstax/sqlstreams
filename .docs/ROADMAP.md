@@ -21,8 +21,8 @@ the item is removed.
   workload: a thorough multi-stream throughput/latency benchmark under high
   concurrency, pushed to real DB limits (connection pool, lock table, I/O)
   rather than the library's own bottleneck. Single-stream skip-vs-claim was
-  already measured in .bench/results/historical/idempotency/RESULTS.md; multi-stream contention
-  is still open. Also measure the debug buffer's overhead here
+  previously measured; those exploratory records were retired. Multi-stream
+  contention is still open. Also measure the debug buffer's overhead here
   (WithLogBuffer + BufferLogger cost per operation, healthy path) — a
   published number is the adoption gate for always-on capture ([0559]).
   - Remaining measurement: full-length multi-stream ladder phases spanning a
@@ -192,8 +192,8 @@ documentation; the latter want a surface that has stopped moving.
     throughput over several cleanup cycles within the storage budget.
     Idempotency-key expiry remains a separate cleanup workload.
   - Interim: test longer janitor cleanup deadlines and polling intervals in
-    scratch benchmarks; keep current row-level semantics. Evidence:
-    `.bench/results/historical/scratchnative/results/evidence/native18/scratch_142040/`.
+    scratch benchmarks; keep current row-level semantics. Earlier scratch
+    evidence was retired; collect fresh evidence when this work resumes.
 
 - **Consider successful maintenance-pass tracking** -- evaluate whether janitor
   and vacuum status should expose the last completed pass separately from

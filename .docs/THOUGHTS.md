@@ -2,6 +2,9 @@
 
 # Docs
 
+Need to cleanup docs that came from silly proposal agent workflow and also update that convention entry to say
+only need proposal doc page for user facing features
+
 website user icon for me needs to change (maybe my shipt profile pic)
 
 For cookie accept docsite popup need to use dark pattern for buttons can be extra obnixous with it gold animated outer rim
