@@ -449,6 +449,11 @@
 		padding-left: var(--space-22);
 	}
 
+	.thread-body :where(img) {
+		max-width: 100%;
+		height: auto;
+	}
+
 	.thread-body :where(h2) {
 		margin: var(--space-8) 0 0;
 		max-width: 680px;

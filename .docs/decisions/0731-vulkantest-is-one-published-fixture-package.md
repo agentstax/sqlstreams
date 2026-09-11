@@ -1,10 +1,12 @@
 ---
-status: superseded by [0736]
+status: superseded
 date: 2026-09-09
 phase: pre-v1
 ---
 
 # 0731 -- vulkantest is one published fixture package with a schema per test
+
+Superseded by [0736](0736-integration-tests-live-in-a-nested-tests-module-over-testcontainers.md).
 
 ## Context
 

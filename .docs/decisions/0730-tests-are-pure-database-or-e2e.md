@@ -1,10 +1,12 @@
 ---
-status: superseded by [0736]
+status: superseded
 date: 2026-09-09
 phase: pre-v1
 ---
 
 # 0730 -- Tests are pure, database, or e2e, and a database test runs against Postgres itself
+
+Superseded by [0736](0736-integration-tests-live-in-a-nested-tests-module-over-testcontainers.md).
 
 ## Context
 

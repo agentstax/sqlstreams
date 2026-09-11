@@ -5,6 +5,51 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-11 — Sustained throughput measured and documented [0747] [0748]
+
+The reliability lab reproduces the native scratch throughput with optional
+aggregate recording. Throughput scenarios skip per-message recording and
+retain progress, error, backlog, and resource checks; identity, schedule,
+and detailed latency checks explicitly report unavailable. Existing full
+recording scenarios retain their behavior. CPU headroom is informational
+for maximum-throughput runs.
+
+Three runs from one frozen source and binary each used five minutes of
+warmup and 25 minutes of measurement. The lower producing/consuming rates
+were 74,129.26/s, 68,184.89/s, and 66,140.77/s: median 68,184.89/s. All
+three passed, with matching final aggregate counts totaling 398,139,000
+messages including warmup. Run 1 logged two janitor lock-timeout retries;
+these remain disclosed. This is a measured host/workload result, not an
+absolute ceiling or an exactly-once claim.
+
+The configuration uses native durable PostgreSQL 18.6 on an M4 MacBook Air,
+1 KB messages, four producer callers with batches of 250, pools of eight,
+and four consumer handlers. Retention, janitor grace, and opt-in scheduled
+key vacuum keep cleanup active. The investigation found full recording
+limited the lab measurement; larger pools did not consistently improve
+throughput. Storage writes and maintenance remain relevant costs, without
+claiming a proven SSD firmware or kernel root cause. Combined storage stayed
+below 100 GB and every measurement database was removed.
+
+README and /benchmarks/ report approximately 68k messages/s with all three
+outcomes, configuration, limitations, a chart, and downloadable evidence.
+Source/build identity, records, logs, settings, and checksums are retained
+in `.bench/reliability/results/published/2026-09-11/`. Temporary publication
+scripts were removed. Future multi-stream, latency, idle-fleet, and logging
+measurements remain separate work.
+
+Validation: benchmark build, vet, and race tests passed before the measured
+build was frozen; native checker integration tests and all three publication
+runs passed. Targeted prose and structure checks passed. No fresh full e2e
+suite was run for this benchmark milestone.
+
+Close-out: corrected superseded-status metadata in [0730] and [0731],
+preserving links to [0736]. Site build and search indexing passed; Astro
+reported zero errors or warnings. Desktop/mobile browser checks found and
+fixed chart overflow with the existing article image styles. CSS formatting
+and lint, evidence checksums, and diff checks passed. Deployment is pending
+approval.
+
 ## 2026-09-11 — Test suite: unit beside the code, integration over testcontainers [0736] [0737]
 
 Every test is one of three kinds: a unit test beside the code with no I/O
