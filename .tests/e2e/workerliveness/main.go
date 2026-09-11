@@ -325,13 +325,15 @@ func cleanup() {
 // --- assertion helpers ---
 
 // waitUnclaimed returns once the number of the e2e test stream's worker rows with
-// no live instance is at least want -- 0 waits for every row claimed.
+// no live instance is at least want -- 0 waits for every row claimed. A
+// suspended row (target_instances 0, the stream's vacuum) is never unclaimed.
 func waitUnclaimed(ctx context.Context, want int64) {
 	sql := fmt.Sprintf(`
 		SELECT COUNT(*)
 		FROM %s.worker_config w
 		LEFT JOIN %s.consumer_group_config g ON g.id = w.consumer_group_id
 		WHERE COALESCE(w.stream_id, g.stream_id) = %d
+			AND w.target_instances <> 0
 			AND NOT EXISTS (SELECT 1 FROM %s.worker_instance i WHERE i.worker_id = w.id AND i.expires_at > now());
 	`, ds.Schema, ds.Schema, testStream.Id, ds.Schema)
 

@@ -52,8 +52,12 @@ func run() (err error) {
 
 	streamName := fmt.Sprintf("dutybackoff.%d", time.Now().UnixNano())
 	// retention on: the sweep's drop pass reads message_log's head every tick,
-	// which is the read the rename below breaks
-	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{RetentionTTL: time.Hour})
+	// which is the read the rename below breaks; the janitor's fast tick is
+	// declared here, so the row Register writes already carries it
+	tp, err := client.Stream[sqlstreams.RawPayload](streamName).Register(ctx, &sqlstreams.StreamConfig{
+		RetentionTTL: time.Hour,
+		Janitor:      &sqlstreams.JanitorConfig{PollRate: pollRate},
+	})
 	common.Must(err)
 	defer func() {
 		common.Must(client.Stream[sqlstreams.RawPayload](streamName).Destroy(ctx, &sqlstreams.DestroyOptions{Force: true}))
@@ -66,16 +70,11 @@ func run() (err error) {
 	workers, err := workercontroller.NewWorkerController(ds, ds.Logger)
 	common.Must(err)
 
-	// RegisterStream already declared the janitor row -- claim it directly with
-	// the e2e test's own fast tick
+	// Register already declared the janitor row -- claim it directly
 	owner, err := iCommon.NewStreamOwner(tp.SystemId, tp.Id, tp.Name)
 	common.Must(err)
 	row, err := workers.GetWorker(ctx, janitor.WorkerStreamJanitor, owner)
 	common.Must(err)
-	row.Metadata = map[string]any{
-		"poll_rate":        int64(pollRate),
-		"sweep_batch_size": 1000,
-	}
 	execution, err := janitorProvisioner.Provision(ctx, row)
 	common.Must(err)
 	if execution == nil {

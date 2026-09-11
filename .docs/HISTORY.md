@@ -47,8 +47,9 @@ Close-out: corrected superseded-status metadata in [0730] and [0731],
 preserving links to [0736]. Site build and search indexing passed; Astro
 reported zero errors or warnings. Desktop/mobile browser checks found and
 fixed chart overflow with the existing article image styles. CSS formatting
-and lint, evidence checksums, and diff checks passed. Deployment is pending
-approval.
+and lint, evidence checksums, and diff checks passed. Deployed with approval
+to the main site; the live benchmark headline, evidence link, and chart were
+verified (deployment 3b6cfb61).
 
 ## 2026-09-11 — Test suite: unit beside the code, integration over testcontainers [0736] [0737]
 
