@@ -724,9 +724,35 @@ the other session's janitor benchmark saturating the machine.
   declareWorker, claimInstance, recordFailures, expireInstance,
   insertMetricEvent (payload as a Go map, pgx encodes jsonb). No tests:
   ListConsumerGroups, CurrentTime, resolveMetricsStreamId's error.
-  Run order on resume: schedule, then metric, both -race -count=1.
-  Every domain on the list is now written: worker, consume, stream green;
-  schedule (7) and metric (5) unrun.
+  Produce: 11 proposed, 3 cut (InTx commit/rollback is Postgres semantics,
+  a batch failing at json.Marshal lands nothing trivially, store-as-produced
+  is an adapter round-trip; its NULL-keys fact moved into the duplicate
+  test), 8 written 2026-09-10 under the benchmark hold -- compiled and
+  vetted only, never run. Files under `.tests/integration/produce/`:
+  append_test.go (repeated key is a duplicate + NULL keys; failed
+  ProducerFunc leaves no claim so the retry lands; compacted head at the
+  winner: newest id within a rank, highest rank across, equal rank falls
+  to the newer id; missing-partition heal creates only the covering
+  partition; 8 concurrent appends into a missing partition all land;
+  AppendMessageInTx heals inside its savepoint and the caller's earlier
+  compaction_head marker row commits with the message), batch_test.go
+  (batch ids ascend in pipeline order and a rerun is all duplicates;
+  a batch rerun after a heal lands every message with no duplicates --
+  claims roll back with the failed attempt). setup_test.go: partitionSize
+  const 1000, produceTestMessage, errProducerFailed, newProduceDatastore
+  (produces, orders), produceTestMessageFunc, failingProducer,
+  plainAppend(key), compactedAppend(messageKey, rank), advanceSequence
+  (setval on the message id sequence), partitionExists (to_regclass),
+  countRows, listMessageIds, readHead. Heal tests move the sequence to
+  2*partitionSize-1 and assert the partition an id landed in, never the
+  id: a failed insert burns the id it drew. No tests: create-ahead (a
+  background goroutine), ErrPartitionCreationBehind,
+  ErrPartitionLockTimeout, the SchemaVersion guard, the claim-first
+  snapshot fence (consume claim test pins it), key resolution (unit).
+  Run order on resume: schedule, metric, produce, all -race -count=1.
+  Remaining roots with no directory: compaction (LockHead, GetHead,
+  ListHeads, ListKeyMessages, ListKeyMessagesByCreatedAt), migrate
+  (lock, RunStep, schema state), system (Register, Get, Delete).
 - Shape rule added to CONVENTIONS Part 5 (Test shape): tables hold values
   only; a set of verbs is straight-line calls and checks; no funcs in rows,
   no closures, no t.Run around one verb.
