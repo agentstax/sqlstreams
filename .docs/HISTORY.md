@@ -5,6 +5,26 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-11 — E2E programs reduced to the one that needs a process [0736]
+
+Audited all 61 programs under `.tests/e2e/` against the test-kind rule:
+only `signal` needs a second process or a signal, so it is the one e2e
+test left. Seven datastore invariants the programs alone pinned moved to
+integration tests -- claims return only a key's compaction head on both
+paths, an expired lease reclaims under a rotated token, bindings filter at
+claim time, a claim over a dropped partition advances past the hole, a
+dead ordered predecessor releases its key's lane, a drop pass ignores
+another stream's lagging cursor, and the compaction head prefers the
+newer schema version -- and two pure closed sets became unit tests: alert
+classify and the schema-support classification. The other 58 programs
+were deleted: 15 duplicated an integration test, 8 were benchmarks with
+no assertion, the rest observed a controller, admin guard, or runner
+behavior the rule leaves untested; `consumer` is now the CLI's
+`sqlstreams demo consumer`. `producer` and `systemregister` stay as the
+`just produce` and `just system-register` recipes. The consume, stream,
+and produce integration packages ran green under -race with the new
+tests, 56 in all.
+
 ## 2026-09-11 — Results retained by maintained scenario family [0751]
 
 Renamed dev results to quiet without changing recorded declarations, durations,

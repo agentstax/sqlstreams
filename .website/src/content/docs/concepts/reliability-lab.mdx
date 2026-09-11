@@ -326,6 +326,20 @@ Scaling a scenario scales its declared TTLs and partial-sweep grace along
 with its timeline. Poll rates and operation timeouts stay fixed, so a
 shortened run is a functional check rather than a steady-state result.
 
+### Proposed: one scenario execution command
+
+The Go scenario runner will own complete native and Compose runs through
+`-role run -execution native|compose`. Both execute the declared producer,
+consumer, observer, and checker roles, retain their evidence, and clean up
+owned processes and databases after completion or interruption. The Just
+recipe will only build the binary and pass the run settings.
+
+Native execution will preserve durability checks, process CPU samples,
+storage limits, runtime fingerprints, and exception-worker checks. It will
+use the same scenario-file input as individual roles. Python will no longer
+be required for current scenario runs; frozen published source keeps its
+original reproduction commands.
+
 ### Native macOS comparison
 
 The same roles can run against an existing native PostgreSQL server:

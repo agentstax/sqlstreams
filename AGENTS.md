@@ -80,7 +80,8 @@ Doc site:
 - Per change: foreground targeted checks only -- build, `go test -race` on
   touched packages, `just test-integration` (or `go test` in the touched
   `.tests/integration/` directory, which needs Docker) when a datastore or its tests
-  changed, directly affected e2e tests. `just verify` is the whole-repo
+  changed, `just signal-e2e` when a shutdown or signal path changed.
+  `just verify` is the whole-repo
   check (root plus every nested module plus .tools/ and .tests/); per
   change, build and test the touched module only. Use
   `go fmt ./...`, not the system gofmt, which may predate the go.mod
@@ -96,15 +97,13 @@ Doc site:
   against the test as written.
 - A mechanical rename or file move is fully checked by build + vet + gofmt;
   e2e tests only when behavior could have moved.
-- Full fresh-DB e2e test suite only at review-ready checkpoints or on request,
-  never background-per-change.
+- `just signal-e2e` against a fresh development database only at
+  review-ready checkpoints or on request, never background-per-change.
 - A new .tools/conventions test is sabotaged (fed deliberately wrong input)
   before it is trusted -- a walk can pass green while checking nothing.
-- Fresh-DB suite recipe: `just database-delete`; `set -a; source ./.env;
+- Fresh-DB recipe: `just database-delete`; `set -a; source ./.env;
   set +a` before `docker compose up` (the justfile needs the dotenv); wait
-  on pg_isready; run every `*-e2e` recipe except `build-e2e` (a
-  parameterized build recipe, not a test). Score e2e tests, not example
-  scenarios -- most scenarios run until interrupted.
+  on pg_isready; run `just signal-e2e`.
 
 ## Releases
 

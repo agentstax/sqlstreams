@@ -1183,8 +1183,8 @@ trees: `integration/` for integration tests and `e2e/` for e2e programs.
 ## E2E tests
 
 - End-to-end tests and their support programs live under `.tests/e2e/`,
-  in the `.tests` module. The root Justfile exposes the tests as `*-e2e`
-  recipes.
+  in the `.tests` module. The root Justfile exposes each test as a
+  `<name>-e2e` recipe.
 - Every program is `run() error` deferring `common.Recover` and exiting
   1; `Must`, `Die`, `Assert`, and the development-database pool
   (`NewPool`) come from `.tests/e2e/common`, never a private copy. (checked)
