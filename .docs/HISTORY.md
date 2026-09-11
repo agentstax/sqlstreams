@@ -5,6 +5,26 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-10 — Maximum-throughput scenario in the reliability lab [0745]
+
+The lab supports bounded unpaced callers, explicit batches, declared
+retention and maintenance settings, explicit warmup, and native PostgreSQL
+execution. Existing paced scenarios and zero-rate idle phases retain their
+meaning. Expired acknowledged messages remain subject to handler and durable
+completion checks; absent CPU or backlog measurements produce unknown.
+
+Targeted lab build, vet, and race tests passed. Six native controls cover
+paced/idle success, deliberately missing retained rows and expired-message
+handler evidence, and missing CPU/backlog telemetry. The ten-minute native
+`max-throughput` run passed all checks for 38,246,000 messages; its final
+five minutes produced 52,573/s and consumed 58,721/s while draining backlog.
+This does not reproduce the scratch reference of 65k/s. Full ledger overhead
+and differing library revisions remain unresolved comparison factors.
+Evidence: `.bench/reliability/results/max-throughput/20260910T232140Z/` and
+`reliability_20260910_191122/`. Exception consumers stayed stopped during
+measurement, maintenance failures were zero, peak storage was 65.1GB, and
+the disposable database was dropped. Raw records are retained compressed.
+
 ## 2026-09-10 — Stream maintenance settings and operations [0742] [0743] [0744]
 
 StreamConfig declares parallel JanitorConfig and VacuumConfig settings;
@@ -17,8 +37,15 @@ Admin reuses its stream/system controllers and owns worker declarations.
 Worker registration takes an explicit initial target through one validated
 path; zero is never replaced by a default.
 The CLI mirrors janitor and vacuum Suspend, Unsuspend, and Status through
-`stream janitor` and `stream vacuum`, including JSON output. CLI additions
-received source review and formatting only; tests remain deferred by request.
+`stream janitor` and `stream vacuum`, including JSON output.
+
+After review, targeted library and CLI race tests, CLI build, and vet passed.
+Fresh PostgreSQL 18 worker/stream integration tests passed, including target
+preservation, suspension during renewal, and history rollback. A disposable
+PostgreSQL 18 CLI check covered both workers' text/JSON output, repeated
+operations, target preservation after re-registration, and missing-stream
+errors. The running manager claimed vacuum after CLI unsuspend; CLI suspend
+then caused it to release its claim. The container was removed afterward.
 
 PostgreSQL 18 race integration checks covered worker and stream persistence,
 including target history rollback.

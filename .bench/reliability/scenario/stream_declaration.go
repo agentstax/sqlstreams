@@ -12,10 +12,15 @@ import (
 // StreamDeclaration is one stream under test and the consumer groups on it.
 // Every stream runs the scenario's producer phases at the phase's rate.
 type StreamDeclaration struct {
-	Name            string
-	DeliveryLogMode stream.DeliveryLogMode
-	PartitionSize   int64
-	Groups          []GroupDeclaration
+	Name              string
+	DeliveryLogMode   stream.DeliveryLogMode
+	PartitionSize     int64
+	RetentionTTL      time.Duration
+	IdempotencyKeyTTL time.Duration
+	Janitor           *stream.JanitorConfig
+	Vacuum            *stream.VacuumConfig
+	VacuumEnabled     bool
+	Groups            []GroupDeclaration
 }
 
 func (t StreamDeclaration) Validate() error {
@@ -29,7 +34,7 @@ func (t StreamDeclaration) Validate() error {
 	if len(t.Groups) == 0 {
 		return errors.New("Groups must not be empty")
 	}
-	if err := (&stream.StreamConfig{PartitionSize: t.PartitionSize, DeliveryLogMode: t.DeliveryLogMode}).WithDefaults().Validate(); err != nil {
+	if err := (&stream.StreamConfig{PartitionSize: t.PartitionSize, DeliveryLogMode: t.DeliveryLogMode, RetentionTTL: t.RetentionTTL, IdempotencyKeyTTL: t.IdempotencyKeyTTL, Janitor: t.Janitor, Vacuum: t.Vacuum}).WithDefaults().Validate(); err != nil {
 		return err
 	}
 	names := map[string]bool{}

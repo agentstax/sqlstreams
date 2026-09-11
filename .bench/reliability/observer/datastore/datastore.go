@@ -84,16 +84,16 @@ func (d *ObserverDatastore) ResolveTarget(ctx context.Context, streamName string
 	return resolved, true, nil
 }
 
-// ReadBacklog reads the stream's highest message id and the group's committed
-// cursor; Stream, Group, and At are left for the caller to set.
+// ReadBacklog uses allocated ids as an upper bound, including uncommitted ids and gaps.
+// Reading the sequence avoids taking locks on message partitions during cleanup.
 func (d *ObserverDatastore) ReadBacklog(ctx context.Context, target Target) (record.BacklogRecord, error) {
 	backlogSql := fmt.Sprintf(`
 		-- lab: datastore.ReadBacklog
 		SELECT
-			(SELECT COALESCE(max(id), 0) FROM %[1]s),
+			(SELECT CASE WHEN is_called THEN last_value ELSE 0 END FROM %[1]s),
 			(SELECT COALESCE(max(committed), 0) FROM %[2]s WHERE consumer_group_id = $1);
-	`, sqlstreamsSchema+"."+stream.MessageLogTable(target.StreamId), sqlstreamsSchema+"."+stream.ConsumerGroupCursorTable(target.StreamId))
+	`, sqlstreamsSchema+"."+stream.MessageLogIdSequence(target.StreamId), sqlstreamsSchema+"."+stream.ConsumerGroupCursorTable(target.StreamId))
 	var backlog record.BacklogRecord
-	err := d.pool.QueryRow(ctx, backlogSql, target.GroupId).Scan(&backlog.HighestMessage, &backlog.Committed)
+	err := d.pool.QueryRow(ctx, backlogSql, target.GroupId).Scan(&backlog.HighestAllocated, &backlog.Committed)
 	return backlog, err
 }

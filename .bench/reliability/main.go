@@ -69,6 +69,9 @@ func run() (int, error) {
 	if !ok {
 		return 0, fmt.Errorf("unrecognized scenario: %q -- one of %s", flags.scenario, scenarios.Names())
 	}
+	if flags.role == "print-json" {
+		return 0, json.NewEncoder(os.Stdout).Encode(declared)
+	}
 	if flags.role == "print" {
 		fmt.Print(declared.String())
 		return 0, nil

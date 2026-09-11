@@ -44,6 +44,138 @@ test -race -count=1 ./reliability/...`, then `just reliability-lab dev`
 green, then the chunk's own sabotage. A green run is trusted only after
 the sabotage turns it.
 
+### Native maximum-throughput scenario (2026-09-10, in progress) [0745]
+
+User approved returning the scratch workload to the existing lab roles,
+records, checker, and verdict. Preserve paced scenarios and Rate 0 as idle;
+unpaced production and explicit batches are separate declarations. Preserve
+full attempted/outcome/handler recording before considering sampling.
+
+- [x] Add `max-throughput`: one producer process, four callers, explicit
+  batches of 250, producer batch concurrency 4, pools 8, 1000-byte payloads;
+  one consumer, claim 16000, queue 64000, handler concurrency 4, poll 100ms.
+  Retention and key TTL 120s, partitions 1M; janitor poll 1s/batch 10000/
+  grace 30s/timeout 30s; key vacuum enabled, poll 120s/timeout 60s.
+- [x] Add native launch of the SAME role binary, native PG18.6, GOMAXPROCS4,
+  GOGC400, GOMEMLIMIT2GiB. Snapshot binary and settings; record CPU and
+  storage. Guard PGDATA plus lab results at 100GB and host free at 40GiB;
+  drop only the run-owned database afterward. Existing compose unchanged.
+- [x] Carry expired acknowledged messages into delivery/completion checks;
+  accept a missing expired row only with success evidence and durable
+  completion for every declared group. Keep missing-row checks without
+  retention. This verifies delivery after cleanup, not the exact instant a
+  deleted row became eligible for expiry.
+- [x] Replace observer partition scans with an explicitly recorded allocated-id
+  upper bound; includes reserved ids, gaps, and uncommitted transactions.
+  Final delivery verification still uses individual message records.
+- [x] Unpaced phases omit schedule adherence; idle phases can produce zero.
+  Missing backlog/CPU evidence cannot silently become a passing zero.
+  Native execution/runtime fingerprint separates results from compose.
+- [x] Targeted `.bench/reliability/...` build, vet, and race tests passed.
+- [x] Native 12-second functional run: 1,214,500 committed and handled once,
+  no rejected/unknown produces or handler errors; lost/undelivered/
+  unbucketed zero after cleanup. Backlog guard correctly FAILED both short
+  phases (+33.6k/s, +28.3k/s); this was not a capacity result. Evidence:
+  `.bench/reliability/results/max-throughput/reliability_20260910_181543/`
+  and verdict `results/max-throughput/20260910T221559Z/`. Database dropped.
+- [x] First ten-minute run `reliability_20260910_181808`: 36,573,750
+  messages produced and handled once, all safety/error counts zero. Hold
+  produced/consumed 49,827/51,895 msg/s. EXCLUDED from the matched scratch
+  comparison: exception consumers were enabled during production. Original
+  declaration/verdict preserved. Database dropped; raw records compressed.
+- [x] Explicit `Warmup` metadata excludes warmup only from run-level
+  performance guards; all messages remain in safety checks and phase measures.
+- [x] Remove duplicate delivery/cursor proof from `CountLost`; separate
+  `undelivered` and `unbucketed` checks cover expired acknowledged messages.
+- [x] Six native controls: paced and idle PASS; removed retained row FAIL
+  (lost=1); removed handler evidence for an expired row FAIL (undelivered=1,
+  lost=0); missing consumer CPU and missing backlog each UNKNOWN. All have
+  zero enabled/live exception consumers during measurement; databases dropped.
+  Evidence: `results/check-*/` and `results/_controls/20260910/controls.json`.
+- [x] Suspend exception consumers and wait for zero instances before production;
+  native samples abort if enabled targets or live instances reappear. System
+  consumer startup can briefly initialize them before the measurement gate.
+- [x] Corrected native run `reliability_20260910_191122` PASS: 38,246,000
+  messages committed and handled once; every safety/error invariant zero.
+  Warmup 74,812 produced/68,638 consumed per second; hold 52,573/58,721.
+  Hold backlog fell from 1,928,611 to 115,403 allocated ids minus cursor;
+  regression -7,951/s. Consumer catch-up makes the higher consumed rate
+  unsuitable as paired capacity: this establishes about 52.6k/s for this
+  five-minute window, roughly 19% below the 65k/s scratch reference.
+  Verdict: `results/max-throughput/20260910T232140Z/`; exact analysis,
+  binary/source, settings, and guards remain beside the run evidence.
+- [x] Maintenance history failures 0; all 1,490 exception-guard samples
+  have enabled/live counts 0. Hold producer p99 136.4ms, end-to-end p99
+  33.29s (startup backlog still draining). WAL 1,924 bytes/message,
+  12 checkpoints, no deadlocks. CPU headroom passed but cannot rule out
+  serialization or recording I/O. Full-record overhead remains a hypothesis,
+  not proven root cause; library revisions differ from the scratch run.
+- [x] Checker completed in 16m25s after the 10m workload. Peak PGDATA plus
+  lab evidence 65.064GB; minimum host free 62.159GB. Run database dropped.
+  Raw produce/handler records 27.132GB compressed to 1.309GB and fully
+  decompressed to validate archive integrity. No production code changes.
+- [x] Report-only fix after the run: preserve negative backlog slopes when
+  every group is draining (initial maximum at zero hid the negative value).
+  Original verdict preserved; raw samples supply the signed trend above.
+- [x] Recording comparison completed: library 97cf389fa52f unchanged, same
+  configuration, candidate then original recording path, 600s each. Candidate
+  `reliability_20260910_194840` flushes all explicit-batch attempt rows before
+  ProduceBatch and all outcomes afterward. It retains JSON lines, payloads,
+  buffer size, and consumer flush-per-handler behavior. This changes producer
+  writer locking/syscall frequency, not evidence volume or retention settings.
+  Original binary/source saved under `results/_controls/recording_comparison_20260910/`.
+  New batch-flush visibility test, record/consumer/runner race tests, vet and
+  build passed before measurement. No production library edits.
+  Candidate completed despite VS Code interruption: verdict PASS, 37,868,250
+  messages handled once, zero application errors, hold 58,216 produced /
+  63,336 consumed per second. Producer median CPU 42% versus earlier 82%;
+  neither rate comparison nor CPU establishes the full cause without repeat.
+  Janitor history has four snapshots with nonzero attempts (max 2); warning
+  identifies expired-key cleanup deadline. This is NOT a clean maintenance
+  pass. No swap-outs during production; four swap-in pages. Peak storage
+  66.421GB, minimum free 60.335GB. Database dropped automatically. Full
+  evidence and candidate source retained; candidate archives passed gzip integrity.
+  Original-path control `reliability_20260910_202351` PASS: 38,752,000
+  committed and handled once, zero application errors, hold 54,329 produced /
+  58,958 consumed per second; producer median CPU 97%, consumer 183%.
+  Candidate hold 58,216/63,336, producer CPU 42%, consumer 178%: observed
+  producer rate +7.15%, producer CPU -56.97%. Both hold backlog slopes
+  negative. One candidate/control pair does not establish statistical
+  repeatability; initial backlog, cleanup behavior, and host variation differ.
+  Same library/runtime/scenario; every pg_settings value matched, as did
+  effective stream settings and worker declarations/targets after excluding
+  generated IDs/timestamps. Control maintenance failures 0, exceptions 0,
+  no production swap-outs (20 swap-in pages); peak total 68.406GB and minimum
+  host free 59.550GB. Both databases dropped, records retained compressed.
+  Comparison JSON: `results/_controls/recording_comparison_20260910/comparison.json`.
+  Interpretation: producer recording is a measurable CPU cost and this change
+  improved the observed hold rate, but does not explain the full 65k gap or
+  provide a clean maintenance maximum. Keep the original path in the working
+  tree; candidate source, binary, visibility test and complete run evidence
+  remain available. Do not adopt it on this single, maintenance-failing run.
+
+
+
+
+
+
+- [ ] Record measured producer AND consumer rates, backlog trend, maintenance
+  outcomes, storage peak/cleanup, and comparison limits before choosing
+  longer runs or recording changes. No 30m run fits the current raw-record
+  budget without revisiting storage: ~82GB at65k/s before DB/checker space.
+
+- [ ] Consumer profiling approved: one 600s diagnostic run on the original
+  recording path, unchanged workload/library/durability configuration. Temporary
+  Go overlay instruments one in 256 handler records (mutex wait, JSON encoding,
+  buffer/file flush); 60s CPU/mutex/block profiles start 120s into hold. Native
+  pg_stat_activity samples at 5Hz, iostat at 1Hz, and before/after profile
+  pg_stat_io/pg_stat_statements/WAL/checkpointer snapshots correlate waits.
+  Profiler code stays in ignored evidence, not the library or default runner.
+  Evidence setup: `results/_controls/consumer_profile_20260910/`. Overlay
+  build/vet and targeted race checks passed; a sampled-write check preserves
+  all 1,024 handler records while emitting four timing samples. Diagnostic
+  throughput includes instrumentation overhead, not a new capacity claim.
+
 ### 1. Environment and fingerprint
 
 Landed 2026-09-07: dev scenario green on 18.4 through the recipe; both
@@ -3002,6 +3134,38 @@ untracked-so-far `runs.jsonl` files before they are first committed.
 - Manualvacuum=`scratch_150054`:46,990,500messagesonce,late64,420/64,454msg/s versuscontrol65,374/65,340;0app/maintenancefailures,0expiredkeys,7,429,750retained. Fourrequests completed3.48/4.56/15.01/13.08s, nooverlap/skipped/canceledrequests. AutovacuumON throughout. Actualmanualcostdelay0ms versusauto2ms;costlimit200,maintenance_work_mem64MB,tablevacuumoverridesnone;manualverbose logs1parallelindexworker. This tests manualVACUUM+ANALYZE scheduling/defaultexecutionbudget together, not schedulingalone or isolatedANALYZEeffect.
 - Manualstorage/WALtradeoff: finalkeyheap+indexes1.865GB versuscontrol3.815GB (-51.1%); manualheld~1.97GB from~3min thenfell, finalheap0.906GB/index0.959GB. Estimateddeadrows3.577m versus23.423m. Finalretainedlivekeys7.43m versus8.00m, workloadsnotidenticalvolume. TotalWAL/message1798.72 versus1749.56bytes (+2.81% observed), lateproducer-1.46%; no throughputgain/WALreductionclaim. Consumerp99upperbound1242ms versus3319ms, but baselinehadlargerearlyburst/backlog; no causaloveralllatencyclaim. Manualvacuum is a promising reclamationtradeoff at similarobservedthroughput;10min cannot establish indefinitelyboundedstorage or robustsmallpercentageperformanceeffects. No additionalbenchmarks added.
 - Allfour runs verified exactproduced/consumedidentities, zeroapp errors/duplicates, overallhandlerbacklogslopesnegative and0swapoutpages. Nativepeak36.25/31.31/30.65/34.08GB;minhostfree94.54/99.35/99.86/96.26GB;100GBguardheld. Guardcompletedwithoutviolations;ordinaryGo toolingpresent62frames(batchstudy)/26frames(manualstudy), allowed underrelaxedrules;hostnotexclusive. AllscratchDBsremoved;deadlock_timeout1000/log_lock_waitsOFF,fsync/synchronous_commit/full_page_writesON directlyverified. Evidence includes raw/source/runtimeconfigs, vacuumprogress/logs, per-runboundedPGlogs, statementWAL, retentiontrends, selection.json, batchcomparison andcombinedverdict.json withreproducibleanalyzers. No librarycodechanges/commits; conclusions:keep10kbatches, manualvacuumshowsstoragebenefitwithsmallobservedthroughput/WALcost; decide maintenancebehavior beforecoding orpromisingstoragecapacity.
+- Current committed maintenance-worker screen (`current_maintenance_20260910_183936`, 2026-09-10): two 300s native PostgreSQL18.6 runs, janitor alone then janitor+vacuum; current library built once, scratch registration uses public JanitorConfig/VacuumConfig and Vacuum().Unsuspend(). Same 4 callers x250 explicit batches, pools8/8, claim16k/queue64k/handlers4, GOMAXPROCS4/GOGC400/GOMEMLIMIT2GiB each; partition1m, both TTL120s, janitor poll1s/batch10k/cleanup30s/grace30s, vacuum poll120s/timeout60s, durable PG baseline with benchmark deadlock_timeout200ms/log_lock_waitsON. Metadata and live worker target/attempts recorded; no delivery consumer, exception targets0. The old runner's manual VACUUM is disabled; the new worker performs the requests. Scratch-only identity ceiling raised to200m; production code unchanged.
+- Control `scratch_183958`:31,046,500 produced/consumed exactly once; late180–300s producer/consumer81,901/81,780msg/s; final retained10,663,000keys,837,500expired at producer-stop cutoff. Vacuum worker `scratch_184535`:24,753,250 exactly once; late70,142/70,278msg/s; retained8,389,250keys,0expired. Zero application errors/duplicates, zero logged maintenance failures and zero sampled maintenance attempts in both; polling-overrun warnings occurred. Whole-run consumer p99 upper bounds2673/1143ms are not causal latency evidence because opening bursts differed.
+- Storage result: key heap+indexes at300s2.798GB(control) versus1.849GB(vacuum); estimated dead rows16.034m versus2.406m. Vacuum arm completed4manual VACUUM/ANALYZE requests including startup passes, plus3autovacuums; control0manual/2auto. WAL1675.50/1716.39bytes per produced message. Lower volume and fewer retained live rows confound raw storage differences. Key allocation still grew over the late window in both, so five minutes does not establish bounded physical storage. Observed late throughput was14.4%lower with vacuum; sequential single runs do not isolate vacuum cost from host/initial-state drift. Verdict: maintenance works under load and expiry is caught up in the vacuum arm; no maximum sustainable-throughput or indefinite-storage claim. Next useful measurement is a matched paced run across more retention/vacuum cycles, rather than reopening SSD attribution.
+- Host/cleanup: no swapouts;665guardframes,0Go-tooling frames, no guard violations, maximum guard gap2.260s. Docker was off; guard aborted if its socket appeared. Earlier preflight `current_maintenance_20260910_183902` stopped before load because the older guard required Docker. Native footprint peaks35.229/30.478GB; host free minima95.107/99.751GB. Both scratch DBs removed; native PG restored fsync/synchronous_commit/full_page_writes/autovacuumON,deadlock_timeout1s/log_lock_waitsOFF. Evidence: `.bench/scratchnative/results/evidence/native18/current_maintenance_20260910_183936/` with source archive, binary hash, scripts, plan, guard, comparison.json; per-run raw profiles, catalog-only monitor, effective configs, SQL/WAL and final exact identity/key counts retained alongside. No production code changes; no benchmark-suite changes.
+
+- Paced maintenance follow-up (`paced_maintenance_60k_20260910_192244`, 2026-09-10): two 600s runs with a 60,000 msg/s producer pacing ceiling, reversed order (vacuum first, janitor-only second). Same frozen bb94ebcc library/scratch binary and configuration as the preceding screen; only pacing and duration changed. Pacing does not catch up missed admissions after stalls, so this is a common ceiling, not equal achieved load. Source archive, binary hash, effective configs, guard, raw samples and reproducible `analyze.py`/`comparison.json` retained in study evidence. No tests or builds during load.
+- Vacuum `scratch_192306`: 34,599,500 messages produced/consumed exactly once; last300–600s producer/consumer55,770/55,742msg/s, last120s51,515/51,430. Janitor-only `scratch_193340`:31,330,500 exactly once; last300–600s51,127/51,043msg/s, last120s51,244/51,035. Zero application errors, duplicate identities or logged maintenance failures; zero sampled maintenance retry attempts. Logged polling-overrun warning lines2/9 respectively (suppressed warnings are additional); overruns are not failed cleanup. Rates use nearest samples with slightly different endpoints, not exact instantaneous backlog measurements. Whole-run consumer p99 upper bounds240/552ms are descriptive, not causal comparisons.
+- Both caught up on expiry: exact expired keys at producer-stop cutoff0/0, retained6,105,500/6,056,500 (vacuum/control). Key heap+indexes at4/5/7/9/10min: vacuum1.094/1.094/0.968/1.091/1.091GB; control0.965/0.966/0.996/0.970/0.970GB. Thus allocation plateaued over the latter six minutes in BOTH arms. Near599s estimated dead rows0.485m/4.576m; completed manual vacuum counts7/0 and autovacuum counts6/9. These counters are sampled estimates, not exact expired-row counts. Total WAL1912.19/1914.63bytes per produced message. No claim of a WAL improvement from this tiny observed difference.
+- Verdict: ordinary autovacuum kept allocation bounded over the observed paced control window; the scheduled worker also ran successfully and reduced sampled dead-row accumulation, but was not necessary for storage stability at this achieved load. Neither consistently held60k/s. Vacuum handled more total volume and ran first, so this pair does not prove a throughput benefit or penalty; the earlier unpaced penalty is not reproducible as a general result. This closes the bounded maintenance comparison without establishing maximum sustainable capacity or indefinite storage stability. Do not reopen physical SSD attribution on these results.
+- Cleanup/host: zero swapouts;1,244 guard frames, no Go-tooling matches or violations, maximum gap1.213s; Docker stayed off. Native footprint peaks19.631GB(vacuum)/18.611GB(control), host free minima109.638/111.207GB, within100GB allocation budget. Both scratch DBs removed; native footprint returned8.647GB. Driver completed successfully and verified fsync/synchronous_commit/full_page_writes/autovacuumON, deadlock_timeout1s/log_lock_waitsOFF. No production code changes or commits.
+
+- Pacing/pool review (2026-09-10): scratch `pace` reserves batch admissions at250/60000=4.167ms intervals and resets overdue reservations to now, discarding missed load after all callers stall. Thus the paced pair measures a ceiling, not maximum capacity. Total producer pool waiting21.1/22.7ms over600s (vacuum/control), maximum sampled acquired4 against pool8; no producer pool exhaustion evidence. Consumer aggregate pool waiting10.45/65.54s is shared across all operations, not critical-path elapsed time. Control CPU profiles total108.97s producer/248.32s consumer over~600s; do not indicate exhausted four-core application processes, but profile syscall attribution is not host CPU utilization. Saved `pool-and-wait-review.json` in paced study; no pool/CPU change justified from those observations alone.
+- Unpaced maintenance extension (`unpaced_maintenance_600_20260910_195227`, `scratch_195249`):600s, same frozen bb94ebcc binary/configuration as paced vacuum run, pacing alone removed.53,364,250 produced/consumed exactly once; zero application errors/duplicates, zero logged maintenance failures or sampled retry attempts.22 polling-overrun warning lines plus suppressed warnings, not failed cleanup. Whole-run consumer p99 upper bound808ms. Two-minute producer/consumer windows:0–120s134,628/134,780;120–240s85,856/85,743;240–360s84,931/84,751;360–480s73,470/73,785;480–600s65,520/65,211msg/s. Last300–600s71,271/71,176msg/s. Opening burst excluded from late result; continuing rate decline prevents calling71k a settled maximum sustainable capacity.
+- Unpaced cleanup/backlog:0 exact expired keys at producer-stop cutoff,7,783,500 retained. Key heap+indexes2.297GB at4min,2.297GB at5min,2.285GB at7min,2.116GB at9/10min. Final sampled dead rows8.357m;6manual/3automatic completed vacuums. Physical key allocation remained bounded over the late window despite throughput decline. Sampled producer-minus-preceding-consumer counts had minute medians~28.6k initially→14.25k finally, with final-minute maximum111.5k; sample pairing allows up to0.5s lag, so these are conservative lagged differences, not exact instantaneous backlog. Medians do not show accumulating consumer backlog, although late transient peaks grew. Final identity check verifies complete drain. TotalWAL1764.47bytes/produced message; no matched causal cost claim.
+- Narrow bottleneck evidence: producer active-session samples waiting on PostgreSQL WALWrite lightweight lock rise253/4047(6.3%) in0–120s to1793/4231(42.4%) in480–600s; physical WalWrite I/O adds197late samples, WalInitSync190. Counts are unweighted samples, not elapsed wait time; no-wait samples cannot distinguish running from runnable. This places a material late wait in the WAL path while key storage stays bounded; it does not identify physical SSD saturation or prove vacuum caused the slowdown. Next useful configuration comparison is commit frequency/batch size under active maintenance, holding other settings fixed; do not reopen kernel/storage-driver tracing.
+- Unpaced host/cleanup:0swapouts,616guardframes,0Go-tooling matches/violations,maxgap1.733s. Native peak33.041GB,minhostfree96.640GB;100GB budget held. Database removed, native footprint returned8.647GB; durable settings/autovacuumON and deadlock_timeout1s/log_lock_waitsOFF restored. Exact source/config, profiles, final counts, guard, window/backlog analyzer and producer wait samples archived in study evidence. No production code changes or commits; maintenance validation passes for this run, maximum-throughput investigation remains open.
+
+- Producer-batch comparison completed (`producer_batch_maintenance_20260910_201014`, 2026-09-10): two600s unpaced runs, batch500 first (`scratch_201036`), fresh batch250 control second (`scratch_202054`). Same frozen bb94ebcc binary,4callers/4transactions,pools8/8,CPU/memory/retention/janitor/vacuum/durablePG settings as previous run; batch size alone changed. Effective producer configs confirm MaxSize500/250 and ConcurrencyLimit4. Surviving-row transaction sizes average499.94/249.99,max500/250; partial transactions after retention are not evidence that configuration failed to take. All51,729,000/39,841,000 messages consumed exactly once, zero application errors/duplicates; exception consumers remain target0 with zero instances.
+- Rate result500/control: final300–600s producer67,090/62,721 and consumer67,238/62,678msg/s; final480–600s producer59,332/63,157 and consumer59,456/63,356. Batch500 two-minute producer windows139,941→86,908→72,772→71,486→59,332; control81,188→62,288→62,413→62,270→63,157. Observed late-five-minute advantage reverses in the final two minutes. Earlier identical batch250 reached71,271/71,176late; same-config variation exceeds this pair's~7%late difference. Unequal initial volume and sequential ordering prevent causal throughput/latency claims. Whole-run consumerp99 upper bounds1858/1609ms are descriptive only.
+- Batch500 cleanup FAILED three times on30s idempotency-key deadlines (two logged lines, one additional suppressed event; retry attempts reached3), then recovered. Control had zero maintenance failures. Both exact final expired counts0; retained6,987,500/7,468,750keys. Key heap+indexes at5/7/9/10min:500=2.672/2.672/2.573/2.573GB;250=1.784/1.521/1.708/1.708GB. Allocation stayed bounded in these windows, but recovered expiry does not erase failed cleanup. Successful key DELETE time273.011s/44.742mrows versus164.890s/32.372mrows; aborted statement cost is omitted from these SQL totals. Larger batch is rejected as a clean steady-state candidate under tested settings; no maintenance timeout increase or production change.
+- WAL/pool/backlog evidence: batch500/control total WAL1856.21/1807.38bytes per produced message (observed+2.7%, not a causal WAL penalty). Final120s producer active-session samples waiting on WALWrite lock1291/4247=30.4% versus1364/4175=32.7%; substantial waiting remains despite halved transaction frequency. Counts are unweighted session samples, not elapsed waiting or proof of SSD saturation. Producer aggregate pool wait11.8/14.7ms, so raising producer pool is not supported; consumer aggregate pool wait222.1/359.1s spans all operations, not critical-path elapsed time. Lagged backlog minute medians decrease from27.9k→16.0k and21.2k→17.2k; transient maxima353.5k/217.5k recover. Pairing uses preceding consumer progress within0.5s and includes sampling lag, not exact instantaneous backlog. Final identities verify complete drain.
+- Host/cleanup: zero swapouts both; native peak34.542/27.601GB,minhostfree94.687/101.036GB, within100GB budget.1,207guardframes,maxgap2.746s,no violation. One ordinary `go mod` frame at20:10:15UTC occurred before first production; no load-time test/build identified by guard. Both DBs removed, native footprint returned8.650GB, fsync/synchronous_commit/full_page_writes/autovacuumON and deadlock_timeout1s/log_lock_waitsOFF restored. Source/configs, raw profiles, exact counts, guard, reproducibleanalyzer/comparison.json/verdict.json retained in study evidence. Verdict:keep250 as baseline;500 did not establish an improvement and failed maintenance. Further configuration comparisons must account for observed run-to-run variation rather than assume sequential results isolate the setting. No kernel/SSD investigation reopened; no production edits or commits.
+
+- Consumer-pool comparison (2026-09-10): smoke `consumer_pool_smoke_20260910_210024` / `scratch_210046` verified300,000 identities exactly once across graceful8→16→16→8 pool transitions at10k/s. Scratch-only addition reloads the existing identity bitset and cumulative consumed count after restart; build/fmt/vet passed before load. No library or reliability-suite change. Because pgxpool cannot resize in place, each phase restarts the consumer AND its maintenance workers; producer and database stay running. Restarting even16→16 keeps the procedure consistent; exclude first30s after restart and last5s before the next boundary. Source/diff behavior is scratch-only, not a new public API.
+- Screen `consumer_pool_screen_20260910_210149` / `scratch_210211`:180s warm-up then four180s phases8/16/16/8, total900s, same native durablePG18.6,4x250producer/pool8,claim16k/queue64k/handlers4,GOMAXPROCS4/GOGC400/GOMEMLIMIT2GiB each,TTL120/grace30/janitorpoll1/batch10k/cleanup30/vacuumpoll120/timeout60. Runtime pool configs8/8/16/16/8 verified including warm-up; all70,337,500 messages consumed exactly once, zero app or maintenance failures, zero final expired keys,8,075,750retained. Scored producer/consumer rates:8first72,434/72,415;16first65,999/65,883;16second63,275/61,184;8last67,273/67,270msg/s. Second16 phase had a transient lagged count peak467k, recovered before final drain. Lagged count medians12,992/14,103/12,859/18,000 include up to0.5s sample lag, not exact instantaneous backlog.
+- Pool evidence: measured aggregate consumer acquisition waiting19.78/53.61/37.23/109.10seconds, empty-acquire counts280/137/92/942 across~144–146s windows; total acquires36,575/35,625/34,454/36,213. Sixteen reduces frequency of empty acquires but does not consistently reduce aggregate waiting duration or improve throughput. Producer wait0 in all scored windows; max sampled producer acquired4/4/5/4 withinpool8. Key allocation stayed~1.76–2.10GB through measured windows. Retain consumerpool8; no causal percentage claim from this small, stateful comparison. Carryover, restart effects and time variation remain limitations; no larger pool sweep justified.
+- Screen cleanup/host: native peak34.282GB,minhostfree93.689GB,0swapouts,907guardframes,maxgap2.001s,no guard violation or new PostgreSQL container.15ordinaryGo-tooling frames (10test/5vet), all in the second16-connection scored window, recorded under agreed relaxed rules; host not exclusive and that window is confounded. Database removed, baseline durable/autovacuum settings restored with deadlock_timeout1s/log_lock_waitsOFF. Source archive, scratch code/runner, transitions, identity bitsets, effectiveconfigs, raw profiles, reproducibleanalyzer/comparison.json/selection.json retained. Offline analyzer was rerun after final verification finished; completed verification is authoritative.
+- Continuous30minute validation completed: `consumer_pool_validation_20260910_211820` / `scratch_211841`, retainedconsumerpool8, no scheduled restarts, same frozen bb94ebcc library and scratch binary/configuration as screen. Unpaced1800.008s,1000-byte messages,4callers x250/pool8,consumerpool8/claim16k/queue64k/handlers4/poll100ms,GOMAXPROCS4/GOGC400/GOMEMLIMIT2GiB each; native durablePG18.6/shared_buffers6GB,TTL120/grace30/partition1m,janitorpoll1s/batch10k/cleanup30s,vacuumpoll120s/timeout60s.200midentity bound not reached. All126,426,500 produced identities consumed exactly once; zero application errors/duplicates or maintenance failures, zero sampled maintenance retry attempts.84poll-overrun warning lines plus suppressed warnings are scheduling overruns, not failed work. Whole-run consumer p99 upper bound2478ms; no tight-latency claim.
+- Sustained rate: producer/consumer five-minute windows0–5min94,462/94,643 (opening burst),5–10min65,553/65,698,10–15min65,892/65,813,15–20min65,298/65,298,20–25min65,335/65,185,25–30min64,594/64,689msg/s. Final15min65,076/65,057msg/s. Five post-startup windows remain~64.6–65.9k/s with matching consumption; this validates roughly65k/s for the observed configuration and host, not the absolute maximum. Rates use nearest samples with slightly different endpoints.
+- Storage/cleanup: exact final expired keys0 at producer-stop cutoff,7,981,500 retained. Key heap+indexes at5/10/15/20/25/30min2.172/2.166/2.071/1.918/1.947/1.641GB. Corresponding sampled DB sizes13.450/11.867/12.683/11.995/11.559/11.572GB; no sustained physical-growth trend. Final sampled key deadrows1.919m,16manual/14automatic vacuums completed. After startup, lagged consumer-backlog minute medians stay~12.3–18.4k; transient peaks up to462,530recover, finalminute median15,500/max63,750. These pair producer progress with preceding consumer samples within0.5s and include sampling lag; final exact identity validation confirms full drain. Logical expiry was counted exactly at finish only. TotalWAL1878.54bytes/produced message; no comparative WAL claim.
+- Validation host/cleanup:0swapouts,nativepeak34.128GB,minhostfree93.590GB,100GB combined-storage budget held.1,780guardframes,maxgap3.134s,no violation/newPGcontainer;35ordinaryGo-tooling frames(27test/8vet) recorded under relaxed rules, so host not exclusive. This session ran no tests/builds during load. Database removed and native footprint returned8.653GB; fsync/synchronous_commit/full_page_writes/autovacuumON,deadlock_timeout1s/log_lock_waitsOFF restored. Source/configs, profiles, guard, transitions(screen only), exact identities/counts, reproducibleanalyzer/comparison.json/verdict.json archived. Retainpool8; the requested pool comparison and30minute validation are complete. No production edits or commits. Concurrent integration-test working-tree changes were left untouched.
+
 - [ ] Choose retention from measured storage, then validate finalists.
 - [ ] Record comparison and sustainable result with evidence.
 

@@ -104,13 +104,13 @@ var sampleLayout = tableLayout{
 var backlogLayout = tableLayout{
 	kind:    record.FileKindBacklog,
 	table:   backlogTable,
-	columns: []string{"at", "stream", "group", "highest_message", "committed"},
+	columns: []string{"at", "stream", "group", "highest_message", "committed", "highest_allocated"},
 	decode: func(line []byte) ([]any, error) {
 		var row record.BacklogRecord
 		if err := json.Unmarshal(line, &row); err != nil {
 			return nil, err
 		}
-		return []any{row.At, row.Stream, row.Group, row.HighestMessage, row.Committed}, nil
+		return []any{row.At, row.Stream, row.Group, row.HighestMessage, row.Committed, row.HighestAllocated}, nil
 	},
 }
 
@@ -235,6 +235,7 @@ func (d *CheckerDatastore) CreateTables(ctx context.Context) error {
 			stream           TEXT NOT NULL,
 			"group"         TEXT NOT NULL,
 			highest_message BIGINT NOT NULL,
+            highest_allocated BIGINT NOT NULL,
 			committed       BIGINT NOT NULL
 		);
 		CREATE INDEX %[6]s_at ON %[1]s.%[6]s (at);

@@ -1,10 +1,12 @@
 ---
-status: accepted
+status: superseded
 date: 2026-09-07
 phase: "pre-v1"
 ---
 
 # The reliability lab is the benchmark harness, and a benchmark is a scenario
+
+Superseded by [0745](0745-maximum-throughput-uses-the-reliability-lab.md).
 
 ## Context
 

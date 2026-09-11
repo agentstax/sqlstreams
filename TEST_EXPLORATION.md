@@ -621,16 +621,112 @@ the other session's janitor benchmark saturating the machine.
   `.bench/reliability` measure_test use `DatabaseURL(t)`.
 - Those janitor tests belong under `.tests/integration/stream` by the rule; not moved
   (another session's in-flight work).
-- Worker and consume are green. Next domain: stream. The other session
-  already moved four janitor tests into `.tests/integration/stream/`
-  (idempotency sweep by creation time, partial sweep grace x2, partition
-  drop priority); the stream promise list covers what is left: partition
-  create-ahead, drop floor and the lagging cursor, rename, destroy and
-  table absence, idempotency key claim/commit, stream register
-  idempotency and conflicting config. Survey the stream datastores
-  (stream/controller/datastore, stream/janitor/controller/datastore) the
-  way consume was surveyed, propose the list, get approval, then one test
-  at a time. Then schedule, alert, metric.
+- Worker, consume, and stream are green (stream: 18 tests, the 12 below
+  plus the other session's six, ran 2026-09-10 under -race). Files:
+  stream_test.go (1-6), drop_test.go (8-10), sweep_test.go (11 appended
+  beside the other session's three), key_lease_test.go (12),
+  compaction_head_test.go (13); numbers 7 (IsEmpty) and 14 (Vacuum) were
+  cut in review. setup_test.go keeps the other session's client-based
+  helpers (alias renamed to janitordatastore) and adds: newStreamDatastore
+  (streams, system), declaredStream, rejectMigrationLogInserts,
+  newUnregisteredStreamDatastore, registerConsumerGroup, produceMessages
+  (through the produce controller, named ProducerFunc), streamTables,
+  newPartitionedJanitor (janitor, orders at PartitionSize 2 with a
+  "processor" group), ageMessages, commitCursor, insertDeliveryRows,
+  listPartitions (bounded by the active partition: a produce creates the
+  next partition in a background goroutine), listMessageIds,
+  processorGroupId, claimKeyLease, expireKeyLease,
+  insertEmptyCompactionHead, insertCompactionHead, listKeys,
+  holdTransaction, seedMessages. seedMessages exists because a produce
+  burns an id whenever the next partition is missing and the create-ahead
+  runs in a background goroutine, so a produce loop at PartitionSize 2
+  lands on ids 1, 3, 5, ... nondeterministically; it produces to make the
+  partitions through the real path, then replaces the rows with dense
+  ids 1..count. Stream registration through the stream controller logs
+  "could not run register-time alert pass -- alert evidence is
+  insufficient" at WARN on every fresh stream (library noise, not fixed).
+  1. Register creates partition 0, the log row, and the migration baseline
+     in one transaction (CHECK (false) NOT VALID on migration_log)
+  2. Register again: same config no log row; changed mutable config
+     replaces + one log row; different partition_size ErrStreamConfigMismatch
+  3. concurrent first registrations leave one stream (errgroup, 8)
+  4. Rename keeps id, moves name, one log row; ErrStreamNameTaken; (nil, nil)
+  5. Delete over 101 partitions drops all ten tables, cascades log and
+     consumer_group_config, sibling survives
+  6. List, Get, GetById on an unregistered database are (nil, nil)
+  8. DropExpiredPartitions: ttl 0 keeps all; newest-row rule; active kept
+  9. DropExpiredPartitions stops at the lagging cursor; allowDrop ignores it
+  10. a partition drop deletes exception_queue, delivery_log (mode on),
+      compaction_head rows in its range
+  11. a row sweep deletes swept rows' exception_queue, delivery_log, and
+      compacted heads; unswept head kept
+  12. SweepExpiredKeyLeases deletes only expired rows, batch 1 over two
+  13. SweepExpiredEmptyCompactionHeads: idle empty deleted, filled and
+      young kept, locked row skipped until its holder ends
+  No tests: Get/GetById/GetInTx happy paths, IsEmpty, Vacuum,
+  ErrStreamPartitionsRemain, ErrStreamDeclarationInterrupted,
+  ddlLockTimeout, sweep batch caps and ttl guards, log lines.
+  Schedule: 7 promises approved and written 2026-09-10 under a benchmark
+  hold -- compiled and vetted only, never run. First step on resume:
+  `cd .tests && go test -race -count=1 -v ./integration/schedule/`.
+  Files under `.tests/integration/schedule/`: schedule_test.go (1, 2, 4),
+  status_test.go (6, 7), due_test.go (8, 9); setup_test.go:
+  newScheduleDatastore (schedules, orders stream), registerSchedule,
+  newScheduleProducerDatastore, setNextScheduledAt (UPDATE now + offset),
+  rejectCursorInserts, registerConsumerGroup (patterns through
+  DeclareBindings), produceScheduleMessage (produce controller: name as
+  message and routing key, compacted, ScheduledAt in options),
+  insertDeliveryOutcome, holdTransaction. Watch on first run: #1 and #2
+  compare NextScheduledAt against time.Now (an @hourly boundary within
+  clock skew would flake); #6 DeepEqual on summary rows; #9 passes pgx.Tx
+  as the Querier.
+  1. Register writes config + cursor together; cursor insert rejected ->
+     no config row (a cursorless config row is invisible yet holds the name)
+  2. Register again: same values same row; new timeout keeps a due
+     next_scheduled_at; new expression re-seeds it after now
+  4. Suspend sets suspended; Unsuspend clears it and moves a due time past
+     now; both ErrScheduleNotFound for a missing name
+  6. Status lists groups with no bindings or a matching binding and counts
+     succeeded / failed / superseded per group; the pending head counts nothing
+  7. ListMessages newest first within the limit, scheduled_at from options,
+     head flagged, outcome booleans
+  8. ListDue orders due unsuspended schedules by time; future and
+     suspended-due absent
+  9. ClaimDue locks the row (other tx nil via SKIP LOCKED), reclaimable
+     after rollback, not-due and suspended nil; Advance in the claiming tx
+     removes it from ListDue and sets last_scheduled_at
+  Cut in review: concurrent registrations (3), Delete (5), Suspend inside
+  the produce transaction (10 folded into 9), the superseded-by pointer
+  (a Go helper, unit-test material). No tests: Get/List, dbNow,
+  ErrScheduleDeclarationInterrupted, ErrPayloadNotEncodable, an expression
+  with no next time, controller guards, the instance's already-produced
+  path; schedule.IdempotencyKey is unit-test material.
+  Alert: no integration tests -- its one datastore verb
+  (PartitionLockCeiling) divides server settings; classify and
+  EvaluateHistory are Go over messages (unit-test material, history has
+  one); Record is controller-level.
+  Metric: 7 proposed, 2 trimmed (ScheduleSnapshots, SchemaVersionCounts),
+  5 written 2026-09-10 under the benchmark hold -- compiled and vetted
+  only, never run. Files under `.tests/integration/metric/`:
+  consumergroup_test.go (ConsumerGroupSnapshot: counts by status, oldest
+  unresolved ignores done/dead, own leases, head, (nil, nil) without a
+  cursor), stream_test.go (ConsumerGroupSchemaVersionLag per group above
+  its own cursor at one version; StreamSnapshot partitions, compacted
+  flag, headless rows and oldest age), worker_test.go (WorkerSnapshots
+  owner chain for system/stream/group-owned rows, live counts only
+  unexpired, max_attempts over live only, unclaimed_for_secs sign),
+  event_test.go (EventTimestamps by routing key and type, MIN(at) per
+  (message_id, attempt)). setup_test.go: newMetricDatastore (metrics,
+  orders), registerConsumerGroup, registerMetricsStream
+  (__system.metrics through the stream controller), insertMessages,
+  insertException (with age), insertClaimLease, setCursor,
+  insertCompactionHead, insertEmptyCompactionHead, newWorkerDatastore,
+  declareWorker, claimInstance, recordFailures, expireInstance,
+  insertMetricEvent (payload as a Go map, pgx encodes jsonb). No tests:
+  ListConsumerGroups, CurrentTime, resolveMetricsStreamId's error.
+  Run order on resume: schedule, then metric, both -race -count=1.
+  Every domain on the list is now written: worker, consume, stream green;
+  schedule (7) and metric (5) unrun.
 - Shape rule added to CONVENTIONS Part 5 (Test shape): tables hold values
   only; a set of verbs is straight-line calls and checks; no funcs in rows,
   no closures, no t.Run around one verb.

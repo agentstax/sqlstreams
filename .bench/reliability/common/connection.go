@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"runtime"
 	"strconv"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -38,6 +39,10 @@ func NewConnection(ctx context.Context, maxConns int) (*Connection, error) {
 	if err != nil {
 		return nil, err
 	}
+	effective := pool.Config()
+	fmt.Fprintf(os.Stderr, "effective runtime: pool_min=%d pool_max=%d max_lifetime=%s max_idle=%s health_check=%s query_mode=%s GOMAXPROCS=%d GOGC=%s GOMEMLIMIT=%s\n",
+		effective.MinConns, effective.MaxConns, effective.MaxConnLifetime, effective.MaxConnIdleTime, effective.HealthCheckPeriod,
+		effective.ConnConfig.DefaultQueryExecMode, runtime.GOMAXPROCS(0), os.Getenv("GOGC"), os.Getenv("GOMEMLIMIT"))
 	client, err := sqlstreams.NewClient(ctx, pool, nil)
 	if err != nil {
 		pool.Close()

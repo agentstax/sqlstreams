@@ -22,13 +22,36 @@ const (
 )
 
 // RunProducer registers every stream, then walks the producer phases on all
-// of them at once, each stream paced at the phase's rate by its own recording
-// producer. Returns when the last phase ends, or nil early when ctx is
+// of them at once, paced or with bounded unpaced callers as declared. Returns when the last phase ends, or nil early when ctx is
 // cancelled -- produces still in flight then land in the records as unknown.
 func (r *Runner) RunProducer(ctx context.Context) error {
 	streams, err := r.registerStreams(ctx)
 	if err != nil {
 		return err
+	}
+
+	if r.declared.DisableExceptionConsumers {
+		startupCtx, stop := context.WithTimeout(ctx, time.Minute)
+		defer stop()
+		ticker := time.NewTicker(100 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			if err := r.ds.SuspendExceptionConsumers(startupCtx); err != nil {
+				return err
+			}
+			stopped, err := r.ds.ExceptionConsumersStopped(startupCtx)
+			if err != nil {
+				return err
+			}
+			if stopped {
+				break
+			}
+			select {
+			case <-startupCtx.Done():
+				return startupCtx.Err()
+			case <-ticker.C:
+			}
+		}
 	}
 
 	produceRecords, err := r.openWriter(record.FileKindProduce)
@@ -75,6 +98,34 @@ func (r *Runner) RunProducer(ctx context.Context) error {
 // the stream in Detail, and the checker takes the earliest start and latest
 // end across streams as the phase's window.
 func (r *Runner) runProducerPhase(ctx context.Context, phase scenario.ProducerPhase, streamName string, recordingProducer *producer.Producer, phaseRecords *record.Writer) error {
+	if phase.Unpaced {
+		if err := r.writePhase(phaseRecords, record.PhaseKindProducer, phase.Name, record.PhaseStatusStarted, streamName+": "+phase.String()); err != nil {
+			return err
+		}
+		end := time.Now().Add(phase.Duration)
+		routines, routinesCtx := errgroup.WithContext(ctx)
+		for range r.declared.ProducerConcurrency {
+			routines.Go(func() error {
+				for time.Now().Before(end) {
+					if err := routinesCtx.Err(); err != nil {
+						return err
+					}
+					if r.declared.ExplicitBatching {
+						if err := recordingProducer.ProduceBatch(routinesCtx, time.Now(), r.declared.ProducerBatchSize); err != nil {
+							return err
+						}
+					} else if err := recordingProducer.Produce(routinesCtx, time.Now()); err != nil {
+						return err
+					}
+				}
+				return nil
+			})
+		}
+		if err := routines.Wait(); err != nil {
+			return err
+		}
+		return r.writePhase(phaseRecords, record.PhaseKindProducer, phase.Name, record.PhaseStatusEnded, streamName+": "+phase.String())
+	}
 	pacer, err := NewPacer(phase.Rate, phase.Duration, max(inFlightFloor, phase.Rate*inFlightSeconds))
 	if err != nil {
 		return err

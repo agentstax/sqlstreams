@@ -24,11 +24,14 @@ type Scenario struct {
 
 	// ProducerBatchConcurrency is each stream's producer batch workers, one
 	// connection each; 0 leaves the library's default
-	ProducerBatchConcurrency int
-	ProducerBatchSize        int
-	AutomaticBatching        bool
-	PayloadBytes             int
-	MaxConns                 int
+	ProducerBatchConcurrency  int
+	ProducerBatchSize         int
+	AutomaticBatching         bool
+	ExplicitBatching          bool
+	DisableExceptionConsumers bool
+	ProducerConcurrency       int
+	PayloadBytes              int
+	MaxConns                  int
 }
 
 func (s *Scenario) Validate() error {
@@ -43,6 +46,20 @@ func (s *Scenario) Validate() error {
 	}
 	if s.ProducerBatchSize < 0 {
 		return fmt.Errorf("ProducerBatchSize must be >= 0, got %d", s.ProducerBatchSize)
+	}
+	if s.ExplicitBatching && (s.AutomaticBatching || s.ProducerBatchSize <= 0) {
+		return errors.New("ExplicitBatching requires ProducerBatchSize > 0 and AutomaticBatching false")
+	}
+	if s.ProducerConcurrency < 0 {
+		return errors.New("ProducerConcurrency must be >= 0")
+	}
+	for _, phase := range s.Producer {
+		if phase.Unpaced && s.ProducerConcurrency == 0 {
+			return errors.New("Unpaced requires ProducerConcurrency > 0")
+		}
+		if s.ExplicitBatching && !phase.Unpaced && phase.Rate > 0 {
+			return errors.New("ExplicitBatching currently requires unpaced or idle phases")
+		}
 	}
 	if s.PayloadBytes != 0 && s.PayloadBytes < 128 {
 		return fmt.Errorf("PayloadBytes must be 0 or >= 128, got %d", s.PayloadBytes)
@@ -65,11 +82,18 @@ func (s *Scenario) Validate() error {
 	}
 
 	var phases time.Duration
+	measuredPhases := 0
 	for i, phase := range s.Producer {
 		if err := phase.Validate(); err != nil {
 			return fmt.Errorf("Producer[%d]: %w", i, err)
 		}
 		phases += phase.Duration
+		if !phase.Warmup {
+			measuredPhases++
+		}
+	}
+	if measuredPhases == 0 {
+		return errors.New("Producer requires at least one measured phase")
 	}
 	if phases != s.Duration {
 		return fmt.Errorf("Producer phases must sum to Duration %v, got %v", s.Duration, phases)
@@ -104,7 +128,7 @@ func (s *Scenario) Validate() error {
 		if !ok {
 			return fmt.Errorf("Expect must declare %s %s", invariant.Check, invariant.Want)
 		}
-		if want != invariant.Want {
+		if want != invariant.Want && !(invariant.Want == WantReport && want == WantZero) {
 			return fmt.Errorf("Expect must declare %s %s, got %q", invariant.Check, invariant.Want, want)
 		}
 	}

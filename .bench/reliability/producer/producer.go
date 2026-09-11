@@ -55,31 +55,18 @@ func NewProducer(instance *sqlstreams.ProducerInstance[common.Order], writer *re
 // the outcome, so a process killed in between leaves the attempt on disk.
 // A record write failing is a lab failure, never a produce outcome.
 func (p *Producer) Produce(ctx context.Context, scheduled time.Time) error {
-	order := &common.Order{Producer: p.name, Sequence: p.sequence.Add(1)}
-	if p.Config.PayloadBytes > 0 {
-		encoded, err := json.Marshal(order)
-		if err != nil {
-			return err
-		}
-		padding := p.Config.PayloadBytes - len(encoded) - len(`,"padding":""`)
-		if padding < 1 {
-			return fmt.Errorf("PayloadBytes must fit message identity, got %d", p.Config.PayloadBytes)
-		}
-		order.Padding = strings.Repeat("x", padding)
+	order, err := p.newOrder()
+	if err != nil {
+		return err
 	}
 	row := record.ProduceRecord{
-		At:          time.Now(),
-		Kind:        record.ProduceKindAttempted,
-		Stream:      p.stream,
-		Producer:    order.Producer,
-		Sequence:    order.Sequence,
-		Key:         order.Key(),
-		ScheduledAt: scheduled,
+		At: time.Now(), Kind: record.ProduceKindAttempted,
+		Stream: p.stream, Producer: order.Producer, Sequence: order.Sequence,
+		Key: order.Key(), ScheduledAt: scheduled,
 	}
 	if err := p.writer.Write(row); err != nil {
 		return err
 	}
-
 	options := &sqlstreams.ProduceOptions{}
 	if !p.Config.AutomaticBatching {
 		options.IdempotencyKey = order.Key()
@@ -95,4 +82,63 @@ func (p *Producer) Produce(ctx context.Context, scheduled time.Time) error {
 		row.Error = err.Error()
 	}
 	return p.writer.Write(row)
+}
+
+func (p *Producer) newOrder() (*common.Order, error) {
+	order := &common.Order{Producer: p.name, Sequence: p.sequence.Add(1)}
+	if p.Config.PayloadBytes > 0 {
+		encoded, err := json.Marshal(order)
+		if err != nil {
+			return nil, err
+		}
+		padding := p.Config.PayloadBytes - len(encoded) - len(`,"padding":""`)
+		if padding < 1 {
+			return nil, fmt.Errorf("PayloadBytes must fit message identity, got %d", p.Config.PayloadBytes)
+		}
+		order.Padding = strings.Repeat("x", padding)
+	}
+	return order, nil
+}
+
+// ProduceBatch keeps one attempt and outcome per message, including ambiguous batch failures.
+func (p *Producer) ProduceBatch(ctx context.Context, scheduled time.Time, size int) error {
+	items := make([]*sqlstreams.ProduceItem[common.Order], size)
+	rows := make([]record.ProduceRecord, size)
+	for i := range items {
+		order, err := p.newOrder()
+		if err != nil {
+			return err
+		}
+		item, err := sqlstreams.NewProduceItem(order, nil)
+		if err != nil {
+			return err
+		}
+		items[i] = item
+		rows[i] = record.ProduceRecord{At: time.Now(), Kind: record.ProduceKindAttempted,
+			Stream: p.stream, Producer: p.name, Sequence: order.Sequence,
+			Key: order.Key(), ScheduledAt: scheduled}
+		if err := p.writer.Write(rows[i]); err != nil {
+			return err
+		}
+	}
+	results, err := p.instance.ProduceBatch(ctx, items...)
+	completed := time.Now()
+	if err == nil && len(results) != len(rows) {
+		return errors.New("batch result count differs from item count")
+	}
+	for i := range rows {
+		rows[i].At = completed
+		if err == nil {
+			rows[i].Kind = record.ProduceKindCommitted
+			rows[i].MessageId = results[i].Id
+			rows[i].Duplicate = results[i].Duplicate
+		} else {
+			rows[i].Kind, rows[i].Code = classify(err)
+			rows[i].Error = err.Error()
+		}
+		if err := p.writer.Write(rows[i]); err != nil {
+			return err
+		}
+	}
+	return nil
 }

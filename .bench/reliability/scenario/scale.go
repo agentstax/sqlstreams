@@ -3,9 +3,8 @@ package scenario
 import "time"
 
 // Scaled returns a copy with every duration and offset multiplied by factor,
-// so the hour-long declaration runs in a minute on a laptop. Only the
-// timeline scales: lease and timeout durations stay what the library gives,
-// which is why a short run can pass without ever crossing a lease expiry.
+// including declared retention and grace periods. Polls, leases, and operation
+// timeouts stay fixed; shortened runs do not establish sustained capacity.
 func (s *Scenario) Scaled(factor float64) *Scenario {
 	scaled := *s
 	scaled.Duration = scaleDuration(s.Duration, factor)
@@ -13,6 +12,22 @@ func (s *Scenario) Scaled(factor float64) *Scenario {
 	for i, phase := range s.Producer {
 		phase.Duration = scaleDuration(phase.Duration, factor)
 		scaled.Producer[i] = phase
+	}
+	scaled.Streams = make([]StreamDeclaration, len(s.Streams))
+	for i, declared := range s.Streams {
+		declared.RetentionTTL = scaleDuration(declared.RetentionTTL, factor)
+		declared.IdempotencyKeyTTL = scaleDuration(declared.IdempotencyKeyTTL, factor)
+		declared.Groups = append([]GroupDeclaration{}, declared.Groups...)
+		if declared.Janitor != nil {
+			janitor := *declared.Janitor
+			janitor.PartialSweepGracePeriod = scaleDuration(janitor.PartialSweepGracePeriod, factor)
+			declared.Janitor = &janitor
+		}
+		if declared.Vacuum != nil {
+			vacuum := *declared.Vacuum
+			declared.Vacuum = &vacuum
+		}
+		scaled.Streams[i] = declared
 	}
 	scaled.Consumers = make([]ConsumerChange, len(s.Consumers))
 	for i, change := range s.Consumers {

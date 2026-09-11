@@ -8,7 +8,7 @@ import (
 // The produce side: the records' committed and unknown keys against the
 // message_log rows the library kept.
 
-// Lost: committed produces whose message row is missing.
+// Expired rows are covered by the separate delivery and durable-completion checks.
 func (d *CheckerDatastore) CountLost(ctx context.Context, target Target) (Measurement, error) {
 	lostSql := fmt.Sprintf(`
 		-- lab: datastore.CountLost
@@ -17,9 +17,10 @@ func (d *CheckerDatastore) CountLost(ctx context.Context, target Target) (Measur
 			COALESCE((array_agg(p.key ORDER BY p.message_id))[1:%[3]d], ARRAY[]::text[])
 		FROM %[1]s p
 		WHERE p.stream = $1 AND p.kind = 'committed'
-			AND NOT EXISTS (SELECT 1 FROM %[2]s m WHERE m.id = p.message_id);
+			AND NOT EXISTS (SELECT 1 FROM %[2]s m WHERE m.id = p.message_id)
+			AND ($2::bigint = 0 OR p.at > CURRENT_TIMESTAMP - $2::double precision / 1000 * interval '1 microsecond');
 	`, produceRecord, target.messageLog(), exampleLimit)
-	return d.measure(ctx, exampleKey, lostSql, target.Stream)
+	return d.measure(ctx, exampleKey, lostSql, target.Stream, target.RetentionTTL.Nanoseconds())
 }
 
 // Unexpected: message rows whose key the records never committed and never

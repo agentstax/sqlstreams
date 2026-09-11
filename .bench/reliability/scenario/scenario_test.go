@@ -89,3 +89,75 @@ func TestValidateRejectsAConsumerChangeAfterTheRun(t *testing.T) {
 		t.Fatal("Validate accepted a consumer change at 2m in a 1m run")
 	}
 }
+
+func TestUnpacedProductionRequiresAnExplicitConcurrency(t *testing.T) {
+	declared := validScenario()
+	declared.Producer[0].Unpaced = true
+	declared.Producer[0].Rate = 0
+	if err := declared.Validate(); err == nil {
+		t.Fatal("accepted unbounded caller count")
+	}
+	declared.ProducerConcurrency = 4
+	if err := declared.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	declared.Producer[0].Rate = 200
+	if err := declared.Validate(); err == nil {
+		t.Fatal("accepted both scheduled and unpaced production")
+	}
+}
+
+func TestZeroRateRemainsAnIdlePhase(t *testing.T) {
+	declared := validScenario()
+	declared.Producer[0].Rate = 0
+	if err := declared.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	if got := declared.Producer[0].String(); got != "steady 0/s 1m" {
+		t.Fatal(got)
+	}
+}
+
+func TestExplicitBatchesCannotAlsoUseAutomaticBatching(t *testing.T) {
+	declared := validScenario()
+	declared.Producer[0].Unpaced = true
+	declared.Producer[0].Rate = 0
+	declared.ProducerConcurrency = 4
+	declared.ExplicitBatching = true
+	declared.ProducerBatchSize = 250
+	if err := declared.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	declared.AutomaticBatching = true
+	if err := declared.Validate(); err == nil {
+		t.Fatal("accepted competing batch modes")
+	}
+}
+
+func TestWarmupRequiresAMeasuredPhase(t *testing.T) {
+	declared := validScenario()
+	declared.Producer[0].Warmup = true
+	if err := declared.Validate(); err == nil {
+		t.Fatal("accepted a run containing only warmup")
+	}
+}
+
+func TestReportExpectationsCanBeStrengthenedButZeroCannotBeWeakened(t *testing.T) {
+	declared := validScenario()
+	for i := range declared.Expect {
+		if declared.Expect[i].Check == CheckDuplicates {
+			declared.Expect[i].Want = WantZero
+		}
+	}
+	if err := declared.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	for i := range declared.Expect {
+		if declared.Expect[i].Check == CheckLost {
+			declared.Expect[i].Want = WantReport
+		}
+	}
+	if err := declared.Validate(); err == nil {
+		t.Fatal("accepted weakening the loss invariant")
+	}
+}

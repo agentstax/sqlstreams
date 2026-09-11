@@ -26,10 +26,27 @@ func (r *Runner) registerStreams(ctx context.Context) ([]registeredStream, error
 	registered := make([]registeredStream, 0, len(r.declared.Streams))
 	for _, declared := range r.declared.Streams {
 		handle := r.connection.Client.Stream[common.Order](declared.Name)
-		if _, err := handle.Register(ctx, &sqlstreams.StreamConfig{DeliveryLogMode: declared.DeliveryLogMode, PartitionSize: declared.PartitionSize}); err != nil {
+		if _, err := handle.Register(ctx, &sqlstreams.StreamConfig{DeliveryLogMode: declared.DeliveryLogMode, PartitionSize: declared.PartitionSize, RetentionTTL: declared.RetentionTTL, IdempotencyKeyTTL: declared.IdempotencyKeyTTL, Janitor: declared.Janitor, Vacuum: declared.Vacuum}); err != nil {
 			return nil, err
 		}
+		if declared.VacuumEnabled {
+			if err := handle.Vacuum().Unsuspend(ctx); err != nil {
+				return nil, err
+			}
+		}
 		registered = append(registered, registeredStream{declared: declared, handle: handle})
+	}
+	if r.declared.DisableExceptionConsumers {
+		for _, registered := range registered {
+			for _, group := range registered.declared.Groups {
+				if _, err := registered.handle.Consumer(group.Name).Register(ctx, consumerConfig(group)); err != nil {
+					return nil, err
+				}
+			}
+		}
+		if err := r.ds.SuspendExceptionConsumers(ctx); err != nil {
+			return nil, err
+		}
 	}
 	return registered, nil
 }
@@ -45,11 +62,11 @@ func producerConfig(declared *scenario.Scenario) *sqlstreams.ProducerConfig {
 
 // consumerConfig is the "N retries then dead" half of a consumers line.
 func consumerConfig(group scenario.GroupDeclaration) *sqlstreams.ConsumerConfig {
-	return &sqlstreams.ConsumerConfig{
+	return (&sqlstreams.ConsumerConfig{
 		Message: &sqlstreams.MessageOptions{
 			Retry: &sqlstreams.RetryPolicy{MaxRetries: group.MaxRetries},
 		},
-	}
+	}).WithDefaults()
 }
 
 // consumeOptions is the "batch N" half; a zero BatchLimit is the library's

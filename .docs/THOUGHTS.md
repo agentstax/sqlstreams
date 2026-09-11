@@ -4,6 +4,8 @@
 
 website user icon for me needs to change (maybe my shipt profile pic)
 
+For cookie accept docsite popup need to use dark pattern for buttons can be extra obnixous with it gold animated outer rim
+
 roadmap later item for review code for interesting design decisions to write articles on (big or small things)
 - diagnostic code system
 - suppression logger

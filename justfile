@@ -24,11 +24,26 @@ compat-lab expect="round-trip":
 # drain_budget bounds how long the checker waits for the consumers to catch up; a saturating scenario needs more than the default.
 # replicas is the number of consumer processes, each running the scenario's instance count on every group.
 # sync sets synchronous_commit on the lab database for the run; off is a labelled diagnostic cell, never the headline.
-reliability-lab scenario="dev" time_scale="1" drain_budget="2m" reps="1" replicas="1" sync="on":
+reliability-lab scenario="dev" time_scale="1" drain_budget="2m" reps="1" replicas="1" sync="on" execution="compose":
     #!/usr/bin/env bash
     set -euo pipefail
     cd .bench/reliability
     export SCENARIO={{ scenario }} TIME_SCALE={{ time_scale }} DRAIN_BUDGET={{ drain_budget }}
+    if [ "{{ execution }}" = native ]; then
+        if [ "{{ replicas }}" != 1 ] || [ "{{ sync }}" != on ] || [ "{{ reps }}" != 1 ]; then
+            echo "native currently requires reps=1, replicas=1, and sync=on" >&2
+            exit 3
+        fi
+        go build -o reliability .
+        for rep in $(seq 1 {{ reps }}); do
+            python3 native.py --binary "$PWD/reliability" --scenario "$SCENARIO" --time-scale "$TIME_SCALE" --drain-budget "$DRAIN_BUDGET" --postgres-bin "${LAB_POSTGRES_BIN:?Set LAB_POSTGRES_BIN}" --port "${LAB_POSTGRES_PORT:?Set LAB_POSTGRES_PORT}" --user "${LAB_POSTGRES_USER:?Set LAB_POSTGRES_USER}"
+        done
+        exit 0
+    fi
+    if [ "{{ execution }}" != compose ]; then
+        echo "execution must be compose or native" >&2
+        exit 3
+    fi
     # the repo .env just loads names the dev database; the lab's stack is its own
     unset POSTGRES_HOST POSTGRES_PORT POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB
     stats_pid=""

@@ -8,6 +8,7 @@ import (
 
 	"github.com/agentstax/sqlstreams/.bench/reliability/common"
 	"github.com/agentstax/sqlstreams/.bench/reliability/record"
+	"github.com/agentstax/sqlstreams/.bench/reliability/runner/datastore"
 	"github.com/agentstax/sqlstreams/.bench/reliability/scenario"
 )
 
@@ -16,6 +17,7 @@ import (
 // drives the recording producer or consumer instances at the moments the
 // timeline says. The producer and consumer packages never see the timeline.
 type Runner struct {
+	ds         *datastore.RunnerDatastore
 	declared   *scenario.Scenario
 	unscaled   *scenario.Scenario
 	timeScale  float64
@@ -42,7 +44,15 @@ func NewRunner(declared *scenario.Scenario, timeScale float64, connection *commo
 	if name == "" {
 		return nil, errors.New("name must not be empty")
 	}
-	return &Runner{declared: declared.Scaled(timeScale), unscaled: declared, timeScale: timeScale, connection: connection, recordDir: recordDir, name: name}, nil
+	scaled := declared.Scaled(timeScale)
+	if err := scaled.Validate(); err != nil {
+		return nil, err
+	}
+	ds, err := datastore.NewRunnerDatastore(connection.Pool)
+	if err != nil {
+		return nil, err
+	}
+	return &Runner{ds: ds, declared: scaled, unscaled: declared, timeScale: timeScale, connection: connection, recordDir: recordDir, name: name}, nil
 }
 
 func (r *Runner) openWriter(kind record.FileKind) (*record.Writer, error) {

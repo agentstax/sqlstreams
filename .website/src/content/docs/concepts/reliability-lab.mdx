@@ -92,12 +92,19 @@ message or dead-lettered it. Both are needed: progress can pass a message
 whose handler never ran, which fails `undelivered` even if `unbucketed`
 passes. This also lets the checker run with failure-only delivery logging.
 
-Duplicates are counted and reported, never failed. A consumer instance
+Duplicates are counted and reported by default. A scenario can require zero duplicates. A consumer instance
 killed between the handler returning and the commit is redelivered after
 the lease expires, so a second success row for the same message is the
 contract working. The [message lifecycle](/concepts/lifecycle/) page has
 the redelivery window; the lab shows the count and where in the run each
 one happened.
+
+With retention enabled, missing expired messages need completion evidence.
+For `orders` message 42, the checker requires a successful handler record
+for `processor` and its durable cursor at or beyond 42. Every other
+declared group needs the same evidence. Without retention, a missing
+message row still fails. These final checks prove delivery after cleanup;
+they cannot reconstruct the exact instant a deleted row became eligible.
 
 ## A run reads like one file
 
@@ -279,36 +286,67 @@ one named bucket:
 The checker never changes shape through those stages. Each one adds a
 bucket to the sum and a fault the run must prove it reached.
 
-## Proposed: sustainable throughput
+## Maximum throughput
 
-The throughput run measures how fast messages can be produced and consumed
-at the same time without either queue growing. The first workload uses
-1 KB messages, one consumer group, a handler with no external calls,
-automatic produce batching, and failure-only delivery logging.
+`max-throughput` runs one producer and one consumer group for ten minutes:
+five minutes explicitly marked as warmup, then five minutes of measurement.
+Warmup stays in the report and all message-safety checks; run-level
+performance guards apply to the measurement phase. Production is
+unpaced, with four concurrent callers making explicit batches of 250
+messages. Each encoded payload is 1000 bytes. Both connection pools allow
+eight connections.
 
-For `orders`, producing 10,000 messages a second requires its group to
-finish 10,000 distinct messages a second. Adding `analytics` as a second
-group requires another 10,000 deliveries a second. Report the produce
-rate and each group's completion rate separately.
+The consumer claims up to 16,000 messages, queues up to 64,000, and runs
+four handlers concurrently. Message and idempotency-key retention are
+120 seconds. The janitor runs with batches of 10,000; scheduled key vacuum
+is enabled. Exception consumers are suspended and their instances must stop
+before production begins; the native launcher checks they remain stopped.
+The scenario declaration carries the full configuration.
 
-Caller-supplied idempotency keys use individual transactions. They are a
-separate workload; changing the batch configuration does not tune that
-path. The automatically batched workload still uses the library's durable
-produce path.
+Existing scenarios keep paced production and automatic batching. A phase
+with Rate 0 remains idle unless it explicitly selects unpaced production.
+Scaling a scenario scales its declared TTLs and partial-sweep grace along
+with its timeline. Poll rates and operation timeouts stay fixed, so a
+shortened run is a functional check rather than a steady-state result.
 
-Short probes find useful settings. A sustainable result needs three
-15-minute measured windows after warmup, no growing producer or consumer
-queue, and 99% of messages handled within one second of their scheduled
-send time. Checkpoints, vacuum, and retention cleanup must occur during
-validation. Draining after production stops only proves eventual completion.
+### Native macOS comparison
 
-On the development Mac, all benchmark storage is limited to 20 GiB with
-40 GiB left free on the host. Database files, WAL, records, checker imports,
-and temporary files count. Retention is chosen from measured growth before
-long runs. Durable commits, fsync, full-page writes, and autovacuum stay on.
+The same roles can run against an existing native PostgreSQL server:
 
-Scenario-file stream declarations also accept `PartitionSize`, using the
-library's existing stream setting. Zero keeps the default; an explicit value
-appears in the run's declaration. Larger partitions reduce how often new
-partitions are created. A short run that never crosses a partition boundary
-cannot establish throughput during rollover.
+```sh
+LAB_POSTGRES_BIN=/opt/homebrew/opt/postgresql@18/bin \
+LAB_POSTGRES_PORT=55439 \
+LAB_POSTGRES_USER=scratch \
+just reliability-lab max-throughput 1 2m 1 1 on native
+```
+
+The server must be dedicated to the run. The launcher creates and drops
+its own database, keeps durability and autovacuum enabled, and records
+server settings, process CPU, runtime configuration, and storage. It does
+not impose CPU or memory limits on PostgreSQL. Go processes default to
+GOMAXPROCS 4, GOGC 400, and GOMEMLIMIT 2GiB; environment variables can
+override these values. The fingerprint distinguishes native and Docker
+results. Compose remains the recipe's default.
+
+The native launcher guards PostgreSQL data plus lab results at 100GB,
+with at least 40GiB free on the host. Full recording writes two produce
+rows and one handler row per message. Checker imports need additional
+space after production ends; a longer run needs a storage estimate first.
+
+### Reading the result
+
+The report separates production and consumption rates. Backlog samples
+use allocated IDs minus the durable cursor, including reserved IDs and
+gaps. This avoids opening message partitions while the janitor drops them.
+Individual records still establish final delivery and completion.
+
+The existing backlog guard allows growth up to 5% of the phase's rate;
+unpaced phases use the measured rate of each stream. Read the actual trend
+alongside the verdict. Schedule adherence applies only to paced phases.
+Missing backlog or CPU measurements produce an unknown verdict rather than
+passing as zero. CPU headroom alone cannot rule out record-writer contention.
+
+A ten-minute run is an initial comparison. Establishing a sustained maximum
+requires longer repeated windows with bounded backlog and storage through
+cleanup cycles. A successful drain after production stops proves eventual
+completion, not that consumption kept up during production.

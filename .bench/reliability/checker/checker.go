@@ -135,7 +135,11 @@ func (c *Checker) judge(ctx context.Context, verdict *Verdict) error {
 		return err
 	}
 	if verdict.Produced.Committed == 0 {
-		return errors.New("nothing was produced")
+		for _, phase := range c.declared.Producer {
+			if phase.Unpaced || phase.Rate > 0 {
+				return errors.New("nothing was produced")
+			}
+		}
 	}
 
 	// the produce side is measured before the drain, so a run whose
@@ -198,6 +202,8 @@ func (c *Checker) check(ctx context.Context, targets []datastore.Target, phases 
 	var measured datastore.Measurement
 	var err error
 	switch expectation.Check {
+	case scenario.CheckErrors:
+		measured, err = c.ds.CountErrors(ctx)
 	case scenario.CheckLost:
 		measured, err = c.sumOverTargets(ctx, oneTargetPerStream(targets), c.ds.CountLost)
 	case scenario.CheckUnexpected:

@@ -2,13 +2,13 @@ package record
 
 import "time"
 
-// BacklogRecord is one second of one consumer group's position: the highest
-// message id the stream holds and the group's committed cursor. Their
-// difference is the group's backlog.
+// BacklogRecord estimates outstanding ids from the allocation sequence and durable cursor.
+// HighestMessage is retained for reading older records that queried message rows.
 type BacklogRecord struct {
-	At             time.Time `json:"at"`
-	Stream         string    `json:"stream"`
-	Group          string    `json:"group"`
-	HighestMessage int64     `json:"highest_message"`
-	Committed      int64     `json:"committed"`
+	At               time.Time `json:"at"`
+	Stream           string    `json:"stream"`
+	Group            string    `json:"group"`
+	HighestAllocated int64     `json:"highest_allocated,omitempty"`
+	HighestMessage   int64     `json:"highest_message"`
+	Committed        int64     `json:"committed"`
 }

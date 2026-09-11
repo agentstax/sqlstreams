@@ -51,16 +51,19 @@ type ServerSummary struct {
 // stepped ladder reads its sustainable rung off the phase rows even when
 // the run-level guards are declared report.
 type PhaseSummary struct {
+	Warmup       bool                     `json:"warmup"`
 	Name         string                   `json:"name"`
 	DeclaredRate int                      `json:"declared_rate"`
+	ConsumedRate float64                  `json:"consumed_rate"`
 	AchievedRate float64                  `json:"achieved_rate"`
 	Produce      datastore.LatencySummary `json:"produce"`
 	EndToEnd     datastore.LatencySummary `json:"end_to_end"`
 
-	BacklogSlope     float64 `json:"backlog_slope"` // the steepest group's, messages per second
-	ScheduleSlips    int64   `json:"schedule_slips"`
-	HeadroomBreaches int64   `json:"headroom_breaches"`
-	Held             bool    `json:"held"` // every guard inside its tolerance
+	BacklogSlope       float64 `json:"backlog_slope"` // the steepest group's, messages per second
+	ScheduleSlips      int64   `json:"schedule_slips"`
+	HeadroomBreaches   int64   `json:"headroom_breaches"`
+	ScheduleApplicable bool    `json:"schedule_applicable"`
+	Held               bool    `json:"held"` // every guard inside its tolerance
 
 	// median CPU of each service's containers over the phase, percent of
 	// one core -- what names the limiter
@@ -114,6 +117,10 @@ func (c *Checker) measureEndToEnd(ctx context.Context, summary *MeasureSummary, 
 		if err != nil {
 			return err
 		}
+		summary.Phases[i].ConsumedRate, err = c.ds.ReadConsumedRate(ctx, from, to)
+		if err != nil {
+			return err
+		}
 		summary.Phases[i].EndToEnd, err = c.ds.ReadEndToEndLatency(ctx, from, to)
 		if err != nil {
 			return err
@@ -132,7 +139,10 @@ func (c *Checker) measureServer(ctx context.Context, from time.Time, to time.Tim
 	if err != nil {
 		return ServerSummary{}, err
 	}
-	perMessage := 1 / float64(committed)
+	var perMessage float64
+	if committed > 0 {
+		perMessage = 1 / float64(committed)
+	}
 	return ServerSummary{
 		Deltas:                 deltas,
 		WalBytesPerMessage:     float64(deltas.WalBytes) * perMessage,
@@ -144,11 +154,27 @@ func (c *Checker) measureServer(ctx context.Context, from time.Time, to time.Tim
 
 // countScheduleSlips is the schedule_kept check over the producer window.
 func (c *Checker) countScheduleSlips(ctx context.Context, phases []record.PhaseRecord) (datastore.Measurement, error) {
-	from, to, err := runWindow(phases, c.declared.Producer)
-	if err != nil {
-		return datastore.Measurement{}, err
+	measured := datastore.Measurement{ExampleOf: "second", Examples: []string{}}
+	for _, phase := range c.declared.Producer {
+		if phase.Warmup || phase.Unpaced || phase.Rate == 0 {
+			continue
+		}
+		from, to, err := phaseWindow(phases, phase)
+		if err != nil {
+			return measured, err
+		}
+		slips, err := c.ds.CountScheduleSlips(ctx, from, to, scheduleTolerance)
+		if err != nil {
+			return measured, err
+		}
+		measured.Count += slips.Count
+		for _, example := range slips.Examples {
+			if len(measured.Examples) < exampleLimit {
+				measured.Examples = append(measured.Examples, example)
+			}
+		}
 	}
-	return c.ds.CountScheduleSlips(ctx, from, to, scheduleTolerance)
+	return measured, nil
 }
 
 // countDivergingPhases is the backlog_bounded check: producer phases in
@@ -157,6 +183,9 @@ func (c *Checker) countScheduleSlips(ctx context.Context, phases []record.PhaseR
 func (c *Checker) countDivergingPhases(ctx context.Context, targets []datastore.Target, phases []record.PhaseRecord) (datastore.Measurement, error) {
 	measured := datastore.Measurement{ExampleOf: examplePhase, Examples: []string{}}
 	for _, phase := range c.declared.Producer {
+		if phase.Warmup {
+			continue
+		}
 		from, to, err := phaseWindow(phases, phase)
 		if err != nil {
 			return datastore.Measurement{}, err
@@ -166,7 +195,14 @@ func (c *Checker) countDivergingPhases(ctx context.Context, targets []datastore.
 			if err != nil {
 				return datastore.Measurement{}, err
 			}
-			if slope > backlogSlopeFraction*float64(phase.Rate) {
+			rate := float64(phase.Rate)
+			if phase.Unpaced {
+				rate, err = c.ds.ReadProducedRate(ctx, from, to, target.Stream)
+				if err != nil {
+					return measured, err
+				}
+			}
+			if slope > backlogSlopeFraction*rate {
 				measured.Count++
 				if len(measured.Examples) < exampleLimit {
 					measured.Examples = append(measured.Examples, fmt.Sprintf("%s %s/%s +%.1f/s", phase.Name, target.Stream, target.Group, slope))
@@ -181,15 +217,31 @@ func (c *Checker) countDivergingPhases(ctx context.Context, targets []datastore.
 // window; a container compose left uncapped is judged against the engine's
 // CPU count from the fingerprint.
 func (c *Checker) countHeadroomBreaches(ctx context.Context, phases []record.PhaseRecord) (datastore.Measurement, error) {
-	from, to, err := runWindow(phases, c.declared.Producer)
-	if err != nil {
-		return datastore.Measurement{}, err
+	measured := datastore.Measurement{ExampleOf: "sample", Examples: []string{}}
+	for _, phase := range c.declared.Producer {
+		if phase.Warmup {
+			continue
+		}
+		from, to, err := phaseWindow(phases, phase)
+		if err != nil {
+			return measured, err
+		}
+		breaches, err := c.ds.CountHeadroomBreaches(ctx, from, to, headroomFraction, float64(c.fingerprint.cpuCount()))
+		if err != nil {
+			return measured, err
+		}
+		measured.Count += breaches.Count
+		for _, example := range breaches.Examples {
+			if len(measured.Examples) < exampleLimit {
+				measured.Examples = append(measured.Examples, example)
+			}
+		}
 	}
-	return c.ds.CountHeadroomBreaches(ctx, from, to, headroomFraction, float64(c.fingerprint.Docker.Cpus))
+	return measured, nil
 }
 
 func (c *Checker) measurePhase(ctx context.Context, targets []datastore.Target, phase scenario.ProducerPhase, from time.Time, to time.Time) (PhaseSummary, error) {
-	measured := PhaseSummary{Name: phase.Name, DeclaredRate: phase.Rate * len(c.declared.Streams)}
+	measured := PhaseSummary{Name: phase.Name, Warmup: phase.Warmup, DeclaredRate: phase.Rate * len(c.declared.Streams), Held: true}
 	var err error
 	measured.Produce, err = c.ds.ReadProduceLatency(ctx, from, to)
 	if err != nil {
@@ -197,24 +249,37 @@ func (c *Checker) measurePhase(ctx context.Context, targets []datastore.Target, 
 	}
 	measured.AchievedRate = float64(measured.Produce.Count) / to.Sub(from).Seconds()
 
-	for _, target := range targets {
+	for i, target := range targets {
 		slope, err := c.ds.ReadBacklogSlope(ctx, from, to, target.Stream, target.Group)
 		if err != nil {
 			return PhaseSummary{}, err
 		}
-		measured.BacklogSlope = max(measured.BacklogSlope, slope)
+		if i == 0 || slope > measured.BacklogSlope {
+			measured.BacklogSlope = slope
+		}
+		rate := float64(phase.Rate)
+		if phase.Unpaced {
+			rate, err = c.ds.ReadProducedRate(ctx, from, to, target.Stream)
+			if err != nil {
+				return PhaseSummary{}, err
+			}
+		}
+		measured.Held = measured.Held && slope <= backlogSlopeFraction*rate
 	}
 	slips, err := c.ds.CountScheduleSlips(ctx, from, to, scheduleTolerance)
 	if err != nil {
 		return PhaseSummary{}, err
 	}
-	measured.ScheduleSlips = slips.Count
-	breaches, err := c.ds.CountHeadroomBreaches(ctx, from, to, headroomFraction, float64(c.fingerprint.Docker.Cpus))
+	measured.ScheduleApplicable = !phase.Unpaced && phase.Rate > 0
+	if measured.ScheduleApplicable {
+		measured.ScheduleSlips = slips.Count
+	}
+	breaches, err := c.ds.CountHeadroomBreaches(ctx, from, to, headroomFraction, float64(c.fingerprint.cpuCount()))
 	if err != nil {
 		return PhaseSummary{}, err
 	}
 	measured.HeadroomBreaches = breaches.Count
-	measured.Held = measured.BacklogSlope <= backlogSlopeFraction*float64(phase.Rate) && slips.Count == 0 && breaches.Count == 0
+	measured.Held = measured.Held && measured.ScheduleSlips == 0 && breaches.Count == 0
 
 	measured.PostgresCpu, err = c.ds.ReadContainerCpu(ctx, from, to, "postgres")
 	if err != nil {

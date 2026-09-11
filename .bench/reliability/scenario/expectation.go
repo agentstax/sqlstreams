@@ -19,6 +19,7 @@ import "fmt"
 type Check string
 
 const (
+	CheckErrors            Check = "errors"
 	CheckLost              Check = "lost"
 	CheckUnexpected        Check = "unexpected"
 	CheckRecovered         Check = "recovered"
@@ -34,7 +35,7 @@ const (
 
 func (c Check) Validate() error {
 	switch c {
-	case CheckLost, CheckUnexpected, CheckRecovered, CheckUndelivered,
+	case CheckErrors, CheckLost, CheckUnexpected, CheckRecovered, CheckUndelivered,
 		CheckDuplicates, CheckUnbucketed, CheckReclaims, CheckDead,
 		CheckScheduleKept, CheckBacklogBounded, CheckGeneratorHeadroom:
 		return nil

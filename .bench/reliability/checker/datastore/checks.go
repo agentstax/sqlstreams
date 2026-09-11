@@ -1,6 +1,9 @@
 package datastore
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
 
 // exampleLimit is how many example ids or keys a check keeps columns its
 // count: enough to look up, few enough to print on one line.
@@ -13,6 +16,7 @@ const (
 	exampleSecond    = "second"
 	examplePhase     = "phase"
 	exampleSample    = "sample"
+	exampleError     = "error"
 )
 
 // Measurement is what every check query returns: how many rows matched and
@@ -29,4 +33,17 @@ func (d *CheckerDatastore) measure(ctx context.Context, exampleOf string, sql st
 	measured := Measurement{ExampleOf: exampleOf}
 	err := d.pool.QueryRow(ctx, sql, args...).Scan(&measured.Count, &measured.Examples)
 	return measured, err
+}
+
+func (d *CheckerDatastore) CountErrors(ctx context.Context) (Measurement, error) {
+	errorsSql := fmt.Sprintf(`
+        -- lab: datastore.CountErrors
+        SELECT count(*), COALESCE((array_agg(detail))[1:5], ARRAY[]::text[])
+        FROM (
+            SELECT error AS detail FROM %[1]s WHERE kind IN ('rejected', 'unknown')
+            UNION ALL
+            SELECT outcome FROM %[2]s WHERE outcome <> 'success'
+        ) failures;
+	`, produceRecord, handlerRecord)
+	return d.measure(ctx, exampleError, errorsSql)
 }

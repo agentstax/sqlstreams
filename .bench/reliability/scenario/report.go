@@ -27,13 +27,32 @@ func (s *Scenario) inputLines() []string {
 		if declared.PartitionSize > 0 {
 			line += fmt.Sprintf(", partition size %d", declared.PartitionSize)
 		}
+		if declared.RetentionTTL > 0 || declared.IdempotencyKeyTTL > 0 {
+			line += fmt.Sprintf(", retention %s, key retention %s", declared.RetentionTTL, declared.IdempotencyKeyTTL)
+		}
 		lines = append(lines, line)
+		if declared.Janitor != nil {
+			lines = append(lines, fmt.Sprintf("janitor\t%s\tpoll %s, batch %d, grace %s, timeout %s", declared.Name, declared.Janitor.PollRate, declared.Janitor.SweepBatchSize, declared.Janitor.PartialSweepGracePeriod, declared.Janitor.CleanupTimeout))
+		}
+		if declared.Vacuum != nil || declared.VacuumEnabled {
+			line := fmt.Sprintf("vacuum\t%s\tenabled %t", declared.Name, declared.VacuumEnabled)
+			if declared.Vacuum != nil {
+				line += fmt.Sprintf(", poll %s, timeout %s", declared.Vacuum.PollRate, declared.Vacuum.VacuumTimeout)
+			}
+			lines = append(lines, line)
+		}
 		for _, group := range declared.Groups {
 			lines = append(lines, fmt.Sprintf("consumers\t%s\t%s", group.Name, group.String()))
 		}
 	}
 	if s.ProducerBatchConcurrency > 0 {
 		lines = append(lines, fmt.Sprintf("producer\tbatch concurrency %d per stream", s.ProducerBatchConcurrency))
+	}
+	if s.DisableExceptionConsumers {
+		lines = append(lines, "exceptions\tdisabled")
+	}
+	if s.ExplicitBatching || s.ProducerConcurrency > 0 {
+		lines = append(lines, fmt.Sprintf("producer\texplicit batching %t, concurrent callers %d", s.ExplicitBatching, s.ProducerConcurrency))
 	}
 	if s.AutomaticBatching || s.PayloadBytes > 0 || s.MaxConns > 0 {
 		lines = append(lines, fmt.Sprintf("workload\tautomatic batching %t, payload bytes %d, pool max %d, batch size %d", s.AutomaticBatching, s.PayloadBytes, s.MaxConns, s.ProducerBatchSize))

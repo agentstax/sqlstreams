@@ -2,8 +2,11 @@ package datastore
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // The guards: whether the run measured what it claims to.
@@ -28,17 +31,20 @@ func (d *CheckerDatastore) CountScheduleSlips(ctx context.Context, from time.Tim
 }
 
 // BacklogSlope is the group's backlog trend over [from, to) in messages per
-// second, a least-squares fit over the observer's backlog samples; 0 with
-// fewer than two samples.
+// second, fitted over the observer samples. Insufficient samples return an error.
 func (d *CheckerDatastore) ReadBacklogSlope(ctx context.Context, from time.Time, to time.Time, streamName string, groupName string) (float64, error) {
 	slopeSql := fmt.Sprintf(`
 		-- lab: datastore.ReadBacklogSlope
-		SELECT COALESCE(regr_slope((highest_message - committed)::double precision, EXTRACT(EPOCH FROM at)), 0)
+		SELECT regr_slope((GREATEST(highest_allocated, highest_message) - committed)::double precision, EXTRACT(EPOCH FROM at))
 		FROM %[1]s
-		WHERE at >= $1 AND at < $2 AND stream = $3 AND "group" = $4;
+		WHERE at >= $1 AND at < $2 AND stream = $3 AND "group" = $4
+		HAVING count(*) >= 2 AND min(at) < max(at);
 	`, observerBacklog)
 	var slope float64
 	err := d.pool.QueryRow(ctx, slopeSql, from, to, streamName, groupName).Scan(&slope)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, errors.New("backlog measurement requires two distinct sample times per group")
+	}
 	return slope, err
 }
 
@@ -69,7 +75,12 @@ func (d *CheckerDatastore) CountHeadroomBreaches(ctx context.Context, from time.
 		FROM %[1]s
 		WHERE at >= $1 AND at < $2
 			AND service IN ('producer', 'consumer')
-			AND cpu_percent > $3::double precision * 100 * COALESCE(NULLIF(cpus, 0), $4::double precision);
+			AND cpu_percent > $3::double precision * 100 * COALESCE(NULLIF(cpus, 0), $4::double precision)
+		HAVING (SELECT count(DISTINCT service) FROM %[1]s WHERE at >= $1 AND at < $2 AND service IN ('producer', 'consumer')) = 2;
 	`, containerSample, exampleLimit)
-	return d.measure(ctx, exampleSample, breachesSql, from, to, fraction, uncappedCpus)
+	measured, err := d.measure(ctx, exampleSample, breachesSql, from, to, fraction, uncappedCpus)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Measurement{}, errors.New("CPU measurements are required for both producer and consumer")
+	}
+	return measured, err
 }

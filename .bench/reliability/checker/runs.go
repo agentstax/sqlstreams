@@ -117,6 +117,15 @@ func identityKey(run *Verdict) string {
 	for _, name := range names {
 		fmt.Fprintf(&key, " %s=%s", name, fingerprint.Settings[name])
 	}
+	environment, _ := json.Marshal(struct {
+		Execution       string
+		BinarySha       string
+		Runtime         map[string]string
+		Host            HostFingerprint
+		Docker          DockerFingerprint
+		PostgresVersion string
+	}{fingerprint.Execution, fingerprint.BinarySha, fingerprint.Runtime, fingerprint.Host, fingerprint.Docker, fingerprint.PostgresVersion})
+	key.Write(environment)
 	key.WriteString("\n" + run.Declaration)
 	return key.String()
 }
@@ -178,11 +187,12 @@ func writeGroupTable(out *strings.Builder, group []*Verdict) {
 	}
 
 	table := tabwriter.NewWriter(out, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(table, "  phase\tdeclared\tachieved\tproduce p50\tp99\tend-to-end p50\tp99\tserver")
+	fmt.Fprintln(table, "  phase\tdeclared\tachieved\tconsumed\tproduce p50\tp99\tend-to-end p50\tp99\tserver")
 	for i, phase := range measured[0].Measure.Phases {
-		fmt.Fprintf(table, "  %s\t%d/s\t%.1f/s\t%s\t%s\t%s\t%s\t\n",
+		fmt.Fprintf(table, "  %s\t%d/s\t%.1f/s\t%.1f/s\t%s\t%s\t%s\t%s\t\n",
 			phase.Name, phase.DeclaredRate,
 			medianOf(measured, func(run *Verdict) float64 { return run.Measure.Phases[i].AchievedRate }),
+			medianOf(measured, func(run *Verdict) float64 { return run.Measure.Phases[i].ConsumedRate }),
 			formatLatency(medianDuration(measured, func(run *Verdict) time.Duration { return run.Measure.Phases[i].Produce.P50 })),
 			formatLatency(medianDuration(measured, func(run *Verdict) time.Duration { return run.Measure.Phases[i].Produce.P99 })),
 			formatLatency(medianDuration(measured, func(run *Verdict) time.Duration { return run.Measure.Phases[i].EndToEnd.P50 })),

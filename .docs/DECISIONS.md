@@ -463,7 +463,7 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 - 0708 2026-09-07 accepted (pre-v1) — Exporter health has a collection scope
 - 0709 2026-09-07 accepted (pre-v1) — Topic alerts evaluate every minute
 - 0710 2026-09-07 accepted (pre-v1) — Consumer defaults use small batches and responsive polling
-- 0711 2026-09-07 accepted (pre-v1) — The reliability lab is the benchmark harness, and a benchmark is a scenario
+- 0711 2026-09-07 superseded (pre-v1) — The reliability lab is the benchmark harness, and a benchmark is a scenario
 - 0712 2026-09-07 accepted (pre-v1) — Documentation starts with a runnable example and separates progress from delivery outcomes
 - 0713 2026-09-07 accepted (pre-v1) — Sustainable throughput keeps both producer and consumer queues bounded
 - 0714 2026-09-07 superseded (pre-v1) — Consumer observations allocate transaction ids before advancing cursors
@@ -508,3 +508,5 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 - 0743 2026-09-10 accepted (pre-v1) — Maintenance completion tracking and startup delay are deferred
 
 - 0744 2026-09-10 accepted (pre-v1) — Controllers keep dependencies and registration owns declarations
+
+- 0745 2026-09-10 accepted (pre-v1) — Maximum throughput uses the reliability lab with explicit workload and environment settings

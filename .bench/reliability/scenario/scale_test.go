@@ -31,3 +31,16 @@ func TestScaledShortensEveryDurationAndOffset(t *testing.T) {
 		t.Fatal("Scaled mutated the original")
 	}
 }
+
+func TestScaledRetentionDoesNotChangeTheOriginalDeclaration(t *testing.T) {
+	declared := validScenario()
+	declared.Streams[0].RetentionTTL = 2 * time.Minute
+	declared.Streams[0].IdempotencyKeyTTL = 2 * time.Minute
+	scaled := declared.Scaled(0.5)
+	if scaled.Streams[0].RetentionTTL != time.Minute || scaled.Streams[0].IdempotencyKeyTTL != time.Minute {
+		t.Fatal("retention did not follow the timeline")
+	}
+	if declared.Streams[0].RetentionTTL != 2*time.Minute {
+		t.Fatal("original was mutated")
+	}
+}

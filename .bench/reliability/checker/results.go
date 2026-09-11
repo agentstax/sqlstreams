@@ -98,8 +98,15 @@ func (p PhaseSummary) ReportColumns() string {
 	if !p.Held {
 		guards = fmt.Sprintf("gave: backlog %+.1f/s, slips %ds, headroom %d", p.BacklogSlope, p.ScheduleSlips, p.HeadroomBreaches)
 	}
-	return fmt.Sprintf("achieved %.1f/s of %d/s\tproduce p50 %s p99 %s\tend-to-end p50 %s p99 %s\tcpu postgres %.0f%% producer %.0f%% consumer %.0f%%\t%s",
-		p.AchievedRate, p.DeclaredRate,
+	if p.Warmup {
+		guards = "warmup (excluded from run guards)"
+	}
+	target := fmt.Sprintf(" of %d/s", p.DeclaredRate)
+	if p.DeclaredRate == 0 {
+		target = ""
+	}
+	return fmt.Sprintf("achieved %.1f/s%s, consumed %.1f/s\tproduce p50 %s p99 %s\tend-to-end p50 %s p99 %s\tcpu postgres %.0f%% producer %.0f%% consumer %.0f%%\t%s",
+		p.AchievedRate, target, p.ConsumedRate,
 		formatLatency(p.Produce.P50), formatLatency(p.Produce.P99),
 		formatLatency(p.EndToEnd.P50), formatLatency(p.EndToEnd.P99),
 		p.PostgresCpu, p.ProducerCpu, p.ConsumerCpu, guards)

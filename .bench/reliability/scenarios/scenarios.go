@@ -9,7 +9,7 @@ import (
 	"github.com/agentstax/sqlstreams/.bench/reliability/scenario"
 )
 
-var All = []*scenario.Scenario{Quiet, Dev, Multistream1, Multistream4, Multistream16, Throughput}
+var All = []*scenario.Scenario{Quiet, Dev, Multistream1, Multistream4, Multistream16, Throughput, MaxThroughput}
 
 func ByName(name string) (*scenario.Scenario, bool) {
 	for _, declared := range All {

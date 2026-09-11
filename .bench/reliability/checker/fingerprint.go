@@ -18,6 +18,10 @@ var recordedSettings = []string{
 	"autovacuum",
 	"shared_buffers",
 	"max_wal_size",
+	"min_wal_size",
+	"checkpoint_completion_target",
+	"deadlock_timeout",
+	"log_lock_waits",
 	"checkpoint_timeout",
 	"max_connections",
 	"track_io_timing",
@@ -29,9 +33,12 @@ var recordedSettings = []string{
 // checker's container can see none of them; the checker fills the Go and
 // Postgres facts from its own binary and the server.
 type Fingerprint struct {
-	LibrarySha   string `json:"library_sha"`
-	LibraryDirty bool   `json:"library_dirty"`
-	GoVersion    string `json:"go_version"`
+	Execution    string            `json:"execution,omitempty"`
+	Runtime      map[string]string `json:"runtime,omitempty"`
+	BinarySha    string            `json:"binary_sha,omitempty"`
+	LibrarySha   string            `json:"library_sha"`
+	LibraryDirty bool              `json:"library_dirty"`
+	GoVersion    string            `json:"go_version"`
 
 	PostgresImage   string            `json:"postgres_image"`
 	PostgresVersion string            `json:"postgres_version"`
@@ -75,6 +82,16 @@ func ReadFingerprint(path string) (*Fingerprint, error) {
 	if fingerprint.LibrarySha == "" {
 		return nil, errors.New("fingerprint: library_sha is required")
 	}
+	if fingerprint.cpuCount() <= 0 {
+		return nil, errors.New("fingerprint: execution CPU count must be positive")
+	}
 	fingerprint.GoVersion = runtime.Version()
 	return fingerprint, nil
+}
+
+func (f *Fingerprint) cpuCount() int {
+	if f.Execution == "native" {
+		return f.Host.Cores
+	}
+	return f.Docker.Cpus
 }

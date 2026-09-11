@@ -124,3 +124,31 @@ func (d *CheckerDatastore) ReadThroughput(ctx context.Context, from time.Time, t
 func seconds(value float64) time.Duration {
 	return time.Duration(value * float64(time.Second))
 }
+
+func (d *CheckerDatastore) ReadConsumedRate(ctx context.Context, from time.Time, to time.Time) (float64, error) {
+	consumedSql := fmt.Sprintf(`
+		-- lab: datastore.ReadConsumedRate
+		SELECT count(*)::double precision / EXTRACT(EPOCH FROM ($2::timestamptz - $1::timestamptz))
+		FROM (
+			SELECT stream, "group", message_id FROM %[1]s
+			WHERE outcome = 'success'
+			GROUP BY stream, "group", message_id
+			HAVING min(at) >= $1 AND min(at) < $2
+		) completed;
+    `, handlerRecord)
+	var rate float64
+	err := d.pool.QueryRow(ctx, consumedSql, from, to).Scan(&rate)
+	return rate, err
+}
+
+func (d *CheckerDatastore) ReadProducedRate(ctx context.Context, from time.Time, to time.Time, streamName string) (float64, error) {
+	producedSql := fmt.Sprintf(`
+		-- lab: datastore.ReadProducedRate
+		SELECT count(*)::double precision / EXTRACT(EPOCH FROM ($2::timestamptz - $1::timestamptz))
+		FROM %[1]s
+		WHERE stream = $3 AND kind = 'committed' AND at >= $1 AND at < $2;
+    `, produceRecord)
+	var rate float64
+	err := d.pool.QueryRow(ctx, producedSql, from, to, streamName).Scan(&rate)
+	return rate, err
+}
