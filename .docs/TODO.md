@@ -6,5 +6,5 @@ shipped work in HISTORY.md; decision rationale in DECISIONS.md ->
 
 No active benchmark work. The sustained-throughput milestone is complete;
 see HISTORY.md (2026-09-11), [0747], [0748], and the committed evidence in
-`.bench/reliability/results/published/2026-09-11/`. Remaining benchmark
+`.bench/results/published/2026-09-11/`. Remaining benchmark
 work is in ROADMAP.md. Detailed investigation notes remain in git history.

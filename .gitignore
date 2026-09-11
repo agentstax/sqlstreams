@@ -15,9 +15,9 @@ go.work.sum
 
 # reliability-lab runs: results/<scenario>/runs.jsonl is tracked, the
 # per-run directories and the recipe's scratch files are not
-.bench/reliability/results/*/*/
-.bench/reliability/results/fingerprint.json
-.bench/reliability/results/stats.jsonl
+.bench/results/*/*/
+.bench/results/fingerprint.json
+.bench/results/stats.jsonl
 
 # go build run inside a main package drops a binary named for its directory;
 # go test -c and profiling flags drop *.test and *.prof beside the source
@@ -26,7 +26,8 @@ go.work.sum
 /.tools/compat/compat
 /.tools/compatexport/compatexport
 /.bench/claim/claim
-/.bench/reliability/reliability
+/.bench/reliability
+/.bench/.bench
 /.bench/scale/projector/projector
 /.bench/*/driver/driver
 *.test
@@ -43,4 +44,4 @@ __debug_bin*
 .claude
 
 # Evidence selected for the public throughput report.
-!.bench/reliability/results/published/2026-09-11/
+!.bench/results/published/2026-09-11/

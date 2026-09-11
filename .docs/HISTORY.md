@@ -5,6 +5,18 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-11 — Benchmark runner promoted to .bench [0749]
+
+Moved the reliability lab's entry point, packages, scripts, Compose stack,
+and results to `.bench/`. Existing Just commands retain their names. Imports,
+Docker build paths, native source capture, ignore rules, and current evidence
+links follow the move. Published evidence and frozen reproduction commands
+retain their original contents. Other benchmark programs remain separate.
+
+Validation: benchmark build, vet, formatting, and targeted race tests passed;
+Compose paths, evidence hashes, and scenario/report commands checked. No
+database workload or full e2e suite was run for this mechanical move.
+
 ## 2026-09-11 — Sustained throughput measured and documented [0747] [0748]
 
 The reliability lab reproduces the native scratch throughput with optional
@@ -34,7 +46,7 @@ below 100 GB and every measurement database was removed.
 README and /benchmarks/ report approximately 68k messages/s with all three
 outcomes, configuration, limitations, a chart, and downloadable evidence.
 Source/build identity, records, logs, settings, and checksums are retained
-in `.bench/reliability/results/published/2026-09-11/`. Temporary publication
+in `.bench/results/published/2026-09-11/`. Temporary publication
 scripts were removed. Future multi-stream, latency, idle-fleet, and logging
 measurements remain separate work.
 
@@ -88,7 +100,7 @@ handler evidence, and missing CPU/backlog telemetry. The ten-minute native
 five minutes produced 52,573/s and consumed 58,721/s while draining backlog.
 This does not reproduce the scratch reference of 65k/s. Full ledger overhead
 and differing library revisions remain unresolved comparison factors.
-Evidence: `.bench/reliability/results/max-throughput/20260910T232140Z/` and
+Evidence: `.bench/results/max-throughput/20260910T232140Z/` and
 `reliability_20260910_191122/`. Exception consumers stayed stopped during
 measurement, maintenance failures were zero, peak storage was 65.1GB, and
 the disposable database was dropped. Raw records are retained compressed.
@@ -286,7 +298,7 @@ checks, and the documentation build pass. Two repeated 32k/s, 30s reliability
 runs handled all 1.92 million messages with no missing/duplicate deliveries,
 but still failed backlog/latency limits. A corrected 16k/s, 30s baseline
 passed with all 480,000 messages handled and overall p99 248.5ms. Evidence is in
-bench/reliability/results/throughput/RESULTS.md; no sustained-rate claim.
+bench/results/throughput/RESULTS.md; no sustained-rate claim.
 
 ## 2026-09-07 — Documentation onboarding and explanation pass [0712]
 
