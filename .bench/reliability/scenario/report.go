@@ -48,6 +48,9 @@ func (s *Scenario) inputLines() []string {
 	if s.ProducerBatchConcurrency > 0 {
 		lines = append(lines, fmt.Sprintf("producer\tbatch concurrency %d per stream", s.ProducerBatchConcurrency))
 	}
+	if s.DisableMessageRecording {
+		lines = append(lines, "recording\tper-message disabled; aggregate counters only")
+	}
 	if s.DisableExceptionConsumers {
 		lines = append(lines, "exceptions\tdisabled")
 	}

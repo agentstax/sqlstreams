@@ -58,7 +58,7 @@ func NewChecker(pool *pgxpool.Pool, declared *scenario.Scenario, unscaled *scena
 		return nil, fmt.Errorf("drainBudget must be > 0, got %v", drainBudget)
 	}
 
-	ds, err := datastore.NewCheckerDatastore(pool)
+	ds, err := datastore.NewCheckerDatastore(pool, &datastore.CheckerDatastoreConfig{DisableMessageRecording: declared.DisableMessageRecording})
 	if err != nil {
 		return nil, err
 	}
@@ -77,13 +77,14 @@ func (c *Checker) Run(ctx context.Context) (*Verdict, error) {
 	}
 
 	verdict := &Verdict{
-		Scenario:    c.declared.Name,
-		Declaration: c.unscaled.String(),
-		TimeScale:   c.timeScale,
-		StartedAt:   time.Now(),
-		Fingerprint: c.fingerprint,
-		Checks:      []CheckResult{},
-		Phases:      []record.PhaseRecord{},
+		DisableMessageRecording: c.declared.DisableMessageRecording,
+		Scenario:                c.declared.Name,
+		Declaration:             c.unscaled.String(),
+		TimeScale:               c.timeScale,
+		StartedAt:               time.Now(),
+		Fingerprint:             c.fingerprint,
+		Checks:                  []CheckResult{},
+		Phases:                  []record.PhaseRecord{},
 	}
 	if err := c.judge(ctx, verdict); err != nil {
 		verdict.Status = VerdictStatusUnknown
@@ -103,6 +104,10 @@ func (c *Checker) judge(ctx context.Context, verdict *Verdict) error {
 		return err
 	}
 	c.fingerprint.Settings, err = c.ds.ReadSettings(ctx, recordedSettings)
+	if err != nil {
+		return err
+	}
+	verdict.Records.Progress, err = c.ds.LoadProgress(ctx, c.recordDir)
 	if err != nil {
 		return err
 	}
@@ -199,6 +204,9 @@ func (c *Checker) resolveTargets(ctx context.Context) ([]datastore.Target, error
 // A per-group check is summed over every target, a per-stream check over one
 // target per stream; the examples are the first targets' examples.
 func (c *Checker) check(ctx context.Context, targets []datastore.Target, phases []record.PhaseRecord, expectation scenario.Expectation) (CheckResult, error) {
+	if c.declared.DisableMessageRecording && expectation.Check.RequiresMessageRecording() {
+		return CheckResult{Check: expectation.Check, Want: expectation.Want, Status: CheckStatusUnavailable, Reason: "per-message recording disabled"}, nil
+	}
 	var measured datastore.Measurement
 	var err error
 	switch expectation.Check {

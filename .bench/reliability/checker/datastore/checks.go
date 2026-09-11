@@ -36,6 +36,10 @@ func (d *CheckerDatastore) measure(ctx context.Context, exampleOf string, sql st
 }
 
 func (d *CheckerDatastore) CountErrors(ctx context.Context) (Measurement, error) {
+	if d.Config.DisableMessageRecording {
+		errorsSql := fmt.Sprintf(`SELECT COALESCE(sum(rejected+unknown+error),0), ARRAY[]::text[] FROM (SELECT DISTINCT ON (process,stream,"group") rejected,unknown,error FROM %s ORDER BY process,stream,"group",at DESC) latest`, messageProgress)
+		return d.measure(ctx, exampleError, errorsSql)
+	}
 	errorsSql := fmt.Sprintf(`
         -- lab: datastore.CountErrors
         SELECT count(*), COALESCE((array_agg(detail))[1:5], ARRAY[]::text[])

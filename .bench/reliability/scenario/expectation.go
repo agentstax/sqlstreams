@@ -90,3 +90,12 @@ func (e Expectation) Validate() error {
 func (e Expectation) String() string {
 	return fmt.Sprintf("%s\t%s", e.Check, e.Want)
 }
+
+// RequiresMessageRecording identifies checks that aggregate counters cannot prove.
+func (c Check) RequiresMessageRecording() bool {
+	switch c {
+	case CheckLost, CheckUnexpected, CheckRecovered, CheckUndelivered, CheckDuplicates, CheckUnbucketed, CheckScheduleKept:
+		return true
+	}
+	return false
+}

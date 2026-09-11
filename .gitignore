@@ -41,3 +41,6 @@ __debug_bin*
 /.dist/
 
 .claude
+
+# Evidence selected for the public throughput report.
+!.bench/reliability/results/published/2026-09-11/

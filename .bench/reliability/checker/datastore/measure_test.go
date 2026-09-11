@@ -17,7 +17,7 @@ func TestMeasurementsWithOverlappingStreamIds(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer pool.Close()
-	ds, err := NewCheckerDatastore(pool)
+	ds, err := NewCheckerDatastore(pool, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func TestCompletionWithoutSuccessAuditRows(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer pool.Close()
-	ds, err := NewCheckerDatastore(pool)
+	ds, err := NewCheckerDatastore(pool, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

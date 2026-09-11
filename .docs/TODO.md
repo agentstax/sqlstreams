@@ -44,6 +44,172 @@ test -race -count=1 ./reliability/...`, then `just reliability-lab dev`
 green, then the chunk's own sabotage. A green run is trusted only after
 the sabotage turns it.
 
+### Publication measurements (2026-09-11, complete; awaiting review) [0748]
+
+- Three prospectively selected 30-minute native runs from one frozen source
+  archive and binary; five-minute warmup / 25-minute hold. max-throughput now
+  declares that duration and uses WantReport for CPU headroom; phase summaries
+  honor that policy. Other scenarios and historical verdicts are unchanged.
+- All three checker verdicts PASS. Lower producing/consuming rates:
+  74,129.26/s (reliability_20260911_123711), 68,184.89/s
+  (reliability_20260911_130753), 66,140.77/s (reliability_20260911_133838).
+  Median 68,184.89/s; README headline rounded to approximately 68k/s, with the
+  complete 66,141–74,129/s range and method on /benchmarks/.
+- Backlog slopes +5.50 / -0.61 / -2.34 messages/s, all below the 10/s unpaced
+  threshold. Final aggregate counts match in each run: 142,480,500 /
+  129,980,250 / 125,678,250; combined 398,139,000 including warmup. No rejected,
+  unknown, or handler errors. No identity/exactly-once or latency claim.
+- Run 1 logged two janitor partition-drop lock timeouts; runs 2/3 logged none.
+  Headroom crossings zero in all runs. Maintenance logs retained; history
+  snapshots are not treated as complete failure counts. Suppression remains
+  a limit on the number of observable failure occurrences.
+- Combined storage peaks 84.62 / 83.25 / 81.56 GB. PostgreSQL cluster peaks
+  (including WAL) 35.40 / 33.80 / 32.05 GB. All three databases dropped;
+  zero host guard violations and zero observed test/build frames.
+- Selected evidence is tracked under .bench/reliability/results/published/
+  2026-09-11/: source archive, manifest/build identity, reproduction config,
+  three raw-record/log/verdict archives, summary JSON, and checksums. Temporary
+  launch/analysis/plot scripts and the redundant local-path run manifest were
+  removed from the publication bundle. Binary/source/archive hashes and
+  durability settings verified; all three used the same measured binary.
+- README links the new benchmark page; the site has a complete run table,
+  workload/environment, caveats, reproduction instructions, downloadable
+  evidence and a static chart of rates/backlog/PostgreSQL disk usage. The
+  reliability-lab page now distinguishes aggregate throughput coverage.
+- Build, benchmark-module race tests, and vet passed before freezing the
+  binary. Touched site prose/structure checks and board TypeScript lint pass.
+  Full astro check/build is blocked by pre-existing decision 0730 frontmatter
+  (also invalid at HEAD): status is "superseded by [0736]", while the collection
+  accepts "superseded". Historical record left untouched; complete site render
+  validation pending that separate metadata correction. No deployment/commit.
+
+### Optional message recording for throughput (2026-09-11, validated; awaiting review) [0747]
+
+- User approved DisableMessageRecording for throughput scenarios. Implemented
+  as a scenario boolean, default false; enabled on throughput and max-throughput.
+  The library is unchanged. Producer/handler paths skip message-record creation
+  and writes; once-per-second counters feed the existing checker and report.
+- Identity checks and schedule adherence explicitly report UNAVAILABLE;
+  detailed latency is unavailable. Error, backlog, and resource checks remain.
+  Counters are sampled evidence, not exactly-once identity verification.
+- Build, vet, and benchmark-module race tests pass. Native integration tests
+  cover process-specific sampled spans, error totals, missing samples, and
+  counter resets; existing checker database tests also pass. Two existing test
+  constructor calls were updated for the optional datastore config, and the
+  handler test call for its new dependencies; expectations were not weakened.
+- Thirty-second max-throughput smoke: 4,435,750 committed, same sampled handler
+  success total, zero message-record rows, no recorded errors; checker PASS.
+  Shortened dev compatibility run passed all identity checks with full records
+  but failed backlog slope 10.2/s against 10/s. Normal one-minute dev rerun
+  reliability_20260911_100511 passed all checks: 12,000 committed/handled,
+  24,000 producer and 12,000 handler records; database cleaned up.
+- Native PostgreSQL 18.6 ten-minute max-throughput run (five-minute warmup,
+  five-minute hold), reliability_20260911_100806: PASS at 67,084 produced/s
+  and 67,039 consumed/s, versus the prior clean full-recording 52,276/52,296
+  (+28.3% produced). This recovers the approximately 65k/s scratch result;
+  the comparison is historical, not a simultaneous controlled A/B.
+- Hold backlog slope -14.74/s; minute medians 54.6k, 59.9k, 58.4k, 58.5k,
+  45.5k. Final aggregate totals both 51,110,000, no rejected/unknown/handler
+  errors or maintenance failures. Identity equality was not checked.
+- Zero message-record bytes; all records 447,126 bytes. Combined storage peaked
+  at 85.12 GB, minimum free space 100.35 GB; owned database dropped. No guard
+  violations or test/build activity. Evidence: .bench/reliability/results/
+  max-throughput/reliability_20260911_100806/recording-comparison.json and
+  max-throughput/20260911T141822Z/verdict.json.
+- Final reporting review removes the exact per-second completion series in
+  disabled mode: snapshots cannot reconstruct it. Phase rates retain their
+  actual observed spans; raw progress snapshots remain available. This affects
+  post-run reporting only, not the benchmarked producer/consumer paths.
+
+### Thirty-minute aggregate throughput confirmation (2026-09-11, complete)
+
+- User requested 30 minutes while reviewing code. Native PG 18.6, unchanged
+  max-throughput configuration and runtime; frozen binary built with an overlay
+  changing only total duration to 30m and hold to 25m (warmup remains 5m).
+  No tracked source changes or concurrent tests/builds during measurement.
+- Run reliability_20260911_104122, measured 10:46:38–11:11:38 Eastern:
+  75,011.5 produced/s, 75,021.2 consumed/s over 25 minutes. Five-minute
+  producer windows: 78,330 / 78,910 / 70,801 / 76,382 / 70,692 per second;
+  consumers matched each window. This sustains the gain beyond startup burst.
+- Final shutdown counters both 145,065,000; rejected, unknown and handler errors
+  all zero. These are aggregate totals, not per-message identity verification.
+  Backlog guard PASS, slope +5.41/s below its 10/s threshold; minute medians
+  41.7k–79.8k, transient maximum 626,594. Final consumer counters caught up.
+- Overall checker FAIL: one consumer CPU sample at 11:03:28.292 Eastern was
+  322.385%, exceeding the configured 320% headroom threshold (80% of four).
+  Native processes have GOMAXPROCS=4, not an OS CPU quota. Median hold CPU:
+  PostgreSQL 187.7%, producer 43.2%, consumer 98.7%. Guard was not relaxed.
+- Maintenance caveat: janitor partition-drop lock-timeout warnings at 10:53:57
+  and 11:07:01; the latter reports suppressed_count=1 (at least three worker
+  tick failure occurrences, two with visible lock-timeout details). Worker
+  history's attempts>0 count is zero and is NOT a complete failure count:
+  failure streaks reset on success, while history snapshots occur on claims
+  and renewals. Logs retained; further suppressed events cannot be excluded.
+- Combined storage peaked at 84.61 GB; five-minute hold windows stayed within
+  70.3–82.0 GB, minimum free space 99.39 GB. Zero message-record bytes,
+  1.33 MB aggregate/observer records. Database dropped successfully. No host
+  activity guard violations or test/build frames. Initial sandbox preflight
+  could not access the Docker observer; retry with approved access ran fully.
+- Evidence: .bench/reliability/results/max-throughput/reliability_20260911_104122/
+  recording-comparison.json, consumer.log, maintenance-failure-details.json;
+  verdict at max-throughput/20260911T151139Z/verdict.json. Overlay and launch
+  evidence: results/_controls/counter_30m_20260911_144101/.
+- Conclusion: longer-run capacity confirmed above the previous approximately
+  65k/s reference, but not a clean all-guards-passing baseline. Preserve the
+  headroom failure and maintenance contention for review; no automatic retuning
+  or additional long run launched.
+
+### Recording file-write isolation (2026-09-11, comparison complete)
+
+- User approved isolating the recording cost. Diagnostic-only source overlay
+  reuses the previous scratch comparison and actual lab writers; switches the
+  buffered writer destination between its regular file and an open `/dev/null`
+  descriptor. Row construction, JSON encoding, writer locking, handler writer
+  selection, and synchronous buffer flushing continue in both measured modes.
+  No change to the default lab or library; no record sampling shipped.
+- Study `recording_sink_validation_20260911_131934`, run `scratch_131955`:
+  five-minute recording-off warmup, then file/null/file/null for three minutes
+  each. Same native PG/config, independent identity bitset, 100 GB combined
+  cap and 40 GiB free floor. Null intervals intentionally have no JSON ledger;
+  the test does not claim crash-recoverable ledger evidence for those intervals.
+- Build and vet passed; 30-second smoke consumed all 300,000 identities exactly
+  once and both processes observed all four destination switches. Evidence,
+  source overlay, frozen binary, counters, and scripts retained with the study.
+- This comparison isolates the regular-file write path (filesystem processing,
+  caching/writeback, and storage contention) from encoding plus null-device
+  syscalls. It cannot distinguish those individual filesystem/storage costs,
+  and there is no need to resume the earlier SSD stall investigation.
+
+- Completed producer/consumer windows: file 58,428/58,501; null 56,120/56,016;
+  file 58,694/58,784; null 65,185/65,313. File producer mean 58,561 versus
+  null 60,652, but pair effects have opposite signs: no consistent fixed
+  throughput penalty established. First null window generated 2,548 WAL bytes
+  per message / 0.147 full-page images, versus its preceding file window's
+  1,989 / 0.070; the second pair was 1,763 / 0.041 versus 1,923 / 0.061.
+  The windows therefore did not contain equal amounts of PostgreSQL write work.
+- Recorder CPU profile: HandlerWriter.Write accounts for 53.6% of sampled
+  consumer CPU, with 50.7% under os.File.Write. Profile includes warmup and
+  both destinations; it cannot assign that total to one measured phase.
+  Allocation per produced message remained ~10,775 bytes in all four windows;
+  consumer ~5,302–5,307 bytes. Producer pool waits were zero throughout.
+- Follow-up recorder-only microbenchmarks (three 1s repetitions, four callers,
+  same encoding/locking): handler median 788.6 ns/row file, 298.3 ns null,
+  216.6 ns io.Discard. Producer median per 250-row Write: 162,973 ns file,
+  114,047 ns null, 109,586 ns discard. These are aggregate benchmark ns/op,
+  not individual callback latency or end-to-end database capacity. The dominant
+  isolated handler recording cost is the regular-file write path; merely
+  crossing into the null device costs much less, and encoding is smaller again.
+- Verified all 73,865,000 identities once, no errors/duplicates, logged worker
+  failures, sampled worker retries, host-guard violation, or test/build frames.
+  Peak combined storage 89.429 GB, minimum free 97.085 GB; zero swapouts.
+  Recording files compressed from 15.227 GB to 0.702 GB, each
+  SHA256 round-trip verified before raw removal.
+  Owned database removed and native settings restored. Detailed resources,
+  profiles, source overlays, binary, microbench source/results, and verification
+  are retained in the study. This narrows recording optimization toward fewer
+  regular-file writes while preserving synchronous evidence visibility; it does
+  not justify removing recording or claiming the SSD is physically saturated.
+
 ### Scratch/lab recording isolation (2026-09-11, comparison complete)
 
 - Comparing the original scratch workload with the actual lab record writers

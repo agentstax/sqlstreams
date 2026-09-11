@@ -20,6 +20,7 @@ import (
 type Producer struct {
 	instance *sqlstreams.ProducerInstance[common.Order]
 	writer   *record.Writer
+	progress *record.Progress
 	stream   string
 	name     string
 	sequence atomic.Int64
@@ -28,7 +29,7 @@ type Producer struct {
 
 // NewProducer is one stream's recording producer; keys restart at 1 per
 // stream, so a key names a message only together with its stream.
-func NewProducer(instance *sqlstreams.ProducerInstance[common.Order], writer *record.Writer, stream string, name string, cfg *ProducerConfig) (*Producer, error) {
+func NewProducer(instance *sqlstreams.ProducerInstance[common.Order], writer *record.Writer, progress *record.Progress, stream string, name string, cfg *ProducerConfig) (*Producer, error) {
 	if instance == nil {
 		return nil, errors.New("instance must not be nil")
 	}
@@ -48,7 +49,10 @@ func NewProducer(instance *sqlstreams.ProducerInstance[common.Order], writer *re
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
-	return &Producer{instance: instance, writer: writer, stream: stream, name: name, Config: cfg}, nil
+	if cfg.DisableMessageRecording && progress == nil {
+		return nil, errors.New("progress is required when message recording is disabled")
+	}
+	return &Producer{instance: instance, writer: writer, progress: progress, stream: stream, name: name, Config: cfg}, nil
 }
 
 // Produce is one scheduled call: the attempt goes to the records first, then
@@ -59,19 +63,24 @@ func (p *Producer) Produce(ctx context.Context, scheduled time.Time) error {
 	if err != nil {
 		return err
 	}
-	row := record.ProduceRecord{
-		At: time.Now(), Kind: record.ProduceKindAttempted,
-		Stream: p.stream, Producer: order.Producer, Sequence: order.Sequence,
-		Key: order.Key(), ScheduledAt: scheduled,
-	}
-	if err := p.writer.Write(row); err != nil {
-		return err
+	var row record.ProduceRecord
+	if p.Config.DisableMessageRecording {
+		p.progress.Attempted.Add(1)
+	} else {
+		row = record.ProduceRecord{At: time.Now(), Kind: record.ProduceKindAttempted, Stream: p.stream, Producer: order.Producer, Sequence: order.Sequence, Key: order.Key(), ScheduledAt: scheduled}
+		if err := p.writer.Write(row); err != nil {
+			return err
+		}
 	}
 	options := &sqlstreams.ProduceOptions{}
 	if !p.Config.AutomaticBatching {
 		options.IdempotencyKey = order.Key()
 	}
 	result, err := p.instance.Produce(ctx, order, options)
+	if p.Config.DisableMessageRecording {
+		p.countOutcome(1, err)
+		return nil
+	}
 	row.At = time.Now()
 	if err == nil {
 		row.Kind = record.ProduceKindCommitted
@@ -103,7 +112,10 @@ func (p *Producer) newOrder() (*common.Order, error) {
 // ProduceBatch keeps one attempt and outcome per message, including ambiguous batch failures.
 func (p *Producer) ProduceBatch(ctx context.Context, scheduled time.Time, size int) error {
 	items := make([]*sqlstreams.ProduceItem[common.Order], size)
-	rows := make([]record.ProduceRecord, size)
+	var rows []record.ProduceRecord
+	if !p.Config.DisableMessageRecording {
+		rows = make([]record.ProduceRecord, size)
+	}
 	for i := range items {
 		order, err := p.newOrder()
 		if err != nil {
@@ -114,6 +126,9 @@ func (p *Producer) ProduceBatch(ctx context.Context, scheduled time.Time, size i
 			return err
 		}
 		items[i] = item
+		if p.Config.DisableMessageRecording {
+			continue
+		}
 		rows[i] = record.ProduceRecord{At: time.Now(), Kind: record.ProduceKindAttempted,
 			Stream: p.stream, Producer: p.name, Sequence: order.Sequence,
 			Key: order.Key(), ScheduledAt: scheduled}
@@ -121,10 +136,17 @@ func (p *Producer) ProduceBatch(ctx context.Context, scheduled time.Time, size i
 			return err
 		}
 	}
+	if p.Config.DisableMessageRecording {
+		p.progress.Attempted.Add(int64(size))
+	}
 	results, err := p.instance.ProduceBatch(ctx, items...)
 	completed := time.Now()
-	if err == nil && len(results) != len(rows) {
+	if err == nil && len(results) != len(items) {
 		return errors.New("batch result count differs from item count")
+	}
+	if p.Config.DisableMessageRecording {
+		p.countOutcome(int64(size), err)
+		return nil
 	}
 	for i := range rows {
 		rows[i].At = completed
@@ -141,4 +163,17 @@ func (p *Producer) ProduceBatch(ctx context.Context, scheduled time.Time, size i
 		}
 	}
 	return nil
+}
+
+func (p *Producer) countOutcome(count int64, err error) {
+	if err == nil {
+		p.progress.Committed.Add(count)
+		return
+	}
+	kind, _ := classify(err)
+	if kind == record.ProduceKindRejected {
+		p.progress.Rejected.Add(count)
+	} else {
+		p.progress.Unknown.Add(count)
+	}
 }

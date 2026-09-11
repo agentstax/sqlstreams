@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded
 date: 2026-09-10
 phase: "pre-v1"
 ---
@@ -54,3 +54,6 @@ This supersedes [0711](0711-reliability-lab-is-the-benchmark-harness.md).
   and checker space. Begin with shorter runs under a total storage guard.
 - Chaos, keyed compaction, and idle-fleet scenarios retain their separate
   requirements; this change does not implement their deferred behaviors.
+
+Superseded by [0747](0747-throughput-scenarios-can-disable-message-recording.md) for optional aggregate-only recording;
+other workload and environment decisions remain in force.

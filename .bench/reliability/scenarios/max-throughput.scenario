@@ -6,14 +6,15 @@ janitor       orders       poll 1s, batch 10000, grace 30s, timeout 30s
 vacuum        orders       enabled true, poll 2m0s, timeout 1m0s
 consumers     processor    handler fail rate 0, 0 retries then dead, batch 16000, queue 64000, concurrency 4, idle poll 100ms
 producer      batch concurrency 4 per stream
+recording     per-message disabled; aggregate counters only
 exceptions    disabled
 producer      explicit batching true, concurrent callers 4
 workload      automatic batching false, payload bytes 1000, pool max 8, batch size 250
-duration      10m
+duration      30m
 
 [shape]
 warm:    warmup unpaced 5m
-hold:    unpaced 5m
+hold:    unpaced 25m
 
 at 0m    consumers 1
 
@@ -27,5 +28,5 @@ unbucketed            0
 reclaims              0
 dead                  0
 backlog_bounded       0
-generator_headroom    0
+generator_headroom    report
 errors                0

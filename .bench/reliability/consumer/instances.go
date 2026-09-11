@@ -18,15 +18,17 @@ import (
 // moves to it. Every group's Instances in a process share one failed
 // channel, so the runner has one place to wait.
 type Instances struct {
-	handle   *sqlstreams.ConsumerHandle[common.Order]
-	cfg      *sqlstreams.ConsumerConfig
-	consume  *sqlstreams.ConsumeOptions
-	stream   string
-	group    string
-	failRate float64
-	writer   *record.HandlerWriter
-	name     string
-	failed   chan error
+	handle        *sqlstreams.ConsumerHandle[common.Order]
+	cfg           *sqlstreams.ConsumerConfig
+	consume       *sqlstreams.ConsumeOptions
+	stream        string
+	group         string
+	failRate      float64
+	writer        *record.HandlerWriter
+	progress      *record.Progress
+	handlerConfig *HandlerConfig
+	name          string
+	failed        chan error
 
 	mutex   sync.Mutex
 	running []*runningInstance
@@ -37,7 +39,7 @@ type runningInstance struct {
 	done chan struct{}
 }
 
-func NewInstances(handle *sqlstreams.ConsumerHandle[common.Order], cfg *sqlstreams.ConsumerConfig, consume *sqlstreams.ConsumeOptions, stream string, group string, failRate float64, writer *record.HandlerWriter, name string, failed chan error) (*Instances, error) {
+func NewInstances(handle *sqlstreams.ConsumerHandle[common.Order], cfg *sqlstreams.ConsumerConfig, consume *sqlstreams.ConsumeOptions, stream string, group string, failRate float64, writer *record.HandlerWriter, progress *record.Progress, name string, failed chan error, handlerConfig *HandlerConfig) (*Instances, error) {
 	if handle == nil {
 		return nil, errors.New("handle must not be nil")
 	}
@@ -65,7 +67,7 @@ func NewInstances(handle *sqlstreams.ConsumerHandle[common.Order], cfg *sqlstrea
 	if failed == nil {
 		return nil, errors.New("failed must not be nil")
 	}
-	return &Instances{handle: handle, cfg: cfg, consume: consume, stream: stream, group: group, failRate: failRate, writer: writer, name: name, failed: failed}, nil
+	return &Instances{handle: handle, cfg: cfg, consume: consume, stream: stream, group: group, failRate: failRate, writer: writer, progress: progress, handlerConfig: handlerConfig, name: name, failed: failed}, nil
 }
 
 // SetCount starts or stops instances until count are running. Stopping
@@ -92,7 +94,7 @@ func (i *Instances) SetCount(ctx context.Context, count int) error {
 
 func (i *Instances) start(ctx context.Context, number int) (*runningInstance, error) {
 	consumerName := fmt.Sprintf("%s/%s/%s/c-%d", i.name, i.stream, i.group, number)
-	handler, err := NewHandler(consumerName, i.stream, i.group, i.failRate, i.writer, i.failed)
+	handler, err := NewHandler(consumerName, i.stream, i.group, i.failRate, i.writer, i.progress, i.failed, i.handlerConfig)
 	if err != nil {
 		return nil, err
 	}

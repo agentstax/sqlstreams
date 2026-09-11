@@ -509,6 +509,10 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 
 - 0744 2026-09-10 accepted (pre-v1) — Controllers keep dependencies and registration owns declarations
 
-- 0745 2026-09-10 accepted (pre-v1) — Maximum throughput uses the reliability lab with explicit workload and environment settings
+- 0745 2026-09-10 superseded (pre-v1) — Maximum throughput uses the reliability lab with explicit workload and environment settings
 
 - 0746 2026-09-10 accepted (pre-v1) — Concurrent lab handlers use independent record files
+
+- 0747 2026-09-11 accepted (pre-v1) — Throughput scenarios can disable message recording while retaining aggregate measurements
+
+- 0748 2026-09-11 accepted (pre-v1) — Published throughput uses three fixed-duration runs and retains every outcome

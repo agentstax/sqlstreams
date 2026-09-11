@@ -12,14 +12,22 @@ import (
 )
 
 type CheckerDatastore struct {
-	pool *pgxpool.Pool
+	pool   *pgxpool.Pool
+	Config *CheckerDatastoreConfig
 }
 
-func NewCheckerDatastore(pool *pgxpool.Pool) (*CheckerDatastore, error) {
+func NewCheckerDatastore(pool *pgxpool.Pool, cfg *CheckerDatastoreConfig) (*CheckerDatastore, error) {
 	if pool == nil {
 		return nil, errors.New("pool must not be nil")
 	}
-	return &CheckerDatastore{pool: pool}, nil
+	if cfg == nil {
+		cfg = &CheckerDatastoreConfig{}
+	}
+	cfg.WithDefaults()
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	return &CheckerDatastore{pool: pool, Config: cfg}, nil
 }
 
 // ReadServerVersion is the version the server reports, recorded in the

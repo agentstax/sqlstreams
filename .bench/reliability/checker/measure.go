@@ -24,8 +24,8 @@ const headroomFraction = 0.8
 
 // MeasureSummary is what every run measures, whatever it declares: latency
 // from scheduled time over the whole run and per phase, and the committed
-// produces per second. All of it is computed by the server over the record
-// rows; nothing is merged from per-process numbers.
+// produces per second. Disabled message recording uses counter deltas and
+// marks detailed latency unavailable, with no per-second completion series.
 type MeasureSummary struct {
 	Produce    datastore.LatencySummary     `json:"produce"`
 	EndToEnd   datastore.LatencySummary     `json:"end_to_end"`
@@ -63,7 +63,7 @@ type PhaseSummary struct {
 	ScheduleSlips      int64   `json:"schedule_slips"`
 	HeadroomBreaches   int64   `json:"headroom_breaches"`
 	ScheduleApplicable bool    `json:"schedule_applicable"`
-	Held               bool    `json:"held"` // every guard inside its tolerance
+	Held               bool    `json:"held"` // required phase guards inside their tolerances
 
 	// median CPU of each service's containers over the phase, percent of
 	// one core -- what names the limiter
@@ -248,6 +248,12 @@ func (c *Checker) measurePhase(ctx context.Context, targets []datastore.Target, 
 		return PhaseSummary{}, err
 	}
 	measured.AchievedRate = float64(measured.Produce.Count) / to.Sub(from).Seconds()
+	if c.declared.DisableMessageRecording {
+		measured.AchievedRate, err = c.ds.ReadProducedRate(ctx, from, to, "")
+		if err != nil {
+			return PhaseSummary{}, err
+		}
+	}
 
 	for i, target := range targets {
 		slope, err := c.ds.ReadBacklogSlope(ctx, from, to, target.Stream, target.Group)
@@ -270,7 +276,7 @@ func (c *Checker) measurePhase(ctx context.Context, targets []datastore.Target, 
 	if err != nil {
 		return PhaseSummary{}, err
 	}
-	measured.ScheduleApplicable = !phase.Unpaced && phase.Rate > 0
+	measured.ScheduleApplicable = !c.declared.DisableMessageRecording && !phase.Unpaced && phase.Rate > 0
 	if measured.ScheduleApplicable {
 		measured.ScheduleSlips = slips.Count
 	}
@@ -279,7 +285,16 @@ func (c *Checker) measurePhase(ctx context.Context, targets []datastore.Target, 
 		return PhaseSummary{}, err
 	}
 	measured.HeadroomBreaches = breaches.Count
-	measured.Held = measured.Held && measured.ScheduleSlips == 0 && breaches.Count == 0
+	headroomRequired := true
+	for _, expected := range c.declared.Expect {
+		if expected.Check == scenario.CheckGeneratorHeadroom {
+			headroomRequired = expected.Want == scenario.WantZero
+		}
+	}
+	measured.Held = measured.Held && measured.ScheduleSlips == 0 && (!headroomRequired || breaches.Count == 0)
+	if c.declared.DisableMessageRecording && !phase.Unpaced && phase.Rate > 0 {
+		measured.Held = false
+	}
 
 	measured.PostgresCpu, err = c.ds.ReadContainerCpu(ctx, from, to, "postgres")
 	if err != nil {

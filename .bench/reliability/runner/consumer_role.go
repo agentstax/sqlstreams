@@ -45,12 +45,26 @@ func (r *Runner) RunConsumer(ctx context.Context) error {
 	}
 	defer phaseRecords.Close()
 
+	progressRecords, err := r.openWriter(record.FileKindProgress)
+	if err != nil {
+		return err
+	}
+	defer progressRecords.Close()
+	progress := []*record.Progress{}
 	failed := make(chan error, 1)
 	groups := []*consumer.Instances{}
 	for _, registered := range streams {
 		for _, group := range registered.declared.Groups {
+			var counters *record.Progress
+			if r.declared.DisableMessageRecording {
+				counters, err = record.NewProgress(progressRecords, r.name, registered.declared.Name, group.Name)
+				if err != nil {
+					return err
+				}
+				progress = append(progress, counters)
+			}
 			instances, err := consumer.NewInstances(registered.handle.Consumer(group.Name), consumerConfig(group), consumeOptions(group),
-				registered.declared.Name, group.Name, group.HandlerFailRate, handlerRecords, r.name, failed)
+				registered.declared.Name, group.Name, group.HandlerFailRate, handlerRecords, counters, r.name, failed, &consumer.HandlerConfig{DisableMessageRecording: r.declared.DisableMessageRecording})
 			if err != nil {
 				return err
 			}
@@ -58,6 +72,27 @@ func (r *Runner) RunConsumer(ctx context.Context) error {
 		}
 	}
 
+	if len(progress) == 0 {
+		return r.runConsumerChanges(ctx, groups, phaseRecords, failed)
+	}
+	progressCtx, stopProgress := context.WithCancel(context.WithoutCancel(ctx))
+	progressDone := make(chan error, 1)
+	go func() {
+		err := runProgress(progressCtx, progress)
+		if err != nil {
+			select {
+			case failed <- err:
+			default:
+			}
+		}
+		progressDone <- err
+	}()
+	err = r.runConsumerChanges(ctx, groups, phaseRecords, failed)
+	stopProgress()
+	return errors.Join(err, <-progressDone)
+}
+
+func (r *Runner) runConsumerChanges(ctx context.Context, groups []*consumer.Instances, phaseRecords *record.Writer, failed <-chan error) error {
 	start := time.Now()
 	for _, change := range r.declared.Consumers {
 		if err := common.WaitUntil(ctx, start.Add(change.At)); err != nil {

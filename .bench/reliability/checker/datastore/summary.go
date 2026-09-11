@@ -20,6 +20,12 @@ type HandlerSummary struct {
 }
 
 func (d *CheckerDatastore) ReadProduceSummary(ctx context.Context) (ProduceSummary, error) {
+	if d.Config.DisableMessageRecording {
+		readSql := fmt.Sprintf(`SELECT COALESCE(sum(attempted),0),COALESCE(sum(committed),0),COALESCE(sum(rejected),0),COALESCE(sum(unknown),0) FROM (SELECT DISTINCT ON (process,stream) attempted,committed,rejected,unknown FROM %s WHERE "group" = '' ORDER BY process,stream,at DESC) latest`, messageProgress)
+		var summary ProduceSummary
+		err := d.pool.QueryRow(ctx, readSql).Scan(&summary.Attempted, &summary.Committed, &summary.Rejected, &summary.Unknown)
+		return summary, err
+	}
 	summarySql := fmt.Sprintf(`
 		-- lab: datastore.ReadProduceSummary
 		SELECT
@@ -35,6 +41,12 @@ func (d *CheckerDatastore) ReadProduceSummary(ctx context.Context) (ProduceSumma
 }
 
 func (d *CheckerDatastore) ReadHandlerSummary(ctx context.Context) (HandlerSummary, error) {
+	if d.Config.DisableMessageRecording {
+		readSql := fmt.Sprintf(`SELECT COALESCE(sum(success),0),COALESCE(sum(error),0) FROM (SELECT DISTINCT ON (process,stream,"group") success,error FROM %s WHERE "group" <> '' ORDER BY process,stream,"group",at DESC) latest`, messageProgress)
+		var summary HandlerSummary
+		err := d.pool.QueryRow(ctx, readSql).Scan(&summary.Success, &summary.Error)
+		return summary, err
+	}
 	summarySql := fmt.Sprintf(`
 		-- lab: datastore.ReadHandlerSummary
 		SELECT

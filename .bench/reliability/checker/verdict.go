@@ -21,25 +21,27 @@ const (
 // Verdict is the record one checker run writes: what was judged, in what
 // environment, and how each expectation came out.
 type Verdict struct {
-	Scenario    string                   `json:"scenario"`
-	Declaration string                   `json:"declaration"` // the scenario as declared, unscaled, in its .scenario form
-	TimeScale   float64                  `json:"time_scale"`
-	Status      VerdictStatus            `json:"status"`
-	Reason      string                   `json:"reason"` // "" unless unknown
-	StartedAt   time.Time                `json:"started_at"`
-	Duration    time.Duration            `json:"duration_ns"`
-	Fingerprint *Fingerprint             `json:"fingerprint"`
-	Records     RecordSummary            `json:"records"`
-	Produced    datastore.ProduceSummary `json:"produced"`
-	Handled     datastore.HandlerSummary `json:"handled"`
-	Measure     *MeasureSummary          `json:"measure"` // nil when the run ended before it could be measured
-	Checks      []CheckResult            `json:"checks"`
-	Phases      []record.PhaseRecord     `json:"phases"`
+	DisableMessageRecording bool                     `json:"disable_message_recording,omitempty"`
+	Scenario                string                   `json:"scenario"`
+	Declaration             string                   `json:"declaration"` // the scenario as declared, unscaled, in its .scenario form
+	TimeScale               float64                  `json:"time_scale"`
+	Status                  VerdictStatus            `json:"status"`
+	Reason                  string                   `json:"reason"` // "" unless unknown
+	StartedAt               time.Time                `json:"started_at"`
+	Duration                time.Duration            `json:"duration_ns"`
+	Fingerprint             *Fingerprint             `json:"fingerprint"`
+	Records                 RecordSummary            `json:"records"`
+	Produced                datastore.ProduceSummary `json:"produced"`
+	Handled                 datastore.HandlerSummary `json:"handled"`
+	Measure                 *MeasureSummary          `json:"measure"` // nil when the run ended before it could be measured
+	Checks                  []CheckResult            `json:"checks"`
+	Phases                  []record.PhaseRecord     `json:"phases"`
 }
 
 // RecordSummary counts the rows loaded from the record files, per kind, and
 // from the host's container samples.
 type RecordSummary struct {
+	Progress  int64 `json:"progress"`
 	Produce   int64 `json:"produce"`
 	Handler   int64 `json:"handler"`
 	Phase     int64 `json:"phase"`
@@ -65,15 +67,17 @@ func (v *Verdict) ExitCode() int {
 type CheckStatus string
 
 const (
-	CheckStatusPass   CheckStatus = "pass"
-	CheckStatusFail   CheckStatus = "fail"
-	CheckStatusReport CheckStatus = "report"
+	CheckStatusUnavailable CheckStatus = "unavailable"
+	CheckStatusPass        CheckStatus = "pass"
+	CheckStatusFail        CheckStatus = "fail"
+	CheckStatusReport      CheckStatus = "report"
 )
 
 // CheckResult is one [expect] line judged: the expectation as declared, the
 // count the query returned, and up to exampleLimit examples of what it
 // counted -- ExampleOf says whether they are keys or message ids.
 type CheckResult struct {
+	Reason    string         `json:"reason,omitempty"`
 	Check     scenario.Check `json:"check"`
 	Want      scenario.Want  `json:"want"`
 	Actual    int64          `json:"actual"`

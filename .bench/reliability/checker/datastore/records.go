@@ -19,6 +19,7 @@ import (
 const labSchema = "lab"
 
 const (
+	progressTable  = "message_progress"
 	produceTable   = "produce_record"
 	handlerTable   = "handler_record"
 	phaseTable     = "run_phase"
@@ -29,6 +30,7 @@ const (
 
 // the same tables, qualified for the check queries
 var (
+	messageProgress = labSchema + "." + progressTable
 	produceRecord   = labSchema + "." + produceTable
 	handlerRecord   = labSchema + "." + handlerTable
 	runPhase        = labSchema + "." + phaseTable
@@ -47,6 +49,18 @@ type tableLayout struct {
 	table   string
 	columns []string
 	decode  func(line []byte) ([]any, error)
+}
+
+var progressLayout = tableLayout{
+	kind: record.FileKindProgress, table: progressTable,
+	columns: []string{"at", "process", "stream", "group", "attempted", "committed", "rejected", "unknown", "success", "error"},
+	decode: func(line []byte) ([]any, error) {
+		var row record.ProgressRecord
+		if err := json.Unmarshal(line, &row); err != nil {
+			return nil, err
+		}
+		return []any{row.At, row.Process, row.Stream, row.Group, row.Attempted, row.Committed, row.Rejected, row.Unknown, row.Success, row.Error}, nil
+	},
 }
 
 var produceLayout = tableLayout{
@@ -179,6 +193,13 @@ func (d *CheckerDatastore) CreateTables(ctx context.Context) error {
 		DROP SCHEMA IF EXISTS %[1]s CASCADE;
 		CREATE SCHEMA %[1]s;
 
+		CREATE TABLE %[1]s.%[8]s (
+			at TIMESTAMPTZ NOT NULL, process TEXT NOT NULL, stream TEXT NOT NULL, "group" TEXT NOT NULL,
+			attempted BIGINT NOT NULL, committed BIGINT NOT NULL, rejected BIGINT NOT NULL,
+			unknown BIGINT NOT NULL, success BIGINT NOT NULL, error BIGINT NOT NULL
+		);
+		CREATE INDEX %[8]s_identity_at ON %[1]s.%[8]s (process,stream,"group",at);
+
 		CREATE TABLE %[1]s.%[2]s (
 			at           TIMESTAMPTZ NOT NULL,
 			kind         TEXT NOT NULL,           -- 'attempted' | 'committed' | 'rejected' | 'unknown'
@@ -247,7 +268,7 @@ func (d *CheckerDatastore) CreateTables(ctx context.Context) error {
 			cpu_percent DOUBLE PRECISION NOT NULL, -- of one core
 			cpus        DOUBLE PRECISION NOT NULL  -- the compose cap, 0 when uncapped
 		);
-	`, labSchema, produceTable, handlerTable, phaseTable, sampleTable, backlogTable, containerTable)
+	`, labSchema, produceTable, handlerTable, phaseTable, sampleTable, backlogTable, containerTable, progressTable)
 	_, err := d.pool.Exec(ctx, createSql)
 	return err
 }
@@ -316,4 +337,8 @@ func (d *CheckerDatastore) loadFile(ctx context.Context, path string, layout tab
 
 	source := newLineSource(file, layout.decode)
 	return d.pool.CopyFrom(ctx, pgx.Identifier{labSchema, layout.table}, layout.columns, source)
+}
+
+func (d *CheckerDatastore) LoadProgress(ctx context.Context, dir string) (int64, error) {
+	return d.load(ctx, dir, progressLayout)
 }

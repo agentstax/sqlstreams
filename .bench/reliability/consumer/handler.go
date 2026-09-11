@@ -25,10 +25,12 @@ type Handler struct {
 	group    string
 	failRate float64
 	writer   *record.HandlerWriter
+	progress *record.Progress
+	Config   *HandlerConfig
 	failed   chan error
 }
 
-func NewHandler(name string, stream string, group string, failRate float64, writer *record.HandlerWriter, failed chan error) (*Handler, error) {
+func NewHandler(name string, stream string, group string, failRate float64, writer *record.HandlerWriter, progress *record.Progress, failed chan error, cfg *HandlerConfig) (*Handler, error) {
 	if name == "" {
 		return nil, errors.New("name must not be empty")
 	}
@@ -44,10 +46,20 @@ func NewHandler(name string, stream string, group string, failRate float64, writ
 	if writer == nil {
 		return nil, errors.New("writer must not be nil")
 	}
+	if cfg == nil {
+		cfg = &HandlerConfig{}
+	}
+	cfg.WithDefaults()
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	if cfg.DisableMessageRecording && progress == nil {
+		return nil, errors.New("progress is required when message recording is disabled")
+	}
 	if failed == nil {
 		return nil, errors.New("failed must not be nil")
 	}
-	return &Handler{name: name, stream: stream, group: group, failRate: failRate, writer: writer, failed: failed}, nil
+	return &Handler{name: name, stream: stream, group: group, failRate: failRate, writer: writer, progress: progress, Config: cfg, failed: failed}, nil
 }
 
 // Handle writes the invocation's record, then returns the injected outcome.
@@ -63,6 +75,14 @@ func (h *Handler) Handle(ctx context.Context, order *common.Order) error {
 	outcome := record.HandlerOutcomeSuccess
 	if h.failRate > 0 && rand.Float64() < h.failRate {
 		outcome = record.HandlerOutcomeError
+	}
+	if h.Config.DisableMessageRecording {
+		if outcome == record.HandlerOutcomeError {
+			h.progress.Error.Add(1)
+			return errInjectedFailure
+		}
+		h.progress.Success.Add(1)
+		return nil
 	}
 	row := record.HandlerRecord{
 		At:        time.Now(),

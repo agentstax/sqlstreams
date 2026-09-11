@@ -10,12 +10,13 @@ import (
 // and the percentiles the server computed over their record rows -- never
 // merged from per-process summaries.
 type LatencySummary struct {
-	Count int64         `json:"count"`
-	P50   time.Duration `json:"p50_ns"`
-	P90   time.Duration `json:"p90_ns"`
-	P99   time.Duration `json:"p99_ns"`
-	P999  time.Duration `json:"p999_ns"`
-	Max   time.Duration `json:"max_ns"`
+	Unavailable bool          `json:"unavailable,omitempty"`
+	Count       int64         `json:"count"`
+	P50         time.Duration `json:"p50_ns"`
+	P90         time.Duration `json:"p90_ns"`
+	P99         time.Duration `json:"p99_ns"`
+	P999        time.Duration `json:"p999_ns"`
+	Max         time.Duration `json:"max_ns"`
 }
 
 // ThroughputSample is one second of the run and the produces whose reply
@@ -28,6 +29,10 @@ type ThroughputSample struct {
 // ReadProduceLatency is the produce call's own latency, reply time against
 // scheduled time, for the produces scheduled in [from, to).
 func (d *CheckerDatastore) ReadProduceLatency(ctx context.Context, from time.Time, to time.Time) (LatencySummary, error) {
+	if d.Config.DisableMessageRecording {
+		measured, err := d.ReadProgressMeasurement(ctx, from, to, "", true)
+		return LatencySummary{Count: measured.Count, Unavailable: true}, err
+	}
 	latencySql := fmt.Sprintf(`
 		-- lab: datastore.ReadProduceLatency
 		SELECT
@@ -50,6 +55,9 @@ func (d *CheckerDatastore) ReadProduceLatency(ctx context.Context, from time.Tim
 // for the produces scheduled in [from, to) -- what a message waited from the
 // moment it was meant to exist until it was handled.
 func (d *CheckerDatastore) ReadEndToEndLatency(ctx context.Context, from time.Time, to time.Time) (LatencySummary, error) {
+	if d.Config.DisableMessageRecording {
+		return LatencySummary{Unavailable: true}, nil
+	}
 	latencySql := fmt.Sprintf(`
 		-- lab: datastore.ReadEndToEndLatency
 		SELECT
@@ -87,6 +95,11 @@ func (d *CheckerDatastore) readLatency(ctx context.Context, sql string, from tim
 // ReadThroughput is the committed produces per second across [from, to],
 // every second present.
 func (d *CheckerDatastore) ReadThroughput(ctx context.Context, from time.Time, to time.Time) ([]ThroughputSample, error) {
+	if d.Config.DisableMessageRecording {
+		// Counter snapshots cannot reconstruct exact per-second completion counts.
+		// Phase rates use their actual sampled spans instead.
+		return nil, nil
+	}
 	throughputSql := fmt.Sprintf(`
 		-- lab: datastore.ReadThroughput
 		WITH committed AS (
@@ -126,6 +139,10 @@ func seconds(value float64) time.Duration {
 }
 
 func (d *CheckerDatastore) ReadConsumedRate(ctx context.Context, from time.Time, to time.Time) (float64, error) {
+	if d.Config.DisableMessageRecording {
+		measured, err := d.ReadProgressMeasurement(ctx, from, to, "", false)
+		return measured.Rate, err
+	}
 	consumedSql := fmt.Sprintf(`
 		-- lab: datastore.ReadConsumedRate
 		SELECT count(*)::double precision / EXTRACT(EPOCH FROM ($2::timestamptz - $1::timestamptz))
@@ -142,6 +159,10 @@ func (d *CheckerDatastore) ReadConsumedRate(ctx context.Context, from time.Time,
 }
 
 func (d *CheckerDatastore) ReadProducedRate(ctx context.Context, from time.Time, to time.Time, streamName string) (float64, error) {
+	if d.Config.DisableMessageRecording {
+		measured, err := d.ReadProgressMeasurement(ctx, from, to, streamName, true)
+		return measured.Rate, err
+	}
 	producedSql := fmt.Sprintf(`
 		-- lab: datastore.ReadProducedRate
 		SELECT count(*)::double precision / EXTRACT(EPOCH FROM ($2::timestamptz - $1::timestamptz))

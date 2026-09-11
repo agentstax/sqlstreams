@@ -65,33 +65,54 @@ func (r *Runner) RunProducer(ctx context.Context) error {
 	}
 	defer phaseRecords.Close()
 
+	progressRecords, err := r.openWriter(record.FileKindProgress)
+	if err != nil {
+		return err
+	}
+	defer progressRecords.Close()
+	progress := []*record.Progress{}
 	producers := make([]*producer.Producer, 0, len(streams))
 	for _, registered := range streams {
 		instance, err := registered.handle.Producer().Register(ctx, producerConfig(r.declared))
 		if err != nil {
 			return err
 		}
-		recordingProducer, err := producer.NewProducer(instance, produceRecords, registered.declared.Name, r.name, &producer.ProducerConfig{AutomaticBatching: r.declared.AutomaticBatching, PayloadBytes: r.declared.PayloadBytes})
+		var counters *record.Progress
+		if r.declared.DisableMessageRecording {
+			counters, err = record.NewProgress(progressRecords, r.name, registered.declared.Name, "")
+			if err != nil {
+				return err
+			}
+			progress = append(progress, counters)
+		}
+		recordingProducer, err := producer.NewProducer(instance, produceRecords, counters, registered.declared.Name, r.name, &producer.ProducerConfig{DisableMessageRecording: r.declared.DisableMessageRecording, AutomaticBatching: r.declared.AutomaticBatching, PayloadBytes: r.declared.PayloadBytes})
 		if err != nil {
 			return err
 		}
 		producers = append(producers, recordingProducer)
 	}
 
+	running, runningCtx := errgroup.WithContext(ctx)
+	progressCtx, stopProgress := context.WithCancel(context.WithoutCancel(runningCtx))
+	defer stopProgress()
+	if len(progress) > 0 {
+		running.Go(func() error { return runProgress(progressCtx, progress) })
+	}
 	var routines errgroup.Group
 	for i, registered := range streams {
 		recordingProducer := producers[i]
 		streamName := registered.declared.Name
 		routines.Go(func() error {
 			for _, phase := range r.declared.Producer {
-				if err := r.runProducerPhase(ctx, phase, streamName, recordingProducer, phaseRecords); err != nil {
+				if err := r.runProducerPhase(runningCtx, phase, streamName, recordingProducer, phaseRecords); err != nil {
 					return err
 				}
 			}
 			return nil
 		})
 	}
-	return ignoreCancellation(routines.Wait())
+	running.Go(func() error { defer stopProgress(); return routines.Wait() })
+	return ignoreCancellation(running.Wait())
 }
 
 // runProducerPhase paces one stream through one phase; its phase rows carry

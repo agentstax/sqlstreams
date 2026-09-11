@@ -4,6 +4,7 @@
 stream       orders       DeliveryLogMode failures
 consumers    processor    handler fail rate 0, 3 retries then dead, batch 100, queue 0, concurrency 0, idle poll 10ms
 producer     batch concurrency 4 per stream
+recording    per-message disabled; aggregate counters only
 workload     automatic batching true, payload bytes 1000, pool max 16, batch size 100
 duration     30s
 
@@ -25,3 +26,4 @@ dead                  0
 schedule_kept         0
 backlog_bounded       0
 generator_headroom    0
+errors                0

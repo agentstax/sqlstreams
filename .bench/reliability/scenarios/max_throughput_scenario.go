@@ -8,9 +8,10 @@ import (
 )
 
 var MaxThroughput = &scenario.Scenario{
-	Name:     "max-throughput",
-	Summary:  "1 KB explicit batches, unpaced production, one group, retention and key vacuum enabled",
-	Duration: 10 * time.Minute,
+	DisableMessageRecording: true,
+	Name:                    "max-throughput",
+	Summary:                 "1 KB explicit batches, unpaced production, one group, retention and key vacuum enabled",
+	Duration:                30 * time.Minute,
 	Streams: []scenario.StreamDeclaration{{
 		Name: "orders", DeliveryLogMode: stream.DeliveryLogModeFailures,
 		PartitionSize: 1_000_000, RetentionTTL: 120 * time.Second, IdempotencyKeyTTL: 120 * time.Second,
@@ -23,7 +24,7 @@ var MaxThroughput = &scenario.Scenario{
 	}},
 	Producer: []scenario.ProducerPhase{
 		{Name: "warm", Warmup: true, Unpaced: true, Duration: 5 * time.Minute},
-		{Name: "hold", Unpaced: true, Duration: 5 * time.Minute},
+		{Name: "hold", Unpaced: true, Duration: 25 * time.Minute},
 	},
 	Consumers: []scenario.ConsumerChange{{At: 0, Instances: 1}},
 	Expect: []scenario.Expectation{
@@ -36,7 +37,7 @@ var MaxThroughput = &scenario.Scenario{
 		{Check: scenario.CheckReclaims, Want: scenario.WantZero},
 		{Check: scenario.CheckDead, Want: scenario.WantZero},
 		{Check: scenario.CheckBacklogBounded, Want: scenario.WantZero},
-		{Check: scenario.CheckGeneratorHeadroom, Want: scenario.WantZero},
+		{Check: scenario.CheckGeneratorHeadroom, Want: scenario.WantReport},
 		{Check: scenario.CheckErrors, Want: scenario.WantZero},
 	},
 	DisableExceptionConsumers: true, ExplicitBatching: true, ProducerConcurrency: 4,

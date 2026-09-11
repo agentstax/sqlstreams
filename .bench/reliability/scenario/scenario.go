@@ -24,10 +24,12 @@ type Scenario struct {
 
 	// ProducerBatchConcurrency is each stream's producer batch workers, one
 	// connection each; 0 leaves the library's default
-	ProducerBatchConcurrency  int
-	ProducerBatchSize         int
-	AutomaticBatching         bool
-	ExplicitBatching          bool
+	ProducerBatchConcurrency int
+	ProducerBatchSize        int
+	AutomaticBatching        bool
+	ExplicitBatching         bool
+	// DisableMessageRecording keeps aggregate counters instead of per-message evidence. Default: false.
+	DisableMessageRecording   bool
 	DisableExceptionConsumers bool
 	ProducerConcurrency       int
 	PayloadBytes              int
@@ -122,6 +124,11 @@ func (s *Scenario) Validate() error {
 			return fmt.Errorf("Expect[%d].Check already declared: %q", i, string(expectation.Check))
 		}
 		declared[expectation.Check] = expectation.Want
+	}
+	if s.DisableMessageRecording {
+		if _, ok := declared[CheckErrors]; !ok {
+			return errors.New("DisableMessageRecording requires an errors expectation")
+		}
 	}
 	for _, invariant := range Invariants {
 		want, ok := declared[invariant.Check]

@@ -25,6 +25,10 @@ the item is removed.
   is still open. Also measure the debug buffer's overhead here
   (WithLogBuffer + BufferLogger cost per operation, healthy path) — a
   published number is the adoption gate for always-on capture ([0559]).
+  - Single-stream sustained-throughput publication evidence collected [0748]:
+    three native 30-minute runs, median 68,185 messages/s, complete run range
+    and artifacts linked from the README/docsite working-tree changes. This
+    does not close the multi-stream, latency, or debug-buffer measurements.
   - When this lands, fold the existing ad-hoc benches into the standard it
     sets — one method/env/recording shape across .bench/: .bench/idempotency,
     .bench/scale, .bench/trigger_fanout, the compaction hot-key
