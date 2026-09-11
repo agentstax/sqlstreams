@@ -400,3 +400,24 @@ func seedMessages(t testing.TB, janitor *janitordatastore.JanitorDatastore, orde
 		t.Fatal(err)
 	}
 }
+
+// registerLaggingStream registers a second stream in the system with a
+// consumer group whose cursor starts before any message and never moves.
+func registerLaggingStream(t testing.TB, janitor *janitordatastore.JanitorDatastore, systemId int64, name string) {
+	t.Helper()
+	streams, err := streamcontroller.NewStreamController(janitor.Datastore, janitor.Datastore.Logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	registered, err := streams.Register(t.Context(), systemId, name, &stream.StreamConfig{PartitionSize: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	consumers, err := consumecontroller.NewConsumeController(janitor.Datastore, janitor.Datastore.Logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := consumers.RegisterGroup(t.Context(), registered.Id, "processor", consume.CursorPosition{}); err != nil {
+		t.Fatal(err)
+	}
+}

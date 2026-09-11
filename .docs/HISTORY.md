@@ -26,6 +26,13 @@ reports. Smoke recipe expansion and the site build passed. All 51 existing
 evidence files are unchanged, and all 50 archived sources match their originals.
 No database benchmark or full e2e suite was run for this cleanup.
 
+Completed the directory cleanup by moving the seven remaining experiment
+folders under `.bench/results/historical/` and removing the empty trigger-fanout
+folder. The root now holds the shared runner and results. Updated current
+ROADMAP references and relative result links. All 30 tracked records and 12,199
+local files were preserved; native and idempotency scratch remain ignored.
+Build, vet, formatting, move-integrity, and ignore-rule checks passed.
+
 ## 2026-09-11 — Benchmark runner promoted to .bench [0749]
 
 Moved the reliability lab's entry point, packages, scripts, Compose stack,
@@ -204,7 +211,7 @@ index entries can still make probes expensive until vacuum cleans them.
 
 Validation: targeted janitor database race tests, build and vet. Five warm
 million-row sweeps averaged0.314ms intact and0.295ms after a1000-row expired
-prefix was cleaned. Evidence: .bench/scratchnative/results/evidence/native18/
+prefix was cleaned. Evidence: .bench/results/historical/scratchnative/results/evidence/native18/
 scratch_janitor_222603. Paired throughput with janitor enabled is not yet
 validated; scratch databases were deleted.
 

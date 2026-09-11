@@ -9,10 +9,6 @@ go.work.sum
 /.bin/*
 !/.bin/.gitkeep
 
-# benchmark scratch -- only the writeup is tracked
-.bench/idempotency/*
-!.bench/idempotency/RESULTS.md
-
 # reliability-lab runs: results/<scenario>/runs.jsonl is tracked, the
 # per-run directories and the recipe's scratch files are not
 .bench/results/*/*/
@@ -33,7 +29,7 @@ go.work.sum
 __debug_bin*
 
 # Native scratch benchmark evidence is retained locally.
-.bench/scratchnative/results/evidence/
+.bench/results/historical/scratchnative/results/evidence/
 
 # goreleaser output
 /.dist/
@@ -42,3 +38,8 @@ __debug_bin*
 
 # Evidence selected for the public throughput report.
 !.bench/results/published/2026-09-11/
+
+# Historical benchmark records keep their tracked evidence and local scratch.
+!.bench/results/historical/*/
+.bench/results/historical/idempotency/*
+!.bench/results/historical/idempotency/RESULTS.md

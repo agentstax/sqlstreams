@@ -12,12 +12,17 @@ import (
 	consumecontroller "github.com/agentstax/sqlstreams/pkg/consume/controller"
 	consumedatastore "github.com/agentstax/sqlstreams/pkg/consume/controller/datastore"
 	cursordatastore "github.com/agentstax/sqlstreams/pkg/consume/cursoradvancer/controller/datastore"
+	deliverydatastore "github.com/agentstax/sqlstreams/pkg/consume/deliveryconsumer/controller/datastore"
 	exceptiondatastore "github.com/agentstax/sqlstreams/pkg/consume/exceptionconsumer/controller/datastore"
 	janitordatastore "github.com/agentstax/sqlstreams/pkg/consume/janitor/controller/datastore"
 	"github.com/agentstax/sqlstreams/pkg/consume/messageconsumer/controller/datastore"
+	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
 	metricdatastore "github.com/agentstax/sqlstreams/pkg/metric/controller/datastore"
+	"github.com/agentstax/sqlstreams/pkg/produce"
+	producecontroller "github.com/agentstax/sqlstreams/pkg/produce/controller"
 	"github.com/agentstax/sqlstreams/pkg/stream"
 	streamcontroller "github.com/agentstax/sqlstreams/pkg/stream/controller"
+	streamjanitordatastore "github.com/agentstax/sqlstreams/pkg/stream/janitor/controller/datastore"
 	systemcontroller "github.com/agentstax/sqlstreams/pkg/system/controller"
 	workerdatastore "github.com/agentstax/sqlstreams/pkg/worker/controller/datastore"
 	"github.com/jackc/pgx/v5"
@@ -239,4 +244,151 @@ func holdTransaction(t testing.TB, pool *pgxpool.Pool) pgx.Tx {
 		t.Fatal(err)
 	}
 	return tx
+}
+
+// newDeliveryConsumerDatastore is the delivery consumer datastore over the
+// same schema.
+func newDeliveryConsumerDatastore(t testing.TB, groups *datastore.MessageConsumerGroupDatastore) *deliverydatastore.DeliveryConsumerGroupDatastore {
+	t.Helper()
+	deliveries, err := deliverydatastore.NewDeliveryConsumerGroupDatastore(groups.Datastore, groups.Datastore.Logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return deliveries
+}
+
+// produceRoutedMessage appends one message carrying the routing key to the
+// stream's log; "" leaves the routing key NULL.
+func produceRoutedMessage(t testing.TB, groups *datastore.MessageConsumerGroupDatastore, consumer *consume.Consumer, routingKey string) {
+	t.Helper()
+	messages := groups.Datastore.Schema + "." + stream.MessageLogTable(consumer.StreamId)
+	if _, err := groups.Datastore.Pool.Exec(t.Context(), "INSERT INTO "+messages+" (schema_version, routing_key, payload) VALUES (1, NULLIF($1, ''), '{}')", routingKey); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// produceCompactedMessages appends count compacted messages carrying the key
+// at rank 0 and points the key's compaction head at the last of them.
+func produceCompactedMessages(t testing.TB, groups *datastore.MessageConsumerGroupDatastore, consumer *consume.Consumer, key string, count int) {
+	t.Helper()
+	messages := groups.Datastore.Schema + "." + stream.MessageLogTable(consumer.StreamId)
+	heads := groups.Datastore.Schema + "." + stream.CompactionHeadTable(consumer.StreamId)
+	for range count {
+		var id int64
+		if err := groups.Datastore.Pool.QueryRow(t.Context(), "INSERT INTO "+messages+" (schema_version, message_key, compaction_rank, payload) VALUES (1, $1, 0, '{}') RETURNING id", key).Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := groups.Datastore.Pool.Exec(t.Context(), "INSERT INTO "+heads+" (compaction_key, message_id, schema_version, compaction_rank) VALUES ($1, $2, 1, 0) ON CONFLICT (compaction_key) DO UPDATE SET message_id = EXCLUDED.message_id", key, id); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+// expireClaimLease moves the group's claim lease expiry into the past.
+func expireClaimLease(t testing.TB, groups *datastore.MessageConsumerGroupDatastore, consumer *consume.Consumer) {
+	t.Helper()
+	leases := groups.Datastore.Schema + "." + stream.ClaimLeaseTable(consumer.StreamId)
+	if _, err := groups.Datastore.Pool.Exec(t.Context(), "UPDATE "+leases+" SET expires_at = now() - interval '1 second' WHERE consumer_group_id = $1", consumer.Id); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// newPartitionedMessageConsumerDatastore registers a system, a stream at the
+// smallest partition size, and a consumer group whose cursor starts before
+// any message, and returns the message consumer datastore with the group
+// and the stream. Every two messages fill one partition.
+func newPartitionedMessageConsumerDatastore(t testing.TB) (*datastore.MessageConsumerGroupDatastore, *consume.Consumer, *stream.Stream) {
+	t.Helper()
+	ds := postgres.Start(t)
+	systems, err := systemcontroller.NewSystemController(ds, ds.Logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	system, err := systems.Register(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	streams, err := streamcontroller.NewStreamController(ds, ds.Logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	registered, err := streams.Register(t.Context(), system.Id, "claims", &stream.StreamConfig{PartitionSize: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	consumers, err := consumecontroller.NewConsumeController(ds, ds.Logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	consumer, err := consumers.RegisterGroup(t.Context(), registered.Id, "readers", consume.CursorPosition{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	groups, err := datastore.NewMessageConsumerGroupDatastore(ds, ds.Logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return groups, consumer, registered
+}
+
+// seedPartitionedMessages fills the partitioned stream's log with messages
+// at ids 1 to count. A produce burns an id whenever the next partition is
+// not there yet and the create-ahead runs in the background, so the
+// produces make the partitions through the real path, then the rows are
+// replaced with dense ids.
+func seedPartitionedMessages(t testing.TB, groups *datastore.MessageConsumerGroupDatastore, registered *stream.Stream, count int) {
+	t.Helper()
+	producers, err := producecontroller.NewProduceController(groups.Datastore, groups.Datastore.Logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for range count {
+		if _, err := producers.AppendMessage(t.Context(), registered.Id, registered.PartitionSize, producePartitionedTestMessage, produce.ProduceOptions{}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	messages := groups.Datastore.Schema + "." + stream.MessageLogTable(registered.Id)
+	if _, err := groups.Datastore.Pool.Exec(t.Context(), "DELETE FROM "+messages); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := groups.Datastore.Pool.Exec(t.Context(), "INSERT INTO "+messages+" (id, schema_version, payload) SELECT id, 1, '{}' FROM generate_series(1, $1) AS id", count); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// partitionedTestMessage is the payload seedPartitionedMessages produces.
+type partitionedTestMessage struct{}
+
+func (partitionedTestMessage) SchemaVersion() int { return 1 }
+
+// producePartitionedTestMessage is the ProducerFunc every seeded message
+// comes from.
+func producePartitionedTestMessage(ctx context.Context, tx iDatastore.Tx) (*partitionedTestMessage, error) {
+	return &partitionedTestMessage{}, nil
+}
+
+// dropPartition ages every message in the id range past a one-hour ttl and
+// drops the partitions those messages filled, waiving the committed floor.
+func dropPartition(t testing.TB, groups *datastore.MessageConsumerGroupDatastore, registered *stream.Stream, low int64, high int64) {
+	t.Helper()
+	messages := groups.Datastore.Schema + "." + stream.MessageLogTable(registered.Id)
+	if _, err := groups.Datastore.Pool.Exec(t.Context(), "UPDATE "+messages+" SET created_at = now() - interval '2 hours' WHERE id BETWEEN $1 AND $2", low, high); err != nil {
+		t.Fatal(err)
+	}
+	janitor, err := streamjanitordatastore.NewJanitorDatastore(groups.Datastore, groups.Datastore.Logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := janitor.DropExpiredPartitions(t.Context(), registered.Id, registered.PartitionSize, time.Hour, true, stream.DeliveryLogModeOff); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// messageIds is the ids of claimed messages in claim order.
+func messageIds(messages []datastore.MessageLogRow) []int64 {
+	ids := make([]int64, len(messages))
+	for i, message := range messages {
+		ids[i] = message.Id
+	}
+	return ids
 }

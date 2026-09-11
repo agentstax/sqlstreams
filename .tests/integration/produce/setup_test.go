@@ -138,3 +138,27 @@ func readHead(t testing.TB, produces *datastore.ProduceDatastore, orders *stream
 	}
 	return messageId, rank
 }
+
+// produceTestMessageV2 is the payload a later message schema carries.
+type produceTestMessageV2 struct {
+	Kind string `json:"kind"`
+}
+
+func (produceTestMessageV2) SchemaVersion() int { return 2 }
+
+// produceTestMessageV2Func is the ProducerFunc that returns one message of
+// the later schema.
+func produceTestMessageV2Func(ctx context.Context, tx iDatastore.Tx) (*produceTestMessageV2, error) {
+	return &produceTestMessageV2{Kind: "created"}, nil
+}
+
+// compactedAppendV2 is an append of the later schema compacted under
+// messageKey at rank.
+func compactedAppendV2(messageKey string, rank int64) *datastore.Append[produceTestMessageV2] {
+	return &datastore.Append[produceTestMessageV2]{
+		IdempotencyKey: uuid.New(),
+		MessageKey:     messageKey,
+		Compacted:      true,
+		CompactionRank: rank,
+	}
+}

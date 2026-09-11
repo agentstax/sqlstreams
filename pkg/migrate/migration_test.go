@@ -62,3 +62,31 @@ func TestValidateBoundsMinCompatibleVersionByOwnVersion(t *testing.T) {
 		})
 	}
 }
+
+// closed set: the gate admits a build iff
+// minCompatibleVersion <= buildVersion <= version -- a schema behind the
+// build is older, one whose floor is past the build is newer, and a schema
+// migrated past the build by additive steps alone stays supported.
+func TestClassifySchemaSupportAdmitsABuildInsideTheCompatibilityWindow(t *testing.T) {
+	tests := []struct {
+		name          string
+		version       int64
+		minCompatible int64
+		build         int64
+		want          SchemaSupport
+	}{
+		{name: "same version", version: 3, minCompatible: 0, build: 3, want: SchemaSupported},
+		{name: "schema behind the build", version: 2, minCompatible: 0, build: 3, want: SchemaOlderThanBuild},
+		{name: "additive steps past the build", version: 5, minCompatible: 0, build: 3, want: SchemaSupported},
+		{name: "breaking step at the build", version: 5, minCompatible: 3, build: 3, want: SchemaSupported},
+		{name: "breaking step past the build", version: 5, minCompatible: 4, build: 3, want: SchemaNewerThanBuild},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := ClassifySchemaSupport(test.version, test.minCompatible, test.build)
+			if got != test.want {
+				t.Fatalf("ClassifySchemaSupport(version %d, minCompatible %d, build %d) = %s, want %s", test.version, test.minCompatible, test.build, got, test.want)
+			}
+		})
+	}
+}

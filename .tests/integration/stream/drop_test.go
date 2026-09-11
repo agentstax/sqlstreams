@@ -177,3 +177,27 @@ func TestDropExpiredPartitionsRunTwiceDropsNothingMore(t *testing.T) {
 		t.Errorf("partitions after the rerun = %v, want the first pass's result kept [2 3 4]", partitions)
 	}
 }
+
+// invariant (per-stream floor): the committed floor a drop pass honors is
+// the stream's own cursors -- a lagging group on another stream never
+// keeps this stream's expired partitions.
+func TestDropExpiredPartitionsIgnoresAnotherStreamsLaggingCursor(t *testing.T) {
+	// setup: orders is fully committed; invoices has a group at 0
+	janitor, orders := newPartitionedJanitor(t)
+	ctx := t.Context()
+	seedMessages(t, janitor, orders, 8)
+	ageMessages(t, janitor, orders, 1, 8)
+	commitCursor(t, janitor, orders, 8)
+	registerLaggingStream(t, janitor, orders.SystemId, "invoices")
+
+	// test
+	err := janitor.DropExpiredPartitions(ctx, orders.Id, orders.PartitionSize, time.Hour, false, stream.DeliveryLogModeOff)
+
+	// verify
+	if err != nil {
+		t.Fatal(err)
+	}
+	if partitions := listPartitions(t, janitor, orders, 4); !slices.Equal(partitions, []int64{4}) {
+		t.Errorf("partitions after DropExpiredPartitions with another stream's group at 0 = %v, want only the active partition [4]", partitions)
+	}
+}

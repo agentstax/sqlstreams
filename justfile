@@ -121,158 +121,19 @@ schema-diagram-fresh:
 
 ### EXAMPLES ###
 
-# Run the end-to-end consumer. EX: just consume learning.v1 0.1 1.0 0.0 -1
-consume group="learning.v1" processorsleep="0.1" shutdownsleep="1.0" failrate="0.0" crashafter="-1":
-    go run ./.tests/e2e/consumer/main.go -group={{ group }} -processor-sleep={{ processorsleep }} -shutdown-sleep={{ shutdownsleep }} -fail-rate={{ failrate }} -crash-after={{ crashafter }}
-
 # Produce messages with the end-to-end producer. EX: just produce 3
 produce count="1":
     go run ./.tests/e2e/producer/main.go -count={{ count }}
 
-### E2E TESTS: BUILD ###
+### E2E TESTS ###
 
-# Build an e2e test binary in .bin/. EX: just build-e2e reclaim
+# Build an e2e test binary in .bin/. EX: just build-e2e signal
 build-e2e test:
     go build -o .bin/{{ test }} ./.tests/e2e/{{ test }}/main.go
-
-### E2E TESTS: CONSUMERS, DECLARATIONS, AND WORKERS ###
-
-# Verify recovery after a consumer crashes while processing a message range.
-reclaim-e2e:
-    go run ./.tests/e2e/reclaim/main.go
-
-# Verify consumer-group declaration defaults, validation, and replacement.
-group-config-e2e:
-    go run ./.tests/e2e/groupconfig/main.go
-
-# Verify ordered delivery and its key lease behavior.
-ordered-e2e:
-    go run ./.tests/e2e/ordered/main.go
-
-# Verify bindings choose which messages a group receives.
-routing-e2e:
-    go run ./.tests/e2e/routing/main.go
-
-# Verify consumer routines abandoned during a snapshot are recorded correctly.
-abandoned-routine-snapshot-e2e:
-    go run ./.tests/e2e/abandonedroutinesnapshot/main.go
-
-# Verify expired messages and abandoned routines are reported by maintenance work.
-abandoned-events-e2e:
-    go run ./.tests/e2e/abandonedevents/main.go
-
-# Verify a produce-only deployment warns, and a live consumer resolves that alert.
-worker-liveness-e2e:
-    go run ./.tests/e2e/workerliveness/main.go
-
-# Verify graceful shutdown narrows a lease to the unprocessed message suffix.
-shutdown-truncation-e2e:
-    go run ./.tests/e2e/shutdowntruncation/main.go
 
 # Signal cases: a killed producer, a producer and a consumer under SIGTERM, a second SIGTERM past a hung handler.
 signal-e2e:
     go run ./.tests/e2e/signal/main.go
-
-# Verify exclusive consumer-group behavior.
-exclusive-e2e:
-    go run ./.tests/e2e/exclusive/main.go
-
-### E2E TESTS: STREAMS, RETENTION, AND SCHEMA ###
-
-# Verify partitions prune claim reads to the relevant message-id range.
-partition-e2e:
-    go run ./.tests/e2e/partition/main.go
-
-# Verify a lagging cursor passes a dropped partition without stalling.
-drop-floor-e2e:
-    go run ./.tests/e2e/dropfloor/main.go
-
-# Verify per-stream tables, cursors, routing, and retention are isolated by stream.
-stream-e2e:
-    go run ./.tests/e2e/stream/main.go
-
-# Verify users cannot alter the system's reserved streams.
-reserved-stream-e2e:
-    go run ./.tests/e2e/reservedstream/main.go
-
-# Verify system destruction refuses unsafe states and leaves a fresh registration possible.
-destroy-system-e2e:
-    go run ./.tests/e2e/destroysystem/main.go
-
-# Verify independent installations can share one database through separate schemas.
-schema-e2e:
-    go run ./.tests/e2e/schema/main.go
-
-# Verify producers and consumers reject database versions this build cannot support.
-schema-gate-e2e:
-    go run ./.tests/e2e/schemagate/main.go
-
-# Verify the migration registry is reversible, idempotent, and matches fresh creation.
-invariant-e2e:
-    go run ./.tests/e2e/invariant/main.go
-
-# Verify a user-space bridge moves compacted winners from one message schema to another.
-schema-evolution-e2e:
-    go run ./.tests/e2e/schemaevolution/main.go
-
-### E2E TESTS: PRODUCERS AND DELIVERY RECORDS ###
-
-# Verify concurrent calls sharing one idempotency key produce exactly one message.
-idempotency-keys-race-e2e:
-    go run ./.tests/e2e/idempotencykeysrace/main.go
-
-# Verify batched production shares transactions without cross-caller failure or deadlock.
-producer-batch-e2e:
-    go run ./.tests/e2e/producerbatch/main.go
-
-# Verify every production path creates the next partition before the boundary.
-create-ahead-e2e:
-    go run ./.tests/e2e/createahead/main.go
-
-# Verify two in-transaction targets commit or roll back together.
-multi-target-e2e:
-    go run ./.tests/e2e/multitarget/main.go
-
-# Verify failures append delivery records, respecting opt-out and retention.
-delivery-log-e2e:
-    go run ./.tests/e2e/deliverylog/main.go
-
-### E2E TESTS: COMPACTION ###
-
-# Verify a compacted stream delivers only its latest eligible message per key.
-compaction-e2e:
-    go run ./.tests/e2e/compaction/main.go
-
-# Verify concurrent production converges compaction heads to the highest message id.
-compaction-head-race-e2e:
-    go run ./.tests/e2e/compactionheadrace/main.go
-
-# Verify lockable compaction-head rows serialize first writes and race safely with cleanup.
-compaction-head-lock-e2e:
-    go run -race ./.tests/e2e/compactionheadlock/main.go
-
-# Verify batched production avoids hot-key deadlocks while caller transactions surface them.
-compaction-deadlock-e2e:
-    go run ./.tests/e2e/compactiondeadlock/main.go
-
-### E2E TESTS: METRICS, ALERTS, AND SCHEDULES ###
-
-# Verify concurrent metric collection and an HTTP scrape from a manager process.
-metrics-collector-e2e:
-    cd cmd/sqlstreams && go build -o ../../.bin/sqlstreams .
-    go run -race ./.tests/e2e/metricscollector/main.go
-
-# Verify built-in alert thresholds classify, refresh, change severity, and resolve.
-alert-e2e:
-    go run ./.tests/e2e/alert/main.go
-
-# Verify cron validation, schedule lifecycle, production, and consumer delivery.
-schedule-e2e:
-    go run ./.tests/e2e/schedule/main.go
-
-# Verify concurrent Schedule calls run only one system-manager reconciliation loop.
-schedule-concurrency-e2e:
-    go run ./.tests/e2e/scheduleconcurrency/main.go
 
 ### INSPECT ###
 

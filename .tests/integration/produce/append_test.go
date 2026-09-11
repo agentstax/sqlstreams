@@ -256,3 +256,37 @@ func TestAppendMessageInTxHealsInsideASavepointAndCommitsWithTheCaller(t *testin
 		t.Errorf("compaction_head rows after the commit = %d, want the caller's marker row", count)
 	}
 }
+
+// Invariant: a compacted produce of a newer message schema takes the head
+// from an older schema's message whatever the ranks, and an older schema's
+// message never takes it back.
+func TestCompactedAppendKeepsTheHeadAtTheNewestSchemaVersion(t *testing.T) {
+	// setup: the older schema holds the head at a high rank
+	produces, orders := newProduceDatastore(t)
+	ctx := t.Context()
+	if _, err := produces.AppendMessage(ctx, orders.Id, partitionSize, produceTestMessageFunc, compactedAppend("order-1", 5)); err != nil {
+		t.Fatal(err)
+	}
+
+	// test
+	newer, err := produces.AppendMessage(ctx, orders.Id, partitionSize, produceTestMessageV2Func, compactedAppendV2("order-1", 0))
+
+	// verify
+	if err != nil {
+		t.Fatal(err)
+	}
+	if headId, rank := readHead(t, produces, orders, "order-1"); headId != newer.Id || rank != 0 {
+		t.Errorf("head(order-1) after a schema 2 rank-0 produce over a schema 1 rank-5 head = (%d, %d), want (%d, 0)", headId, rank, newer.Id)
+	}
+
+	// test: the older schema produces again at a higher rank
+	_, err = produces.AppendMessage(ctx, orders.Id, partitionSize, produceTestMessageFunc, compactedAppend("order-1", 9))
+
+	// verify
+	if err != nil {
+		t.Fatal(err)
+	}
+	if headId, rank := readHead(t, produces, orders, "order-1"); headId != newer.Id || rank != 0 {
+		t.Errorf("head(order-1) after a schema 1 rank-9 produce behind a schema 2 head = (%d, %d), want the schema 2 head kept (%d, 0)", headId, rank, newer.Id)
+	}
+}
