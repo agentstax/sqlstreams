@@ -83,36 +83,33 @@ func (d *ProduceDatastore) ensureCoveringPartition(ctx context.Context, streamId
 		return err
 	}
 
-	// one round trip -- a batch outside an explicit txn runs as one implicit
-	// transaction, which scopes the SET LOCAL to exactly these statements
-	// instead of leaking it to whatever might use this pooled connection next,
-	// and releases the advisory lock at commit
-	batch := &pgx.Batch{}
-	batch.Queue(fmt.Sprintf(`
+	tx, err := d.Datastore.Pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// SET LOCAL scopes the cap to this transaction: a session-level SET would
+	// leak to whatever uses this pooled connection next
+	lockTimeoutSql := fmt.Sprintf(`
 		-- sqlstreams: produce.ensureCoveringPartition
 		SET LOCAL lock_timeout = '%dms';
-	`, ddlLockTimeout.Milliseconds()))
+	`, ddlLockTimeout.Milliseconds())
+	if _, err := tx.Exec(ctx, lockTimeoutSql); err != nil {
+		return err
+	}
 
 	// one winner runs the CREATE; every concurrent caller sleeps here (bounded
-	// by the lock_timeout above) until that commit.
-	batch.Queue(`
+	// by the lock_timeout above) until that commit releases the lock.
+	advisoryLockSql := `
 		-- sqlstreams: produce.ensureCoveringPartition
 		SELECT pg_advisory_xact_lock($1);
-	`, lockKey.Value())
-	batch.Queue(createPartitionSql)
+	`
+	if _, err := tx.Exec(ctx, advisoryLockSql, lockKey.Value()); err != nil {
+		return err
+	}
 
-	results := d.Datastore.Pool.SendBatch(ctx, batch)
-	if _, err := results.Exec(); err != nil { // SET LOCAL query
-		results.Close()
-		return err
-	}
-	if _, err := results.Exec(); err != nil { // pg_advisory_xact_lock query
-		results.Close()
-		return err
-	}
-	_, err = results.Exec() // createPartitionSql query
-	closeErr := results.Close()
-	if err != nil {
+	if _, err := tx.Exec(ctx, createPartitionSql); err != nil {
 		// IF NOT EXISTS still races -- losing to a concurrent creator means it exists
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "42P07" {
@@ -120,7 +117,7 @@ func (d *ProduceDatastore) ensureCoveringPartition(ctx context.Context, streamId
 		}
 		return err
 	}
-	return closeErr
+	return tx.Commit(ctx)
 }
 
 // createPartitionAhead creates the partition after id's early, in the
