@@ -16,7 +16,7 @@ func newStreamGetCmd(g *globalFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "get <name>",
-		Short: "Show a stream, every payload version in its log, and each version's retire state",
+		Short: "Show a stream's registration and config",
 		Args:  requireStreamName("get"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -40,7 +40,7 @@ func newStreamGetCmd(g *globalFlags) *cobra.Command {
 			}
 
 			if g.jsonOutput() && found == nil {
-				writeJSON(out, toStreamGetDocument(name, nil, nil))
+				writeJSON(out, toStreamGetDocument(name, nil))
 				return failPrinted()
 			}
 
@@ -58,22 +58,13 @@ func newStreamGetCmd(g *globalFlags) *cobra.Command {
 				return failPrinted()
 			}
 
-			health, err := client.Stream[sqlstreams.RawPayload](name).Health(ctx)
-			if err != nil {
-				return translateAdminError(err)
-			}
-
 			if g.jsonOutput() {
-				writeJSON(out, toStreamGetDocument(name, found, health))
+				writeJSON(out, toStreamGetDocument(name, found))
 				return nil
 			}
 
-			fmt.Fprintf(out, "%s stream %q -- %s\n", glyphOK(), name, pluralize(len(health), "payload version"))
+			fmt.Fprintf(out, "%s stream %q (id=%d)\n", glyphOK(), name, found.Id)
 			printStreamDetail(out, found)
-			for _, h := range health {
-				fmt.Fprintln(out)
-				printVersionHealth(out, h)
-			}
 			return nil
 		},
 	}
@@ -98,29 +89,11 @@ type streamDocument struct {
 }
 
 // streamGetDocument is stream get's json result; the not-found case is data
-// (exists false, stream null, versions empty), the exit code stays 1.
+// (exists false, config null), the exit code stays 1.
 type streamGetDocument struct {
-	Stream   string                  `json:"stream"`
-	Exists   bool                    `json:"exists"`
-	Config   *streamDocument         `json:"config"`
-	Versions []versionHealthDocument `json:"versions"`
-}
-
-// versionHealthDocument is one payload version present in the log with its
-// retire verdict.
-type versionHealthDocument struct {
-	Version         int64                     `json:"version"`
-	Messages        int64                     `json:"messages"`
-	CompactionHeads int64                     `json:"compaction_heads"`
-	Groups          []groupVersionLagDocument `json:"groups"`
-	Safe            bool                      `json:"safe"`
-	Reason          string                    `json:"reason"`
-}
-
-type groupVersionLagDocument struct {
-	Group                string `json:"group"`
-	Unconsumed           int64  `json:"unconsumed"`
-	UnresolvedExceptions int64  `json:"unresolved_exceptions"`
+	Stream string          `json:"stream"`
+	Exists bool            `json:"exists"`
+	Config *streamDocument `json:"config"`
 }
 
 func toStreamDocument(found *stream.Stream) streamDocument {
@@ -145,72 +118,22 @@ func toStreamDocuments(streams []*stream.Stream) []streamDocument {
 	return documents
 }
 
-func toStreamGetDocument(name string, found *stream.Stream, health []*sqlstreams.StreamVersionHealth) streamGetDocument {
-	document := streamGetDocument{Stream: name, Exists: found != nil, Versions: make([]versionHealthDocument, 0, len(health))}
+func toStreamGetDocument(name string, found *stream.Stream) streamGetDocument {
+	document := streamGetDocument{Stream: name, Exists: found != nil}
 	if found != nil {
 		config := toStreamDocument(found)
 		document.Config = &config
 	}
-	for _, versionHealth := range health {
-		document.Versions = append(document.Versions, toVersionHealthDocument(versionHealth))
-	}
 	return document
 }
 
-func toVersionHealthDocument(versionHealth *sqlstreams.StreamVersionHealth) versionHealthDocument {
-	groups := make([]groupVersionLagDocument, 0, len(versionHealth.Groups))
-	for _, group := range versionHealth.Groups {
-		groups = append(groups, groupVersionLagDocument{
-			Group:                group.ConsumerGroup,
-			Unconsumed:           group.Unconsumed,
-			UnresolvedExceptions: group.UnresolvedExceptions,
-		})
-	}
-	return versionHealthDocument{
-		Version:         int64(versionHealth.Version),
-		Messages:        versionHealth.Messages,
-		CompactionHeads: versionHealth.CompactionHeads,
-		Groups:          groups,
-		Safe:            versionHealth.Safe,
-		Reason:          versionHealth.Reason,
-	}
-}
-
-// printStreamDetail shows the columns fixed at creation; the declared config
-// lives under stream config get.
 func printStreamDetail(w io.Writer, t *stream.Stream) {
-	fmt.Fprintf(w, "\n(id=%d)\n", t.Id)
-
 	tw := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
 	fmt.Fprintf(tw, "  PartitionSize\t%s\n", commaInt(t.PartitionSize))
+	fmt.Fprintf(tw, "  RetentionTTL\t%s\n", retentionDetail(t.RetentionTTL))
+	fmt.Fprintf(tw, "  AllowDropPastCommitted\t%t\n", t.AllowDropPastCommitted)
+	fmt.Fprintf(tw, "  IdempotencyKeyTTL\t%s\n", t.IdempotencyKeyTTL)
+	fmt.Fprintf(tw, "  EmptyCompactionHeadTTL\t%s\n", t.EmptyCompactionHeadTTL)
+	fmt.Fprintf(tw, "  DeliveryLogMode\t%s\n", t.DeliveryLogMode)
 	tw.Flush()
-}
-
-// printVersionHealth is one payload version's picture: how many rows sit at
-// it, how many compaction heads point at it, each group's lag against it,
-// and the resulting retire verdict.
-func printVersionHealth(w io.Writer, h *sqlstreams.StreamVersionHealth) {
-	fmt.Fprintf(w, "  v%d\n", h.Version)
-
-	ctw := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
-	fmt.Fprintf(ctw, "    Messages\t%s\n", commaInt(h.Messages))
-	fmt.Fprintf(ctw, "    CompactionHeads\t%s\n", commaInt(h.CompactionHeads))
-	ctw.Flush()
-
-	if len(h.Groups) > 0 {
-		fmt.Fprintln(w)
-		tw := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
-		fmt.Fprintln(tw, "    GROUP\tUNCONSUMED\tUNRESOLVED")
-		for _, group := range h.Groups {
-			fmt.Fprintf(tw, "    %s\t%s\t%d\n", group.ConsumerGroup, commaInt(group.Unconsumed), group.UnresolvedExceptions)
-		}
-		tw.Flush()
-	}
-
-	fmt.Fprintln(w)
-	verdict := glyphNo()
-	if h.Safe {
-		verdict = glyphOK()
-	}
-	fmt.Fprintf(w, "    retire: %s %s\n", verdict, h.Reason)
 }

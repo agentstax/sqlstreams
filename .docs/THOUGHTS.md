@@ -63,7 +63,5 @@ review of most important website docs
 
 # Other
 
-go through and make sure cli commands mirror client and are consistently named
-
 Need new github org name "getstweamy"?
 

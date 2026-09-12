@@ -33,6 +33,12 @@ if err != nil {
 | `Metrics()` | `*SystemMetricsHandle` | no I/O; [Metrics](/reference/metrics/) |
 | `Alerts()` | `*SystemAlertsHandle` | no I/O; [Alerts](/reference/alerts/) |
 
+## CLI
+
+`sqlstreams system get` reads the system registration. Add `--quiet` for an
+existence check: no output, exit 0 when registered, exit 1 when absent.
+`--output json` returns the system row; it cannot be combined with `--quiet`.
+
 ## Config
 
 ### SystemConfig

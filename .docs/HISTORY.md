@@ -5,6 +5,22 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-12 — CLI registration, health, and worker reads align [0768]
+
+Stream get reads only registration and config; stream health owns the
+payload-version verdicts and their JSON array. Consumer get/list expose
+Get/Consumers, and consumer worker list replaces consumer config get while
+preserving its stored-config projection and optional key filter. Consumer
+get/list and system get support --quiet consistently with existing reads.
+Help, README examples, and the handle reference pages describe these paths.
+
+Verification: CLI build, vet, go fmt, and go test -race passed. Thirty-three
+CLI executions against disposable PostgreSQL 18 covered populated, empty,
+and missing reads; text/JSON output; quiet checks; key filtering; and usage
+errors. Targeted site remark and Vale checks passed. The existing consumer
+command-path test changed because config get was intentionally retired;
+new unit tests cover its rejection and quiet/JSON conflicts before dialing.
+
 ## 2026-09-12 — CLI commands mirror client verbs [0766]
 
 The CLI uses scheduler get/status/messages, metric and alert latest/history,

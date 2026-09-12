@@ -64,6 +64,26 @@ deployment's upkeep running ([Manager](/reference/manager/)). A context
 that can never be cancelled returns `ErrLifecycleContextNotCancellable`
 unless `DisableGracefulShutdown` is set, and that case runs no manager.
 
+## CLI
+
+| command | client operation |
+| --- | --- |
+| `consumer list orders.created` | `Stream(name).Consumers(ctx)` |
+| `consumer get orders.created billing` | `Consumer(name).Get(ctx)` |
+| `consumer worker list orders.created billing [key]` | `Consumer(name).Workers(ctx)`, displaying the stored config keys per worker |
+
+List accepts `--quiet` for names only. Get accepts `--quiet` for an existence
+check: no output, exit 0 when registered, exit 1 when absent. Both accept
+`--output json`; list returns the consumer array, and get returns the consumer row or `null`
+with exit 1 when absent. `--quiet` and `--output json` cannot be combined.
+
+Worker list accepts an optional stored config key, such as
+`exception_initial_backoff` or `message.timeout`. Its JSON document contains
+`stream`, `consumer`, and `keys`, each with its worker name and stored value.
+Session settings such as `ConsumeOptions.ClaimPollRate` are not stored worker
+config. Workers are declared at `Register`; running instances refresh their
+stored settings at `ConfigRefreshInterval`.
+
 ## Config
 
 ### ConsumerConfig

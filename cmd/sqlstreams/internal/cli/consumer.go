@@ -10,7 +10,9 @@ func newConsumerCmd(g *globalFlags) *cobra.Command {
 		Short: "Inspect and destroy consumers",
 	}
 
-	cmd.AddCommand(newConsumerConfigCmd(g))
+	cmd.AddCommand(newConsumerListCmd(g))
+	cmd.AddCommand(newConsumerGetCmd(g))
+	cmd.AddCommand(newConsumerWorkerCmd(g))
 	cmd.AddCommand(newConsumerBindingCmd(g))
 	cmd.AddCommand(newConsumerDestroyCmd(g))
 

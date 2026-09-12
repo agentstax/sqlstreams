@@ -48,6 +48,17 @@ error itself: `Destroy` is one statement whose zero-rows-affected is the
 existence check, and a `Get` before it would only add a window in which the
 answer can change.
 
+## CLI
+
+`sqlstreams stream get orders.created` reads the stream's registration and
+config. `sqlstreams stream health orders.created` reads each payload version's
+retirement verdict. Both accept `--output json`; health returns an array of
+version verdicts. Get returns `stream`, `exists`, and `config`.
+
+Use `stream get --quiet orders.created` for an existence check: no output,
+exit 0 when registered, exit 1 when absent. `--quiet` and `--output json`
+cannot be combined.
+
 ## Config
 
 ### StreamConfig

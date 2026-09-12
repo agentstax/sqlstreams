@@ -16,16 +16,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newConsumerConfigGetCmd(g *globalFlags) *cobra.Command {
+func newConsumerWorkerListCmd(g *globalFlags) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "get <stream> <consumer> [key]",
-		Short: "Show the consumer's config",
+		Use:   "list <stream> <consumer> [key]",
+		Short: "List stored config keys per consumer worker",
 		Long: `Show each config key the consumer's workers declare, and its stored
 value. Pass a key to show just that key; message shows one line per
 field.`,
-		Example: `  sqlstreams consumer config get orders billing
-  sqlstreams consumer config get orders billing claim_poll_rate
-  sqlstreams consumer config get orders billing message`,
+		Example: `  sqlstreams consumer worker list orders billing
+  sqlstreams consumer worker list orders billing exception_initial_backoff
+  sqlstreams consumer worker list orders billing message`,
 		Args: cobra.RangeArgs(2, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -63,7 +63,7 @@ field.`,
 
 			if len(lines) == 0 {
 				fmt.Fprintf(out, "%s consumer %q on stream %q\n", glyphOK(), consumerName, streamName)
-				fmt.Fprintln(out, "  (no config -- worker rows appear at the consumer's first Consume)")
+				fmt.Fprintln(out, "  (no declared worker config)")
 				return nil
 			}
 
@@ -83,7 +83,7 @@ type consumerConfigLine struct {
 	value  string
 }
 
-// consumerConfigDocument is consumer config get's json result: each declared key
+// consumerConfigDocument is consumer worker list's json result: each declared key
 // with the worker row it came from, as the table renders them.
 type consumerConfigDocument struct {
 	Stream   string                       `json:"stream"`

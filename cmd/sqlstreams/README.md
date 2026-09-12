@@ -42,9 +42,9 @@ internally, so a name is safe to rename later.
 
 ```console
 $ sqlstreams stream list
-NAME             CREATED            UPDATED
-billing.paid     2026-07-22 14:03   2026-07-22 14:03
-orders.created   2026-07-20 09:11   2026-07-21 16:40
+NAME             ID
+billing.paid     41
+orders.created   42
 
 2 streams
 ```
@@ -55,17 +55,13 @@ orders.created   2026-07-20 09:11   2026-07-21 16:40
 
 ```console
 $ sqlstreams stream get orders.created
-✓ stream "orders.created" exists (id=42)
-
-  CreatedAt                2026-07-20 09:11
-  UpdatedAt                2026-07-21 16:40
+✓ stream "orders.created" (id=42)
   PartitionSize            1,000,000
   RetentionTTL             720h0m0s (30d)
   AllowDropPastCommitted   false
   IdempotencyKeyTTL        24h0m0s
-  DisableDeliveryLog       false
-  JanitorPollRate          5s
-  JanitorSweepBatchSize    1000
+  EmptyCompactionHeadTTL   1h0m0s
+  DeliveryLogMode          failures
 ```
 
 A missing stream exits non-zero, so `get -q` doubles as an existence check:
@@ -73,6 +69,35 @@ A missing stream exits non-zero, so `get -q` doubles as an existence check:
 ```sh
 if sqlstreams stream get -q orders.created; then echo "exists"; fi
 ```
+
+`stream get` reads the registration and config. Use a separate read for
+payload-version retirement:
+
+```sh
+sqlstreams stream health orders.created
+sqlstreams stream health orders.created --output json
+```
+
+Health returns an array of version verdicts in JSON. Stream get returns
+`stream`, `exists`, and `config`.
+
+### Read consumers
+
+```sh
+sqlstreams consumer list orders.created
+sqlstreams consumer get orders.created billing
+sqlstreams consumer worker list orders.created billing
+sqlstreams consumer worker list orders.created billing exception_initial_backoff
+```
+
+Consumer get reads the registration; worker list displays the stored config
+keys per worker from `Consumer(name).Workers`. Workers are declared at
+`Register`. Session settings such as `ConsumeOptions.ClaimPollRate` are not
+stored worker config.
+
+Consumer list supports `--quiet` for names only. Consumer get and system get
+support `--quiet` for a silent existence check. Consumer list JSON is the
+consumer array; consumer get JSON is the row, or `null` with exit 1 when absent.
 
 ### Read a message key
 
@@ -150,6 +175,12 @@ collections use `list`; reads with distinct meanings keep distinct verbs:
 
 | Command | Client operation |
 | --- | --- |
+| `stream get <name>` | `Stream(name).Get` |
+| `stream health <name>` | `Stream(name).Health` |
+| `consumer list <stream>` | `Stream(name).Consumers` |
+| `consumer get <stream> <consumer>` | `Consumer(name).Get` |
+| `consumer worker list <stream> <consumer> [key]` | `Consumer(name).Workers`, displaying stored config keys |
+| `system get --quiet` | `System().Get`, silent existence check |
 | `scheduler get <name>` | `Scheduler(name).Get` |
 | `scheduler status <name>` | `Scheduler(name).Status` |
 | `scheduler messages <name> --limit 20` | `Scheduler(name).Messages` |

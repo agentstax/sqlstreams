@@ -8,7 +8,7 @@ import (
 
 func TestConsumerCommandPaths(t *testing.T) {
 	for _, path := range [][]string{
-		{"consumer", "config", "get"},
+		{"consumer", "worker", "list"},
 		{"consumer", "binding", "get"},
 		{"consumer", "binding", "list"},
 		{"consumer", "destroy"},

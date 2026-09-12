@@ -554,3 +554,5 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 - 0766 2026-09-12 accepted (pre-v1) — CLI commands mirror client verbs
 
 - 0767 2026-09-12 accepted (pre-v1) — The multistream ladder is retired for unpaced ceiling holds
+
+- 0768 2026-09-12 accepted (pre-v1) — CLI registration, health, and worker reads name their client operations

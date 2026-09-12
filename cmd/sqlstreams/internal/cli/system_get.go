@@ -11,13 +11,18 @@ import (
 )
 
 func newSystemGetCmd(g *globalFlags) *cobra.Command {
-	return &cobra.Command{
+	var quiet bool
+	cmd := &cobra.Command{
 		Use:   "get",
 		Short: "Show the singleton system config",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 			out := cmd.OutOrStdout()
+
+			if quiet && g.jsonOutput() {
+				return failUsage("--quiet and --output json cannot be combined")
+			}
 
 			connection, err := newConnection(ctx, g.databaseURL, g.schema, slog.LevelError)
 			if err != nil {
@@ -29,6 +34,12 @@ func newSystemGetCmd(g *globalFlags) *cobra.Command {
 			sys, err := client.System().Get(ctx)
 			if err != nil {
 				return translateAdminError(err)
+			}
+			if quiet {
+				if sys == nil {
+					return failPrinted()
+				}
+				return nil
 			}
 			if sys == nil {
 				return failOp("system not registered -- run `sqlstreams system register` first")
@@ -44,6 +55,8 @@ func newSystemGetCmd(g *globalFlags) *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVarP(&quiet, "quiet", "q", false, "no output; exit code is the answer (0 exists, 1 not)")
+	return cmd
 }
 
 func printSystemDetail(w io.Writer, s *system.System) {

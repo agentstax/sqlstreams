@@ -31,7 +31,7 @@ on its stream.`,
 			client := connection.client
 
 			// Binding().Get collapses an absent consumer into nil; the command
-			// reports absence as not-found like consumer config get does
+			// reports absence as not-found like consumer worker list does
 			found, err := client.Stream[sqlstreams.RawPayload](streamName).Get(ctx)
 			if err != nil {
 				return consumerError(streamName, consumerName, err)

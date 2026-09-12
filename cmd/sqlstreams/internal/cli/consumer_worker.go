@@ -10,28 +10,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newConsumerConfigCmd(g *globalFlags) *cobra.Command {
+func newConsumerWorkerCmd(g *globalFlags) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "config",
-		Short: "Read a consumer's config",
-		Long: `A consumer's config comes from the cfg your code passes to consumer Register,
-and is applied every time that runs. Changing a value means changing that
-code and redeploying; this command only reads.
-
-Each consumer kind declares its own keys, so the WORKER column names the row
-a value came from and there is no single default to show.
-
-A running consumer instance reads its config when it claims work, so a change takes
-effect at its next claim, not live.`,
+		Use:   "worker",
+		Short: "Inspect a consumer's declared workers",
+		Long: `Consumer workers are declared at Consumer(name).Register. Their stored config
+comes from ConsumerConfig. Running instances refresh it at ConfigRefreshInterval.
+Session settings such as ConsumeOptions.ClaimPollRate are not stored worker config.`,
 	}
 
-	cmd.AddCommand(newConsumerConfigGetCmd(g))
+	cmd.AddCommand(newConsumerWorkerListCmd(g))
 
 	return cmd
 }
 
 // messageFieldKey is one field of the message document: the dotted path
-// config get prints, and how get reads it back.
+// worker list prints, and how the CLI reads it back.
 type messageFieldKey struct {
 	path string
 	read func(options *common.MessageOptions) string
@@ -93,7 +87,7 @@ func decodeMessageOptions(value any) (*common.MessageOptions, error) {
 	return &options, nil
 }
 
-// consumerError maps a consumer config command failure to CLI output.
+// consumerError maps a consumer read failure to CLI output.
 func consumerError(streamName string, consumerName string, err error) error {
 	switch {
 	case errors.Is(err, consume.ErrConsumerNotFound):

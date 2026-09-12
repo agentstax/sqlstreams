@@ -14,6 +14,7 @@ func newStreamCmd(g *globalFlags) *cobra.Command {
 
 	cmd.AddCommand(newStreamListCmd(g))
 	cmd.AddCommand(newStreamGetCmd(g))
+	cmd.AddCommand(newStreamHealthCmd(g))
 	cmd.AddCommand(newStreamConfigCmd(g))
 	cmd.AddCommand(newStreamKeyCmd(g))
 	cmd.AddCommand(newStreamMaintenanceCmd(g, "janitor"))

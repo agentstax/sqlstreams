@@ -79,3 +79,67 @@ func TestUnrecognizedNestedCommandReturnsUsageError(t *testing.T) {
 		t.Errorf("Execute(metric get sample) = %v, want usage error with exit 2", err)
 	}
 }
+
+func TestConsumerConfigCommandIsRejected(t *testing.T) {
+	// setup
+	root, _ := newRootCmd()
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+	root.SetArgs([]string{"consumer", "config", "get", "orders", "billing"})
+
+	// test
+	err := root.Execute()
+
+	// verify
+	if err == nil || exitCode(err) != 2 {
+		t.Errorf("Execute(consumer config get orders billing) = %v, want usage error with exit 2", err)
+	}
+}
+
+func TestSystemGetRejectsQuietJSONBeforeConnecting(t *testing.T) {
+	// setup
+	root, _ := newRootCmd()
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+	root.SetArgs([]string{"system", "get", "--quiet", "--output", "json"})
+
+	// test
+	err := root.Execute()
+
+	// verify
+	if err == nil || exitCode(err) != 2 {
+		t.Errorf("Execute(system get --quiet --output json) = %v, want usage error with exit 2", err)
+	}
+}
+
+func TestConsumerGetRejectsQuietJSONBeforeConnecting(t *testing.T) {
+	// setup
+	root, _ := newRootCmd()
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+	root.SetArgs([]string{"consumer", "get", "orders", "billing", "--quiet", "--output", "json"})
+
+	// test
+	err := root.Execute()
+
+	// verify
+	if err == nil || exitCode(err) != 2 {
+		t.Errorf("Execute(consumer get orders billing --quiet --output json) = %v, want usage error with exit 2", err)
+	}
+}
+
+func TestConsumerListRejectsQuietJSONBeforeConnecting(t *testing.T) {
+	// setup
+	root, _ := newRootCmd()
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+	root.SetArgs([]string{"consumer", "list", "orders", "--quiet", "--output", "json"})
+
+	// test
+	err := root.Execute()
+
+	// verify
+	if err == nil || exitCode(err) != 2 {
+		t.Errorf("Execute(consumer list orders --quiet --output json) = %v, want usage error with exit 2", err)
+	}
+}
