@@ -48,6 +48,8 @@ roadmap later item for review code for interesting design decisions to write art
 
 # Review
 
+Should review all github settings for good strong defaults
+
 ## Manual
 
 Probably should have one more table name and column review (this will be hard to change later)

@@ -19,21 +19,23 @@ the item is removed.
 - **Release pipeline, dependency scanning, and package managers** -- active;
   execution checklist in TODO.md. Prove the no-secret CLI prerelease before
   enabling package-manager publication.
-  - Audit 2026-09-12: remote main is `e2d0e6f5`, with the SQLStreams source
-    published. GitHub's canonical repository is `allegedlyreliable/sqlstreams`;
-    `agentstax/sqlstreams` redirects there. The user chose
-    `allegedlyreliable` throughout [0785]; current local module paths, imports,
-    repository links, and GoReleaser release/tap ownership now use it. This
-    source preparation still needs user commit and push before the first tag.
-  - GitHub still has no releases or tags. Actions is enabled, and repository
-    Actions secrets are empty. Local GoReleaser 2.18.1 configuration validation, six snapshot
-    archives/checksums, generated cask, and extracted macOS arm64 --version
-    pass after the ownership rename; the binary embeds the canonical CLI
-    module and cask URLs use allegedlyreliable. The local snapshot version
-    is phase-14a-SNAPSHOT-e2d0e6f5; a real prerelease tag remains untested. The workflow generates go.work and pins GORELEASER_CURRENT_TAG;
-    Homebrew skips an empty token, and the workflow skips Chocolatey for an
-    empty API key. Windows packaging and a downloaded Release archive remain
-    unproved.
+  - Publication verified 2026-09-12: main and v0.1.0-rc.1 both name
+    `9772deee2dd6a49bf343e24b409cd86461b01dba`. The canonical SQLStreams source
+    is published under allegedlyreliable [0785]. A fresh, workspace-disabled
+    Go module download resolves github.com/allegedlyreliable/sqlstreams at
+    v0.1.0-rc.1 through the public module path.
+  - Hosted release proof passed:
+    [release run 34716684337](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34716684337)
+    succeeds on Windows with GoReleaser 2.18.1. Both package-manager secrets
+    are empty in the run; Chocolatey is skipped and Homebrew reports
+    brew.skip_upload is set. The
+    [prerelease](https://github.com/allegedlyreliable/sqlstreams/releases/tag/v0.1.0-rc.1)
+    has all six platform archives plus checksums.txt. All manifest hashes
+    match GitHub's asset digests. The downloaded macOS arm64 archive hashes
+    to 72d27022be1c96df96760c101aba74eca9e5131a304c974f339610b30451de10;
+    its extracted binary prints sqlstreams version 0.1.0-rc.1 and embeds
+    the canonical CLI module, tagged commit, and vcs.modified=false.
+    Chocolatey package creation/publication remains untested.
   - Dependabot version updates are already running. All three ecosystem jobs
     succeeded on 2026-09-12 at 17:41 UTC: gomod
     [34708970924](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34708970924),
@@ -45,24 +47,24 @@ the item is removed.
     The config is already committed; no second setup push is needed to prove
     these runs. Monthly groups and seven-day cooldown remain the intended
     schedule; manual checks and security updates can exceed three PRs/month.
-  - Dependabot alerts were already enabled. Automatic security updates were
-    disabled; enabled in this session and read back enabled=true, paused=false.
-    Grouped-security setting is unverified. The alerts API returns no open
-    alerts, GraphQL returns no dependency manifests, and the SBOM endpoint
-    returns 404: nested cmd/sqlstreams and otel coverage is NOT proved.
-    Verify coverage in Dependency graph, not by expecting an alert for a
-    manifest with no known vulnerability.
-  - CI on pull requests runs. The latest failure
-    [34709201642](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34709201642)
-    is the existing static-error convention test at
-    cmd/sqlstreams/internal/cli/stream_maintenance.go. The local preparation
-    fixes that raise without changing the test and restores the push branch
-    from main-fake to main; both await user commit and push. CLI build, vet,
-    go fmt, and CLI race tests pass; the unchanged convention test fails
-    before the fix and passes after it. CI YAML parsing and diff checks pass.
-  - The nested CLI and OTel modules still lack a root require. Publish the
-    canonical root's real version first, pin it in both nested go.mod files,
-    then publish cmd/sqlstreams/vX.Y.Z and otel/vX.Y.Z. No placeholder root
+  - Dependabot alerts and automatic security updates are enabled; API
+    readback confirms enabled=true, paused=false, with no open alerts.
+    Grouped-security setting remains unverified through the available API.
+    Manifest coverage is now proved: Dependency graph marks root go.mod,
+    cmd/sqlstreams/go.mod, and otel/go.mod parseable and exposes 6, 33, and
+    27 dependencies respectively. All eight Go manifests are indexed. The
+    SBOM exports 1,277 packages, including CLI and OTel dependencies.
+  - Main-push CI is proved:
+    [34716240955](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34716240955)
+    passes just verify on the tagged commit, including the Docker integration
+    tests and conventions checks. The earlier static-error failure is fixed.
+  - Nested publication is root -> OTel -> CLI [0786]: CLI imports OTel as
+    well as root. Both root v0.1.0-rc.1 requirements/checksums are prepared;
+    OTel passes standalone tidy/build/vet/race tests against the downloaded
+    root. User commit/push is next, then otel/v0.1.0-rc.1; only after that
+    resolves, pin it in CLI, verify standalone, and commit/publish
+    cmd/sqlstreams/v0.1.0-rc.1. The CLI's prepared version default delegates
+    to Fang's build-info handling; GoReleaser's override remains intact. No placeholder root
     version or local replace belongs in a published nested module. Add nested
     and dev modules to Dependabot version updates once they resolve remotely.
   - The first prerelease proves packaging. There is no prior supported release

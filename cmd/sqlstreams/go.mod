@@ -2,15 +2,11 @@ module github.com/allegedlyreliable/sqlstreams/cmd/sqlstreams
 
 go 1.27.0
 
-// The parent module github.com/allegedlyreliable/sqlstreams is resolved locally via the
-// repo-root go.work (use .) and deliberately has NO require line here: it's
-// unpublished, so any placeholder version poisons the whole workspace graph.
-// Release is a three-module story: the root module tags first, then each
-// nested module (cmd/sqlstreams, otel) adds its require pinned to that
-// real tag and tags itself.
+// The OTel module resolves through go.work until its first version is published.
 
 require (
 	charm.land/lipgloss/v2 v2.0.5
+	github.com/allegedlyreliable/sqlstreams v0.1.0-rc.1
 	github.com/charmbracelet/fang v1.0.0
 	github.com/charmbracelet/x/term v0.2.2
 	github.com/jackc/pgx/v5 v5.10.0

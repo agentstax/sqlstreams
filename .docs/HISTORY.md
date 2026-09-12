@@ -5,6 +5,30 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-12 — First CLI prerelease distribution verified [0785]
+
+[v0.1.0-rc.1](https://github.com/allegedlyreliable/sqlstreams/releases/tag/v0.1.0-rc.1)
+tags 9772deee2dd6a49bf343e24b409cd86461b01dba. Main-push CI
+[34716240955](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34716240955)
+passes just verify, including Docker integration tests. Windows release run
+[34716684337](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34716684337)
+passes with empty package-manager secrets: Chocolatey is skipped and
+Homebrew upload is skipped. Six archives and checksums.txt are published.
+
+All six manifest hashes match GitHub's asset digests. The downloaded macOS
+arm64 archive SHA-256 is
+72d27022be1c96df96760c101aba74eca9e5131a304c974f339610b30451de10.
+Its extracted binary prints sqlstreams version 0.1.0-rc.1 and embeds the
+canonical CLI module, the tagged commit, and vcs.modified=false. The root
+module downloads at that version with GOWORK=off and a fresh module cache.
+
+Dependabot's graph now includes parseable root, CLI, and OTel manifests
+with dependency entries; alerts and automatic security updates are enabled.
+Grouped-security settings remain unverified. Nested-module publication and
+Homebrew/Chocolatey installation remain in flight. Fresh-DB signal e2e and
+compatibility were not run for this CLI distribution verification; no
+cross-release compatibility verdict is claimed.
+
 ## 2026-09-12 — Idle-fleet fix: the claimant backs off, the losing claim takes no lock, the group manager keeps to its stream, heartbeats jitter [0780] [0781] [0783]
 
 Three changes and one finding, measured with the idle-fleet bench on the

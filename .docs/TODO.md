@@ -4,6 +4,35 @@ Sliding window of in-flight work only. Future work lives in ROADMAP.md;
 shipped work in HISTORY.md; decision rationale in DECISIONS.md ->
 .docs/decisions/.
 
-No active work.
-
 The idle-fleet fix shipped 2026-09-12; see HISTORY.md and [0780] [0781] [0783].
+
+## Release pipeline, dependency scanning, and package managers
+
+- [x] Publish canonical source and prove main-push CI on 9772deee.
+- [x] Prove v0.1.0-rc.1 release on Windows with package-manager secrets empty;
+  verify published asset digests, downloaded macOS checksum, version output,
+  and build identity. Root module resolves outside the workspace.
+- [x] Verify all three Dependabot version-update ecosystems; alerts and
+  automatic security updates enabled; root, CLI, and OTel manifests indexed
+  with parseable dependency entries. Evidence in ROADMAP.md.
+- [ ] Confirm grouped security updates in GitHub settings; the available API
+  does not expose a verified value for that setting.
+- [x] Prepare root v0.1.0-rc.1 requirements and checksums in OTel and CLI.
+  OTel passes GOWORK=off tidy/fmt/build/vet/race tests against the downloaded
+  root version. Tidy corrects direct/indirect OTel SDK/metric classifications
+  without upgrading dependencies.
+- [x] Let Fang read the installed CLI module version when GoReleaser has not
+  supplied one [0786]. CLI workspace build/vet/race tests pass; local source
+  reports unknown (built from source), and the linker override reports
+  0.1.0-rc.1. Installed-version reporting still needs the real CLI tag.
+- [ ] User commits/pushes the OTel preparation; agent publishes
+  otel/v0.1.0-rc.1 from that commit and verifies it resolves remotely.
+- [ ] Add the now-published OTel v0.1.0-rc.1 requirement to CLI, remove its
+  temporary workspace note, and tidy/build/vet/race-test with GOWORK=off.
+  User commits/pushes; agent publishes cmd/sqlstreams/v0.1.0-rc.1.
+- [ ] Prove CLI go install and version output, plus an OTel consumer, outside
+  the workspace before changing installation docs.
+- [ ] Add remotely resolvable nested/dev modules to Dependabot version updates.
+- [ ] Provision allegedlyreliable/homebrew-tap and the Chocolatey account;
+  settle prerelease publication policy, configure credentials, verify
+  Chocolatey packaging on Windows, and prove package-manager installs.

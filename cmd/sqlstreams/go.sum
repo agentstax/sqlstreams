@@ -1,5 +1,7 @@
 charm.land/lipgloss/v2 v2.0.5 h1:kbNxgeeUOYv5J0YdpxFjfvf3dFvqH8Aci4zB6xqFtrY=
 charm.land/lipgloss/v2 v2.0.5/go.mod h1:9oqhxt4yxIMe6q5A4kHr44DremZk7J9UNh74GlWa5nc=
+github.com/allegedlyreliable/sqlstreams v0.1.0-rc.1 h1:/6dQQQxvKhzsgcQbjEi2fyWI3OcwgPk9F9PInOeC30M=
+github.com/allegedlyreliable/sqlstreams v0.1.0-rc.1/go.mod h1:RpZzj4+ZeRYTXOODj8wEmrzgbZFdahk9rX+kOBCcec4=
 github.com/aymanbagabas/go-udiff v0.4.1 h1:OEIrQ8maEeDBXQDoGCbbTTXYJMYRCRO1fnodZ12Gv5o=
 github.com/aymanbagabas/go-udiff v0.4.1/go.mod h1:0L9PGwj20lrtmEMeyw4WKJ/TMyDtvAoK9bf2u/mNo3w=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=

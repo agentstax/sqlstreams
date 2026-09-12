@@ -2,19 +2,14 @@ module github.com/allegedlyreliable/sqlstreams/otel
 
 go 1.27.0
 
-// The parent module github.com/allegedlyreliable/sqlstreams is resolved locally via the
-// repo-root go.work (use .) and deliberately has NO require line here: it's
-// unpublished, so any placeholder version poisons the whole workspace graph.
-// The require gets added, pinned to a real tag, only at release -- see the
-// three-module tagging note in cmd/sqlstreams/go.mod.
-
 require (
+	github.com/allegedlyreliable/sqlstreams v0.1.0-rc.1
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/prometheus/client_golang v1.23.2
 	github.com/prometheus/otlptranslator v1.0.0
 	go.opentelemetry.io/otel v1.44.0
 	go.opentelemetry.io/otel/exporters/prometheus v0.66.0
-	go.opentelemetry.io/otel/metric v1.44.0
+	go.opentelemetry.io/otel/sdk v1.44.0
 	go.opentelemetry.io/otel/sdk/metric v1.44.0
 )
 
@@ -32,7 +27,7 @@ require (
 	github.com/prometheus/common v0.67.5 // indirect
 	github.com/prometheus/procfs v0.20.1 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
-	go.opentelemetry.io/otel/sdk v1.44.0 // indirect
+	go.opentelemetry.io/otel/metric v1.44.0 // indirect
 	go.opentelemetry.io/otel/trace v1.44.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	golang.org/x/sync v0.20.0 // indirect
