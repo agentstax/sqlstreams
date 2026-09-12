@@ -22,7 +22,7 @@ jobs:
           go-version-file: go.mod
           cache-dependency-path: "**/go.sum"
 
-      - uses: extractions/setup-just@v3
+      - uses: extractions/setup-just@v4
 
       # go.work is gitignored; the nested modules resolve the root library through it.
       - run: go work init . ./examples ./.bench ./cmd/sqlstreams ./otel ./.tools ./.tests
