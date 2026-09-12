@@ -4,25 +4,25 @@ date: 2026-09-11
 phase: pre-v1
 ---
 
-# 0757 — Why not instead of per topic tables a single table with subpartitions?
+# 0757 — Retain per-stream tables instead of LIST/RANGE subpartitioning
 
 ## Context
 
-Currently we create and manage a set of tables *_<topic_id> this causes users
-who want to query directly to see live data to have to first lookup topic id
-then put that value in table query DDL. This is obviously not great but there
-is reasoning behind it. 
+We create and manage a set of tables `*_<stream_id>`. Direct SQL queries require
+users to resolve the stream id and put it into the table name.
 
-Example:
+This review found no historical record explicitly rejecting LIST/RANGE
+subpartitioning. The original per-stream log decision is [0241](0241-each-topic-is-its-own-physical-log.md);
+this record documents today's decision to retain the design.
 
 ```SQL
 CREATE TABLE message_log (
-  topic_id BIGINT NOT NULL,
+  stream_id BIGINT NOT NULL,
   id BIGINT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   payload JSONB NOT NULL,
-  PRIMARY KEY (topic_id, id)
-) PARTITION BY LIST (topic_id);
+  PRIMARY KEY (stream_id, id)
+) PARTITION BY LIST (stream_id);
 
  CREATE TABLE message_log_17
   PARTITION OF message_log FOR VALUES IN (17)
@@ -31,16 +31,17 @@ CREATE TABLE message_log (
 
 ## Decision
 
-It was decided to not do single table with LIST partition and RANGE subpartition
-for these reasons:
+We retain separate per-stream tables after today's comparison with LIST/RANGE
+subpartitioning, for these reasons:
+
 - **Shared sequence ids** Because we went with id based range claim strategy ie
-  [1, 100], [101, 200] etc. If we were claiming on a topic with low traffic and
-  a seperate high traffic topic filled the vast majority of sequence ids. The low
-  traffic topic would be progressing through potentially many empty ranges and this
-  is only made worse with more topics.
+  [1, 100], [101, 200] etc. If we were claiming on a stream with low traffic and
+  a seperate high traffic stream filled the vast majority of sequence ids. The low
+  traffic stream would be progressing through potentially many empty ranges and this
+  is only made worse with more streams.
 - **Shared exclusive locks on initial plans and destroy table operations** Partition 
   drops claim an ACCESS EXCLUSIVE lock on parent table. This would be fine for TTL 
-  based drops for RANGE subpartitions but for topic destruction which drops the LIST
+  based drops for RANGE subpartitions but for stream destruction which drops the LIST
   partition this would cause an temporary ACCESS EXCLUSIVE lock on main table. Now
   it is important to note that queries that directly target LIST partitions would be
   mostly fine. However a single parent table is a single source where multiple LOCKing 
@@ -48,8 +49,11 @@ for these reasons:
   small READ locks
 - **Risker upgrade and migrations** It would be an all or nothing kind of thing here
   which has benefits but introduces a lot more risk as well.
-- **Agentic querying makes finding the correct table trivial**
 - **Generally adverse to mixing what should be isolated resources**
 
-In summary: Logical isolation keeps things safer and easier to reason about but the
-user cost is acknowledge and this could have been the wrong decision.
+## Consequences
+
+Direct SQL still requires resolving the stream id and selecting its table name.
+Agent assistance can reduce that effort, but manual querying keeps this cost.
+We accept that cost to retain independent resources; the tradeoff may warrant
+reconsideration if direct-query needs change.

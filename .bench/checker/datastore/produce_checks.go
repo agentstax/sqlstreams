@@ -9,6 +9,9 @@ import (
 // message_log rows the library kept.
 
 // Expired rows are covered by the separate delivery and durable-completion checks.
+// A duplicate produce -- the library's own retry finding the idempotency
+// claim its first attempt left -- reports message id 0, so its row is found
+// by key; the key subquery is hashed once and only when a duplicate exists.
 func (d *CheckerDatastore) CountLost(ctx context.Context, target Target) (Measurement, error) {
 	lostSql := fmt.Sprintf(`
 		-- lab: datastore.CountLost
@@ -17,7 +20,10 @@ func (d *CheckerDatastore) CountLost(ctx context.Context, target Target) (Measur
 			COALESCE((array_agg(p.key ORDER BY p.message_id))[1:%[3]d], ARRAY[]::text[])
 		FROM %[1]s p
 		WHERE p.stream = $1 AND p.kind = 'committed'
-			AND NOT EXISTS (SELECT 1 FROM %[2]s m WHERE m.id = p.message_id)
+			AND NOT CASE WHEN p.duplicate
+				THEN p.key IN (SELECT (m.payload->>'producer') || '-' || (m.payload->>'sequence') FROM %[2]s m)
+				ELSE EXISTS (SELECT 1 FROM %[2]s m WHERE m.id = p.message_id)
+			END
 			AND ($2::bigint = 0 OR p.at > CURRENT_TIMESTAMP - $2::double precision / 1000 * interval '1 microsecond');
 	`, produceRecord, target.messageLog(), exampleLimit)
 	return d.measure(ctx, exampleKey, lostSql, target.Stream, target.RetentionTTL.Nanoseconds())

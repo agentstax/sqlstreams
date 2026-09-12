@@ -342,3 +342,16 @@ func (d *CheckerDatastore) loadFile(ctx context.Context, path string, layout tab
 func (d *CheckerDatastore) LoadProgress(ctx context.Context, dir string) (int64, error) {
 	return d.load(ctx, dir, progressLayout)
 }
+
+// ReloadProgress replaces the loaded snapshots with the files as they are
+// now: the consumers keep writing while the checker drains them.
+func (d *CheckerDatastore) ReloadProgress(ctx context.Context, dir string) (int64, error) {
+	truncateSql := fmt.Sprintf(`
+		-- lab: datastore.ReloadProgress
+		TRUNCATE %s;
+	`, messageProgress)
+	if _, err := d.pool.Exec(ctx, truncateSql); err != nil {
+		return 0, err
+	}
+	return d.load(ctx, dir, progressLayout)
+}

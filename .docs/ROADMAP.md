@@ -56,23 +56,6 @@ the item is removed.
   - bench mark tests should be done on at least postgres 18 as there 
     could be performance gains, specifically with uuidv7
 
-- **Move the public entry package out of pkg/** — follow through on [0665]
-  and [0670] once its destination is selected. Update imports and path-aware
-  tooling separately from semantic API changes; no module split is selected.
-
-- **cleanup and refactor files** - move files to final locations, cleanup files
-  that shouldn't exist in repo and or .gitignore
-
-- **Buy the SQLStreams domain before binary release** [0726]. No domain
-  selected; `sqlstreams.io` is a candidate. Keep `vulkan-5ss.pages.dev` until
-  purchase. Then update `.website/src/site.ts`, diagnostic `docsBaseURL` in
-  `pkg/common/diagnostic/registry.go`, the version manifest, README and
-  package-manager homepage/docs links together. Configure the Pages domain,
-  verify links, and deploy with approval. Nothing is public or official yet,
-  so no legacy-route redirects are required for the rename.
-
-## Next
-
 - **Idle-fleet worker-load benchmark** (14c; measure BEFORE building any
   fix). An idle deployment pays per worker row per poll: winner's claim
   UPDATE + no-op work each tick, and — the growing term — every replica's
@@ -89,6 +72,23 @@ the item is removed.
   ~1k rows, rung 2 well past 10k, rung 3 never earns it.
   - bench mark tests should be done on at least postgres 18 as there 
     could be performance gains, specifically with uuidv7
+
+- **Move the public entry package out of pkg/** — follow through on [0665]
+  and [0670] once its destination is selected. Update imports and path-aware
+  tooling separately from semantic API changes; no module split is selected.
+
+- **cleanup and refactor files** - move files to final locations, cleanup files
+  that shouldn't exist in repo and or .gitignore
+
+- **Buy the SQLStreams domain before binary release** [0726]. No domain
+  selected; `sqlstreams.io` is a candidate. Keep `vulkan-5ss.pages.dev` until
+  purchase. Then update `.website/src/site.ts`, diagnostic `docsBaseURL` in
+  `pkg/common/diagnostic/registry.go`, the version manifest, README and
+  package-manager homepage/docs links together. Configure the Pages domain,
+  verify links, and deploy with approval. Nothing is public or official yet,
+  so no legacy-route redirects are required for the rename.
+
+## Next
 
 - **Release pipeline, dependency scanning, and package managers** -- prove
   the CLI release path and Dependabot end to end, then turn on the package

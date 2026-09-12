@@ -2,8 +2,6 @@
 
 # Docs
 
-For cookie accept docsite popup need to use dark pattern for buttons can be extra obnixous with it gold animated outer rim
-
 Should add a nerd 'But what about!' note or section in doc for when obvious point or counter argument pops up to address it
 
 the longer users stay on my user profile page (or if they don't move mouse) all other elements besides the scrolling text should start to fade to background or static
@@ -73,6 +71,8 @@ go through and see if any binaries in git state. Just because gitignored does no
 
 Another automated review for broken links and inconsistent references
 
+go through and make sure cli commands mirror client and are consistently named
+
+
 Need new github org name "getstweamy"?
 
-go through and make sure cli commands mirror client and are consistently named

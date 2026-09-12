@@ -532,3 +532,9 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 - 0755 2026-09-11 accepted (pre-v1) — Benchmark commands and runs use bench
 
 - 0756 2026-09-11 accepted (pre-v1) — Accept all wears the dark pattern
+
+- 0757 2026-09-11 accepted (pre-v1) — 0757 — Retain per-stream tables instead of LIST/RANGE subpartitioning
+
+- 0758 2026-09-11 accepted (pre-v1) — The debug buffer stays always-on at its measured cost
+
+- 0759 2026-09-11 accepted (pre-v1) — Partition creation runs in an explicit transaction

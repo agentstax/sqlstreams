@@ -42,3 +42,22 @@ func (d *CheckerDatastore) ReadProgressMeasurement(ctx context.Context, from tim
 	}
 	return measured, nil
 }
+
+// ReadOldestHandlerSnapshot is the earliest of every consumer series' latest
+// snapshot: once it is past an instant, every series has a snapshot taken
+// after that instant. Zero when no consumer series is loaded.
+func (d *CheckerDatastore) ReadOldestHandlerSnapshot(ctx context.Context) (time.Time, error) {
+	readSql := fmt.Sprintf(`
+		-- lab: datastore.ReadOldestHandlerSnapshot
+		SELECT COALESCE(min(latest), '0001-01-01'::timestamptz)
+		FROM (
+			SELECT max(at) AS latest
+			FROM %s
+			WHERE "group" <> ''
+			GROUP BY process, stream, "group"
+		) series;
+	`, messageProgress)
+	var oldest time.Time
+	err := d.pool.QueryRow(ctx, readSql).Scan(&oldest)
+	return oldest, err
+}

@@ -161,6 +161,12 @@ func (c *Checker) judge(ctx context.Context, verdict *Verdict) error {
 			return err
 		}
 	}
+	if c.declared.DisableMessageRecording {
+		verdict.Records.Progress, err = c.settleProgress(ctx)
+		if err != nil {
+			return err
+		}
+	}
 	verdict.Records.Handler, err = c.ds.LoadHandler(ctx, c.recordDir)
 	if err != nil {
 		return err
