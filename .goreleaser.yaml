@@ -1,7 +1,7 @@
 # Release pipeline for the CLI: builds cmd/sqlstreams on every v* tag, publishes
 # the archives to a GitHub Release, then the Homebrew cask for stable tags when
-# its token is present. The Chocolatey step is skipped by the workflow until its
-# API key exists (skip_publish is a plain bool here, so it cannot gate on the env).
+# its token is present. For stable tags with a Chocolatey key, the workflow
+# installs and verifies the generated package before submitting it.
 #
 # Local dry run (needs the repo go.work):
 #   goreleaser release --snapshot --clean --skip=publish,chocolatey
@@ -104,5 +104,6 @@ chocolateys:
       {{ .ProjectName }} installer package.
       CLI for SQLStreams, the Postgres-backed message log.
     release_notes: "https://github.com/allegedlyreliable/sqlstreams/releases/tag/{{ .Tag }}"
-    api_key: '{{ .Env.CHOCOLATEY_API_KEY }}'
-    source_repo: "https://push.chocolatey.org/"
+    # The workflow tests this package against the published GitHub archive,
+    # then submits the same nupkg only after installation checks pass.
+    skip_publish: true

@@ -10,22 +10,28 @@ Root/CLI archives and Homebrew v0.1.1 are published and verified. The
 fresh-DB release checkpoint, RC compatibility verdict, Dependabot coverage,
 and security remediation are recorded in HISTORY [0785] [0787] [0788] [0789].
 
-Stable nested module publication follows the existing root -> OTel -> CLI
-order [0786]. The user authorized both tag pushes; agents never commit.
+Root, OTel, and CLI v0.1.1 are published. Fresh external OTel/root use
+and versioned CLI installation are verified [0786]. Module pins, READMEs,
+and release documentation are current; the compatibility driver retains
+its tested RC pin. Only Chocolatey remains in this release-pipeline item.
 
-OTel v0.1.1 is published at fe29a31f and verified with an external consumer
-of stable root/OTel. All six active nested modules' root pins are published
-in that commit. The compatibility harness retains its tested RC pin.
+Chocolatey publication [0791] uses the normal tag-triggered Windows job.
+GoReleaser generates the package with skip_publish: true and publishes
+its GitHub archive. One subsequent step installs that local package against
+the real release URL/checksum, verifies the shim version, uninstalls, and
+pushes the same nupkg. Any failed check blocks Chocolatey submission;
+GitHub assets and Homebrew are already published at that point.
 
-- [x] Prepare CLI's OTel v0.1.1 require, tidy its sums, and pass standalone
-  tidy -diff, build, vet, and race tests with GOWORK=off. Both READMEs now
-  prepare the stable go install command for publication with that tag.
-- [ ] User commits/pushes the CLI preparation; publish cmd/sqlstreams/v0.1.1
-  from that commit. Verify versioned go install outside the workspace,
-  --version, and build metadata for stable root/OTel with no replacements.
-  Record the final publication in HISTORY and remove this checklist.
-- [ ] Provision the Chocolatey account, settle its prerelease policy,
-  configure its API key, and verify Windows packaging and installation.
+- [x] User created the Chocolatey account and configured CHOCOLATEY_API_KEY;
+  GitHub secret-name readback confirms the key exists (contents unread).
+- [x] Prepare the stable-only gate and install/test/push sequence. Remove
+  the earlier snapshot server and alternate URL. GoReleaser 2.18.1 config
+  validation, actionlint 1.7.12, and git diff --check pass locally.
+- [ ] User commits/pushes the workflow; publish the next stable root tag
+  (for example v0.1.2). Verify Windows packaging, installation, exact
+  version, uninstall, and submission. Record the actual outcome in HISTORY.
+- [ ] Address first-package moderation and verify public-feed installation
+  before documenting Chocolatey as available.
 
 Dependabot version-update PRs #1 (Actions) and #11 (website) are open as of
 2026-09-12; security alerts are zero. Routine version bumps are separate

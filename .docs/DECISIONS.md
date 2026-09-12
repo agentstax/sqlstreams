@@ -587,3 +587,5 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 - 0787 2026-09-12 accepted (pre-v1) — Dependabot covers all active Go modules in one group
 - 0788 2026-09-12 accepted (pre-v1) — Homebrew cask publishes stable releases only
 - 0789 2026-09-12 accepted (pre-v1) — Compatibility checkpoints use the published prior client on current tables
+- 0790 2026-09-12 superseded (pre-v1) — Chocolatey publishes stable tags and checks snapshot installation on Windows
+- 0791 2026-09-12 accepted (pre-v1) — Chocolatey tests the generated package before submission

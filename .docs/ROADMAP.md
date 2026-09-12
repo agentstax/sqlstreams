@@ -17,17 +17,18 @@ the item is removed.
 ## Now
 
 - **Release pipeline, dependency scanning, and package managers** -- finish
-  stable CLI Go module publication and Chocolatey; execution in TODO.
+  Chocolatey; release, Homebrew, Go modules, and dependency-scanning proofs
+  are recorded in HISTORY. Remaining execution is in TODO.
   - Root and CLI archive v0.1.1 are public at e4a768ba. Release run
     34722343301 passes, publishes all six archives/checksums, and writes
     the Homebrew cask. Tap commit 44e16a1d and the installed macOS arm64
     binary prove installation and version 0.1.1 [0788]. HISTORY holds the
     earlier no-secret prerelease proof and the v0.1.0 template failure.
-  - OTel v0.1.1 is published at fe29a31f and verified with a fresh external
-    consumer of stable root/OTel [0786]. All six active nested modules'
-    root v0.1.1 pins are published and pass standalone checks. CLI now has
-    a prepared OTel v0.1.1 pin and stable installation docs; commit/push,
-    cmd/sqlstreams/v0.1.1, and versioned go install proof remain in TODO.
+  - OTel v0.1.1 is published at fe29a31f and CLI v0.1.1 at 9b575408 [0786].
+    A fresh external OTel/root consumer and versioned CLI go install pass;
+    the installed CLI reports v0.1.1 and stable root/OTel without replaces.
+    All six active nested modules pin root v0.1.1; CLI also pins stable
+    OTel. Standalone checks pass and READMEs show the verified install paths.
   - Dependabot version updates cover all seven active Go modules in one
     monthly group with a seven-day cooldown, plus npm and Actions [0787].
     All three ecosystem jobs passed; Go opened one grouped PR. Alerts,
@@ -41,9 +42,11 @@ the item is removed.
     separately pinned compatibility driver retains the RC. HISTORY and
     the migration table record the tested pair and limits of that proof.
   - The documentation origin is sqlstreams.io [0782] [0784]. Homebrew
-    publishes stable releases only [0788]. Chocolatey still needs account
-    setup, an API key, a prerelease policy, Windows packaging/install
-    verification, and first-package moderation.
+    publishes stable releases only [0788]. The Chocolatey account and key
+    are configured. Stable-only package generation and install/test/push
+    are prepared [0791]: the Windows runner tests against published GitHub
+    archives before submitting the same nupkg. The next stable release
+    must prove that sequence, followed by first-package moderation.
   - Signing remains deferred. The cask strips Homebrew's quarantine
     attribute; notarization and Authenticode remain later work. winget
     and scoop are optional later additions.

@@ -5,6 +5,30 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-12 — Stable CLI Go module publication verified [0786]
+
+[cmd/sqlstreams/v0.1.1](https://github.com/allegedlyreliable/sqlstreams/tree/cmd/sqlstreams/v0.1.1/cmd/sqlstreams)
+names 9b5754083f25c7aac487d053ed43168e054585c4. It requires published root
+v0.1.1 (e4a768ba) and OTel v0.1.1 (fe29a31f), with no replacements.
+Go download metadata confirms the CLI tag, commit, and checksum
+h1:iprS/LlC2/7BwcQeFhW7qwT8+GoiCyY8j/78xWxqbFA=.
+
+GOWORK=off go install of the versioned CLI succeeds from /private/tmp into
+an isolated GOBIN; Go selects toolchain 1.27.1. The installed binary prints
+sqlstreams version v0.1.1 and --help succeeds. Build metadata identifies
+CLI, root, and OTel v0.1.1 with no replacements. Before tagging, the CLI
+passed standalone tidy -diff, build, vet, and race tests against these
+published dependencies. The dependency-graph run
+[34723190128](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34723190128)
+passes on the publication commit.
+
+All six active nested modules now pin root v0.1.1; CLI also pins stable
+OTel. The compatibility driver intentionally retains the tested RC.
+Both READMEs publish the verified stable Go installation command alongside
+Homebrew and GitHub archives, and the quickstart pins the stable root.
+This completes stable Go module publication. Chocolatey remains in TODO;
+no GitHub release archives, Homebrew cask, or site deployment changed here.
+
 ## 2026-09-12 — Stable OTel Go module publication verified [0786] [0787]
 
 [otel/v0.1.1](https://github.com/allegedlyreliable/sqlstreams/tree/otel/v0.1.1/otel)

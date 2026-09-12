@@ -30,14 +30,34 @@ jobs:
         with:
           distribution: goreleaser
           version: "~> v2"
-          # No Chocolatey key yet -> skip that step outright; the cask step
-          # gates itself on HOMEBREW_TAP_TOKEN inside the config.
-          args: release --clean ${{ secrets.CHOCOLATEY_API_KEY == '' && '--skip=chocolatey' || '' }}
+          # Chocolatey packages are generated only for stable tags with a key.
+          # skip_publish in the config leaves submission to the checked step below.
+          args: release --clean ${{ (secrets.CHOCOLATEY_API_KEY == '' || contains(github.ref_name, '-')) && '--skip=chocolatey' || '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Pins the release to the pushed tag, so a nested-module tag on the
           # same commit (cmd/sqlstreams/vX.Y.Z) never gets picked instead.
           GORELEASER_CURRENT_TAG: ${{ github.ref_name }}
-          # Empty until the secrets exist.
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
+      - name: Verify and publish Chocolatey package
+        if: ${{ !contains(github.ref_name, '-') }}
+        env:
           CHOCOLATEY_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
+        run: |
+          if (-not $env:CHOCOLATEY_API_KEY) {
+            Write-Output "Skipping Chocolatey: no API key configured"
+            exit 0
+          }
+          $version = (Get-Content .dist/metadata.json | ConvertFrom-Json).version
+          choco install sqlstreams --version="$version" --source="$PWD/.dist" --yes --no-progress
+          if ($LASTEXITCODE -ne 0) { throw "Chocolatey installation failed" }
+          $actual = & "$env:ChocolateyInstall/bin/sqlstreams.exe" --version
+          if ($LASTEXITCODE -ne 0 -or $actual -ne "sqlstreams version $version") {
+            throw "Unexpected installed version: $actual (expected $version)"
+          }
+          Write-Output $actual
+          choco uninstall sqlstreams --yes --no-progress
+          if ($LASTEXITCODE -ne 0) { throw "Chocolatey uninstall failed" }
+          choco push ".dist/sqlstreams.$version.nupkg" --source=https://push.chocolatey.org/ --api-key="$env:CHOCOLATEY_API_KEY"
+          if ($LASTEXITCODE -ne 0) { throw "Chocolatey submission failed" }
