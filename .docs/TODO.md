@@ -43,6 +43,13 @@ Go group, PR #10, replacing #4. Evidence is in ROADMAP.md and HISTORY.md.
   checks, alert closure, PR supersession, and the .tools graph refresh.
   Grouped security updates are user-confirmed enabled. No PR was merged,
   no alert dismissed, and no site deployed during local verification.
-- [ ] Provision allegedlyreliable/homebrew-tap and the Chocolatey account;
-  settle prerelease publication policy, configure credentials, verify
-  Chocolatey packaging on Windows, and prove package-manager installs.
+- [x] Confirm public allegedlyreliable/homebrew-tap exists with main as its
+  default branch and HOMEBREW_TAP_TOKEN exists in SQLStreams' Actions secrets.
+  Token permissions remain to be proved by publication.
+- [x] Prepare stable-only Homebrew publication [0788]: skip_upload renders
+  auto with a token, true without one. Prereleases keep their GitHub archives.
+  GoReleaser 2.18.1 check and git diff --check pass.
+- [ ] User commits/pushes the Homebrew policy; at a stable release checkpoint,
+  prove cask publication and brew installation/version output.
+- [ ] Provision the Chocolatey account, settle its prerelease policy,
+  configure its API key, and verify Windows packaging and installation.

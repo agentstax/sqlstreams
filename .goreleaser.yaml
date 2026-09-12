@@ -1,7 +1,7 @@
 # Release pipeline for the CLI: builds cmd/sqlstreams on every v* tag, publishes
-# the archives to a GitHub Release, then the Homebrew cask when its token is
-# present. The Chocolatey step is skipped by the workflow until its API key
-# exists (skip_publish is a plain bool here, so it cannot gate on the env).
+# the archives to a GitHub Release, then the Homebrew cask for stable tags when
+# its token is present. The Chocolatey step is skipped by the workflow until its
+# API key exists (skip_publish is a plain bool here, so it cannot gate on the env).
 #
 # Local dry run (needs the repo go.work):
 #   goreleaser release --snapshot --clean --skip=publish,chocolatey
@@ -75,7 +75,7 @@ homebrew_casks:
       name: homebrew-tap
       branch: main
       token: '{{ envOrDefault "HOMEBREW_TAP_TOKEN" "" }}'
-    skip_upload: '{{ if isEnvSet "HOMEBREW_TAP_TOKEN" }}false{{ else }}true{{ end }}'
+    skip_upload: '{{ if isEnvSet "HOMEBREW_TAP_TOKEN" }}auto{{ else }}true{{ end }}'
     commit_msg_template: "sqlstreams {{ .Tag }}"
     hooks:
       post:

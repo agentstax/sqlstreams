@@ -97,17 +97,19 @@ the item is removed.
     retain the actual prior API in .tools/compat, run the fresh-DB suite and
     compatibility check, update the site's migration table, and cite outcomes
     in HISTORY. The dormant Vulkan harness cannot use the renamed replacement.
-  - The documentation origin is live at sqlstreams.io [0782] [0784]. The new
-    owner's homebrew-tap returns 404. The 2026-09-09 audit found no Chocolatey
-    listing; its current state and account ownership still need checking.
-    Homebrew needs a tap and write token; Chocolatey needs an account/API key,
-    Windows packaging verification, and first-package moderation.
+  - The documentation origin is live at sqlstreams.io [0782] [0784]. Public
+    allegedlyreliable/homebrew-tap now exists on main, and the SQLStreams
+    Actions secret HOMEBREW_TAP_TOKEN is configured. Stable-only cask
+    publication is prepared [0788]; a stable release still needs to prove
+    token write access and installation. The 2026-09-09 audit found no
+    Chocolatey listing; its current state and account ownership still need
+    checking, followed by API-key setup, Windows packaging verification,
+    and first-package moderation.
   - Signing remains deferred. The cask currently removes Homebrew's quarantine
     attribute; package-manager installation is not a general guarantee of no
-    quarantine. Notarization and Authenticode remain later work. Before adding
-    package-manager secrets, decide whether prereleases may update their
-    listings: the current Homebrew token gate permits them. winget and scoop
-    remain optional later additions.
+    quarantine. Notarization and Authenticode remain later work. Homebrew
+    prereleases skip publication [0788]; Chocolatey's prerelease policy
+    remains open. winget and scoop remain optional later additions.
 
 ## Next
 
