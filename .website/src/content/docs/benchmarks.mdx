@@ -5,8 +5,9 @@ description: Sustained producing and consuming rates, workload settings, and rep
 
 SQLStreams sustained approximately **68,000 messages/s produced and consumed**
 with 1,000-byte JSON messages on an M4 MacBook Air running native PostgreSQL
-18.6. This is the median of three 25-minute measurements after five-minute
-warmups; the measured range was **66,141–74,129 messages/s**.
+18.6. 
+
+Unfortunately we live in a cruel world and these results are only 'okay' and not 'nice'.
 
 ## Results
 
@@ -65,6 +66,52 @@ Aggregate counters measure rates and totals; they do not prove that every
 individual message was handled exactly once. Detailed latency is unavailable
 in these runs. The quiet scenario retains full recording for its identity
 checks ([0687](/decisions/0687/)).
+
+## Multi-stream ceiling
+
+Streams do not contend with each other in PostgreSQL. What contends is the
+two consumer groups on one stream. That is the result of driving one
+deployment shape unpaced over 1, 4, and 16 streams on September 12, 2026:
+two consumer groups on every stream with a delivery-log row per delivery,
+explicit batches of 250 from four callers per stream, a 64-connection pool
+per process, and aggregate counters instead of per-message records. Each
+stream count ran a 30-second warmup and a two-minute unpaced hold three
+times from one build; the table is the median of the three holds with the
+full range, and every run passed.
+
+| Streams | Produced/s | Consumed/s, all groups | Backlog slope, messages/s | PostgreSQL CPU, cores | WAL per message |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 43,027 (41,023–49,078) | 37,861 (36,320–42,908) | +23,482 | 3.7 (3.6–4.0) | 2.2 KB |
+| 4 | 42,641 (42,135–46,632) | 77,892 (77,837–83,330) | +2,015 | 6.1 (5.8–6.3) | 2.0 KB |
+| 16 | 45,558 (42,574–45,994) | 83,185 (80,534–85,344) | +300 | 5.7 (5.7–5.8) | 2.1 KB |
+
+Production sits near 43,000/s at every stream count and its wall is the
+producer container's two-CPU cap, which the headroom check crossed 11 to 27
+times per hold on 4 and 16 streams and never on 1. Consumption is what fans
+out: on one stream each group manages about 19,000/s and the backlog grows
+by 23,000 messages every second; on four streams each group nearly doubles
+and on sixteen the backlog is flat. WAL per message and checkpoints (five to
+seven per run) stay the same from 1 stream to 16, so the database does the
+same work per message however the streams are cut.
+
+These ran under Docker Compose, unlike the native setup above: PostgreSQL 18.4
+capped at 8 CPUs and 8 GiB, producer and consumer containers capped at 2 CPUs
+each, on the same M4 host, library commit `52cfcb2c` with unrelated CLI work
+uncommitted in the tree. The runs are back to back, and each repetition
+produced up to ten percent less than the one before it; the ranges carry that.
+The rates are two-minute burst ceilings. A sustained number needs the
+25-minute shape above, and no two-minute run spans a checkpoint timeout on
+its own.
+
+One number from these runs is guidance. The library's
+default pool is ten connections, and a paced run with sixteen batch workers
+per stream on that default queued at about 4,500 produces per second however
+many streams it used ([0767](/decisions/0767/)). `PostgresConnectionConfig.MaxConns`
+is the setting that moves it.
+
+The [multi-stream ledgers][multistream-evidence] hold every run's verdict,
+including an exploratory first run per stream count that the medians exclude.
+Run directories with logs, counters, and effective settings are not tracked.
 
 ## Configuration
 
@@ -155,6 +202,7 @@ window. The settings are tuned for this host; reproduction on another machine
 measures that machine's capacity. No additional handler work is included.
 
 [evidence]: https://github.com/agentstax/sqlstreams/tree/main/.bench/results/published/2026-09-11
+[multistream-evidence]: https://github.com/agentstax/sqlstreams/tree/main/.bench/results
 [summary]: https://github.com/agentstax/sqlstreams/tree/main/.bench/results/published/2026-09-11/summary.json
 [manifest]: https://github.com/agentstax/sqlstreams/tree/main/.bench/results/published/2026-09-11/manifest.json
 [source]: https://github.com/agentstax/sqlstreams/raw/refs/heads/main/.bench/results/published/2026-09-11/source.tar.gz
