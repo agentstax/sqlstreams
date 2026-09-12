@@ -26,6 +26,16 @@ for the system scope, `client.Stream[T](name).MigrationVersion(ctx)` for one
 stream. `sqlstreams migrate status` prints every counter beside the version the
 binary was built with.
 
+### CLI
+
+Migration commands take `--target-version`, matching the client's
+`targetVersion` argument. For example,
+`sqlstreams migrate stream up orders.created --target-version 1` targets
+version 1 for `orders.created`. The flag is required for both `up` and `down`;
+`migrate versions` lists the versions the binary supports.
+JSON mutation results name the target `target_version`. Migration status
+reports `registered`, including `false` when the system has not been registered.
+
 These are SQLStreams's internal DDL versions. They are unrelated to the
 `SchemaVersion` your Message types declare, which versions *your message
 payloads* row by row ([schema versions](/guides/schema-versions/)); no

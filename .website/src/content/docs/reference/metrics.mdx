@@ -96,6 +96,27 @@ groupMetrics.AbandonedRoutinesTotal()
 groupMetrics.AbandonedRoutinesSelfClearLatencyAverage()
 ```
 
+## CLI
+
+`sqlstreams metric list --builtin` lists retained measurements whose names
+start with `sqlstreams.`, across system, stream, and consumer scopes.
+`--user` selects user-produced measurements; omit both flags to list both.
+
+`metric latest <name>` reads the latest measurement per matching attribute
+set; `metric history <name> --limit 10` reads each set's history. Both accept
+repeatable `--attribute key=value` filters and `--series-limit` to bound the
+number of attribute sets.
+
+These CLI reads select multiple series. The client’s
+`Metric(name, attributes)` selects one exact series; CLI attributes are
+partial filters. For example, `sqlstreams metric latest billing.queue_depth`
+shows the latest point for each retained attribute set under that name.
+Adding `--attribute region=us-east` keeps sets carrying that pair.
+JSON keeps a `series` array in both latest and history, with `attributes`
+and `measurements` per set. `series_total` reports the count before
+`--series-limit` truncation. No matching series gives `exists: false`, an
+empty array, and exit 1.
+
 ## Scopes
 
 A definition is metadata, never a value: `Code`, `Name`, `Kind`, `Unit`,

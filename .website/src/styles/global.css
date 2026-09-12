@@ -211,6 +211,8 @@
 		/* the page-failure notice outranks the cookie notice: both are fixed
 		   overlays, and the one that means something broke must win */
 		--z-notice: 3;
+		--z-profile-veil: 4;
+		--z-profile-text: 5;
 
 		/* spacing scale -- closed; each step is named by its pixel value,
 		   and a new gap or padding adds its step here */

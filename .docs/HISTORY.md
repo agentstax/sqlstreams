@@ -5,6 +5,97 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-12 — CLI migration naming aligns with the client [0777]
+
+Migration up/down uses --target-version and returns target_version in JSON.
+Migration status reports registered in JSON and text. Help and recovery
+commands use the new flag; --to exits 2. Config default/current comparisons
+and multi-series metric reads remain, with their client differences documented
+in the reference pages and CLI README.
+
+Verification: CLI go fmt, build, vet, and go test -race passed. All 71 help
+pages rendered; 18 usage checks covered the retired flag, required target,
+and out-of-range target across all six migration paths. Targeted remark,
+Vale, and diff whitespace checks passed. No existing tests changed and no
+database operations were run. Go's build cache used /private/tmp after the
+sandbox rejected the default cache location.
+
+## 2026-09-12 — CLI alert output and maintenance durations align [0774]
+
+Alert latest JSON returns the alert object or null; history returns an array
+or []. Both retain exit 1 when no alert is retained. Maintenance status emits
+unclaimed_for as a duration string. Scheduler tables use EXPRESSION and
+CONSUMER_GROUP; the undefined-table recovery message says system not registered.
+The CLI README and alert/maintenance reference pages describe the output.
+
+Verification: CLI build, vet, go fmt, and go test -race passed. Nineteen
+CLI executions against disposable PostgreSQL 18.4 covered populated/empty
+alert JSON, history order and limit, missing-owner errors, text output,
+maintenance duration strings, scheduler headings, and registration terminology.
+The temporary check initially expected stream list on an unregistered system
+to fail; it correctly returns an empty list, so the check uses alert latest
+for the missing-system case. Existing tests were unchanged. Targeted remark,
+Vale, and diff whitespace checks passed. The disposable container was removed.
+
+## 2026-09-12 — CLI naming and resource JSON align [0770] [0771]
+
+Metric list uses --builtin for SQLStreams's metrics across all scopes, and
+system binding list names System().Bindings. Both former spellings exit 2.
+Stream and scheduler get return the resource directly, preserving duration
+strings; scheduler JSON also includes schema_version. Missing stream,
+scheduler, consumer, and system gets return null with exit 1 in JSON mode.
+Alert examples use declared names. Scheduler help explains that compaction
+rules out ordered concurrency; parallel and exclusive remain its choices.
+
+Verification: CLI build, vet, go fmt, and go test -race passed. Forty-one
+CLI executions against disposable PostgreSQL 18.4 covered populated/missing
+JSON, text, quiet mode, binding scope, built-in/user metric filters, rejected
+spellings, help, an exclusive run, and ordered rejection. The initial audit's
+ordered claim was corrected after the real produce path rejected compaction;
+the temporary check script was corrected for flag parsing order and null
+system-metric attributes. Targeted remark, Vale, and diff whitespace checks
+passed. The existing command-path test changed for the intentional binding
+move; new unit checks reject retired syntax and conflicting metric flags.
+The disposable database was removed; library and datastore code are unchanged.
+
+## 2026-09-12 — The idle profile fades and its personal text grows [0769] [0772] [0773] [0775] [0776] [0778]
+
+After four idle seconds on brandon's profile, the surrounding page fades
+into the background over 110 seconds while the scrolling personal text
+grows from 13px to an apparent 113px. Scrolling slows with enlargement,
+reaching about 14.3% of its original pixel speed after easing the slowdown.
+Activity restores the
+page and normal scrolling speed immediately.
+The text container expands to both viewport edges with the fade and updates
+when the viewport resizes. The growing line overlaps its surroundings without
+moving links. Reduced
+motion keeps the static profile; hidden time resets the delay, and leaving
+the route removes its listeners and timers. Both board styles are supported.
+
+Verification: site build, targeted ESLint/stylelint/Prettier, Astro check,
+and Svelte check passed (existing diagnostics remain). Twenty-one profile flow
+checks passed across Chromium, Firefox, and WebKit. Desktop and phone
+screenshots in both styles showed no horizontal overflow. The new tests
+were corrected for engine-specific matrix rounding and for a paused test
+clock preventing idle hydration after Back; existing tests were unchanged.
+The slowdown follow-up corrected the profile test's motion preference to
+use Playwright's typed contextOptions; its existing assertions were unchanged.
+The lighter slowdown passed the site build, targeted lint/format checks,
+and the unchanged scrolling-speed test in all three browsers.
+The three-second delay passed the build, lint/format checks, and all 18
+profile checks. Initial-delay and hidden-tab timing assertions changed
+from 4,999ms to 2,999ms to match the requested behavior.
+Viewport-width expansion passed all 21 checks, including intermediate and
+full width, resizing to a phone viewport, no horizontal overflow, and
+restoration. Desktop/phone screenshots were inspected; build, type checks,
+and targeted lint/format checks passed. Existing tests were unchanged.
+The four-second delay passed the build, lint/format checks, and all 21
+profile checks. Initial-delay and hidden-tab assertions moved from 2,999ms
+to 3,999ms to match the requested timing.
+Flows used a temporary runner configuration against an isolated preview
+because the repository's preview startup command exited before serving.
+The review sketch and the completed ROADMAP/TODO entries were removed.
+
 ## 2026-09-12 — CLI registration, health, and worker reads align [0768]
 
 Stream get reads only registration and config; stream health owns the
@@ -59,6 +150,11 @@ retired for three unpaced two-minute holds [0767], which read production
 near 50,000/s at every stream count, consumption 42,000/s on one stream
 and 90,000/s on four and sixteen, Postgres at up to 6.1 of 8 cores, and
 WAL flat at about 2 KB per message. Streams do not contend in Postgres.
+Three further repetitions per stream count (twelve unpaced runs in all,
+every one passing) put the medians and ranges on the benchmarks page as a
+multi-stream section, with the default-pool guidance. The item's recording
+question is settled by the per-scenario `runs.jsonl` ledgers and the
+report role; the ROADMAP item is closed.
 
 Verification: produce integration tests, `.bench` and `.tools/conventions`
 tests, a passing quiet smoke and a passing scaled max-throughput run

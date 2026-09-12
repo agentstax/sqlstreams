@@ -71,6 +71,14 @@ Three built-ins are owned by a stream: `partition_count`,
 group handle has no built-in selector: its `Definitions()` is empty and
 `Alert(name)` is its whole read.
 
+## CLI
+
+`sqlstreams alert latest partition_count --stream orders --output json`
+returns the alert object, or `null` when no alert is retained.
+`sqlstreams alert history partition_count --stream orders --limit 10 --output json`
+returns an array, newest first, or `[]` when none are retained. Both commands
+exit 1 when no alert is retained. A missing owner returns its error on stderr.
+
 ## Consuming the alert stream
 
 `__system.alerts` is a stream like any other, and a consumer group on it is

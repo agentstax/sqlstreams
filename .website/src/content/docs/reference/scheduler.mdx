@@ -44,6 +44,16 @@ On the instance:
 | --- | --- | --- |
 | `Schedule(ctx)` | `error` | blocks running the system manager, whose schedule producer produces every registered schedule; cancel `ctx` to stop and get `nil` back |
 
+## CLI
+
+`sqlstreams scheduler get nightly-report --output json` returns the schedule
+object directly, with `timeout` as a duration string, or `null` with exit 1
+when absent. `scheduler status` and `scheduler messages` return arrays.
+
+`sqlstreams scheduler run nightly-report --concurrency exclusive` runs early
+without overlapping a request already running. The flag defaults to `parallel`.
+Schedules compact their messages, so `ordered` concurrency is rejected.
+
 ## Config
 
 ### SchedulerConfig

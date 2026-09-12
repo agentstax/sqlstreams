@@ -53,11 +53,17 @@ answer can change.
 `sqlstreams stream get orders.created` reads the stream's registration and
 config. `sqlstreams stream health orders.created` reads each payload version's
 retirement verdict. Both accept `--output json`; health returns an array of
-version verdicts. Get returns `stream`, `exists`, and `config`.
+version verdicts. Get returns the stream object directly, with duration strings
+such as `"1h0m0s"`, or `null` with exit 1 when the stream is absent.
 
 Use `stream get --quiet orders.created` for an existence check: no output,
 exit 0 when registered, exit 1 when absent. `--quiet` and `--output json`
 cannot be combined.
+
+`sqlstreams stream config get orders.created retention_ttl` adds a CLI view
+of `Stream.Get`: one config key's current value beside its default. Omit the
+key to show all supported keys. This view has its own JSON document with
+`stream`, `stream_id`, and a `keys` array; `stream get` returns the resource.
 
 ## Config
 

@@ -16,44 +16,6 @@ the item is removed.
 
 ## Now
 
-- **Benchmark-recording pipeline** (14c) — decide where lab throughput
-  numbers get saved so regressions are visible over time. First real
-  workload: a thorough multi-stream throughput/latency benchmark under high
-  concurrency, pushed to real DB limits (connection pool, lock table, I/O)
-  rather than the library's own bottleneck. Single-stream skip-vs-claim was
-  previously measured; those exploratory records were retired. Multi-stream
-  contention is still open. Also measure the debug buffer's overhead here
-  (WithLogBuffer + BufferLogger cost per operation, healthy path) — a
-  published number is the adoption gate for always-on capture ([0559]).
-  - Multi-stream contention answered 2026-09-12 [0767]: the paced ladder
-    measured the producer's default pool and is retired; the unpaced
-    family reads the ceiling per stream count in sixteen minutes. Left:
-    three repetitions of one stream count, then the multi-stream findings
-    and the pool guidance on the benchmarks page. The recording question
-    is settled by the per-scenario runs.jsonl ledgers and the report role.
-  - Done 2026-09-11: the checker reloads progress snapshots after the drain
-    on aggregate-recording runs, so handled totals match produced; CountLost
-    finds a duplicate produce's row by key since the library reports id 0
-    for it; the `SET LOCAL` warning was cosmetic and is gone [0759]; the
-    debug-buffer cost is measured and recorded [0758].
-  - Active benchmarks are steady delivery, sustained capacity, and an
-    experimental multi-stream deployment comparison. Completed investigations
-    retain evidence rather than gaining permanent scenarios. New scenarios
-    must name a recurring decision and a measurement the existing ones cannot
-    answer; do not rebuild the retired SQL and tuning matrices.
-  - Design round 2026-08-22 (tabled for the documentation-first pass, which
-    closed 2026-08-23 — this is now the front of Now):
-    method + recording shape drafted (the root drafts were deleted
-    2026-09-08; the settled parts are below). Settled in the round: two tiers (go test
-    -bench + benchstat for CPU paths; shared harness for Postgres-bound
-    benches), git-tracked append-only cells.jsonl, hdrhistogram-go dep in
-    the `.bench` module, no regression detection yet (record keyed so a
-    loader/Otava can ingest later). Decision records written when design
-    closes. [0565] note: the [0559] gate now measures NewPipelineLogger
-    Buffer on/off, BufferLogger no longer exists.
-  - bench mark tests should be done on at least postgres 18 as there 
-    could be performance gains, specifically with uuidv7
-
 - **Idle-fleet worker-load benchmark** (14c; measure BEFORE building any
   fix). An idle deployment pays per worker row per poll: winner's claim
   UPDATE + no-op work each tick, and — the growing term — every replica's

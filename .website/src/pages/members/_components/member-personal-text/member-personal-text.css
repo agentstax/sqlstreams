@@ -13,13 +13,34 @@
 }
 
 .personal-text-window {
-	display: flex;
-	overflow: hidden;
-	padding: var(--space-12) 0;
+	position: relative;
+	height: calc(1.5em + 2 * var(--space-12));
 	font-family: var(--font-content);
 	font-size: 13px;
 	font-style: italic;
+	line-height: 1.5;
 	color: var(--color-text-muted);
+}
+
+.personal-text-growth {
+	position: absolute;
+	top: 50%;
+	width: 100%;
+	display: flex;
+	align-items: center;
+	overflow: hidden;
+	height: 100%;
+	transform: translateY(-50%);
+}
+
+.personal-text-track {
+	display: flex;
+	width: 100%;
+	transform-origin: left center;
+}
+
+.personal-text-veil {
+	display: none;
 }
 
 /* two identical copies in a row; sliding both by one copy's width lands the
@@ -31,6 +52,31 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
+	.personal-text-veil {
+		display: block;
+		position: fixed;
+		inset: 0;
+		z-index: var(--z-profile-veil);
+		background: var(--color-page);
+		opacity: var(--personal-text-progress);
+		pointer-events: none;
+	}
+
+	.personal-text[data-idle='true'] .personal-text-window {
+		z-index: var(--z-profile-text);
+	}
+
+	.personal-text-growth {
+		left: calc(-1 * var(--personal-text-left-inset) * var(--personal-text-progress));
+		right: calc(-1 * var(--personal-text-right-inset) * var(--personal-text-progress));
+		width: auto;
+		height: calc(1.5em * var(--personal-text-scale) + 2 * var(--space-12));
+	}
+
+	.personal-text-track {
+		transform: scale(var(--personal-text-scale));
+	}
+
 	.personal-text-copy {
 		animation: personal-text-loop 60s linear infinite;
 	}

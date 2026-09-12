@@ -37,7 +37,12 @@ if err != nil {
 
 `sqlstreams system get` reads the system registration. Add `--quiet` for an
 existence check: no output, exit 0 when registered, exit 1 when absent.
-`--output json` returns the system row; it cannot be combined with `--quiet`.
+`--output json` returns the system row, or `null` with exit 1 when absent;
+it cannot be combined with `--quiet`.
+
+`sqlstreams system binding list` reads `System().Bindings()` across the
+installation. Use `sqlstreams consumer binding get orders.created billing`
+for one consumer's binding declaration.
 
 ## Config
 

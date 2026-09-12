@@ -112,6 +112,9 @@ is the setting that moves it.
 The [multi-stream ledgers][multistream-evidence] hold every run's verdict,
 including an exploratory first run per stream count that the medians exclude.
 Run directories with logs, counters, and effective settings are not tracked.
+The current runner reproduces a stream count with
+`just bench multistream-unpaced-4 1 5m 3` from a checkout with Docker
+running; `just bench-report multistream-unpaced-4` prints the medians.
 
 ## Configuration
 

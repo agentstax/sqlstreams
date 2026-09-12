@@ -59,8 +59,9 @@ sqlstreams stream janitor status orders
 sqlstreams stream janitor suspend orders
 ```
 
-Add `--output json` for structured output. Status returns the worker snapshot;
-suspend and unsuspend return the stream, worker name, and applied suspension
+Add `--output json` for structured output. Status returns the worker snapshot,
+with `unclaimed_for` as a duration string such as `"15s"` or `"0s"`.
+Suspend and unsuspend return the stream, worker name, and applied suspension
 state. A successful suspend does not mean all work has stopped: check status
 until live instances reaches zero. Unsuspend permits one instance and requires
 a running manager to start it.

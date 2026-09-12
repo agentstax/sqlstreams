@@ -328,7 +328,7 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 - 0573 2026-08-22 accepted (pre-v1) — binding_log retention: the consumer group janitor
 - 0574 2026-08-22 accepted (pre-v1) — Compaction-key deadlock evaluation: no cycles batched, no library retry
 - 0575 2026-08-22 accepted (pre-v1) — Public read-models carry json struct tags
-- 0576 2026-08-22 accepted (pre-v1) — CLI --output json
+- 0576 2026-08-22 superseded (pre-v1) — CLI --output json
 - 0577 2026-08-22 accepted (pre-v1) — Worker metadata history is an append-only worker_log
 - 0578 2026-08-22 accepted (pre-v1) — fillfactor audit: adopt nothing, defaults everywhere
 - 0579 2026-08-22 accepted (pre-v1) — migration txn steps run under lock_timeout; timeout retries
@@ -556,3 +556,23 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 - 0767 2026-09-12 accepted (pre-v1) — The multistream ladder is retired for unpaced ceiling holds
 
 - 0768 2026-09-12 accepted (pre-v1) — CLI registration, health, and worker reads name their client operations
+
+- 0769 2026-09-12 superseded (pre-v1) — The profile fades while idle and its personal text grows
+
+- 0770 2026-09-12 superseded (pre-v1) — CLI resource JSON and binding scope follow the client
+
+- 0771 2026-09-12 accepted (pre-v1) — Scheduler concurrency help follows produce validation
+
+- 0772 2026-09-12 superseded (pre-v1) — Profile scrolling slows as the personal text grows
+
+- 0773 2026-09-12 superseded (pre-v1) — Profile scroll slowdown is eased slightly
+
+- 0774 2026-09-12 accepted (pre-v1) — CLI alert JSON and maintenance durations follow the read contract
+
+- 0775 2026-09-12 superseded (pre-v1) — The profile effect begins after three idle seconds
+
+- 0776 2026-09-12 superseded (pre-v1) — The profile text container expands to viewport width
+
+- 0778 2026-09-12 accepted (pre-v1) — The profile effect begins after four idle seconds
+
+- 0777 2026-09-12 accepted (pre-v1) — CLI migration names follow the client
