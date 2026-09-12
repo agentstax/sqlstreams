@@ -8,12 +8,14 @@ import (
 
 func newScheduleCmd(g *globalFlags) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "schedule",
+		Use:   "scheduler",
 		Short: "Inspect, run, suspend, and destroy schedules",
 	}
 
 	cmd.AddCommand(newScheduleListCmd(g))
 	cmd.AddCommand(newScheduleGetCmd(g))
+	cmd.AddCommand(newScheduleStatusCmd(g))
+	cmd.AddCommand(newScheduleMessagesCmd(g))
 	cmd.AddCommand(newScheduleSuspendCmd(g))
 	cmd.AddCommand(newScheduleUnsuspendCmd(g))
 	cmd.AddCommand(newScheduleRunCmd(g))
@@ -27,7 +29,7 @@ func newScheduleCmd(g *globalFlags) *cobra.Command {
 func requireScheduleName(verb string, extraLines ...string) cobra.PositionalArgs {
 	return func(_ *cobra.Command, args []string) error {
 		if len(args) < 1 {
-			msg := fmt.Sprintf("%s requires a schedule name\nusage: sqlstreams schedule %s <name> [flags]", verb, verb)
+			msg := fmt.Sprintf("%s requires a schedule name\nusage: sqlstreams scheduler %s <name> [flags]", verb, verb)
 			for _, line := range extraLines {
 				msg += "\n" + line
 			}

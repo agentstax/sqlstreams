@@ -20,10 +20,9 @@ func availableStreamVersion() int64 { return int64(len(streamMigrations.Registry
 func newMigrateCmd(g *globalFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "migrate",
-		Short: "Initialize and version the control-plane and stream schemas",
+		Short: "Migrate the system and stream tables",
 	}
 
-	cmd.AddCommand(newMigrateInitCmd(g))
 	cmd.AddCommand(newMigrateVersionsCmd(g))
 	cmd.AddCommand(newMigrateStatusCmd(g))
 	cmd.AddCommand(newMigrateSystemCmd(g))
@@ -139,7 +138,7 @@ func guardDirection(targets []migrateTarget, dir direction, to int64) (moving in
 // errSystemNotRegistered is the single teaching error every path raises when the
 // control-plane tables is missing -- one wording, one place to change it.
 func errSystemNotRegistered() error {
-	return failUsage("system not registered -- run `sqlstreams migrate init` first")
+	return failUsage("system not registered -- run `sqlstreams system register` first")
 }
 
 // migrateError maps a failed admin migrate call to operator-facing output. Most

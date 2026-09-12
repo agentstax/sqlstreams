@@ -13,7 +13,6 @@ import (
 // process exit code.
 func Execute(ctx context.Context, version string) int {
 	root, g := newRootCmd()
-	orderFlags(root)
 
 	err := fang.Execute(
 		ctx,
@@ -29,7 +28,7 @@ func Execute(ctx context.Context, version string) int {
 	return 0
 }
 
-// orderFlags shows flags in definition order instead of fang's default
+// configureCommands shows flags in definition order instead of fang's default
 // alphabetical, giving every command the same shape: its own flags first (in
 // the order they're declared), then the inherited globals, which cobra merges
 // in last. The canonical trailing block is therefore always
@@ -41,11 +40,22 @@ func Execute(ctx context.Context, version string) int {
 // before the merge. fang renders a single FLAGS block with no sub-grouping, so
 // ordering is the only lever. (Root alone also shows fang's --version, which
 // cobra appends after --help; that ordering isn't ours to control.)
-func orderFlags(cmd *cobra.Command) {
+func configureCommands(cmd *cobra.Command) {
+	// Cobra skips argument validation on non-runnable command groups.
+	if !cmd.Runnable() {
+		cmd.Args = func(command *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				return failUsage("unrecognized command %q for %q", args[0], command.CommandPath())
+			}
+			return nil
+		}
+		cmd.RunE = func(command *cobra.Command, _ []string) error { return command.Help() }
+	}
+
 	cmd.Flags().SortFlags = false
 	cmd.PersistentFlags().SortFlags = false
 	for _, sub := range cmd.Commands() {
-		orderFlags(sub)
+		configureCommands(sub)
 	}
 }
 
@@ -99,5 +109,6 @@ func newRootCmd() (*cobra.Command, *globalFlags) {
 	root.AddCommand(newManagerCmd(g))
 	root.AddCommand(newExplainCmd(g))
 
+	configureCommands(root)
 	return root, g
 }

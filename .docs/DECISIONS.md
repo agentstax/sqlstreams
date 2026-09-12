@@ -544,3 +544,13 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 - 0761 2026-09-12 accepted (pre-v1) — Repository cleanup preserves records and repairs site links
 
 - 0762 2026-09-12 accepted (pre-v1) — Client imports use the declared package name
+
+- 0763 2026-09-12 accepted (pre-v1) — Header wordmark links home
+
+- 0764 2026-09-12 accepted (pre-v1) — Avatar images match their display sizes
+
+- 0765 2026-09-12 accepted (pre-v1) — Accept all memes use WebP images
+
+- 0766 2026-09-12 accepted (pre-v1) — CLI commands mirror client verbs
+
+- 0767 2026-09-12 accepted (pre-v1) — The multistream ladder is retired for unpaced ceiling holds

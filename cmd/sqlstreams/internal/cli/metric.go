@@ -18,7 +18,8 @@ func newMetricCmd(g *globalFlags) *cobra.Command {
 	}
 
 	cmd.AddCommand(newMetricListCmd(g))
-	cmd.AddCommand(newMetricGetCmd(g))
+	cmd.AddCommand(newMetricReadCmd(g, "latest"))
+	cmd.AddCommand(newMetricReadCmd(g, "history"))
 
 	return cmd
 }

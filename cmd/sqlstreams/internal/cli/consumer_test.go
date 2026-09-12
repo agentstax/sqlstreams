@@ -27,14 +27,14 @@ func TestConsumerCommandPaths(t *testing.T) {
 }
 
 func TestAlertConsumerSelectorRequiresStream(t *testing.T) {
-	for _, verb := range []string{"get", "list"} {
+	for _, verb := range []string{"latest", "history", "list"} {
 		t.Run(verb, func(t *testing.T) {
 			root, _ := newRootCmd()
 			var output bytes.Buffer
 			root.SetOut(&output)
 			root.SetErr(&output)
 			args := []string{"alert", verb}
-			if verb == "get" {
+			if verb != "list" {
 				args = append(args, "disk_pressure")
 			}
 			root.SetArgs(append(args, "--consumer", "billing"))

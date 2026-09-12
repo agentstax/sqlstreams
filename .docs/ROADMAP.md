@@ -25,16 +25,12 @@ the item is removed.
   contention is still open. Also measure the debug buffer's overhead here
   (WithLogBuffer + BufferLogger cost per operation, healthy path) — a
   published number is the adoption gate for always-on capture ([0559]).
-  - Ladders run 2026-09-12: multistream-1, -4, and -16, three full-length
-    repetitions each, every run passing with two checkpoints inside it.
-    Every stream count holds the 4,000/s total rung and tops out between
-    4,300 and 4,700/s total; Postgres never passes 1.6 of its 8 cores.
-    The ceiling does not move with stream count, so the ladder as declared
-    measures the producer's default pool (10 connections shared by 16 batch
-    workers per stream), not stream contention or the database. Open fork:
-    raise the family's MaxConns so the rungs reach the database, then rerun,
-    or run the paced holds at half the held rung (2,000/s total) as
-    declared. Evidence under .bench/results/multistream-*/.
+  - Multi-stream contention answered 2026-09-12 [0767]: the paced ladder
+    measured the producer's default pool and is retired; the unpaced
+    family reads the ceiling per stream count in sixteen minutes. Left:
+    three repetitions of one stream count, then the multi-stream findings
+    and the pool guidance on the benchmarks page. The recording question
+    is settled by the per-scenario runs.jsonl ledgers and the report role.
   - Done 2026-09-11: the checker reloads progress snapshots after the drain
     on aggregate-recording runs, so handled totals match produced; CountLost
     finds a duplicate produce's row by key since the library reports id 0

@@ -31,7 +31,7 @@ func newSystemGetCmd(g *globalFlags) *cobra.Command {
 				return translateAdminError(err)
 			}
 			if sys == nil {
-				return failOp("system not registered -- run `sqlstreams migrate init` first")
+				return failOp("system not registered -- run `sqlstreams system register` first")
 			}
 
 			if g.jsonOutput() {

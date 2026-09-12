@@ -55,7 +55,7 @@ The first stream registration creates the shared tables if absent, then
 the stream's family. It validates the stream name and config before
 creating resources. A later database failure can still leave partial
 registration progress. `System().Register` explicitly declares system
-configuration; `sqlstreams migrate init` creates the shared baseline from
+configuration; `sqlstreams system register` creates the shared baseline from
 the CLI.
 
 Separate table families isolate retention decisions: a lagging group on

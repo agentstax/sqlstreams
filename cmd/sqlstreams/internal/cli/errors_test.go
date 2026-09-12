@@ -114,7 +114,7 @@ func TestTranslateAdminErrorRewritesFixPerCode(t *testing.T) {
 	if !ok || ce.structured == nil {
 		t.Fatalf("structured error not carried: %v", translated)
 	}
-	if ce.fix != "run `sqlstreams migrate init`" {
+	if ce.fix != "run `sqlstreams system register`" {
 		t.Fatalf("fix not rewritten for the CLI: %q", ce.fix)
 	}
 

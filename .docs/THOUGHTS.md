@@ -7,10 +7,6 @@ Should add a nerd 'But what about!' note or section in doc for when obvious poin
 the longer users stay on my user profile page (or if they don't move mouse) all other elements besides the scrolling text should start to fade to background or static
 and the scrolling text should slowly get larger and larger
 
-Should be able to click on SQLStreams; header icon and it takes you back to home page
-
-try to optimize profile pic for size (mobile users will thanks us)
-
 roadmap later item for review code for interesting design decisions to write articles on (big or small things)
 - diagnostic code system
 - suppression logger
@@ -67,12 +63,7 @@ review of most important website docs
 
 # Other
 
-go through and see if any binaries in git state. Just because gitignored does not mean they are gone
-
-Another automated review for broken links and inconsistent references
-
 go through and make sure cli commands mirror client and are consistently named
-
 
 Need new github org name "getstweamy"?
 

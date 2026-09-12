@@ -5,6 +5,82 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-12 — CLI commands mirror client verbs [0766]
+
+The CLI uses scheduler get/status/messages, metric and alert latest/history,
+stream key compaction-head, system register, and metric --series-limit.
+History limits control counts only. Unknown nested commands now exit 2;
+removed spellings have no aliases. Scheduler get returns its config alone,
+with status and messages available as separate JSON arrays. Registration
+reports registered:true and documents that it reapplies default system config.
+Help, recovery commands, README examples, and site references use these names.
+
+Verification: CLI build, vet, go fmt, and go test -race passed; the touched
+scheduler package built and has no tests. Twelve binary help checks passed;
+nine obsolete command/flag forms returned exit 2. Targeted site remark and
+Vale checks passed; git diff --check passed. Existing alert-selector and
+recovery-command tests were updated because their old command names were
+intentionally removed; selector validation remains covered for both latest
+and history. Added unit checks for read-flag separation and nested-command
+usage errors. No datastore or signal paths changed.
+
+## 2026-09-12 — Multi-stream ceiling measured; ladder retired [0758] [0759] [0767]
+
+The benchmark checker now reloads progress snapshots after the drain on
+aggregate-recording runs, so handled totals match produced (a scaled
+max-throughput run reports 2,364,500 for both), and CountLost finds a
+duplicate produce's row by key since the library reports message id 0 for
+it. Partition creation runs in an explicit transaction: the pipelined
+batch did apply its lock timeout but logged a Postgres WARNING per
+partition [0759]. The debug buffer costs 142 ns, 512 B, and three
+allocations per four-line healthy operation, measured with benchstat over
+ten repetitions, and stays always-on [0758].
+
+Nine full-length multistream ladder runs (three per stream count, all
+passing) stopped at 4,300 to 4,700/s total at every stream count: the
+producer's default ten-connection pool, not the database. The ladder is
+retired for three unpaced two-minute holds [0767], which read production
+near 50,000/s at every stream count, consumption 42,000/s on one stream
+and 90,000/s on four and sixteen, Postgres at up to 6.1 of 8 cores, and
+WAL flat at about 2 KB per message. Streams do not contend in Postgres.
+
+Verification: produce integration tests, `.bench` and `.tools/conventions`
+tests, a passing quiet smoke and a passing scaled max-throughput run
+through Compose, and the twelve multistream verdicts under
+`.bench/results/multistream-*/`.
+
+## 2026-09-12 — Smaller Accept all meme downloads [0765]
+
+The modal uses a 15,762-byte WebP still and a 591,668-byte animated WebP,
+removing 493,048 bytes from its image downloads. Originals remain available
+for regeneration; placements and displayed widths stay unchanged.
+
+Verification: website build, targeted Prettier and ESLint passed. Animation
+metadata matches all 22 frames, 100ms delays, infinite looping, and original
+frame dimensions. Chromium confirmed playback and a visual comparison at
+2× display density; the built cookie-notice bundle references the WebPs.
+
+## 2026-09-12 — Smaller avatar downloads [0764]
+
+Posts use an 88px-wide WebP (1,968 bytes); the member profile uses a
+176px-wide WebP (4,346 bytes), replacing the shared 94,408-byte PNG download.
+The original remains available for regeneration. Rendered dimensions stay
+44px and 88px, with transparency preserved.
+
+Verification: website build, targeted Prettier and ESLint passed. Built
+Quickstart and profile HTML reference the correct copied assets. Chromium
+comparison at 2× display density confirmed the appearance, with some
+softening from resizing and lossy compression.
+
+## 2026-09-12 — Header wordmark returns home [0763]
+
+The SQLStreams header wordmark links to `/`, with the accessible name
+“SQLStreams home” and the existing keyboard focus indicator.
+
+Verification: website build, targeted component formatting and ESLint passed.
+Chromium checks at 1280px and 375px confirmed logo clicks and Enter return
+from Quickstart to home, with a visible focus indicator.
+
 ## 2026-09-12 — Client imports need no explicit alias [0762]
 
 Kept `client/` in the root module with package name `sqlstreams`. Removed

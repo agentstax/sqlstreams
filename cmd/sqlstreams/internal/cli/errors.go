@@ -16,7 +16,7 @@ import (
 // pasted; codes absent here keep the library's Go-API fix.
 var cliFixes = map[string]string{
 	// SQL0017 system not registered
-	"SQL0017": "run `sqlstreams migrate init`",
+	"SQL0017": "run `sqlstreams system register`",
 	// SQL0066 compaction head not found
 	"SQL0066": "run `sqlstreams stream key messages {stream} {message_key}` to see what was produced under the key",
 }
@@ -144,7 +144,7 @@ func translateAdminError(err error) error {
 
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "42P01" {
-		return failOp("system not initialized -- run `sqlstreams migrate init` first")
+		return failOp("system not initialized -- run `sqlstreams system register` first")
 	}
 	return failOp("%s", err.Error())
 }

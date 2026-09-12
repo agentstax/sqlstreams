@@ -16,7 +16,7 @@ func newStreamConfigCmd(g *globalFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
 		Short: "Read a registered stream's config",
-		Long: `Stream config comes from the cfg your code passes to RegisterStream, and
+		Long: `Stream config comes from the cfg your code passes to Stream(name).Register, and
 is applied every time that runs. Changing a value means changing that code
 and redeploying; this command only reads.
 

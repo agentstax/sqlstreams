@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newMetricGetCmd(g *globalFlags) *cobra.Command {
+func newMetricReadCmd(g *globalFlags, verb string) *cobra.Command {
 	var (
 		attributes []string
 		limit      int
@@ -19,14 +19,14 @@ func newMetricGetCmd(g *globalFlags) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "get <name>",
-		Short: "Show a metric's history, one block per attribute set",
+		Use:   verb + " <name>",
+		Short: "Show " + verb + " measurements, one block per attribute set",
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) < 1 {
-				return failUsage("get requires a metric name\nusage: sqlstreams metric get <name> [flags]")
+				return failUsage("%s requires a metric name\nusage: sqlstreams metric %s <name> [flags]", verb, verb)
 			}
 			if len(args) > 1 {
-				return failUsage("get takes exactly one metric name")
+				return failUsage("%s takes exactly one metric name", verb)
 			}
 			return nil
 		},
@@ -35,11 +35,11 @@ func newMetricGetCmd(g *globalFlags) *cobra.Command {
 			name := args[0]
 			out := cmd.OutOrStdout()
 
-			if limit <= 0 {
+			if verb == "history" && limit <= 0 {
 				return failUsage("--limit must be > 0, got %d", limit)
 			}
 			if series <= 0 {
-				return failUsage("--series must be > 0, got %d", series)
+				return failUsage("--series-limit must be > 0, got %d", series)
 			}
 			attributeFilter, err := parseAttributePairs(attributes)
 			if err != nil {
@@ -70,7 +70,7 @@ func newMetricGetCmd(g *globalFlags) *cobra.Command {
 			}
 
 			if g.jsonOutput() {
-				document := metricGetDocument{
+				document := metricReadDocument{
 					Name:        name,
 					Exists:      len(matched) > 0,
 					Series:      make([]metricSeriesDocument, 0, len(matched)),
@@ -86,10 +86,13 @@ func newMetricGetCmd(g *globalFlags) *cobra.Command {
 					shown = shown[:series]
 				}
 				for _, measurement := range shown {
-					seriesHandle := client.System().Metrics().Metric(measurement.Name, measurement.Attributes)
-					history, err := seriesHandle.History(ctx, limit)
-					if err != nil {
-						return translateAdminError(err)
+					history := []*metric.Measurement{measurement}
+					if verb == "history" {
+						seriesHandle := client.System().Metrics().Metric(measurement.Name, measurement.Attributes)
+						history, err = seriesHandle.History(ctx, limit)
+						if err != nil {
+							return translateAdminError(err)
+						}
 					}
 					if history == nil {
 						history = make([]*metric.Measurement, 0)
@@ -119,16 +122,19 @@ func newMetricGetCmd(g *globalFlags) *cobra.Command {
 				shown = shown[:series]
 			}
 			for _, measurement := range shown {
-				seriesHandle := client.System().Metrics().Metric(measurement.Name, measurement.Attributes)
-				history, err := seriesHandle.History(ctx, limit)
-				if err != nil {
-					return translateAdminError(err)
+				history := []*metric.Measurement{measurement}
+				if verb == "history" {
+					seriesHandle := client.System().Metrics().Metric(measurement.Name, measurement.Attributes)
+					history, err = seriesHandle.History(ctx, limit)
+					if err != nil {
+						return translateAdminError(err)
+					}
 				}
 				printMeasurementSeries(out, measurement.Attributes, history)
 			}
 
 			if len(matched) > series {
-				fmt.Fprintf(out, "\nshowing %d of %d series -- narrow with --attribute or raise --series\n", series, len(matched))
+				fmt.Fprintf(out, "\nshowing %d of %d series -- narrow with --attribute or raise --series-limit\n", series, len(matched))
 			}
 			return nil
 		},
@@ -136,15 +142,17 @@ func newMetricGetCmd(g *globalFlags) *cobra.Command {
 
 	f := cmd.Flags()
 	f.StringArrayVar(&attributes, "attribute", nil, "key=value a series must carry; repeatable, all must match")
-	f.IntVar(&limit, "limit", 10, "how many of the newest measurements each series lists")
-	f.IntVar(&series, "series", 10, "how many attribute sets to list before truncating")
+	if verb == "history" {
+		f.IntVar(&limit, "limit", 10, "how many of the newest measurements each series lists")
+	}
+	f.IntVar(&series, "series-limit", 10, "how many attribute sets to list before truncating")
 	return cmd
 }
 
-// metricGetDocument is metric get's json result; the not-found case is data
+// metricReadDocument is metric reads' json result; the not-found case is data
 // (exists false, series empty), the exit code stays 1. SeriesTotal counts
-// every matched series before --series truncation.
-type metricGetDocument struct {
+// every matched series before --series-limit truncation.
+type metricReadDocument struct {
 	Name        string                 `json:"name"`
 	Exists      bool                   `json:"exists"`
 	Kind        string                 `json:"kind,omitempty"`

@@ -156,6 +156,6 @@ func migrateStatusNotInitialized(w io.Writer, g *globalFlags) error {
 		})
 		return nil
 	}
-	fmt.Fprintln(w, "system not initialized -- run `sqlstreams migrate init`")
+	fmt.Fprintln(w, "system not initialized -- run `sqlstreams system register`")
 	return nil
 }

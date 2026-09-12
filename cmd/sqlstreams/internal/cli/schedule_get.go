@@ -13,28 +13,15 @@ import (
 )
 
 func newScheduleGetCmd(g *globalFlags) *cobra.Command {
-	var (
-		quiet    bool
-		messages bool
-		limit    int
-	)
-
+	var quiet bool
 	cmd := &cobra.Command{
 		Use:   "get <name>",
-		Short: "Show a schedule's expression, config, and per-group run outcomes",
+		Short: "Show a schedule's expression and config",
 		Args:  requireScheduleName("get"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			name := args[0]
 			out := cmd.OutOrStdout()
-			f := cmd.Flags()
-
-			if f.Changed("limit") && !messages {
-				return failUsage("--limit only applies to the --messages listing")
-			}
-			if limit <= 0 {
-				return failUsage("--limit must be > 0, got %d", limit)
-			}
 			if quiet && g.jsonOutput() {
 				return failUsage("--quiet and --output json cannot be combined")
 			}
@@ -44,77 +31,28 @@ func newScheduleGetCmd(g *globalFlags) *cobra.Command {
 				return err
 			}
 			defer connection.Close()
-			client := connection.client
-
-			row, err := client.Scheduler(name).Get(ctx)
+			row, err := connection.client.Scheduler(name).Get(ctx)
 			if err != nil {
 				return translateAdminError(err)
 			}
 
 			if g.jsonOutput() {
+				writeJSON(out, toScheduleGetDocument(name, row))
+			} else if !quiet {
 				if row == nil {
-					writeJSON(out, toScheduleGetDocument(name, nil, nil, nil))
-					return failPrinted()
+					fmt.Fprintf(out, "%s schedule %q does not exist\n", glyphNo(), name)
+				} else {
+					fmt.Fprintf(out, "%s schedule %q (id=%d)\n", glyphOK(), name, row.Id)
+					printScheduleDetail(out, row)
 				}
-
-				statuses, err := client.Scheduler(name).Status(ctx)
-				if err != nil {
-					return translateAdminError(err)
-				}
-
-				var listed []*schedule.ScheduleMessageStatus
-				if messages {
-					listed, err = client.Scheduler(name).Messages(ctx, limit)
-					if err != nil {
-						return translateAdminError(err)
-					}
-					if listed == nil {
-						listed = make([]*schedule.ScheduleMessageStatus, 0)
-					}
-				}
-
-				writeJSON(out, toScheduleGetDocument(name, row, statuses, listed))
-				return nil
 			}
-
-			// -q is the scriptable form: no output at all, the exit code IS the
-			// answer (`if sqlstreams schedule get -q X; then ...`).
-			if quiet {
-				if row == nil {
-					return failPrinted()
-				}
-				return nil
-			}
-
 			if row == nil {
-				fmt.Fprintf(out, "%s schedule %q does not exist\n", glyphNo(), name)
 				return failPrinted()
-			}
-
-			statuses, err := client.Scheduler(name).Status(ctx)
-			if err != nil {
-				return translateAdminError(err)
-			}
-
-			fmt.Fprintf(out, "%s schedule %q (id=%d)\n", glyphOK(), name, row.Id)
-			printScheduleDetail(out, row)
-			printScheduleStatuses(out, statuses)
-
-			if messages {
-				listed, err := client.Scheduler(name).Messages(ctx, limit)
-				if err != nil {
-					return translateAdminError(err)
-				}
-				printScheduleMessages(out, listed)
 			}
 			return nil
 		},
 	}
-
-	f := cmd.Flags()
-	f.BoolVarP(&quiet, "quiet", "q", false, "no output; exit code is the answer (0 exists, 1 not)")
-	f.BoolVar(&messages, "messages", false, "also list the newest messages, one line per (message, consumer group)")
-	f.IntVar(&limit, "limit", 20, "how many of the newest messages --messages lists")
+	cmd.Flags().BoolVarP(&quiet, "quiet", "q", false, "no output; exit code is the answer (0 exists, 1 not)")
 	return cmd
 }
 
@@ -135,14 +73,11 @@ type scheduleDocument struct {
 	LastScheduledAt *time.Time      `json:"last_scheduled_at"` // null until the scheduler first produces the schedule
 }
 
-// scheduleGetDocument is schedule get's json result; the not-found case is data
-// (exists false, schedule null), the exit code stays 1.
+// A missing schedule produces row null and exit status 1.
 type scheduleGetDocument struct {
-	Schedule       string                                   `json:"schedule"`
-	Exists         bool                                     `json:"exists"`
-	Job            *scheduleDocument                        `json:"row"`
-	ConsumerGroups []*schedule.ScheduleConsumerGroupSummary `json:"consumer_groups"`
-	Messages       []*schedule.ScheduleMessageStatus        `json:"messages"` // null unless --messages
+	Schedule string            `json:"schedule"`
+	Exists   bool              `json:"exists"`
+	Row      *scheduleDocument `json:"row"`
 }
 
 func toScheduleDocument(row *schedule.Schedule) scheduleDocument {
@@ -170,25 +105,18 @@ func toScheduleDocuments(schedules []*schedule.Schedule) []scheduleDocument {
 	return documents
 }
 
-func toScheduleGetDocument(name string, row *schedule.Schedule, groups []*schedule.ScheduleConsumerGroupSummary, messages []*schedule.ScheduleMessageStatus) scheduleGetDocument {
-	document := scheduleGetDocument{
-		Schedule:       name,
-		Exists:         row != nil,
-		ConsumerGroups: make([]*schedule.ScheduleConsumerGroupSummary, 0, len(groups)),
-		Messages:       messages,
-	}
-	document.ConsumerGroups = append(document.ConsumerGroups, groups...)
-
+func toScheduleGetDocument(name string, row *schedule.Schedule) scheduleGetDocument {
+	document := scheduleGetDocument{Schedule: name, Exists: row != nil}
 	if row != nil {
-		jobDocument := toScheduleDocument(row)
-		document.Job = &jobDocument
+		rowDocument := toScheduleDocument(row)
+		document.Row = &rowDocument
 	}
 	return document
 }
 
 func printScheduleDetail(w io.Writer, row *schedule.Schedule) {
 	tw := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
-	fmt.Fprintf(tw, "  Schedule\t%s\n", row.Expression)
+	fmt.Fprintf(tw, "  Expression\t%s\n", row.Expression)
 	fmt.Fprintf(tw, "  Concurrency\t%s\n", row.Concurrency)
 	fmt.Fprintf(tw, "  Timeout\t%s\n", row.Timeout)
 	fmt.Fprintf(tw, "  Suspended\t%t\n", row.Suspended)

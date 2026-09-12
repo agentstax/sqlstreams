@@ -7,9 +7,10 @@ import (
 func newSystemCmd(g *globalFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "system",
-		Short: "Inspect and destroy the singleton system",
+		Short: "Register, inspect, and destroy the singleton system",
 	}
 
+	cmd.AddCommand(newSystemRegisterCmd(g))
 	cmd.AddCommand(newSystemGetCmd(g))
 	cmd.AddCommand(newSystemDestroyCmd(g))
 

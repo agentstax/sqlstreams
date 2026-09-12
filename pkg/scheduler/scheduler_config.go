@@ -20,7 +20,7 @@ type SchedulerConfig struct {
 	Concurrency common.ConcurrencyPolicy
 
 	// Metadata - marshaled to opaque JSON stored on the row and shown by
-	// `sqlstreams schedule get`; it is not part of the produced message.
+	// `sqlstreams scheduler get`; it is not part of the produced message.
 	// Default: nil, stored as {}.
 	Metadata any
 }

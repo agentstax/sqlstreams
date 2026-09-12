@@ -1,6 +1,6 @@
 # sqlstreams
 
-Admin CLI for [SQLStreams](../../) streams — register, inspect, and destroy streams
+Admin CLI for [SQLStreams](../../) — inspect, maintain, and destroy streams
 against the control-plane Postgres.
 
 ## Install
@@ -20,7 +20,9 @@ export SQLSTREAMS_ADMIN_DATABASE_URL="postgres://user:pass@host:5432/db"
 
 This is deliberately **not** `DATABASE_URL` — that's your app's low-privilege
 runtime role. The CLI runs DDL and `DROP`, so it wants admin credentials wired
-in on purpose. The database must already have the SQLStreams schema applied.
+in on purpose. Run `sqlstreams system register` to register the system with default config.
+Running it again reapplies those defaults; declare custom system config from
+application code with `System().Register`.
 
 ## Usage
 
@@ -29,7 +31,7 @@ in on purpose. The database must already have the SQLStreams schema applied.
 Streams are created from your code, by `client.Stream[T](name).Register`. There is no
 `sqlstreams stream register`: the CLI reads config and never writes it, so a
 stream created from a shell would just be overwritten by the next call your
-code makes. `sqlstreams system` and `sqlstreams schedule` work the same way — schedules
+code makes. `sqlstreams scheduler` works the same way — schedules
 come from `client.Scheduler(name).Register`.
 
 Names are dot-namespaced by domain and entity, `<domain>.<entity>[.<event>]`
@@ -74,12 +76,12 @@ if sqlstreams stream get -q orders.created; then echo "exists"; fi
 
 ### Read a message key
 
-`stream key get` prints the key's compaction head, the message that
+`stream key compaction-head` prints the key's compaction head, the message that
 currently wins under it. The CLI has no message type in scope, so the
 payload prints as the JSON the row stores (Postgres orders the keys):
 
 ```console
-$ sqlstreams stream key get devices.config dev-7
+$ sqlstreams stream key compaction-head devices.config dev-7
 ✓ compaction head for "dev-7" on "devices.config"
 
   MessageId        2
@@ -140,3 +142,26 @@ sqlstreams stream destroy orders.created --force --yes
   code is the answer).
 - Exit codes: `0` success · `1` operation failed (not found, not empty, config
   mismatch, aborted) · `2` usage error.
+
+## Command names
+
+Commands use the client handle and method names in kebab-case. Resource
+collections use `list`; reads with distinct meanings keep distinct verbs:
+
+| Command | Client operation |
+| --- | --- |
+| `scheduler get <name>` | `Scheduler(name).Get` |
+| `scheduler status <name>` | `Scheduler(name).Status` |
+| `scheduler messages <name> --limit 20` | `Scheduler(name).Messages` |
+| `metric latest <name>` | latest measurement per matching attribute set |
+| `metric history <name> --limit 10` | `Metric(name, attributes).History` per matching attribute set |
+| `alert latest <name>` | `Alert(name).Latest` |
+| `alert history <name> --limit 10` | `Alert(name).History` |
+| `stream key compaction-head <stream> <key>` | `Key(key).CompactionHead` |
+| `system register` | `System().Register` with default config |
+
+`--limit` controls the number of history entries or messages. It never switches
+the operation. Metric reads accept repeatable `--attribute key=value` filters
+and `--series-limit` (default 10) to bound the number of attribute sets.
+Alert reads accept `--stream` and `--consumer`; the latter requires `--stream`.
+`--metrics-address` on `manager run` names the Prometheus endpoint address.

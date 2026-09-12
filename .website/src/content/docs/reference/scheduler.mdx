@@ -52,7 +52,7 @@ On the instance:
 | --- | --- | --- |
 | `Timeout` | `30s` | how long one produced message's delivery may run |
 | `Concurrency` | `ConcurrencyParallel` | whether a run may overlap a previous one still running; `ConcurrencyExclusive` waits |
-| `Metadata` | `nil` (stored as `{}`) | opaque JSON on the row, shown by `sqlstreams schedule get`; not part of the produced message |
+| `Metadata` | `nil` (stored as `{}`) | opaque JSON on the row, shown by `sqlstreams scheduler get`; not part of the produced message |
 
 ### ScheduleRunOptions
 

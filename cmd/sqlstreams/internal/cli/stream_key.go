@@ -14,7 +14,7 @@ message that currently wins under the key, and its retained messages. The CLI
 has no message type in scope, so a payload prints as the JSON the row stores.`,
 	}
 
-	cmd.AddCommand(newStreamKeyGetCmd(g))
+	cmd.AddCommand(newStreamKeyCompactionHeadCmd(g))
 	cmd.AddCommand(newStreamKeyMessagesCmd(g))
 
 	return cmd

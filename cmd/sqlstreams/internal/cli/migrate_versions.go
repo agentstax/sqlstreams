@@ -10,8 +10,8 @@ import (
 func newMigrateVersionsCmd(g *globalFlags) *cobra.Command {
 	return &cobra.Command{
 		Use:   "versions",
-		Short: "List the schema versions this binary knows how to reach",
-		Long: "List every schema version compiled into THIS binary, per scope. The step\n" +
+		Short: "List the migration versions this binary knows how to reach",
+		Long: "List every migration version compiled into THIS binary, per scope. The step\n" +
 			"registry is the source of truth here -- nothing is read from a database.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -27,7 +27,7 @@ func newMigrateVersionsCmd(g *globalFlags) *cobra.Command {
 
 			printScopeVersions(out, "system migration versions (this binary):", availableSystemVersion())
 			fmt.Fprintln(out)
-			printScopeVersions(out, "stream schema versions (this binary):", availableStreamVersion())
+			printScopeVersions(out, "stream migration versions (this binary):", availableStreamVersion())
 			return nil
 		},
 	}
@@ -42,7 +42,7 @@ type migrateVersionsDocument struct {
 
 // printScopeVersions lists v1 (the baseline) through the compiled ceiling. Steps
 // carry no description in the registry, so the number is all there is to show;
-// v1 is annotated because it's created by `migrate init`, not a versioned step.
+// v1 is annotated because it's created by `system register`, not a versioned step.
 func printScopeVersions(w io.Writer, title string, ceiling int64) {
 	fmt.Fprintln(w, title)
 	for v := int64(1); v <= ceiling; v++ {

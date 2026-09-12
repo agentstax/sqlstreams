@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newAlertGetCmd(g *globalFlags) *cobra.Command {
+func newAlertReadCmd(g *globalFlags, verb string) *cobra.Command {
 	var (
 		streamName   string
 		consumerName string
@@ -19,22 +19,22 @@ func newAlertGetCmd(g *globalFlags) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "get <name>",
-		Short: "Show one alert's current state, or its history with --limit",
-		Long: `Show the current retained alert under a name for one owner: the system by
+		Use:   verb + " <name>",
+		Short: "Show one alert's " + verb + " retained evaluations",
+		Long: `Read retained alerts under a name for one owner: the system by
 default, a stream with --stream, a consumer group with --stream and --consumer.
-With --limit the newest retained alerts are listed instead, newest first.
+The history command lists retained alerts newest first.
 An owner that is not registered exits non-zero with its not-found code; an
 owner nothing was published for prints "no alert published".`,
-		Example: `  sqlstreams alert get partition_count --stream orders.created
-  sqlstreams alert get worker_liveness --stream orders.created --limit 5
-  sqlstreams alert get disk_pressure --stream orders.created --consumer billing`,
+		Example: `  sqlstreams alert latest partition_count --stream orders.created
+  sqlstreams alert history worker_liveness --stream orders.created --limit 5
+  sqlstreams alert latest disk_pressure --stream orders.created --consumer billing`,
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) < 1 {
-				return failUsage("get requires an alert name\nusage: sqlstreams alert get <name> [flags]")
+				return failUsage("%s requires an alert name\nusage: sqlstreams alert %s <name> [flags]", verb, verb)
 			}
 			if len(args) > 1 {
-				return failUsage("get takes exactly one alert name")
+				return failUsage("%s takes exactly one alert name", verb)
 			}
 			return nil
 		},
@@ -46,7 +46,7 @@ owner nothing was published for prints "no alert published".`,
 			if consumerName != "" && streamName == "" {
 				return failUsage("--consumer requires --stream")
 			}
-			if cmd.Flags().Changed("limit") && limit <= 0 {
+			if verb == "history" && limit <= 0 {
 				return failUsage("--limit must be > 0, got %d", limit)
 			}
 
@@ -59,7 +59,7 @@ owner nothing was published for prints "no alert published".`,
 
 			handle := alertHandle(client, name, streamName, consumerName)
 			var alerts []*sqlstreams.Alert
-			if cmd.Flags().Changed("limit") {
+			if verb == "history" {
 				alerts, err = handle.History(ctx, limit)
 			} else {
 				var current *sqlstreams.Alert
@@ -76,7 +76,7 @@ owner nothing was published for prints "no alert published".`,
 				if alerts == nil {
 					alerts = make([]*sqlstreams.Alert, 0)
 				}
-				writeJSON(out, alertGetDocument{Name: name, Exists: len(alerts) > 0, Alerts: alerts})
+				writeJSON(out, alertReadDocument{Name: name, Exists: len(alerts) > 0, Alerts: alerts})
 				if len(alerts) == 0 {
 					return failPrinted()
 				}
@@ -100,14 +100,14 @@ owner nothing was published for prints "no alert published".`,
 	f := cmd.Flags()
 	f.StringVar(&streamName, "stream", "", "the stream that owns the alert")
 	f.StringVar(&consumerName, "consumer", "", "the consumer group that owns the alert; needs --stream")
-	f.IntVar(&limit, "limit", 10, "list the newest retained alerts instead of the current one")
+	if verb == "history" {
+		f.IntVar(&limit, "limit", 10, "how many of the newest retained alerts to list")
+	}
 	return cmd
 }
 
-// alertGetDocument is alert get's json result; the not-found case is data
-// (exists false, alerts empty), the exit code stays 1. Alerts holds the one
-// current alert, or the history newest first under --limit.
-type alertGetDocument struct {
+// Missing retained alerts produce an empty list and exit status 1.
+type alertReadDocument struct {
 	Name   string              `json:"name"`
 	Exists bool                `json:"exists"`
 	Alerts []*sqlstreams.Alert `json:"alerts"`
