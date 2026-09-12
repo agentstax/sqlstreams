@@ -5,6 +5,41 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-12 — v0.1.0 release checkpoint verified (release unpublished) [0789]
+
+Source 65efd3a1964cddee5ef3b4a915f5e12c0651b442 passes the fresh-database
+release checkpoint. The development Postgres 17 database was deleted and
+recreated with just database-delete and Docker Compose, then initialized
+by the current build's just system-register. just signal-e2e passes all
+four scenarios: SIGKILL leaves no producer transaction, lock, or message;
+SIGTERM commits both reported producer messages and exits 0; an idle
+consumer exits 0 in 35 ms; a hung handler exits 143 on the second SIGTERM
+in 504 ms. The complete just verify suite also passes, including race
+tests, Docker integration tests, nested modules, and conventions checks.
+
+.tools/compat now uses the supported client API from the actual published
+root v0.1.0-rc.1 (9772deee), with GOWORK=off and no replacement. Binary
+build metadata confirms that dependency and checksum
+h1:/6dQQQxvKhzsgcQbjEi2fyWI3OcwgPk9F9PInOeC30M=.
+The current producer example creates compat.lab with -count=0 first;
+the driver checks both migration versions before registering anything.
+
+GOFLAGS=-race just compat-lab round-trip passes against compat.lab
+(stream id 5), system/stream schema 1/1: message ids 1–5 carry five distinct
+numbered payloads, compat.lab.group (id 6) consumes all five, and stream
+destruction is verified. The missing-stream control fails with SQL0005;
+the deliberately wrong refused verdict fails because registration succeeds.
+The isolated compatibility module also passes tidy, fmt, build, and vet.
+
+The registry-declared verdict is round-trip: both registries have no
+migration steps, and source under pkg/ and client/ is identical to
+v0.1.0-rc.1.
+The schema export remains unchanged. The migration guide records the
+verified pair and labels v0.1.0 as an unreleased proposal. This proves the
+unchanged v1 baseline; no upgrade DDL or general pre-v1 compatibility promise
+is claimed. No stable tag, package-manager publication, or site deployment
+was performed at this checkpoint.
+
 ## 2026-09-12 — Seven-module Dependabot version updates verified [0787]
 
 Pushed commit 5e6ae93c9f63b3c3f010e6b587bc54b9bf033d09 pins the four dev

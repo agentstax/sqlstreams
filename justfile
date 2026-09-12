@@ -17,8 +17,8 @@ test-integration:
     cd .tests && go test -race -count=1 ./integration/...
 
 # Check a release's pinned public API against the working schema.
-compat-lab expect="round-trip":
-    cd .tools/compat && go run . -expect={{ expect }}
+compat-lab expect="round-trip" stream="compat.lab":
+    cd .tools/compat && GOWORK=off go run . -expect={{ expect }} -stream={{ stream }}
 
 # Run a scenario through Manager: Compose owns a fresh stack per repetition; native uses one supplied empty database.
 # Exit with the worst verdict: 0 pass, 1 fail, 2 unknown, 3 lab failure.

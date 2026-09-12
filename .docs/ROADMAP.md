@@ -91,12 +91,14 @@ the item is removed.
     through go.work. The hosted updater processes all seven directories
     with no reported dependency-resolution errors. PR #10 changes go.mod
     and go.sum in all seven modules, despite its generated title counting
-    six directories. The dormant .tools/compat stays excluded.
-  - The first prerelease proves packaging. There is no prior supported release
-    for a compatibility verdict yet. At a release compatibility checkpoint,
-    retain the actual prior API in .tools/compat, run the fresh-DB suite and
-    compatibility check, update the site's migration table, and cite outcomes
-    in HISTORY. The dormant Vulkan harness cannot use the renamed replacement.
+    six directories. The separately pinned .tools/compat stays excluded.
+  - The v0.1.0 release checkpoint passed locally on 2026-09-12 [0789]:
+    fresh-DB signal-e2e, full just verify, and the race-enabled compatibility
+    round-trip. The driver pins published v0.1.0-rc.1 without replacements
+    and requires current-build system/stream tables before registration.
+    Both schemas remain v1 with no migration steps; the library source is
+    unchanged from the RC. HISTORY and the site's migration table record
+    the exact pair. Commit/push the checkpoint changes before publication.
   - The documentation origin is live at sqlstreams.io [0782] [0784]. Public
     allegedlyreliable/homebrew-tap now exists on main, and the SQLStreams
     Actions secret HOMEBREW_TAP_TOKEN is configured. Stable-only cask

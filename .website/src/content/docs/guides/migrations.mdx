@@ -110,15 +110,18 @@ recorded trail, never the declared one.
 
 ## Compatibility table
 
-One row per release that changes schema, kept current with every release
-and verified mechanically (a compatibility harness drives the prior
-release's binaries against a freshly migrated database before a release
-ships).
+The table records released schemas and the prior client checked before
+an upcoming release. Before v1.0, a build may edit the baseline in place;
+recreate the database when that happens. An unchanged schema version alone
+does not promise compatibility across pre-v1 releases.
 
-| Release | System schema | Stream schema | Minimum compatible release | Notes |
-| ------- | ------------- | ------------ | -------------------------- | ----- |
-| pre-1.0 | v1            | v1           | —                          | Pre-release: schema changes edit the baseline in place; recreate the database on upgrade. |
+| Release | System schema | Stream schema | Verified prior client | Notes |
+| ------- | ------------- | ------------- | --------------------- | ----- |
+| v0.1.0-rc.1 | v1 | v1 | — | First published SQLStreams baseline. |
+| v0.1.0 (Proposed, unreleased) | v1 | v1 | v0.1.0-rc.1 | Round-trip passed on 2026-09-12 at source 65efd3a1; library and schema unchanged from the RC. |
 
-Until v1.0 ships there is no migration trail: each pre-release build defines
-the baseline schema outright, and upgrading means recreating the database.
-The table starts earning rows with the first post-v1.0 schema change.
+The checkpoint used a fresh database prepared by the current build and the
+published RC client with workspace replacement disabled. That client produced
+and consumed five distinct payloads through `compat.lab`, then destroyed the
+stream. The fresh-database signal suite also passed. Both migration registries
+are empty, so this pair needs no upgrade DDL.

@@ -8,6 +8,16 @@ The idle-fleet fix shipped 2026-09-12; see HISTORY.md and [0780] [0781] [0783].
 
 ## Release pipeline, dependency scanning, and package managers
 
+Release checkpoint for v0.1.0 passed on 2026-09-12 [0789]. Fresh-DB
+signal-e2e and the complete just verify suite pass at source 65efd3a1.
+The compatibility driver now pins published root v0.1.0-rc.1 with
+GOWORK=off and no replace. Against system/stream tables created by the
+current build, GOFLAGS=-race just compat-lab round-trip passes: five
+distinct payloads consumed and stream destruction verified. Missing-stream
+and deliberately wrong-verdict checks fail as intended. Both registries
+remain v1 with no steps. HISTORY and the migration guide record this exact
+pair; commit/push these checkpoint changes before tagging the stable release.
+
 Root, OTel, and CLI v0.1.0-rc.1 publication and standalone consumption are
 proved [0785] [0786]. Seven-module Dependabot version updates are proved
 on pushed commit 5e6ae93c [0787]: run 34718872371 succeeds and opens one
