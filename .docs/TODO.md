@@ -16,7 +16,8 @@ current build, GOFLAGS=-race just compat-lab round-trip passes: five
 distinct payloads consumed and stream destruction verified. Missing-stream
 and deliberately wrong-verdict checks fail as intended. Both registries
 remain v1 with no steps. HISTORY and the migration guide record this exact
-pair; commit/push these checkpoint changes before tagging the stable release.
+pair. The checkpoint is pushed as b5bcded6 and tagged v0.1.0;
+Homebrew publication failed after the GitHub assets were uploaded (below).
 
 Root, OTel, and CLI v0.1.0-rc.1 publication and standalone consumption are
 proved [0785] [0786]. Seven-module Dependabot version updates are proved
@@ -59,7 +60,18 @@ Go group, PR #10, replacing #4. Evidence is in ROADMAP.md and HISTORY.md.
 - [x] Prepare stable-only Homebrew publication [0788]: skip_upload renders
   auto with a token, true without one. Prereleases keep their GitHub archives.
   GoReleaser 2.18.1 check and git diff --check pass.
-- [ ] User commits/pushes the Homebrew policy; at a stable release checkpoint,
-  prove cask publication and brew installation/version output.
+- [x] Diagnose v0.1.0 release run 34721726307: all six archives and checksums
+  are published, but Homebrew fails while evaluating its repository token.
+  GoReleaser 2.18.1's restricted credential evaluator accepts only a direct
+  .Env reference; envOrDefault is available in general templates, not here.
+  Replace the Homebrew token with {{ .Env.HOMEBREW_TAP_TOKEN }} and use the
+  same direct-reference form for Chocolatey's API key. GoReleaser check
+  passes. An isolated check using upstream ApplySingleEnvOnly rejects the
+  original template and accepts both replacements with empty/dummy values;
+  the existing skip gate gives true for missing/empty tokens and auto for
+  a present token. Actual tap write access remains unproved.
+- [ ] Commit/push the credential-template fix, then publish v0.1.1 to prove
+  cask publication and brew installation/version output. Preserve the
+  published v0.1.0 tag/assets; rerunning its workflow uses the broken config.
 - [ ] Provision the Chocolatey account, settle its prerelease policy,
   configure its API key, and verify Windows packaging and installation.

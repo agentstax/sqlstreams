@@ -74,7 +74,7 @@ homebrew_casks:
       owner: allegedlyreliable
       name: homebrew-tap
       branch: main
-      token: '{{ envOrDefault "HOMEBREW_TAP_TOKEN" "" }}'
+      token: '{{ .Env.HOMEBREW_TAP_TOKEN }}'
     skip_upload: '{{ if isEnvSet "HOMEBREW_TAP_TOKEN" }}auto{{ else }}true{{ end }}'
     commit_msg_template: "sqlstreams {{ .Tag }}"
     hooks:
@@ -104,5 +104,5 @@ chocolateys:
       {{ .ProjectName }} installer package.
       CLI for SQLStreams, the Postgres-backed message log.
     release_notes: "https://github.com/allegedlyreliable/sqlstreams/releases/tag/{{ .Tag }}"
-    api_key: '{{ envOrDefault "CHOCOLATEY_API_KEY" "" }}'
+    api_key: '{{ .Env.CHOCOLATEY_API_KEY }}'
     source_repo: "https://push.chocolatey.org/"
