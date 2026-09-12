@@ -6,7 +6,7 @@ against the control-plane Postgres.
 ## Install
 
 ```sh
-go install github.com/allegedlyreliable/sqlstreams/cmd/sqlstreams@latest
+go install github.com/allegedlyreliable/sqlstreams/cmd/sqlstreams@v0.1.0-rc.1
 ```
 
 ## Connect

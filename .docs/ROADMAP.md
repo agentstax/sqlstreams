@@ -58,16 +58,18 @@ the item is removed.
     [34716240955](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34716240955)
     passes just verify on the tagged commit, including the Docker integration
     tests and conventions checks. The earlier static-error failure is fixed.
-  - Nested publication is root -> OTel -> CLI [0786]: CLI imports both.
-    otel/v0.1.0-rc.1 is published at c99bd5e8; a public Go download and fresh
-    workspace-disabled consumer pass with published root/OTel versions and
-    no replaces. CLI now pins both v0.1.0-rc.1 releases and passes standalone
-    tidy/fmt/build/vet/race tests. Its go.mod/go.sum await user commit/push,
-    then cmd/sqlstreams/v0.1.0-rc.1 and the real go install/version proof.
-    The CLI version default delegates to Fang's build-info handling;
-    GoReleaser's override remains intact. No placeholder root
-    version or local replace belongs in a published nested module. Add nested
-    and dev modules to Dependabot version updates once they resolve remotely.
+  - Nested publication and standalone use are proved [0786]. OTel
+    otel/v0.1.0-rc.1 names c99bd5e8; CLI cmd/sqlstreams/v0.1.0-rc.1 names
+    06dc9b6f1e86bab71e52f190ffaf39a954ce9daf. OTel requires the published
+    root, and CLI requires published root/OTel v0.1.0-rc.1. Both passed
+    standalone tidy/fmt/build/vet/race tests. A fresh OTel consumer runs
+    outside the repo; GOWORK=off go install of the CLI succeeds outside the
+    workspace, and --version prints sqlstreams version v0.1.0-rc.1.
+    Installed build metadata identifies the CLI version and both published
+    dependencies with no replacements. GoReleaser's injected archive version
+    remains 0.1.0-rc.1 (without the Go module version's leading v).
+    READMEs now show the verified versioned install command. Nested and dev
+    modules still need adding to Dependabot version updates once resolvable.
   - The first prerelease proves packaging. There is no prior supported release
     for a compatibility verdict yet. At a release compatibility checkpoint,
     retain the actual prior API in .tools/compat, run the fresh-DB suite and

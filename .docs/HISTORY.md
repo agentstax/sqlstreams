@@ -5,19 +5,28 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
-## 2026-09-12 — OTel Go module publication verified [0786]
+## 2026-09-12 — OTel and CLI Go module publication verified [0786]
 
 [otel/v0.1.0-rc.1](https://github.com/allegedlyreliable/sqlstreams/tree/otel/v0.1.0-rc.1/otel)
-names c99bd5e8ab38c82311e36695e596f30dd3a66356 and requires the published
-root v0.1.0-rc.1. Go's public module download resolves that exact tag and
-commit. A fresh consumer outside the repository builds and runs with
-GOWORK=off, both published module versions, and no local replacements;
-its exporter config resolves schema=sqlstreams and timeout=5s.
+names c99bd5e8ab38c82311e36695e596f30dd3a66356 and requires root
+v0.1.0-rc.1. The CLI tag
+[cmd/sqlstreams/v0.1.0-rc.1](https://github.com/allegedlyreliable/sqlstreams/tree/cmd/sqlstreams/v0.1.0-rc.1/cmd/sqlstreams)
+names 06dc9b6f1e86bab71e52f190ffaf39a954ce9daf and requires both published
+root and OTel v0.1.0-rc.1. The root tag remains at 9772deee.
 
-OTel's standalone tidy/fmt/build/vet/race checks passed before publication.
-The CLI's OTel requirement and transitive checksums are now prepared and
-its standalone checks pass; CLI tagging and versioned go install remain
-in flight until the user commits that preparation.
+Both modules passed tidy/fmt/build/vet/race tests with GOWORK=off against
+downloaded dependencies. A fresh consumer outside the repository builds
+and runs against published OTel/root without replacements; exporter config
+resolves schema=sqlstreams and timeout=5s. Versioned CLI go install succeeds
+outside the workspace into a temporary GOBIN. The installed binary's
+--version prints sqlstreams version v0.1.0-rc.1, and --help succeeds. Build
+metadata confirms CLI, root, and OTel v0.1.0-rc.1 with no replacements;
+Go download metadata confirms the CLI tag's commit.
+
+The empty CLI version default delegates to Fang's installed-module build
+info; GoReleaser still injects 0.1.0-rc.1 into release archives. READMEs now
+show the verified versioned CLI installation command. Homebrew/Chocolatey
+publication and the remaining dependency-update configuration stay in TODO.
 
 ## 2026-09-12 — First CLI prerelease distribution verified [0785]
 

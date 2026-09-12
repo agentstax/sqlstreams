@@ -130,13 +130,11 @@ Retries, dead letters, transactional produce, idempotent produce, keyed ordering
 
 ### CLI
 
-The CLI has not been released yet. Homebrew, Chocolatey and
-`go install ...@latest` are not available.
-
-Build from a checkout after the [development setup](DEVELOPING.md):
+Download a platform archive from [GitHub Releases](https://github.com/allegedlyreliable/sqlstreams/releases/tag/v0.1.0-rc.1),
+or install the prerelease with Go:
 
 ```sh
-go install ./cmd/sqlstreams
+go install github.com/allegedlyreliable/sqlstreams/cmd/sqlstreams@v0.1.0-rc.1
 ```
 
 The binary goes into `GOBIN`, or `$(go env GOPATH)/bin` when `GOBIN` is unset.
