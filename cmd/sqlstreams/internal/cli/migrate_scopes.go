@@ -46,7 +46,7 @@ func newMigrateStreamCmd(g *globalFlags) *cobra.Command {
 // directions) share this body -- they differ only in the scope they resolve and
 // the direction they guard. The stream scope alone takes a <name> positional.
 func newDirectionCmd(g *globalFlags, s scope, dir direction) *cobra.Command {
-	var to int64
+	var targetVersion int64
 
 	use := dir.verb()
 	args := cobra.NoArgs
@@ -57,19 +57,19 @@ func newDirectionCmd(g *globalFlags, s scope, dir direction) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   use,
-		Short: fmt.Sprintf("Migrate the %s tables %s to --to N", scopeNoun(s), directionWord(dir)),
+		Short: fmt.Sprintf("Migrate the %s tables %s to the required --target-version", scopeNoun(s), directionWord(dir)),
 		Args:  args,
 		RunE: func(cmd *cobra.Command, cmdArgs []string) error {
 			ctx := cmd.Context()
 			out := cmd.OutOrStdout()
 
-			// --to is mandatory: no implicit "to latest" on up, no implicit
+			// --target-version is mandatory: no implicit "to latest" on up, no implicit
 			// "one step back" on down. The message is direction-specific.
-			if !cmd.Flags().Changed("to") {
-				return errToRequired(s, dir)
+			if !cmd.Flags().Changed("target-version") {
+				return errTargetVersionRequired(s, dir)
 			}
-			if ceiling := s.ceiling(); to < 1 || to > ceiling {
-				return failUsage("--to %d is out of range [1, %d] for this binary -- run `sqlstreams migrate versions` to see what's available", to, ceiling)
+			if ceiling := s.ceiling(); targetVersion < 1 || targetVersion > ceiling {
+				return failUsage("--target-version %d is out of range [1, %d] for this binary -- run `sqlstreams migrate versions` to see what's available", targetVersion, ceiling)
 			}
 
 			name := ""
@@ -90,23 +90,23 @@ func newDirectionCmd(g *globalFlags, s scope, dir direction) *cobra.Command {
 			}
 			if s == scopeStreams && len(targets) == 0 {
 				if g.jsonOutput() {
-					writeJSON(out, toMigrateResultDocument(s, targets, to, 0))
+					writeJSON(out, toMigrateResultDocument(s, targets, targetVersion, 0))
 					return nil
 				}
 				fmt.Fprintln(out, "no streams registered")
 				return nil
 			}
 
-			moving, err := guardDirection(targets, dir, to)
+			moving, err := guardDirection(targets, dir, targetVersion)
 			if err != nil {
 				return err
 			}
 			if moving == 0 {
 				if g.jsonOutput() {
-					writeJSON(out, toMigrateResultDocument(s, targets, to, 0))
+					writeJSON(out, toMigrateResultDocument(s, targets, targetVersion, 0))
 					return nil
 				}
-				printMigrateNoop(out, s, targets, to)
+				printMigrateNoop(out, s, targets, targetVersion)
 				return nil
 			}
 
@@ -129,20 +129,20 @@ func newDirectionCmd(g *globalFlags, s scope, dir direction) *cobra.Command {
 				return failOp("another migration is already in progress (advisory lock held) -- wait for it to finish, or confirm no other migrate process is actually running before retrying")
 			}
 
-			if err := runScopeMigrate(ctx, client, s, name, to); err != nil {
+			if err := runScopeMigrate(ctx, client, s, name, targetVersion); err != nil {
 				return migrateError(err)
 			}
 
 			if g.jsonOutput() {
-				writeJSON(out, toMigrateResultDocument(s, targets, to, moving))
+				writeJSON(out, toMigrateResultDocument(s, targets, targetVersion, moving))
 				return nil
 			}
-			printMigrateResult(out, s, dir, targets, to, moving)
+			printMigrateResult(out, s, dir, targets, targetVersion, moving)
 			return nil
 		},
 	}
 
-	cmd.Flags().Int64Var(&to, "to", 0, "target migration version (required)")
+	cmd.Flags().Int64Var(&targetVersion, "target-version", 0, "target migration version (required)")
 	return cmd
 }
 
@@ -153,7 +153,7 @@ func requireMigrateStreamName(dir direction) cobra.PositionalArgs {
 	verb := dir.verb()
 	return func(_ *cobra.Command, args []string) error {
 		if len(args) < 1 {
-			return failUsage("%s requires a stream name\nusage: sqlstreams migrate stream %s <name> --to N", verb, verb)
+			return failUsage("%s requires a stream name\nusage: sqlstreams migrate stream %s <name> --target-version N", verb, verb)
 		}
 		if len(args) > 1 {
 			return failUsage("migrate stream %s takes exactly one stream name", verb)
@@ -162,22 +162,22 @@ func requireMigrateStreamName(dir direction) cobra.PositionalArgs {
 	}
 }
 
-// errToRequired is the direction-specific teaching error for a missing --to.
-func errToRequired(s scope, dir direction) error {
+// errTargetVersionRequired is the direction-specific teaching error for a missing --target-version.
+func errTargetVersionRequired(s scope, dir direction) error {
 	if dir == dirDown {
-		return failUsage("--to is required for %s down -- downgrades name an explicit target, there's no implicit \"down one step\"", scopeNoun(s))
+		return failUsage("--target-version is required for %s down -- downgrades name an explicit target, there's no implicit \"down one step\"", scopeNoun(s))
 	}
-	return failUsage("--to is required (e.g. --to %d) -- run `sqlstreams migrate versions` to see what's available", s.ceiling())
+	return failUsage("--target-version is required (e.g. --target-version %d) -- run `sqlstreams migrate versions` to see what's available", s.ceiling())
 }
 
-func runScopeMigrate(ctx context.Context, client *sqlstreams.Client, s scope, name string, to int64) error {
+func runScopeMigrate(ctx context.Context, client *sqlstreams.Client, s scope, name string, targetVersion int64) error {
 	switch s {
 	case scopeSystem:
-		return client.System().Migrate(ctx, to)
+		return client.System().Migrate(ctx, targetVersion)
 	case scopeStream:
-		return client.Stream[sqlstreams.RawPayload](name).Migrate(ctx, to)
+		return client.Stream[sqlstreams.RawPayload](name).Migrate(ctx, targetVersion)
 	default:
-		return client.System().MigrateStreams(ctx, to)
+		return client.System().MigrateStreams(ctx, targetVersion)
 	}
 }
 
@@ -187,32 +187,32 @@ func runScopeMigrate(ctx context.Context, client *sqlstreams.Client, s scope, na
 // present when one stream was named and absent otherwise.
 type migrateResultDocument struct {
 	Stream        string `json:"stream,omitempty"` // the named stream; absent for system and every-stream runs
-	To            int64  `json:"to"`
+	TargetVersion int64  `json:"target_version"`
 	MigratedCount int    `json:"migrated_count"`
 }
 
-func toMigrateResultDocument(s scope, targets []migrateTarget, to int64, moving int) migrateResultDocument {
-	document := migrateResultDocument{To: to, MigratedCount: moving}
+func toMigrateResultDocument(s scope, targets []migrateTarget, targetVersion int64, moving int) migrateResultDocument {
+	document := migrateResultDocument{TargetVersion: targetVersion, MigratedCount: moving}
 	if s == scopeStream {
 		document.Stream = targets[0].name
 	}
 	return document
 }
 
-func printMigrateNoop(w io.Writer, s scope, targets []migrateTarget, to int64) {
+func printMigrateNoop(w io.Writer, s scope, targets []migrateTarget, targetVersion int64) {
 	if s == scopeStreams {
-		fmt.Fprintf(w, "%s all streams already at version %d, nothing to do\n", glyphOK(), to)
+		fmt.Fprintf(w, "%s all streams already at version %d, nothing to do\n", glyphOK(), targetVersion)
 		return
 	}
-	fmt.Fprintf(w, "%s %s already at version %d, nothing to do\n", glyphOK(), singleLabel(s, targets), to)
+	fmt.Fprintf(w, "%s %s already at version %d, nothing to do\n", glyphOK(), singleLabel(s, targets), targetVersion)
 }
 
-func printMigrateResult(w io.Writer, s scope, dir direction, targets []migrateTarget, to int64, moving int) {
+func printMigrateResult(w io.Writer, s scope, dir direction, targets []migrateTarget, targetVersion int64, moving int) {
 	if s == scopeStreams {
-		fmt.Fprintf(w, "%s migrated %s %s to version %d\n", glyphOK(), pluralize(moving, "stream"), dir.verb(), to)
+		fmt.Fprintf(w, "%s migrated %s %s to version %d\n", glyphOK(), pluralize(moving, "stream"), dir.verb(), targetVersion)
 		return
 	}
-	fmt.Fprintf(w, "%s %s migrated %s to version %d\n", glyphOK(), singleLabel(s, targets), dir.verb(), to)
+	fmt.Fprintf(w, "%s %s migrated %s to version %d\n", glyphOK(), singleLabel(s, targets), dir.verb(), targetVersion)
 }
 
 func singleLabel(s scope, targets []migrateTarget) string {

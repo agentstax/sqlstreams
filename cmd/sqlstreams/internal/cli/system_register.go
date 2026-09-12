@@ -15,7 +15,7 @@ func newSystemRegisterCmd(g *globalFlags) *cobra.Command {
 			"system config, including built-in streams, alert schedules, and collector rate.\n" +
 			"An existing system is redeclared with those defaults. Use System().Register\n" +
 			"in application code to declare custom config. Migrate existing tables with\n" +
-			"sqlstreams migrate system up --to N.",
+			"sqlstreams migrate system up --target-version N.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()

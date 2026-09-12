@@ -30,7 +30,7 @@ func newMigrateStatusCmd(g *globalFlags) *cobra.Command {
 			sysCurrent, err := client.System().MigrationVersion(ctx)
 			if err != nil {
 				if errors.Is(err, sqlstreams.ErrNotRegistered) {
-					return migrateStatusNotInitialized(out, g)
+					return migrateStatusNotRegistered(out, g)
 				}
 				return translateAdminError(err)
 			}
@@ -61,7 +61,7 @@ func newMigrateStatusCmd(g *globalFlags) *cobra.Command {
 
 			if g.jsonOutput() {
 				document := migrateStatusDocument{
-					Initialized:     true,
+					Registered:      true,
 					SystemAvailable: sysAvail,
 					StreamAvailable: streamAvail,
 					System: &migrateSystemDocument{
@@ -107,21 +107,21 @@ func newMigrateStatusCmd(g *globalFlags) *cobra.Command {
 				fmt.Fprintln(out)
 			}
 			if systemBehind {
-				fmt.Fprintf(out, "system behind (%d < %d) -- run `sqlstreams migrate system up --to %d`\n", sysCurrent, sysAvail, sysAvail)
+				fmt.Fprintf(out, "system behind (%d < %d) -- run `sqlstreams migrate system up --target-version %d`\n", sysCurrent, sysAvail, sysAvail)
 			}
 			if streamsBehind > 0 {
-				fmt.Fprintf(out, "%s behind -- run `sqlstreams migrate streams up --to %d`\n", pluralize(streamsBehind, "stream"), streamAvail)
+				fmt.Fprintf(out, "%s behind -- run `sqlstreams migrate streams up --target-version %d`\n", pluralize(streamsBehind, "stream"), streamAvail)
 			}
 			return nil
 		},
 	}
 }
 
-// migrateStatusDocument is migrate status's json result. Initialized false
+// migrateStatusDocument is migrate status's json result. Registered false
 // means the control-plane tables were never created; system is then null and
 // streams empty.
 type migrateStatusDocument struct {
-	Initialized     bool                    `json:"initialized"`
+	Registered      bool                    `json:"registered"`
 	SystemAvailable int64                   `json:"system_available"`
 	StreamAvailable int64                   `json:"stream_available"`
 	System          *migrateSystemDocument  `json:"system"`
@@ -145,9 +145,9 @@ type migrateStreamDocument struct {
 	Behind    bool   `json:"behind"`
 }
 
-// migrateStatusNotInitialized is the shared never-initialized result: still
-// exit 0 -- an uninitialized database is an answer, not a failure.
-func migrateStatusNotInitialized(w io.Writer, g *globalFlags) error {
+// migrateStatusNotRegistered is the shared never-registered result: still
+// exit 0 -- an unregistered database is an answer, not a failure.
+func migrateStatusNotRegistered(w io.Writer, g *globalFlags) error {
 	if g.jsonOutput() {
 		writeJSON(w, migrateStatusDocument{
 			SystemAvailable: availableSystemVersion(),
@@ -156,6 +156,6 @@ func migrateStatusNotInitialized(w io.Writer, g *globalFlags) error {
 		})
 		return nil
 	}
-	fmt.Fprintln(w, "system not initialized -- run `sqlstreams system register`")
+	fmt.Fprintln(w, "system not registered -- run `sqlstreams system register`")
 	return nil
 }

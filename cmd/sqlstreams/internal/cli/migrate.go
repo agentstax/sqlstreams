@@ -120,15 +120,15 @@ func gatherTargets(ctx context.Context, client *sqlstreams.Client, s scope, name
 // controller would happily do either from a bare target -- this is what makes the
 // explicit up/down split mean something. Returns the count of targets that will
 // actually move (target != current) so the caller can no-op cleanly.
-func guardDirection(targets []migrateTarget, dir direction, to int64) (moving int, err error) {
+func guardDirection(targets []migrateTarget, dir direction, targetVersion int64) (moving int, err error) {
 	for _, t := range targets {
 		switch {
-		case dir == dirUp && to < t.current:
-			return 0, failUsage("%s is at version %d; --to %d is a downgrade -- use `down` to roll back", t.name, t.current, to)
-		case dir == dirDown && to > t.current:
-			return 0, failUsage("%s is at version %d; --to %d is not a downgrade -- use `up` to move forward", t.name, t.current, to)
+		case dir == dirUp && targetVersion < t.current:
+			return 0, failUsage("%s is at version %d; --target-version %d is a downgrade -- use `down` to roll back", t.name, t.current, targetVersion)
+		case dir == dirDown && targetVersion > t.current:
+			return 0, failUsage("%s is at version %d; --target-version %d is not a downgrade -- use `up` to move forward", t.name, t.current, targetVersion)
 		}
-		if to != t.current {
+		if targetVersion != t.current {
 			moving++
 		}
 	}

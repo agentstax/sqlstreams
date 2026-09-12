@@ -216,3 +216,16 @@ exclusive; omit both to list both. Scheduler run supports `--concurrency paralle
 or `exclusive`, defaulting to `parallel`. Schedules compact their messages,
 so `ordered` concurrency is rejected.
 `--metrics-address` on `manager run` names the Prometheus endpoint address.
+
+Migration commands require `--target-version`, matching the client's
+`targetVersion` argument:
+
+```sh
+sqlstreams migrate stream up orders.created --target-version 1
+```
+
+Migration result JSON uses `target_version`; status JSON uses `registered`.
+`stream config get <name> [key]` adds default/current comparisons to
+`Stream.Get`. Metric latest/history add partial attribute filtering across
+series to the client's exact-series reads; their JSON retains a `series`
+array and reports `series_total` before truncation.
