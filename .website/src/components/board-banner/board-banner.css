@@ -10,6 +10,11 @@
 	gap: var(--space-6);
 }
 
+.home-link {
+	align-self: flex-start;
+	max-width: 100%;
+}
+
 .wordmark {
 	display: block;
 	max-width: 100%;
