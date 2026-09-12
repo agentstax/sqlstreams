@@ -1,0 +1,40 @@
+# the ceiling over 4 streams: unpaced explicit batches from four callers per stream, two groups on every stream
+
+[input]
+stream        orders-1         DeliveryLogMode all
+consumers     fraud-scoring    handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
+consumers     analytics        handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
+stream        orders-2         DeliveryLogMode all
+consumers     fraud-scoring    handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
+consumers     analytics        handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
+stream        orders-3         DeliveryLogMode all
+consumers     fraud-scoring    handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
+consumers     analytics        handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
+stream        orders-4         DeliveryLogMode all
+consumers     fraud-scoring    handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
+consumers     analytics        handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
+producer      batch concurrency 4 per stream
+recording     per-message disabled; aggregate counters only
+exceptions    disabled
+producer      explicit batching true, concurrent callers 4
+workload      automatic batching false, payload bytes 1000, pool max 64, batch size 250
+duration      150s
+
+[shape]
+warm:    warmup unpaced per stream 30s
+hold:    unpaced per stream 2m
+
+at 0m    consumers 2
+
+[expect]
+lost                  0
+unexpected            0
+recovered             report
+undelivered           0
+duplicates            report
+unbucketed            0
+reclaims              report
+dead                  0
+backlog_bounded       report
+generator_headroom    report
+errors                0
