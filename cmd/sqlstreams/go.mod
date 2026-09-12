@@ -5,7 +5,7 @@ go 1.27.0
 require (
 	charm.land/lipgloss/v2 v2.0.6
 	github.com/allegedlyreliable/sqlstreams v0.1.1
-	github.com/allegedlyreliable/sqlstreams/otel v0.1.0-rc.1
+	github.com/allegedlyreliable/sqlstreams/otel v0.1.1
 	github.com/charmbracelet/fang v1.0.0
 	github.com/charmbracelet/x/term v0.2.2
 	github.com/jackc/pgx/v5 v5.10.0

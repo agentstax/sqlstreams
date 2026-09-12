@@ -13,19 +13,17 @@ and security remediation are recorded in HISTORY [0785] [0787] [0788] [0789].
 Stable nested module publication follows the existing root -> OTel -> CLI
 order [0786]. The user authorized both tag pushes; agents never commit.
 
-- [x] Prepare OTel, CLI, .bench, .tests, .tools, and examples with a real
-  root v0.1.1 require and tidied sums. All six pass standalone tidy -diff,
-  build, vet, and race tests with GOWORK=off, including Docker integration
-  tests. The compatibility driver retains v0.1.0-rc.1 as its tested prior
-  release; it must not advance with routine dependency updates.
-- [ ] User commits/pushes this preparation; publish otel/v0.1.1 from that
-  commit and verify it resolves through the public Go module path.
-- [ ] Once OTel resolves remotely, pin CLI to OTel v0.1.1, tidy, and verify
-  standalone. Update both READMEs' Go install commands to the stable tag
-  in that publication change. User commits/pushes; publish
-  cmd/sqlstreams/v0.1.1 and verify versioned go install outside the workspace.
-- [ ] Verify a fresh consumer of published OTel/root v0.1.1, record both
-  stable module publications in HISTORY, and remove the completed checklist.
+OTel v0.1.1 is published at fe29a31f and verified with an external consumer
+of stable root/OTel. All six active nested modules' root pins are published
+in that commit. The compatibility harness retains its tested RC pin.
+
+- [x] Prepare CLI's OTel v0.1.1 require, tidy its sums, and pass standalone
+  tidy -diff, build, vet, and race tests with GOWORK=off. Both READMEs now
+  prepare the stable go install command for publication with that tag.
+- [ ] User commits/pushes the CLI preparation; publish cmd/sqlstreams/v0.1.1
+  from that commit. Verify versioned go install outside the workspace,
+  --version, and build metadata for stable root/OTel with no replacements.
+  Record the final publication in HISTORY and remove this checklist.
 - [ ] Provision the Chocolatey account, settle its prerelease policy,
   configure its API key, and verify Windows packaging and installation.
 

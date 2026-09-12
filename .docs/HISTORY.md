@@ -5,6 +5,26 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-12 — Stable OTel Go module publication verified [0786] [0787]
+
+[otel/v0.1.1](https://github.com/allegedlyreliable/sqlstreams/tree/otel/v0.1.1/otel)
+names fe29a31f90c073bec7de88c7570fcd4cbf314de4 and requires the published
+root v0.1.1. Go download metadata confirms the tag, subdirectory, commit,
+and module checksum h1:80da6X8isHxGqoF1YzSH874ruDPbi2FZaYwPPowRNWA=.
+
+A fresh module outside the repository resolves published OTel and root
+v0.1.1 with GOWORK=off and no replacements. Its executable imports both
+modules, validates exporter defaults, and prints schema=sqlstreams and
+timeout=5s. Before publication, OTel and the five other active nested
+modules passed standalone tidy -diff, build, vet, and race checks against
+root v0.1.1, including the Docker integration suite. Commit fe29a31f
+publishes those root pins and the refreshed installation/release docs.
+The compatibility driver intentionally retains its tested v0.1.0-rc.1 pin.
+
+CLI stable publication remains pending: its next commit must require the
+now-published OTel v0.1.1 before cmd/sqlstreams/v0.1.1 is tagged. No root
+tag, GitHub release asset, or Homebrew cask was changed by the OTel tag.
+
 ## 2026-09-12 — Stable CLI and Homebrew installation verified [0788] [0789]
 
 [v0.1.1](https://github.com/allegedlyreliable/sqlstreams/releases/tag/v0.1.1)

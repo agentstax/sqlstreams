@@ -17,16 +17,17 @@ the item is removed.
 ## Now
 
 - **Release pipeline, dependency scanning, and package managers** -- finish
-  stable nested Go module publication and Chocolatey; execution in TODO.
+  stable CLI Go module publication and Chocolatey; execution in TODO.
   - Root and CLI archive v0.1.1 are public at e4a768ba. Release run
     34722343301 passes, publishes all six archives/checksums, and writes
     the Homebrew cask. Tap commit 44e16a1d and the installed macOS arm64
     binary prove installation and version 0.1.1 [0788]. HISTORY holds the
     earlier no-secret prerelease proof and the v0.1.0 template failure.
-  - Stable OTel/CLI Go tags remain to publish in dependency order [0786].
-    All six active nested modules now have prepared root v0.1.1 pins and
-    pass standalone checks. OTel must publish before CLI can require it.
-    The existing published nested tags are v0.1.0-rc.1.
+  - OTel v0.1.1 is published at fe29a31f and verified with a fresh external
+    consumer of stable root/OTel [0786]. All six active nested modules'
+    root v0.1.1 pins are published and pass standalone checks. CLI now has
+    a prepared OTel v0.1.1 pin and stable installation docs; commit/push,
+    cmd/sqlstreams/v0.1.1, and versioned go install proof remain in TODO.
   - Dependabot version updates cover all seven active Go modules in one
     monthly group with a seven-day cooldown, plus npm and Actions [0787].
     All three ecosystem jobs passed; Go opened one grouped PR. Alerts,
