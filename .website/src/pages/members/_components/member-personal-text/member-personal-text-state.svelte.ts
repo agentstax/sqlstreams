@@ -1,5 +1,5 @@
-const idleDelayMs = 4_000;
-const growthDurationMs = 110_000;
+const idleDelayMs = 5_000;
+const growthDurationMs = 50_000;
 
 export class MemberPersonalTextState {
 	progress = $state(0);
@@ -71,9 +71,14 @@ export class MemberPersonalTextState {
 	private setProgress(progress: number, text: HTMLElement): void {
 		this.progress = progress;
 		// Compensate for enlargement while progressively reducing pixel speed.
-		const playbackRate = 1 / this.scale ** 1.9;
+		const playbackRate = 1 / this.scale ** 1.2;
 		for (const animation of text.getAnimations({ subtree: true })) {
 			animation.updatePlaybackRate(playbackRate);
 		}
+
+    console.log("the end is never the end")
+    if (progress >= 1.0) {
+      console.log("the end.")
+    }
 	}
 }
