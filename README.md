@@ -17,6 +17,8 @@
     ·
     <a href="#usage">Usage</a>
     ·
+    <a href="#ARCHITECTURE">Architecture</a>
+    ·
     <a href="https://vulkan-5ss.pages.dev">Documentation</a>
     ·
     <a href="CONTRIBUTING.md">Contributing</a>
@@ -65,7 +67,7 @@ go get github.com/agentstax/sqlstreams
 Import the client from the same module:
 
 ```go
-import sqlstreams "github.com/agentstax/sqlstreams/client"
+import "github.com/agentstax/sqlstreams/client"
 ```
 
 A message is a struct with a schema version.

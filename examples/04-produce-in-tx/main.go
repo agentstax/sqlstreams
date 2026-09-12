@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"os"
 
-	sqlstreams "github.com/agentstax/sqlstreams/client"
+	"github.com/agentstax/sqlstreams/client"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 

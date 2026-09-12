@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded
 date: 2026-09-12
 phase: "pre-v1"
 ---
@@ -25,3 +25,6 @@ visible at the repository root without introducing another Go module.
 The client shares the root module's dependencies and release version.
 Existing callers must update their import path; no forwarding package remains
 at the old path. Convention checks include the new root.
+
+The explicit-alias requirement is superseded by
+[0762](0762-client-imports-use-the-declared-package-name.md).

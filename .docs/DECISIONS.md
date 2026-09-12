@@ -278,30 +278,30 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 - 0523 2026-08-16 accepted (phase 14) — The metric point type is Measurement, not Sample
 - 0524 2026-08-16 accepted (phase 14) — Alert pipeline instrumentation: state gauges pulled, run outcomes pushed
 - 0525 2026-08-16 accepted (phase 14) — ProduceBatch: one call, N messages, one transaction
-- 0526 2026-08-17 accepted (phase 14b) — # migrate.Controller is the package's only door; the schema gate reads by id
-- 0527 2026-08-17 accepted (phase 14b) — # pkg/migrate adopts the three-layer template
-- 0528 2026-08-17 accepted (phase 14b) — # pkg/logger, pkg/retry, pkg/errors, pkg/context merge into a flat pkg/common
-- 0529 2026-08-17 accepted (phase 14b) — # One Querier contract; the produce transaction is the one sanctioned crossing
-- 0530 2026-08-18 accepted (phase 14b) — # pkg/compaction stays two-layer; MessageRow lives in common
-- 0531 2026-08-18 accepted (phase 14b) — # System-topic and cron-job declarations live in the domain's controller
-- 0532 2026-08-18 accepted (phase 14b) — # Consumer read-models live with the controller whose verbs return them
-- 0533 2026-08-18 accepted (phase 14b) — # Field absence is the zero value, never a nil pointer
-- 0534 2026-08-18 accepted (phase 14b) — # The metrics domain's write door is pkg/metrics/producer
-- 0535 2026-08-18 accepted (phase 14b) — # consumer/base cleanup: pure constructors, symmetric key verbs, RecordMargin
-- 0536 2026-08-18 accepted (phase 14b) — # MessageOptions is the sanctioned nilable sparse sub-document
-- 0537 2026-08-18 accepted (phase 14b) — # Every worker kind carries a controller layer
-- 0538 2026-08-19 accepted (phase 14b) — # File content ordering convention
-- 0539 2026-08-19 accepted (phase 14b) — # Blank-line convention for function bodies
-- 0540 2026-08-19 accepted (phase 14b) — # Bare sub-consumer constructors: doc fencing, not structural fencing
-- 0541 2026-08-19 superseded in part by 0720 and 0723 (phase 14b) — # examples, bench, and reference become dev-only nested modules
-- 0542 2026-08-19 accepted (phase 14b) — # Config & options refinement: the three shape decisions
-- 0543 2026-08-19 accepted (phase 14b) — # Config field order: domain-first, ambient tail
-- 0544 2026-08-19 accepted (phase 14b) — # Dead-field pass: two deletions, one exemption
-- 0545 2026-08-19 accepted (phase 14b) — # The waterline worker is renamed cursor_advancer; AdvanceWaterline becomes AdvanceCommitted
-- 0546 2026-08-19 accepted (phase 14b) — # Controller and datastore verbs drop their own domain noun
-- 0547 2026-08-19 accepted (phase 14b) — # Run-side worker structs are named *Instance; the concrete Definition keeps both roles
-- 0548 2026-08-19 accepted (phase 14b) — # The receiver letter is the initial of the type's final word
-- 0549 2026-08-19 accepted (phase 14b) — # worker.Definition becomes data; the concrete machines are *Provisioner
+- 0526 2026-08-17 accepted (phase 14b) — migrate.Controller is the package's only door; the schema gate reads by id
+- 0527 2026-08-17 accepted (phase 14b) — pkg/migrate adopts the three-layer template
+- 0528 2026-08-17 accepted (phase 14b) — pkg/logger, pkg/retry, pkg/errors, pkg/context merge into a flat pkg/common
+- 0529 2026-08-17 accepted (phase 14b) — One Querier contract; the produce transaction is the one sanctioned crossing
+- 0530 2026-08-18 accepted (phase 14b) — pkg/compaction stays two-layer; MessageRow lives in common
+- 0531 2026-08-18 accepted (phase 14b) — System-topic and cron-job declarations live in the domain's controller
+- 0532 2026-08-18 accepted (phase 14b) — Consumer read-models live with the controller whose verbs return them
+- 0533 2026-08-18 accepted (phase 14b) — Field absence is the zero value, never a nil pointer
+- 0534 2026-08-18 accepted (phase 14b) — The metrics domain's write door is pkg/metrics/producer
+- 0535 2026-08-18 accepted (phase 14b) — consumer/base cleanup: pure constructors, symmetric key verbs, RecordMargin
+- 0536 2026-08-18 accepted (phase 14b) — MessageOptions is the sanctioned nilable sparse sub-document
+- 0537 2026-08-18 accepted (phase 14b) — Every worker kind carries a controller layer
+- 0538 2026-08-19 accepted (phase 14b) — File content ordering convention
+- 0539 2026-08-19 accepted (phase 14b) — Blank-line convention for function bodies
+- 0540 2026-08-19 accepted (phase 14b) — Bare sub-consumer constructors: doc fencing, not structural fencing
+- 0541 2026-08-19 superseded in part by 0720 and 0723 (phase 14b) — examples, bench, and reference become dev-only nested modules
+- 0542 2026-08-19 accepted (phase 14b) — Config & options refinement: the three shape decisions
+- 0543 2026-08-19 accepted (phase 14b) — Config field order: domain-first, ambient tail
+- 0544 2026-08-19 accepted (phase 14b) — Dead-field pass: two deletions, one exemption
+- 0545 2026-08-19 accepted (phase 14b) — The waterline worker is renamed cursor_advancer; AdvanceWaterline becomes AdvanceCommitted
+- 0546 2026-08-19 accepted (phase 14b) — Controller and datastore verbs drop their own domain noun
+- 0547 2026-08-19 accepted (phase 14b) — Run-side worker structs are named *Instance; the concrete Definition keeps both roles
+- 0548 2026-08-19 accepted (phase 14b) — The receiver letter is the initial of the type's final word
+- 0549 2026-08-19 accepted (phase 14b) — worker.Definition becomes data; the concrete machines are *Provisioner
 - 0550 2026-08-19 accepted (pre-v1) — Structured error anatomy: five parts + recovery, flat codes
 - 0551 2026-08-19 accepted (pre-v1) — Retry classification is consulted, never encoded; one retry type
 - 0552 2026-08-19 accepted (pre-v1) — A missing system topic raises migrate.ErrNotRegistered
@@ -321,14 +321,14 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 - 0566 2026-08-21 accepted (pre-v1) — Slow-operation threshold logging
 - 0567 2026-08-21 accepted (pre-v1) — Stop line as session summary
 - 0568 2026-08-21 accepted (pre-v1) — Summary lines declare and carry a help breadcrumb
-- 0569 2026-08-21 superseded by 0647 (pre-v1) — # Metric declarations join the shared VK registry
+- 0569 2026-08-21 superseded by 0647 (pre-v1) — Metric declarations join the shared VK registry
 - 0570 2026-08-22 accepted (pre-v1) — Topic truth stays on the topic row; history is an append-only log (topic_log, binding_log)
-- 0571 2026-08-22 accepted (pre-v1) — # Per-topic table split rule
-- 0572 2026-08-22 accepted (pre-v1) — # Append-only is for history tables
-- 0573 2026-08-22 accepted (pre-v1) — # binding_log retention: the consumer group janitor
-- 0574 2026-08-22 accepted (pre-v1) — # Compaction-key deadlock evaluation: no cycles batched, no library retry
-- 0575 2026-08-22 accepted (pre-v1) — # Public read-models carry json struct tags
-- 0576 2026-08-22 accepted (pre-v1) — # CLI --output json
+- 0571 2026-08-22 accepted (pre-v1) — Per-topic table split rule
+- 0572 2026-08-22 accepted (pre-v1) — Append-only is for history tables
+- 0573 2026-08-22 accepted (pre-v1) — binding_log retention: the consumer group janitor
+- 0574 2026-08-22 accepted (pre-v1) — Compaction-key deadlock evaluation: no cycles batched, no library retry
+- 0575 2026-08-22 accepted (pre-v1) — Public read-models carry json struct tags
+- 0576 2026-08-22 accepted (pre-v1) — CLI --output json
 - 0577 2026-08-22 accepted (pre-v1) — Worker metadata history is an append-only worker_log
 - 0578 2026-08-22 accepted (pre-v1) — fillfactor audit: adopt nothing, defaults everywhere
 - 0579 2026-08-22 accepted (pre-v1) — migration txn steps run under lock_timeout; timeout retries
@@ -399,12 +399,12 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 - 0644 2026-09-03 superseded in part by 0653 (pre-v1) — Public type names state semantic roles
 - 0645 2026-09-03 accepted (pre-v1) — Binding is a handle under the group; client lists are bare plurals
 - 0646 2026-09-04 superseded in part by 0653 (pre-v1) — the topic handle carries the message type; a message key is a handle under it
-- 0647 2026-09-05 superseded by 0648 (pre-v1) — # First-class metrics use one declaration catalog
-- 0648 2026-09-05 accepted (pre-v1) — # Metric scope belongs to the diagnostic declaration
-- 0650 2026-09-05 accepted (pre-v1) — # The migration version reads through the client
-- 0649 2026-09-05 accepted (pre-v1) — # Alerts take the metrics shape and the one registry
+- 0647 2026-09-05 superseded by 0648 (pre-v1) — First-class metrics use one declaration catalog
+- 0648 2026-09-05 accepted (pre-v1) — Metric scope belongs to the diagnostic declaration
+- 0650 2026-09-05 accepted (pre-v1) — The migration version reads through the client
+- 0649 2026-09-05 accepted (pre-v1) — Alerts take the metrics shape and the one registry
 - 0651 2026-09-05 accepted (pre-v1) — documentation links related mechanisms in context
-- 0652 2026-09-05 accepted (pre-v1) — Astro's build emits the canonical sitemap and robots.txt advertises it
+- 0652 2026-09-05 accepted (pre-v1) — Astro's build emits the canonical sitemap
 - 0653 2026-09-05 accepted (pre-v1) — Consumer names the public group handle
 - 0654 2026-09-05 accepted (pre-v1) — The shared layout qualifies document titles
 - 0655 2026-09-05 accepted (pre-v1) — Code-page meta descriptions come from code facts
@@ -533,10 +533,14 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 
 - 0756 2026-09-11 accepted (pre-v1) — Accept all wears the dark pattern
 
-- 0757 2026-09-11 accepted (pre-v1) — 0757 — Retain per-stream tables instead of LIST/RANGE subpartitioning
+- 0757 2026-09-11 accepted (pre-v1) — Retain per-stream tables instead of LIST/RANGE subpartitioning
 
 - 0758 2026-09-11 accepted (pre-v1) — The debug buffer stays always-on at its measured cost
 
 - 0759 2026-09-11 accepted (pre-v1) — Partition creation runs in an explicit transaction
 
-- 0760 2026-09-12 accepted (pre-v1) — Client package lives at the module root
+- 0760 2026-09-12 superseded (pre-v1) — Client package lives at the module root
+
+- 0761 2026-09-12 accepted (pre-v1) — Repository cleanup preserves records and repairs site links
+
+- 0762 2026-09-12 accepted (pre-v1) — Client imports use the declared package name

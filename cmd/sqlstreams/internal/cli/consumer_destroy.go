@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"strings"
 
-	sqlstreams "github.com/agentstax/sqlstreams/client"
+	"github.com/agentstax/sqlstreams/client"
 	"github.com/agentstax/sqlstreams/pkg/consume"
 	"github.com/agentstax/sqlstreams/pkg/stream"
 	"github.com/spf13/cobra"

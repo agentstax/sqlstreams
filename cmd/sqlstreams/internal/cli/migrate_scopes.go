@@ -7,7 +7,7 @@ import (
 	"io"
 	"log/slog"
 
-	sqlstreams "github.com/agentstax/sqlstreams/client"
+	"github.com/agentstax/sqlstreams/client"
 	migratecontroller "github.com/agentstax/sqlstreams/pkg/migrate/controller"
 	"github.com/spf13/cobra"
 )

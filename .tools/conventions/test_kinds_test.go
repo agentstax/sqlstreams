@@ -211,7 +211,8 @@ func readFile(t *testing.T, path string) string {
 }
 
 // importedPaths maps each import's local name to its path -- the alias
-// when one is given, else the path's last segment.
+// when one is given, else the path's last segment. The client declares
+// package sqlstreams despite its directory name.
 func importedPaths(file *ast.File) map[string]string {
 	imports := map[string]string{}
 	for _, spec := range file.Imports {
@@ -220,6 +221,9 @@ func importedPaths(file *ast.File) map[string]string {
 			continue
 		}
 		name := path[strings.LastIndex(path, "/")+1:]
+		if path == clientPath {
+			name = "sqlstreams"
+		}
 		if spec.Name != nil {
 			name = spec.Name.Name
 		}

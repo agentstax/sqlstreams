@@ -17,7 +17,7 @@ import (
 	"os"
 	"time"
 
-	sqlstreams "github.com/agentstax/sqlstreams/client"
+	"github.com/agentstax/sqlstreams/client"
 )
 
 type VideoUploadedV1 struct {

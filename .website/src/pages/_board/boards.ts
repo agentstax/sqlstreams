@@ -67,6 +67,7 @@ export const boards: Board[] = [
 			'reference/client',
 			'reference/pool',
 			'reference/stream',
+			'reference/maintenance',
 			'reference/producer',
 			'reference/consumer',
 			'reference/key',

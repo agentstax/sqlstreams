@@ -209,9 +209,9 @@ Check (this voice's marks):
 ## Sample sources
 
 Future samples come only from the author's hand-typed writing:
-session messages, git commit subjects, and the raw answers in
-.docs/archive/explain-it-back.md (the Part 2 section and the answers
-that kept their typos). Never from decision records, ROADMAP, site
+session messages, git commit subjects, and original explain-it-back answers
+supplied by the author (the retired archive is no longer in the repository).
+Never from decision records, ROADMAP, site
 prose, or the sharpened explain-it-back answers — those carry the
 AI-drafted register, and sampling them teaches the AI to imitate
 itself. Hand-corrected before/after pairs from shipped pages outrank

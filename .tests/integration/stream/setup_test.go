@@ -8,7 +8,7 @@ import (
 	"uuid"
 
 	"github.com/agentstax/sqlstreams/.tests/integration/postgres"
-	sqlstreams "github.com/agentstax/sqlstreams/client"
+	"github.com/agentstax/sqlstreams/client"
 	"github.com/agentstax/sqlstreams/pkg/common"
 	"github.com/agentstax/sqlstreams/pkg/consume"
 	keyleasedatastore "github.com/agentstax/sqlstreams/pkg/consume/base/controller/datastore"

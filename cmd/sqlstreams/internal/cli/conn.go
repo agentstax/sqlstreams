@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	sqlstreams "github.com/agentstax/sqlstreams/client"
+	"github.com/agentstax/sqlstreams/client"
 	"github.com/agentstax/sqlstreams/pkg/common/logging"
 	"github.com/agentstax/sqlstreams/pkg/datastore"
 	"github.com/jackc/pgx/v5/pgxpool"

@@ -11,7 +11,7 @@ import (
 	"text/tabwriter"
 	"time"
 
-	sqlstreams "github.com/agentstax/sqlstreams/client"
+	"github.com/agentstax/sqlstreams/client"
 	"github.com/agentstax/sqlstreams/pkg/worker"
 	"github.com/spf13/cobra"
 )

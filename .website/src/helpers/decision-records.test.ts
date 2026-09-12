@@ -90,4 +90,24 @@ describe('transformDecisionRecord', () => {
 
 		expect(tree.children?.[0]?.children?.[0]?.children?.[0]?.type).toBe('link');
 	});
+
+	it.each([
+		['link', '0590-error-fix-placeholders.md', '/decisions/0590/'],
+		['link', './0590-error-fix-placeholders.md#decision', '/decisions/0590/#decision'],
+		['definition', '0590-error-fix-placeholders.md', '/decisions/0590/'],
+		['link', '0001-missing.md', '0001-missing.md'],
+		['link', 'https://example.com/0590-record.md', 'https://example.com/0590-record.md'],
+	])('renders %s target %s at %s', (type, url, expected) => {
+		const link: MarkdownNode = {
+			type,
+			url,
+			children: [{ type: 'text', value: '[0590]' }],
+		};
+		const tree: MarkdownNode = { type: 'root', children: [link] };
+
+		transformDecisionRecord(tree, recordNumbers);
+
+		expect(link.url).toBe(expected);
+		expect(link.children).toEqual([{ type: 'text', value: '[0590]' }]);
+	});
 });

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	sqlstreams "github.com/agentstax/sqlstreams/client"
+	"github.com/agentstax/sqlstreams/client"
 	"github.com/agentstax/sqlstreams/pkg/stream"
 	"github.com/spf13/cobra"
 )

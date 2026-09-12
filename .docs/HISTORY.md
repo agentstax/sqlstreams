@@ -5,6 +5,39 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-12 — Client imports need no explicit alias [0762]
+
+Kept `client/` in the root module with package name `sqlstreams`. Removed
+redundant import aliases from maintained Go code, README, and site examples.
+The convention import scanner recognizes the declared client package name.
+
+Verification: formatting, build, and vet passed in all five affected Go
+modules. Convention race tests passed; a temporary unaliased import opening
+a connection was rejected by the existing unit-test check. Site example
+formatting and diff whitespace checks passed. No go.mod changes.
+
+## 2026-09-12 — Repository cleanup and reference audit [0761]
+
+Removed the obsolete Starlight starter README, ignored compatibility worktrees,
+replaced the missing logo-sheet link with the retained brand assets, and
+corrected the voice guide's retired archive reference. Corrected 37 decision
+ledger titles to match their records, excluding the record-number prefix.
+Root Markdown documents, decision bodies, and historical benchmark evidence
+remain in place. No Git history rewrite or permanent audit tooling.
+
+Registered the existing Maintenance page in the reference board, repaired
+five alert links, and extended the decision Markdown transform so relative
+record filenames become working site routes, including fragments.
+
+Verification: website build, Astro check, targeted ESLint and formatting,
+and all 13 decision-transform tests passed. The fresh rendered-site crawl
+passed for local navigation, assets, and anchors; the 404 page's error-route
+canonical was excluded. Markdown targets and GitHub source targets resolve
+locally. Sixteen external targets returned HTTP 200; Claude and RabbitMQ
+returned HTTP 403 and remain unverified. The Git index contains no compiled
+executables or tracked files matching ignore rules; historical executable
+blobs remain by request.
+
 ## 2026-09-12 — Client package moves to the module root [0760]
 
 Moved `pkg/sqlstreams` to `client/` within the existing root module, keeping
@@ -398,8 +431,7 @@ The site is deployed at `https://vulkan-5ss.pages.dev` (deployment
 `f4195287`), with live branding, sandbox, search, diagnostic pages and version
 manifest verified. The GitHub repository is renamed; permanent-domain and
 versioned module/binary publication remain release gates.
-The local [logo sheet](../SQLSTREAMS_LOGO_SHEET.html) and its PNG remain as
-brand deliverables; production SVG/PNG assets live in `.website/public`.
+Production [SVG/PNG brand assets](../.website/public/) live in `.website/public`.
 The completed TODO/ROADMAP rename entries and initial exploration were
 removed at close-out; remaining release gates live in ROADMAP.
 

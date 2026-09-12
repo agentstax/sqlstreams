@@ -25,8 +25,8 @@ export function recordTitle(recordNumber: string, body: string | undefined): str
 }
 
 // remarkDecisionRecords adapts a record's markdown for the site: the H1
-// duplicates the thread title band so it is removed, and [NNNN] citations
-// become links to the record they name. Other files pass through untouched.
+// duplicates the thread title band so it is removed; [NNNN] citations
+// and relative record links use site routes. Other files pass through untouched.
 export function remarkDecisionRecords(): (tree: MarkdownNode, file: { path?: string }) => void {
 	const recordsRoot = resolve(decisionRecordsDirectory);
 	const recordNumbers = new Set(
@@ -61,8 +61,16 @@ function removeLeadingHeading(tree: MarkdownNode): void {
 }
 
 function linkCitations(node: MarkdownNode, recordNumbers: Set<string>): void {
+	if (node.type === 'link' || node.type === 'definition') {
+		const match = node.url?.match(/^(?:\.\/)?(\d{4})-[^/#?]+\.md(#[^?]*)?$/);
+		const number = match?.[1];
+		if (number !== undefined && recordNumbers.has(number)) {
+			node.url = `/decisions/${number}/${match?.[2] ?? ''}`;
+		}
+	}
+
 	// a citation already inside a link stays as written
-	if (node.type === 'link' || node.children === undefined) {
+	if (node.type === 'link' || node.type === 'definition' || node.children === undefined) {
 		return;
 	}
 

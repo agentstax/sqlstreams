@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"os"
 
-	sqlstreams "github.com/agentstax/sqlstreams/client"
+	"github.com/agentstax/sqlstreams/client"
 )
 
 type VideoStateChangedV1 struct {

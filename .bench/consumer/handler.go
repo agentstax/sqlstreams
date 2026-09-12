@@ -9,7 +9,7 @@ import (
 
 	"github.com/agentstax/sqlstreams/.bench/common"
 	"github.com/agentstax/sqlstreams/.bench/record"
-	sqlstreams "github.com/agentstax/sqlstreams/client"
+	"github.com/agentstax/sqlstreams/client"
 )
 
 // errInjectedFailure is the handler's own failure under the scenario's fail

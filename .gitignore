@@ -5,6 +5,9 @@
 go.work
 go.work.sum
 
+# Prior-release worktrees used by the compatibility lab
+/.compat/
+
 # built binaries live in .bin/ (just build-e2e <test>)
 /.bin/*
 !/.bin/.gitkeep

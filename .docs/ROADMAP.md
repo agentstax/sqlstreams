@@ -75,13 +75,6 @@ the item is removed.
   - bench mark tests should be done on at least postgres 18 as there 
     could be performance gains, specifically with uuidv7
 
-- **Move the public entry package out of pkg/** — follow through on [0665]
-  and [0670] once its destination is selected. Update imports and path-aware
-  tooling separately from semantic API changes; no module split is selected.
-
-- **cleanup and refactor files** - move files to final locations, cleanup files
-  that shouldn't exist in repo and or .gitignore
-
 - **Buy the SQLStreams domain before binary release** [0726]. No domain
   selected; `sqlstreams.io` is a candidate. Keep `vulkan-5ss.pages.dev` until
   purchase. Then update `.website/src/site.ts`, diagnostic `docsBaseURL` in

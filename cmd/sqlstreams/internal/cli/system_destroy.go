@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	sqlstreams "github.com/agentstax/sqlstreams/client"
+	"github.com/agentstax/sqlstreams/client"
 	"github.com/agentstax/sqlstreams/pkg/common"
 	"github.com/agentstax/sqlstreams/pkg/common/logging"
 	metricscontroller "github.com/agentstax/sqlstreams/pkg/metric/controller"
