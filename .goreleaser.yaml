@@ -67,7 +67,7 @@ homebrew_casks:
       - sqlstreams
     binaries:
       - sqlstreams
-    homepage: https://vulkan-5ss.pages.dev
+    homepage: https://sqlstreams.io
     description: CLI for SQLStreams, the Postgres-backed message log
     license: Apache-2.0
     repository:
@@ -92,11 +92,11 @@ chocolateys:
     owners: agentstax
     title: SQLStreams
     authors: agentstax
-    project_url: https://vulkan-5ss.pages.dev
+    project_url: https://sqlstreams.io
     license_url: https://github.com/agentstax/sqlstreams/blob/main/LICENSE
     require_license_acceptance: false
     project_source_url: https://github.com/agentstax/sqlstreams
-    docs_url: https://vulkan-5ss.pages.dev
+    docs_url: https://sqlstreams.io
     bug_tracker_url: https://github.com/agentstax/sqlstreams/issues
     tags: "sqlstreams postgres messaging cli"
     summary: CLI for SQLStreams, the Postgres-backed message log

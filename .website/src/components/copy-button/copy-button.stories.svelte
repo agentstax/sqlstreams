@@ -7,7 +7,7 @@
 		component: CopyButton,
 		args: {
 			label: 'Copy link',
-			text: 'https://vulkan-5ss.pages.dev/concepts/ordering/',
+			text: 'https://sqlstreams.io/concepts/ordering/',
 		},
 	});
 </script>

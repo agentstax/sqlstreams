@@ -35,14 +35,6 @@ the item is removed.
     consumer-only process with `DisableManager` keeps alive before
     building.
 
-- **Buy the SQLStreams domain before binary release** [0726]. No domain
-  selected; `sqlstreams.io` is a candidate. Keep `vulkan-5ss.pages.dev` until
-  purchase. Then update `.website/src/site.ts`, diagnostic `docsBaseURL` in
-  `pkg/common/diagnostic/registry.go`, the version manifest, README and
-  package-manager homepage/docs links together. Configure the Pages domain,
-  verify links, and deploy with approval. Nothing is public or official yet,
-  so no legacy-route redirects are required for the rename.
-
 ## Next
 
 - **Release pipeline, dependency scanning, and package managers** -- prove
@@ -65,8 +57,7 @@ the item is removed.
      modules' manifests (cmd/sqlstreams, otel) even though only the root is
      in the config. Record the outcome here before trimming the item.
   - SQLStreams identity is locked and the GitHub repository is renamed.
-    Binary release waits for the permanent domain; do not push a release
-    tag before replacing the temporary docs origin.
+    The permanent documentation origin is live at sqlstreams.io [0782] [0784].
   - Source-publication audit 2026-09-09: remote main at `9538b149` still
     declares `github.com/agentstax/vulkan`. Publish the reviewed SQLStreams
     source before expecting its import/install paths to resolve remotely;

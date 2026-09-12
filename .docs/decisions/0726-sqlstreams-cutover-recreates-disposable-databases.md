@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded
 date: 2026-09-09
 phase: pre-v1
 ---
@@ -7,6 +7,9 @@ phase: pre-v1
 # SQLStreams cutover recreates disposable databases and keeps a temporary docs origin
 
 ## Context
+
+The temporary documentation origin is superseded by [0782]. The disposable
+database cutover decision remains in force.
 
 The SQLStreams rename [0725] reaches database catalogs, stored identities
 and diagnostic URLs. The user confirmed that all existing databases are

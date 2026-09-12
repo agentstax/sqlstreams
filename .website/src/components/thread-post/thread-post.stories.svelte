@@ -37,7 +37,7 @@
 		{@const { children: _children, ...storyProps } = args}
 		<ThreadPost {...storyProps}>
 			{#snippet actions()}
-				<CopyButton label="Copy link" text="https://vulkan-5ss.pages.dev/concepts/ordering/" />
+				<CopyButton label="Copy link" text="https://sqlstreams.io/concepts/ordering/" />
 			{/snippet}
 			<p>A framed post carries its own border, the posted-date strip, and the author's count.</p>
 		</ThreadPost>

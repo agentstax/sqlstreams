@@ -49,7 +49,7 @@ func TestLogValueRendersPartsAsFields(t *testing.T) {
 		"code":     "SQL9901",
 		"problem":  "test stream not found",
 		"recovery": "permanent",
-		"docs":     "https://vulkan-5ss.pages.dev/errors/SQL9901",
+		"docs":     "https://sqlstreams.io/errors/SQL9901",
 		"fix":      "register it with RegisterStream first",
 		"stream":   "orders",
 		"cause":    "row deleted",

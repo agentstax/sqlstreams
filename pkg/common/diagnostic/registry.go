@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-const docsBaseURL = "https://vulkan-5ss.pages.dev/errors/"
+const docsBaseURL = "https://sqlstreams.io/errors/"
 
 // Declaration is one registered SQL-coded declaration. The registry stores
 // any kind through this interface; retrieval by kind stays with each

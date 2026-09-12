@@ -5,6 +5,26 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-12 — Documentation moves to sqlstreams.io and a new Pages project [0782] [0784]
+
+The canonical documentation origin is https://sqlstreams.io. Website
+metadata, the version manifest, README links, package-manager URLs, and
+newly built library and CLI diagnostic links use it. Existing test
+expectations changed only to reflect the diagnostic URL.
+
+After the user deleted vulkan, the replacement sqlstreams Pages project
+was created with main as its production branch and deployed at
+https://sqlstreams.pages.dev (deployment 09b34475). The user attached the
+custom domain and its proxied CNAME; Cloudflare reports it active. HTTP
+and HTTPS www redirects preserve paths and query strings. Both deploy
+recipes and the frozen-version story examples target the new project.
+
+Verification: site build, targeted Prettier/ESLint, Astro and Svelte type
+checks, and affected Go fmt/build/vet/race tests passed. Live homepage,
+docs and diagnostic pages return 200 with valid TLS; canonical links,
+sitemap, robots.txt, and version manifest use sqlstreams.io, with manifest
+CORS intact. No database changes or release tags were made.
+
 ## 2026-09-12 — Idle-fleet worker-load benchmark measured [0779]
 
 The `idle-fleet-16/160/1600` bench family declares one group per stream and

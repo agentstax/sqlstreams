@@ -27,7 +27,7 @@ func TestRenderMetricBlockAlignsAllParts(t *testing.T) {
 		"  scope:          consumer_group\n" +
 		"  attribute keys: stream, group\n" +
 		"  description:    test queue depth\n" +
-		"  docs:           https://vulkan-5ss.pages.dev/errors/SQL9802\n"
+		"  docs:           https://sqlstreams.io/errors/SQL9802\n"
 	if builder.String() != want {
 		t.Fatalf("got:\n%s\nwant:\n%s", builder.String(), want)
 	}
@@ -45,7 +45,7 @@ func TestRenderErrorBlockAlignsAllParts(t *testing.T) {
 		"  cause:   connection refused\n" +
 		"  retry:   safe -- an unchanged retry can succeed\n" +
 		"  fix:     run `sqlstreams broker ping`\n" +
-		"  docs:    https://vulkan-5ss.pages.dev/errors/SQL9801\n"
+		"  docs:    https://sqlstreams.io/errors/SQL9801\n"
 	if builder.String() != want {
 		t.Fatalf("got:\n%s\nwant:\n%s", builder.String(), want)
 	}
@@ -59,7 +59,7 @@ func TestRenderErrorBlockDropsAbsentParts(t *testing.T) {
 
 	want := "error[SQL0017]: system not registered\n" +
 		"  stream: \"__system.metrics\"\n" +
-		"  docs:   https://vulkan-5ss.pages.dev/errors/SQL0017\n"
+		"  docs:   https://sqlstreams.io/errors/SQL0017\n"
 	if builder.String() != want {
 		t.Fatalf("got:\n%s\nwant:\n%s", builder.String(), want)
 	}
@@ -85,7 +85,7 @@ func TestErrorHandlerJSONStructured(t *testing.T) {
 	if object.Cause != "connection refused" || object.Fix != "run `sqlstreams broker ping`" {
 		t.Fatalf("wrong cause/fix: %+v", object)
 	}
-	if object.Docs != "https://vulkan-5ss.pages.dev/errors/SQL9801" {
+	if object.Docs != "https://sqlstreams.io/errors/SQL9801" {
 		t.Fatalf("wrong docs: %q", object.Docs)
 	}
 }

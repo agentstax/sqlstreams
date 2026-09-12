@@ -112,7 +112,7 @@ lag stream_id:
     psql "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable" \
       -c "SELECT g.name AS consumer_group, c.claimed, COALESCE((SELECT max(id) FROM message_log_{{ stream_id }}), 0) AS head, COALESCE((SELECT max(id) FROM message_log_{{ stream_id }}), 0) - c.claimed AS lag FROM consumer_group_cursor_{{ stream_id }} c JOIN consumer_group_config g ON g.id = c.consumer_group_id ORDER BY lag DESC;"
 
-### DOC SITE (https://vulkan-5ss.pages.dev) ###
+### DOC SITE (https://sqlstreams.io) ###
 
 # Start the documentation site in development mode.
 site-dev:
@@ -144,8 +144,8 @@ site-storybook:
 
 # Build and deploy the documentation site to its main branch.
 site-deploy:
-    cd .website && npm run build && ./node_modules/.bin/wrangler pages deploy dist --project-name vulkan --branch main
+    cd .website && npm run build && ./node_modules/.bin/wrangler pages deploy dist --project-name sqlstreams --branch main
 
 # Freeze a release site at a permanent version alias; aliases never change.
 site-freeze slug:
-    cd .website && npm run build && ./node_modules/.bin/wrangler pages deploy dist --project-name vulkan --branch {{ slug }}
+    cd .website && npm run build && ./node_modules/.bin/wrangler pages deploy dist --project-name sqlstreams --branch {{ slug }}

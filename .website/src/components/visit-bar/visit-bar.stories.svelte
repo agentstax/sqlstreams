@@ -5,8 +5,8 @@
 	const manifest = {
 		latest: 'main',
 		versions: [
-			{ version: 'main', url: 'https://vulkan-5ss.pages.dev' },
-			{ version: 'v0-demo', url: 'https://v0-demo.vulkan-5ss.pages.dev' },
+			{ version: 'main', url: 'https://sqlstreams.io' },
+			{ version: 'v0-demo', url: 'https://v0-demo.sqlstreams.pages.dev' },
 		],
 	};
 

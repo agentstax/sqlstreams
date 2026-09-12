@@ -37,6 +37,10 @@ second.
   vanished row clears the streak. Tick runner and passes untouched. Unit test: a declined
   row is not re-provisioned on the next reconcile and a removed row
   forgets its retry. pkg/worker green under `-race`.
+- [x] Heartbeat jitter [0783]: found by the re-run, renewals of a fleet
+  claimed together landed in one instant every 15 s. The instance
+  runner's heartbeat is now a re-jittered timer. Unit test on the delay
+  bounds; pkg/worker and pkg/alert green under `-race`.
 - [ ] Re-run `just bench idle-fleet-160 1 2m 1 3` and
   `just bench idle-fleet-1600 1 2m 1 1`; compare with the cells above.
 - [ ] Decision record (0780) if the settled DisableManager line or the

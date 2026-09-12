@@ -59,7 +59,3 @@ manual review of public user facing comments :(. I don't want to but its got to 
 review of most important website docs
 
 # Other
-
-Need new github org name "getstreamy"?
-
-Add issue 'money' - need more, please help

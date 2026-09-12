@@ -478,7 +478,7 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 - 0723 2026-09-08 accepted (pre-v1) — Repository support, build-output, and benchmark roots are hidden
 - 0724 2026-09-09 accepted (pre-v1) — The metric root is singular
 - 0725 2026-09-09 accepted (pre-v1) — SQLStreams is the project name
-- 0726 2026-09-09 accepted (pre-v1) — SQLStreams cutover recreates disposable databases and keeps a temporary docs origin
+- 0726 2026-09-09 superseded in part by 0782 (pre-v1) — SQLStreams cutover recreates disposable databases and keeps a temporary docs origin
 - 0727 2026-09-09 superseded in part by 0728 and 0732 (pre-v1) — SQLStreams technical identity follows the product name
 - 0728 2026-09-09 accepted (pre-v1) — Rename proposal review stays off the live website
 - 0729 2026-09-09 accepted (pre-v1) — SQLStreams wordmark ends with an amber semicolon
@@ -579,3 +579,6 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 - 0779 2026-09-12 superseded in part by 0781 (pre-v1) — The idle fleet's cost is the manager tick, and its losing claims convoy on the shared system rows
 - 0780 2026-09-12 accepted (pre-v1) — The group manager keeps its stream's upkeep and drops the system rows
 - 0781 2026-09-12 accepted (pre-v1) — A declined claim backs off in the pool, and live instances keep their poll rate
+- 0782 2026-09-12 superseded in part by 0784 (pre-v1) — sqlstreams.io is the documentation origin
+- 0783 2026-09-12 accepted (pre-v1) — Heartbeats are jittered like ticks
+- 0784 2026-09-12 accepted (pre-v1) — Pages project is recreated as sqlstreams
