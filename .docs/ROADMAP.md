@@ -19,7 +19,7 @@ the item is removed.
 - **Release pipeline, dependency scanning, and package managers** -- active;
   execution checklist in TODO.md. Prove the no-secret CLI prerelease before
   enabling package-manager publication.
-  - Publication verified 2026-09-12: main and v0.1.0-rc.1 both name
+  - Root publication verified 2026-09-12: v0.1.0-rc.1 names
     `9772deee2dd6a49bf343e24b409cd86461b01dba`. The canonical SQLStreams source
     is published under allegedlyreliable [0785]. A fresh, workspace-disabled
     Go module download resolves github.com/allegedlyreliable/sqlstreams at
@@ -58,13 +58,14 @@ the item is removed.
     [34716240955](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34716240955)
     passes just verify on the tagged commit, including the Docker integration
     tests and conventions checks. The earlier static-error failure is fixed.
-  - Nested publication is root -> OTel -> CLI [0786]: CLI imports OTel as
-    well as root. Both root v0.1.0-rc.1 requirements/checksums are prepared;
-    OTel passes standalone tidy/build/vet/race tests against the downloaded
-    root. User commit/push is next, then otel/v0.1.0-rc.1; only after that
-    resolves, pin it in CLI, verify standalone, and commit/publish
-    cmd/sqlstreams/v0.1.0-rc.1. The CLI's prepared version default delegates
-    to Fang's build-info handling; GoReleaser's override remains intact. No placeholder root
+  - Nested publication is root -> OTel -> CLI [0786]: CLI imports both.
+    otel/v0.1.0-rc.1 is published at c99bd5e8; a public Go download and fresh
+    workspace-disabled consumer pass with published root/OTel versions and
+    no replaces. CLI now pins both v0.1.0-rc.1 releases and passes standalone
+    tidy/fmt/build/vet/race tests. Its go.mod/go.sum await user commit/push,
+    then cmd/sqlstreams/v0.1.0-rc.1 and the real go install/version proof.
+    The CLI version default delegates to Fang's build-info handling;
+    GoReleaser's override remains intact. No placeholder root
     version or local replace belongs in a published nested module. Add nested
     and dev modules to Dependabot version updates once they resolve remotely.
   - The first prerelease proves packaging. There is no prior supported release

@@ -5,6 +5,20 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-12 — OTel Go module publication verified [0786]
+
+[otel/v0.1.0-rc.1](https://github.com/allegedlyreliable/sqlstreams/tree/otel/v0.1.0-rc.1/otel)
+names c99bd5e8ab38c82311e36695e596f30dd3a66356 and requires the published
+root v0.1.0-rc.1. Go's public module download resolves that exact tag and
+commit. A fresh consumer outside the repository builds and runs with
+GOWORK=off, both published module versions, and no local replacements;
+its exporter config resolves schema=sqlstreams and timeout=5s.
+
+OTel's standalone tidy/fmt/build/vet/race checks passed before publication.
+The CLI's OTel requirement and transitive checksums are now prepared and
+its standalone checks pass; CLI tagging and versioned go install remain
+in flight until the user commits that preparation.
+
 ## 2026-09-12 — First CLI prerelease distribution verified [0785]
 
 [v0.1.0-rc.1](https://github.com/allegedlyreliable/sqlstreams/releases/tag/v0.1.0-rc.1)

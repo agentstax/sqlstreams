@@ -25,13 +25,17 @@ The idle-fleet fix shipped 2026-09-12; see HISTORY.md and [0780] [0781] [0783].
   supplied one [0786]. CLI workspace build/vet/race tests pass; local source
   reports unknown (built from source), and the linker override reports
   0.1.0-rc.1. Installed-version reporting still needs the real CLI tag.
-- [ ] User commits/pushes the OTel preparation; agent publishes
-  otel/v0.1.0-rc.1 from that commit and verifies it resolves remotely.
-- [ ] Add the now-published OTel v0.1.0-rc.1 requirement to CLI, remove its
-  temporary workspace note, and tidy/build/vet/race-test with GOWORK=off.
-  User commits/pushes; agent publishes cmd/sqlstreams/v0.1.0-rc.1.
-- [ ] Prove CLI go install and version output, plus an OTel consumer, outside
-  the workspace before changing installation docs.
+- [x] Publish otel/v0.1.0-rc.1 at c99bd5e8ab38c82311e36695e596f30dd3a66356.
+  Public Go download resolves that tag; a fresh GOWORK=off consumer outside
+  the repo builds/runs with root and OTel v0.1.0-rc.1 and no replaces.
+- [x] Add OTel v0.1.0-rc.1 to CLI and remove its workspace note. Standalone
+  GOWORK=off tidy/fmt/build/vet/race tests pass against downloaded root/OTel.
+  Tidy records OTel's transitive requirements/checksums without upgrading
+  the CLI's existing dependency versions.
+- [ ] User commits/pushes cmd/sqlstreams/go.mod and go.sum; agent publishes
+  cmd/sqlstreams/v0.1.0-rc.1 from that exact commit.
+- [ ] Prove CLI go install and version output outside the workspace before
+  changing installation docs. OTel consumer proof is complete.
 - [ ] Add remotely resolvable nested/dev modules to Dependabot version updates.
 - [ ] Provision allegedlyreliable/homebrew-tap and the Chocolatey account;
   settle prerelease publication policy, configure credentials, verify
