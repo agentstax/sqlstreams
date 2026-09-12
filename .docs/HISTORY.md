@@ -5,6 +5,41 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-12 — Seven-module Dependabot version updates verified [0787]
+
+Pushed commit 5e6ae93c9f63b3c3f010e6b587bc54b9bf033d09 pins the four dev
+modules to published root v0.1.0-rc.1 and configures one Go group across
+root, CLI, OTel, .bench, .tests, .tools, and examples. Monthly scheduling
+and the seven-day cooldown remain; .tools/compat stays excluded.
+
+[Go update run 34718872371](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34718872371)
+completes successfully at 21:10 UTC, processes all seven directories, and
+reports no dependency-resolution errors. It opens exactly one grouped
+[PR #10](https://github.com/allegedlyreliable/sqlstreams/pull/10) and closes
+the previous root-only #4. The PR changes go.mod/go.sum in all seven
+modules; its generated title counts six directories. The same push's
+[npm check](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34718872604)
+and [Actions check](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34718872733)
+also succeed at 21:09 UTC. Main-push
+[CI 34718870119](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34718870119)
+passes just verify on the published configuration. These results prove
+update generation, not the compatibility of the proposed dependency upgrades.
+
+Before publication, all four dev modules passed standalone tidy/fmt/build/vet;
+.bench and .tools passed race tests. The complete .tests integration suite
+passed against disposable Docker Postgres with GOWORK=off and -race -count=1;
+no tests changed. Resolution checks select the published root standalone
+and local source through go.work.
+
+Alerts and automatic security updates are enabled; grouped security updates
+are user-confirmed enabled. Scanning exposes 21 open alerts: 20 website
+alerts (one critical) and one high moby/go-archive alert in .tests/go.mod,
+fixed in 0.3.0. The separate
+[graph update](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34718871790)
+parsed all four dev manifests but received HTTP 500 storing .tools' snapshot.
+GitHub refuses a rerun, and .tools' graph still lacks its new root requirement.
+Graph refresh, security review, and package-manager publication remain in TODO.
+
 ## 2026-09-12 — OTel and CLI Go module publication verified [0786]
 
 [otel/v0.1.0-rc.1](https://github.com/allegedlyreliable/sqlstreams/tree/otel/v0.1.0-rc.1/otel)

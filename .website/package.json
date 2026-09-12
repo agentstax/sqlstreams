@@ -17,6 +17,7 @@
 		"verify": "prettier --check . && eslint . && stylelint \"src/**/*.css\" && astro check && svelte-check --threshold error && remark src/content/docs --ext md,mdx --quiet --frail && vale --minAlertLevel=error src/content/docs && vitest run src && playwright test"
 	},
 	"dependencies": {
+		"@astrojs/markdown-remark": "^7.3.1",
 		"@astrojs/mdx": "^7.0.7",
 		"@astrojs/sitemap": "^3.7.4",
 		"@astrojs/svelte": "^9.0.1",
@@ -27,8 +28,8 @@
 		"@codemirror/view": "^6.43.9",
 		"@electric-sql/pglite": "^0.5.6",
 		"@lezer/highlight": "^1.2.3",
-		"astro": "^7.2.4",
-		"sharp": "^0.34.5",
+		"astro": "^7.3.2",
+		"sharp": "^0.35.4",
 		"svelte": "^5.56.10"
 	},
 	"devDependencies": {

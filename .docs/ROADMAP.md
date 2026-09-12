@@ -17,8 +17,9 @@ the item is removed.
 ## Now
 
 - **Release pipeline, dependency scanning, and package managers** -- active;
-  execution checklist in TODO.md. Prove the no-secret CLI prerelease before
-  enabling package-manager publication.
+  execution checklist in TODO.md. The no-secret CLI prerelease and grouped
+  version updates are proved; finish graph refresh/security review and
+  enable package-manager publication.
   - Root publication verified 2026-09-12: v0.1.0-rc.1 names
     `9772deee2dd6a49bf343e24b409cd86461b01dba`. The canonical SQLStreams source
     is published under allegedlyreliable [0785]. A fresh, workspace-disabled
@@ -36,25 +37,37 @@ the item is removed.
     its extracted binary prints sqlstreams version 0.1.0-rc.1 and embeds
     the canonical CLI module, tagged commit, and vcs.modified=false.
     Chocolatey package creation/publication remains untested.
-  - Dependabot version updates are already running. All three ecosystem jobs
-    succeeded on 2026-09-12 at 17:41 UTC: gomod
-    [34708970924](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34708970924),
-    npm [34708970961](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34708970961),
-    and Actions [34708971370](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34708971370).
-    Open grouped PRs are Go [#4](https://github.com/allegedlyreliable/sqlstreams/pull/4),
-    website [#5](https://github.com/allegedlyreliable/sqlstreams/pull/5), and
-    Actions [#1](https://github.com/allegedlyreliable/sqlstreams/pull/1).
-    The config is already committed; no second setup push is needed to prove
-    these runs. Monthly groups and seven-day cooldown remain the intended
-    schedule; manual checks and security updates can exceed three PRs/month.
+  - All three Dependabot version-update jobs succeed on pushed commit
+    5e6ae93c on 2026-09-12: Go
+    [34718872371](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34718872371)
+    finishes at 21:10 UTC; npm
+    [34718872604](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34718872604)
+    and Actions
+    [34718872733](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34718872733)
+    finish at 21:09 UTC. The Go check opens exactly one group,
+    [#10](https://github.com/allegedlyreliable/sqlstreams/pull/10), and closes
+    the former root-only #4. Monthly groups and seven-day cooldown remain;
+    manual checks and security updates can exceed three PRs/month.
   - Dependabot alerts and automatic security updates are enabled; API
-    readback confirms enabled=true, paused=false, with no open alerts.
+    readback confirms enabled=true, paused=false. At this checkpoint there
+    are 21 open alerts: 20 website alerts (one critical) and one high alert
+    on .tests/go.mod's transitive moby/go-archive, fixed in 0.3.0.
+    Local remediation is prepared: PR #10's reviewed Go updates plus
+    moby/go-archive v0.3.0, Astro 7.3.2, Sharp 0.35.4, and npm transitive
+    fixes. npm audit reports zero vulnerabilities. Go checks pass; website
+    build/type checks pass, with existing lint/unit/browser failures reproduced
+    against the original lockfile. Details and publication follow-up are in TODO.
     The user confirmed grouped security updates enabled on 2026-09-12.
     Manifest coverage is now proved: Dependency graph marks root go.mod,
-    cmd/sqlstreams/go.mod, and otel/go.mod parseable and exposes 6, 33, and
-    27 dependencies respectively. All eight Go manifests are indexed. The
-    SBOM exports 1,277 packages, including CLI and OTel dependencies.
-  - Main-push CI is proved:
+    cmd/sqlstreams/go.mod, and otel/go.mod parseable and exposes 6, 52, and
+    28 dependencies respectively. All eight Go manifests are indexed.
+    [Graph run 34718871790](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34718871790)
+    parses all four dev manifests but fails with HTTP 500 submitting .tools'
+    snapshot. GitHub refuses a rerun; its old six-dependency graph entry
+    still lacks the root requirement. A later graph refresh remains to prove.
+  - Main-push CI is proved. The expanded module/configuration commit passes
+    [34718870119](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34718870119).
+    The earlier
     [34716240955](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34716240955)
     passes just verify on the tagged commit, including the Docker integration
     tests and conventions checks. The earlier static-error failure is fixed.
@@ -69,14 +82,16 @@ the item is removed.
     dependencies with no replacements. GoReleaser's injected archive version
     remains 0.1.0-rc.1 (without the Go module version's leading v).
     READMEs now show the verified versioned install command.
-  - Seven-module Dependabot coverage is prepared [0787]: explicit directories
+  - Seven-module Dependabot version-update coverage is proved [0787]: explicit directories
     for root, CLI, OTel, .bench, .tests, .tools, and examples share the monthly
     Go group and seven-day cooldown. The four dev modules pin real root
     v0.1.0-rc.1; standalone tidy/fmt/build/vet and .bench/.tools race checks
     pass. The standalone Docker integration suite also passes with -race.
     Resolution checks confirm published root with GOWORK=off and local root
-    through go.work. The dormant .tools/compat stays excluded. User
-    commit/push and a hosted update check remain before coverage is proved.
+    through go.work. The hosted updater processes all seven directories
+    with no reported dependency-resolution errors. PR #10 changes go.mod
+    and go.sum in all seven modules, despite its generated title counting
+    six directories. The dormant .tools/compat stays excluded.
   - The first prerelease proves packaging. There is no prior supported release
     for a compatibility verdict yet. At a release compatibility checkpoint,
     retain the actual prior API in .tools/compat, run the fresh-DB suite and
