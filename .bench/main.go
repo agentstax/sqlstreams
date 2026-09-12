@@ -19,13 +19,13 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/agentstax/sqlstreams/.bench/checker"
-	"github.com/agentstax/sqlstreams/.bench/common"
-	"github.com/agentstax/sqlstreams/.bench/manager"
-	"github.com/agentstax/sqlstreams/.bench/runner"
-	"github.com/agentstax/sqlstreams/.bench/scenario"
-	"github.com/agentstax/sqlstreams/.bench/scenarios"
-	"github.com/agentstax/sqlstreams/client"
+	"github.com/allegedlyreliable/sqlstreams/.bench/checker"
+	"github.com/allegedlyreliable/sqlstreams/.bench/common"
+	"github.com/allegedlyreliable/sqlstreams/.bench/manager"
+	"github.com/allegedlyreliable/sqlstreams/.bench/runner"
+	"github.com/allegedlyreliable/sqlstreams/.bench/scenario"
+	"github.com/allegedlyreliable/sqlstreams/.bench/scenarios"
+	"github.com/allegedlyreliable/sqlstreams/client"
 )
 
 // exitLabFailure is the one exit code that is not a verdict: connection,

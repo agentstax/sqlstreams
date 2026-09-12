@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/agentstax/sqlstreams/client"
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/schedule"
+	"github.com/allegedlyreliable/sqlstreams/client"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/schedule"
 	"github.com/spf13/cobra"
 )
 

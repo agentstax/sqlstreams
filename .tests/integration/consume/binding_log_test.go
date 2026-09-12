@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/consume"
-	"github.com/agentstax/sqlstreams/pkg/stream"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
 )
 
 // invariant (declaration history): the sweep deletes a declarer's waiting

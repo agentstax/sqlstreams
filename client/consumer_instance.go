@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/agentstax/sqlstreams/pkg/consumer"
-	"github.com/agentstax/sqlstreams/pkg/systemmanager"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consumer"
+	"github.com/allegedlyreliable/sqlstreams/pkg/systemmanager"
 	"golang.org/x/sync/errgroup"
 )
 

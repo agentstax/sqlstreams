@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/schedule"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/schedule"
 )
 
 // replaceConfig overwrites an already-registered schedule's mutable config:

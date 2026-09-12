@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/metric"
-	"github.com/agentstax/sqlstreams/pkg/metric/controller/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/metric"
+	"github.com/allegedlyreliable/sqlstreams/pkg/metric/controller/datastore"
 )
 
 // behavior: event timestamps read the metrics stream's payload documents

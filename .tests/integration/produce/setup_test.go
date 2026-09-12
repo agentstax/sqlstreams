@@ -6,12 +6,12 @@ import (
 	"testing"
 	"uuid"
 
-	"github.com/agentstax/sqlstreams/.tests/integration/postgres"
-	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
-	"github.com/agentstax/sqlstreams/pkg/produce/controller/datastore"
-	"github.com/agentstax/sqlstreams/pkg/stream"
-	streamcontroller "github.com/agentstax/sqlstreams/pkg/stream/controller"
-	systemcontroller "github.com/agentstax/sqlstreams/pkg/system/controller"
+	"github.com/allegedlyreliable/sqlstreams/.tests/integration/postgres"
+	iDatastore "github.com/allegedlyreliable/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/produce/controller/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
+	streamcontroller "github.com/allegedlyreliable/sqlstreams/pkg/stream/controller"
+	systemcontroller "github.com/allegedlyreliable/sqlstreams/pkg/system/controller"
 )
 
 // partitionSize is the "orders" stream's partition size: large enough that

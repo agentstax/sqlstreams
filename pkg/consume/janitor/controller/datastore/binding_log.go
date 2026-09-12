@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/stream"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
 )
 
 // SweepExpiredWaitingDeclarations deletes waiting binding_config_log rows whose

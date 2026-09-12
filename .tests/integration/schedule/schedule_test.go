@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/schedule"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/schedule"
 )
 
 // invariant (crash consistency): a registration writes the schedule_config

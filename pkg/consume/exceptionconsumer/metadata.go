@@ -3,7 +3,7 @@ package exceptionconsumer
 import (
 	"fmt"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
 )
 
 // ExceptionConsumerMetadata is the group config stored on the exception

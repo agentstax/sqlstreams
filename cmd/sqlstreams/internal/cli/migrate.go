@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 
-	"github.com/agentstax/sqlstreams/client"
-	streamMigrations "github.com/agentstax/sqlstreams/pkg/stream/migrations"
-	systemMigrations "github.com/agentstax/sqlstreams/pkg/system/migrations"
+	"github.com/allegedlyreliable/sqlstreams/client"
+	streamMigrations "github.com/allegedlyreliable/sqlstreams/pkg/stream/migrations"
+	systemMigrations "github.com/allegedlyreliable/sqlstreams/pkg/system/migrations"
 	"github.com/spf13/cobra"
 )
 

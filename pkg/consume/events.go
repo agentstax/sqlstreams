@@ -1,7 +1,7 @@
 package consume
 
 import (
-	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
 )
 
 // EventLeaseReclaimed means a range lease's worker stopped renewing and the

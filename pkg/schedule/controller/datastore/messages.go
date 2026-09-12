@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/agentstax/sqlstreams/pkg/stream"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
 )
 
 // ListMessages is the schedule's newest limit messages, one row per

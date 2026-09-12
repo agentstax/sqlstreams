@@ -1,7 +1,7 @@
 package stream
 
 import (
-	"github.com/agentstax/sqlstreams/pkg/metric"
+	"github.com/allegedlyreliable/sqlstreams/pkg/metric"
 )
 
 // StreamVersionHealth is one payload version's retire verdict on a stream: safe

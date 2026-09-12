@@ -3,9 +3,9 @@ package controller
 import (
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/metric"
-	"github.com/agentstax/sqlstreams/pkg/metric/controller/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/metric"
+	"github.com/allegedlyreliable/sqlstreams/pkg/metric/controller/datastore"
 )
 
 // overdueThreshold: how long a schedule may sit due and unproduced before it

@@ -1148,7 +1148,7 @@ One shape for both kinds, the same in every module.
 ## The .tests module
 
 `.tests/` is the one nested dev-only test module
-(`github.com/agentstax/sqlstreams/.tests`), resolved through the
+(`github.com/allegedlyreliable/sqlstreams/.tests`), resolved through the
 repo-root `go.work` like `examples/` and `.bench/`, never tagged or
 published. It reaches the library's exported surface only and holds two
 trees: `integration/` for integration tests and `e2e/` for e2e programs.

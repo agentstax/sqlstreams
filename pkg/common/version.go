@@ -3,7 +3,7 @@ package common
 import "runtime/debug"
 
 // modulePath identifies sqlstreams in a consumer binary's dependency list.
-const modulePath = "github.com/agentstax/sqlstreams"
+const modulePath = "github.com/allegedlyreliable/sqlstreams"
 
 // BuildVersion reads sqlstreams's module version from the binary's build info:
 // the dependency's version when sqlstreams is imported, the main module's when

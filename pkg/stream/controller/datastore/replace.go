@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/stream"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
 )
 
 // replaceConfig overwrites an already-registered stream's mutable config

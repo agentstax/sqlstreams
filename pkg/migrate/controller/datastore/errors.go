@@ -3,7 +3,7 @@ package datastore
 import (
 	"errors"
 
-	"github.com/agentstax/sqlstreams/pkg/migrate"
+	"github.com/allegedlyreliable/sqlstreams/pkg/migrate"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )

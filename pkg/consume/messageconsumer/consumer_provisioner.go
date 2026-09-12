@@ -13,14 +13,14 @@ import (
 	"context"
 	"errors"
 
-	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/logging"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	consumebase "github.com/agentstax/sqlstreams/pkg/consume/base"
-	"github.com/agentstax/sqlstreams/pkg/consume/messageconsumer/controller"
-	"github.com/agentstax/sqlstreams/pkg/datastore"
-	metricsproducer "github.com/agentstax/sqlstreams/pkg/metric/producer"
-	"github.com/agentstax/sqlstreams/pkg/worker"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	consumebase "github.com/allegedlyreliable/sqlstreams/pkg/consume/base"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume/messageconsumer/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/datastore"
+	metricsproducer "github.com/allegedlyreliable/sqlstreams/pkg/metric/producer"
+	"github.com/allegedlyreliable/sqlstreams/pkg/worker"
 )
 
 // setting this row's target_instances to 0 suspends just this kind's new

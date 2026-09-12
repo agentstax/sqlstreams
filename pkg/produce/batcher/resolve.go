@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/produce/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/produce/controller"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 

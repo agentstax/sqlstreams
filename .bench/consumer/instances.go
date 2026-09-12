@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/agentstax/sqlstreams/.bench/common"
-	"github.com/agentstax/sqlstreams/.bench/record"
-	"github.com/agentstax/sqlstreams/client"
+	"github.com/allegedlyreliable/sqlstreams/.bench/common"
+	"github.com/allegedlyreliable/sqlstreams/.bench/record"
+	"github.com/allegedlyreliable/sqlstreams/client"
 )
 
 // Instances is the consumer instances one process runs on one group,

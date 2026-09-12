@@ -5,8 +5,8 @@ import (
 	"slices"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/consume"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume"
 )
 
 // ConsumerConfig is the group's declaration: what the group means, identical

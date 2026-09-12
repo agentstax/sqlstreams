@@ -61,13 +61,13 @@ I'd love to use Kafka for my [billion dollar, AI powered TODO app](https://githu
 Add it to your module. You need a Postgres.
 
 ```sh
-go get github.com/agentstax/sqlstreams
+go get github.com/allegedlyreliable/sqlstreams
 ```
 
 Import the client from the same module:
 
 ```go
-import "github.com/agentstax/sqlstreams/client"
+import "github.com/allegedlyreliable/sqlstreams/client"
 ```
 
 A message is a struct with a schema version.
@@ -155,6 +155,8 @@ sqlstreams manager run --metrics-address :9464     # run upkeep process, serve P
 ```
 
 ## Development
+
+Read ideally in this order.
 
 - [Architecture](ARCHITECTURE.md)
 - [Developing](DEVELOPING.md)

@@ -6,7 +6,7 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/agentstax/sqlstreams/pkg/stream"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
 )
 
 // ClaimMessagesWithCursor picks up a crashed range (an expired lease) first and

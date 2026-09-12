@@ -3,12 +3,12 @@ package cli
 import (
 	"context"
 	"fmt"
-	"github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/datastore"
 	"io"
 	"log/slog"
 
-	"github.com/agentstax/sqlstreams/client"
-	migratecontroller "github.com/agentstax/sqlstreams/pkg/migrate/controller"
+	"github.com/allegedlyreliable/sqlstreams/client"
+	migratecontroller "github.com/allegedlyreliable/sqlstreams/pkg/migrate/controller"
 	"github.com/spf13/cobra"
 )
 

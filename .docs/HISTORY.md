@@ -5,6 +5,62 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-12 — Idle-fleet fix: the claimant backs off, the losing claim takes no lock, the group manager keeps to its stream, heartbeats jitter [0780] [0781] [0783]
+
+Three changes and one finding, measured with the idle-fleet bench on the
+same 8-core Postgres 18.4 as the 2026-09-12 cells. The group manager's
+provisioner list stops at its stream: the consumer group janitor,
+schedule producer, and metrics collector are the system manager's rows
+now, and a `DisableManager` consumer keeps alive its consumers, its
+cursor advancer, and its stream's janitor and vacuum. A losing claim reads
+`target_instances` and the live count without a lock and declines before
+`Begin`. Rung 2 was reshaped: live instances keep their poll rate; the
+manager's pool remembers a declined claim per row and backs it off along
+`ManagerConfig.ClaimRetry` (1 s to 30 s). The re-run then exposed a
+heartbeat herd -- every instance claimed in the same minute renewed in
+the same instant every 15 s -- so the instance runner's heartbeat is a
+re-jittered timer like every other pacing loop.
+
+| rows x replicas | statements/s | statement time | Postgres cores |
+| --- | --- | --- | --- |
+| 990 x 1 | 9,125 -> 2,497 | 0.26 -> 0.25 cores | 0.62 -> 0.66 |
+| 990 x 3 | 24,153 -> 5,668 | 6.2 (92% in the claim's row lock) -> 1.9 cores | 1.65 -> 1.42 |
+| 9,630 x 1 | 7,356 -> 5,585 | 8.2 -> 1.9 cores | 7.4 -> 8.0, not registered |
+
+The losing claim left the statement table at every scale; the renew
+statement fell from 7 ms to 1.4 ms once heartbeats jittered. Postgres CPU
+barely moved because most of it is outside statement execution, which the
+observer cannot attribute yet; that and the 10k-row rung are a ROADMAP
+Later item. One three-replica cell was discarded as contaminated by
+builds on the same host during its hold.
+
+Verification: build, vet, and `go test -race` on pkg/worker, pkg/consumer,
+pkg/alert, pkg/systemmanager, and client; `just test-integration` green
+across every domain with the new `TestDeclinedClaimDoesNotWaitOnTheWorkerRowLock`,
+which times out without the change; unit tests on the claim backoff curve,
+the pool's declined-row skip, and the renewal delay bounds; conventions
+show only the pre-existing CLI failure. Cells: `just bench idle-fleet-160
+1 2m 1 1`, `idle-fleet-160 1 2m 1 3` (twice, once with a live probe), and
+`idle-fleet-1600 1 2m 1 1`, ledgers in `.bench/results/idle-fleet-*/runs.jsonl`.
+
+## 2026-09-12 — SQLStreams source and distribution owner is allegedlyreliable [0785]
+
+Current module declarations, imports, convention-check paths, documentation
+examples and repository links use github.com/allegedlyreliable/sqlstreams.
+GoReleaser targets that repository and allegedlyreliable/homebrew-tap;
+Chocolatey metadata uses the same owner. Existing benchmark evidence and
+historical records retain their identities. The dormant compatibility
+harness keeps its actual old Vulkan dependency and imports.
+
+Verification: fmt/build/vet pass in all seven active Go modules; .tools
+race tests pass. Existing convention-test paths changed mechanically with
+the module name. Website build and targeted Prettier/ESLint pass. GoReleaser
+2.18.1 validates and produces six snapshot archives with verified checksums;
+the extracted macOS arm64 binary reports its snapshot version and embeds
+the renamed CLI module. Generated Homebrew URLs use allegedlyreliable.
+Source commit/push, website deployment, versioned releases, and package
+manager provisioning remain pending; no release compatibility claim is made.
+
 ## 2026-09-12 — Documentation moves to sqlstreams.io and a new Pages project [0782] [0784]
 
 The canonical documentation origin is https://sqlstreams.io. Website

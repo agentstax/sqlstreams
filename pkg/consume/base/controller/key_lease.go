@@ -7,7 +7,7 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
 )
 
 // KeyLeaseVerdict classifies a Claim attempt.

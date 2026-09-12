@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/stream"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
 )
 
 // SweepExpiredIdempotencyKeys drains idempotency_key rows older than ttl for this stream.

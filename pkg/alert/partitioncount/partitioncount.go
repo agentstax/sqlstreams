@@ -3,17 +3,17 @@ package partitioncount
 import (
 	"errors"
 
-	"github.com/agentstax/sqlstreams/pkg/alert/partitioncount/controller"
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/common/logging"
-	compactioncontroller "github.com/agentstax/sqlstreams/pkg/compaction/controller"
-	consumecontroller "github.com/agentstax/sqlstreams/pkg/consume/controller"
-	"github.com/agentstax/sqlstreams/pkg/consumer"
-	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
-	"github.com/agentstax/sqlstreams/pkg/producer"
-	streamcontroller "github.com/agentstax/sqlstreams/pkg/stream/controller"
-	"github.com/agentstax/sqlstreams/pkg/worker"
-	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/alert/partitioncount/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/logging"
+	compactioncontroller "github.com/allegedlyreliable/sqlstreams/pkg/compaction/controller"
+	consumecontroller "github.com/allegedlyreliable/sqlstreams/pkg/consume/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consumer"
+	iDatastore "github.com/allegedlyreliable/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/producer"
+	streamcontroller "github.com/allegedlyreliable/sqlstreams/pkg/stream/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/worker"
+	workercontroller "github.com/allegedlyreliable/sqlstreams/pkg/worker/controller"
 )
 
 // PartitionCountProvisioner is the alert's worker kind: one row owning the

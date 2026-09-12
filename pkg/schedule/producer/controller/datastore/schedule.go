@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/datastore"
 	"github.com/jackc/pgx/v5"
 )
 

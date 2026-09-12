@@ -6,7 +6,7 @@ import (
 	"math/rand/v2"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
 )
 
 type claimBackoff struct {

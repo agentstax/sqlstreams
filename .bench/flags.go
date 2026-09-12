@@ -7,8 +7,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/agentstax/sqlstreams/.bench/manager"
-	"github.com/agentstax/sqlstreams/.bench/scenarios"
+	"github.com/allegedlyreliable/sqlstreams/.bench/manager"
+	"github.com/allegedlyreliable/sqlstreams/.bench/scenarios"
 )
 
 type labFlags struct {

@@ -11,8 +11,8 @@ import (
 	"fmt"
 	"os"
 
-	streamMigrations "github.com/agentstax/sqlstreams/pkg/stream/migrations"
-	systemMigrations "github.com/agentstax/sqlstreams/pkg/system/migrations"
+	streamMigrations "github.com/allegedlyreliable/sqlstreams/pkg/stream/migrations"
+	systemMigrations "github.com/allegedlyreliable/sqlstreams/pkg/system/migrations"
 )
 
 func main() {

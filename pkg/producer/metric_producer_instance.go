@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/agentstax/sqlstreams/pkg/metric"
-	"github.com/agentstax/sqlstreams/pkg/produce"
+	"github.com/allegedlyreliable/sqlstreams/pkg/metric"
+	"github.com/allegedlyreliable/sqlstreams/pkg/produce"
 )
 
 // MetricProducerInstance produces custom measurements with routing and

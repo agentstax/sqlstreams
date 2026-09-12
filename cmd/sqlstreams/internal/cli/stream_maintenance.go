@@ -1,11 +1,12 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"text/tabwriter"
 
-	"github.com/agentstax/sqlstreams/client"
+	"github.com/allegedlyreliable/sqlstreams/client"
 	"github.com/spf13/cobra"
 )
 
@@ -93,7 +94,7 @@ type maintenanceStatusDocument struct {
 
 func newMaintenanceStatusDocument(snapshot *sqlstreams.WorkerSnapshot) (*maintenanceStatusDocument, error) {
 	if snapshot == nil {
-		return nil, fmt.Errorf("snapshot must not be nil")
+		return nil, errors.New("snapshot must not be nil")
 	}
 
 	return &maintenanceStatusDocument{

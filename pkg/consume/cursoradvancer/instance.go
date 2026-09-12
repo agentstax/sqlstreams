@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/common/logging"
-	cursoradvancercontroller "github.com/agentstax/sqlstreams/pkg/consume/cursoradvancer/controller"
-	"github.com/agentstax/sqlstreams/pkg/worker"
-	"github.com/agentstax/sqlstreams/pkg/worker/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/logging"
+	cursoradvancercontroller "github.com/allegedlyreliable/sqlstreams/pkg/consume/cursoradvancer/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/worker"
+	"github.com/allegedlyreliable/sqlstreams/pkg/worker/controller"
 )
 
 // advances cursor.committed behind the group's resolved work at the row's

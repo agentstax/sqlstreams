@@ -3,8 +3,8 @@ package sqlstreams
 import (
 	"context"
 
-	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
-	"github.com/agentstax/sqlstreams/pkg/metric"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
+	"github.com/allegedlyreliable/sqlstreams/pkg/metric"
 )
 
 // SystemMetricsHandle names the installation-wide metrics resource, holding

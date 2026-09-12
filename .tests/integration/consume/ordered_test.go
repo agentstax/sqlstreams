@@ -6,10 +6,10 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	keyleasedatastore "github.com/agentstax/sqlstreams/pkg/consume/base/controller/datastore"
-	"github.com/agentstax/sqlstreams/pkg/consume/messageconsumer/controller/datastore"
-	"github.com/agentstax/sqlstreams/pkg/stream"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	keyleasedatastore "github.com/allegedlyreliable/sqlstreams/pkg/consume/base/controller/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume/messageconsumer/controller/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 

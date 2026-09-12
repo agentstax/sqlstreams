@@ -3,9 +3,9 @@ package controller
 import (
 	"errors"
 
-	"github.com/agentstax/sqlstreams/pkg/common/logging"
-	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
-	"github.com/agentstax/sqlstreams/pkg/system/controller/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/logging"
+	iDatastore "github.com/allegedlyreliable/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/system/controller/datastore"
 )
 
 type SystemController struct {

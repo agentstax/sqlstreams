@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
 )
 
 var errTestStreamMissing = diagnostic.NewDiagnosticError("SQL9803", diagnostic.RecoveryPermanent,

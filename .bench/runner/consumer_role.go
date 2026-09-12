@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/agentstax/sqlstreams/.bench/common"
-	"github.com/agentstax/sqlstreams/.bench/consumer"
-	"github.com/agentstax/sqlstreams/.bench/record"
-	"github.com/agentstax/sqlstreams/.bench/scenario"
+	"github.com/allegedlyreliable/sqlstreams/.bench/common"
+	"github.com/allegedlyreliable/sqlstreams/.bench/consumer"
+	"github.com/allegedlyreliable/sqlstreams/.bench/record"
+	"github.com/allegedlyreliable/sqlstreams/.bench/scenario"
 )
 
 // RunConsumer registers every stream, applies each consumer change at its

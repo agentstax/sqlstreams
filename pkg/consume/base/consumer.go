@@ -7,13 +7,13 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/common/logging"
-	"github.com/agentstax/sqlstreams/pkg/consume"
-	"github.com/agentstax/sqlstreams/pkg/consume/base/controller"
-	metricsproducer "github.com/agentstax/sqlstreams/pkg/metric/producer"
-	"github.com/agentstax/sqlstreams/pkg/stream"
-	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/logging"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume/base/controller"
+	metricsproducer "github.com/allegedlyreliable/sqlstreams/pkg/metric/producer"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
+	workercontroller "github.com/allegedlyreliable/sqlstreams/pkg/worker/controller"
 )
 
 // BaseConsumer is built fresh per claimed life, so a respawned runner never

@@ -6,9 +6,9 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/consume/messageconsumer/controller/datastore"
-	"github.com/agentstax/sqlstreams/pkg/stream"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume/messageconsumer/controller/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 

@@ -25,10 +25,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/agentstax/sqlstreams/.tests/e2e/common"
-	"github.com/agentstax/sqlstreams/client"
-	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
-	"github.com/agentstax/sqlstreams/pkg/stream"
+	"github.com/allegedlyreliable/sqlstreams/.tests/e2e/common"
+	"github.com/allegedlyreliable/sqlstreams/client"
+	iDatastore "github.com/allegedlyreliable/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
 )
 
 const (

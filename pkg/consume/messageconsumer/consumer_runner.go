@@ -9,14 +9,14 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/common/concurrency"
-	"github.com/agentstax/sqlstreams/pkg/consume"
-	consumebase "github.com/agentstax/sqlstreams/pkg/consume/base"
-	keyleasecontroller "github.com/agentstax/sqlstreams/pkg/consume/base/controller"
-	"github.com/agentstax/sqlstreams/pkg/consume/messageconsumer/controller"
-	"github.com/agentstax/sqlstreams/pkg/stream"
-	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/concurrency"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume"
+	consumebase "github.com/allegedlyreliable/sqlstreams/pkg/consume/base"
+	keyleasecontroller "github.com/allegedlyreliable/sqlstreams/pkg/consume/base/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume/messageconsumer/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
+	workercontroller "github.com/allegedlyreliable/sqlstreams/pkg/worker/controller"
 	"golang.org/x/sync/errgroup"
 )
 

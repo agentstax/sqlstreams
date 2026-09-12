@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
 )
 
 // DueScheduleRow is the locked row snapshot one producing transaction works

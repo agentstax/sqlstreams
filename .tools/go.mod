@@ -1,10 +1,10 @@
-module github.com/agentstax/sqlstreams/.tools
+module github.com/allegedlyreliable/sqlstreams/.tools
 
 go 1.27.0
 
 // Dev-only module: developer tooling, never imported by production code and
 // never tagged or published. Its dependencies stay out of the root library
-// module's graph. The parent module github.com/agentstax/sqlstreams is resolved
+// module's graph. The parent module github.com/allegedlyreliable/sqlstreams is resolved
 // locally via the repo-root go.work (use ./.tools) and deliberately has NO
 // require line here: it's unpublished, so any placeholder version poisons
 // the whole workspace graph.

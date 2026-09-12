@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/datastore"
 )
 
 // Migration is one schema step, shared by every scope -- a sparse struct, so a

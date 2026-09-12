@@ -3,9 +3,9 @@ package controller
 import (
 	"errors"
 
-	"github.com/agentstax/sqlstreams/pkg/common/logging"
-	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
-	metricscontroller "github.com/agentstax/sqlstreams/pkg/metric/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/logging"
+	iDatastore "github.com/allegedlyreliable/sqlstreams/pkg/datastore"
+	metricscontroller "github.com/allegedlyreliable/sqlstreams/pkg/metric/controller"
 )
 
 type WorkerLivenessController struct {

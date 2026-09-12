@@ -5,7 +5,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/agentstax/sqlstreams/pkg/worker/controller/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/worker/controller/datastore"
 	"golang.org/x/sync/errgroup"
 )
 

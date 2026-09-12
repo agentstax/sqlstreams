@@ -7,10 +7,10 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/common/logging"
-	"github.com/agentstax/sqlstreams/pkg/produce"
-	"github.com/agentstax/sqlstreams/pkg/produce/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/logging"
+	"github.com/allegedlyreliable/sqlstreams/pkg/produce"
+	"github.com/allegedlyreliable/sqlstreams/pkg/produce/controller"
 )
 
 // Batcher groups concurrent payload-only produces for one stream into shared

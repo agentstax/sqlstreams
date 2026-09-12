@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/datastore"
 )
 
 // migration_log stores exactly one owner column per row, so each read matches

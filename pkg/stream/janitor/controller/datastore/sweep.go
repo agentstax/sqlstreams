@@ -7,7 +7,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/stream"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
 	"github.com/jackc/pgx/v5"
 )
 

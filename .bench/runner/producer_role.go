@@ -7,9 +7,9 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/agentstax/sqlstreams/.bench/producer"
-	"github.com/agentstax/sqlstreams/.bench/record"
-	"github.com/agentstax/sqlstreams/.bench/scenario"
+	"github.com/allegedlyreliable/sqlstreams/.bench/producer"
+	"github.com/allegedlyreliable/sqlstreams/.bench/record"
+	"github.com/allegedlyreliable/sqlstreams/.bench/scenario"
 )
 
 // inFlightSeconds bounds the produces a stalled database can leave running

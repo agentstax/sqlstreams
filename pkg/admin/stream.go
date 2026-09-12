@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/migrate"
-	"github.com/agentstax/sqlstreams/pkg/stream"
-	"github.com/agentstax/sqlstreams/pkg/stream/janitor"
-	streamMigrations "github.com/agentstax/sqlstreams/pkg/stream/migrations"
-	"github.com/agentstax/sqlstreams/pkg/stream/vacuum"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/migrate"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream/janitor"
+	streamMigrations "github.com/allegedlyreliable/sqlstreams/pkg/stream/migrations"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream/vacuum"
 )
 
 // GetStream resolves a stream by name. Returns (nil, nil), not an error,

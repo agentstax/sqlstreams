@@ -1,6 +1,6 @@
 package metric
 
-import "github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+import "github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
 
 var MetricOverdueSchedules = diagnostic.NewDiagnosticMetric(
 	"SQL0070",

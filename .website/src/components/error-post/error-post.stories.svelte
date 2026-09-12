@@ -9,7 +9,7 @@
 		args: {
 			code: 'SQL0005',
 			rank: 'Permanent error',
-			reportHref: 'https://github.com/agentstax/sqlstreams/issues/new',
+			reportHref: 'https://github.com/allegedlyreliable/sqlstreams/issues/new',
 			actions: null,
 		},
 	});

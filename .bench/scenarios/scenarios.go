@@ -6,7 +6,7 @@ package scenarios
 import (
 	"strings"
 
-	"github.com/agentstax/sqlstreams/.bench/scenario"
+	"github.com/allegedlyreliable/sqlstreams/.bench/scenario"
 )
 
 var All = []*scenario.Scenario{Quiet, MultistreamUnpaced1, MultistreamUnpaced4, MultistreamUnpaced16, MaxThroughput, IdleFleet16, IdleFleet160, IdleFleet1600}

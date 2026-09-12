@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
 )
 
 // a schedule's name doubles as the message key and routing key its messages are produced with,

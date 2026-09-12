@@ -12,7 +12,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/datastore"
 	"github.com/jackc/pgx/v5/pgxpool"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 )

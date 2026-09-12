@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/stream"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
 )
 
 // invariant (no loss): a claim that finds nothing safe to deliver still

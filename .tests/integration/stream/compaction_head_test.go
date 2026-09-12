@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/stream"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
 )
 
 // behavior: the empty head sweep deletes a head that points at no message

@@ -1,7 +1,7 @@
 package alert
 
 import (
-	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
 )
 
 // AlertDefinition is one SQLStreams built-in alert's identity and metadata. It

@@ -3,10 +3,10 @@ package controller
 import (
 	"errors"
 
-	"github.com/agentstax/sqlstreams/pkg/common/logging"
-	"github.com/agentstax/sqlstreams/pkg/datastore"
-	metricscontroller "github.com/agentstax/sqlstreams/pkg/metric/controller"
-	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/logging"
+	"github.com/allegedlyreliable/sqlstreams/pkg/datastore"
+	metricscontroller "github.com/allegedlyreliable/sqlstreams/pkg/metric/controller"
+	workercontroller "github.com/allegedlyreliable/sqlstreams/pkg/worker/controller"
 )
 
 type CollectorProgressController struct {

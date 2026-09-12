@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/agentstax/sqlstreams/pkg/stream"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
 )
 
 // behavior: the key lease sweep deletes only expired rows, drains more than

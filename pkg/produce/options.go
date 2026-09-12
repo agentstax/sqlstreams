@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
 )
 
 // ProduceOptions holds per-message knobs that are optional and rarely set --

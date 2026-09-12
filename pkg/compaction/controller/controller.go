@@ -3,9 +3,9 @@ package controller
 import (
 	"errors"
 
-	"github.com/agentstax/sqlstreams/pkg/common/logging"
-	"github.com/agentstax/sqlstreams/pkg/compaction/controller/datastore"
-	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/logging"
+	"github.com/allegedlyreliable/sqlstreams/pkg/compaction/controller/datastore"
+	iDatastore "github.com/allegedlyreliable/sqlstreams/pkg/datastore"
 )
 
 // CompactionController owns compaction-head reads and the transactional

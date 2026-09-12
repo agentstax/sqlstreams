@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/metric"
+	"github.com/allegedlyreliable/sqlstreams/pkg/metric"
 	"github.com/spf13/cobra"
 )
 

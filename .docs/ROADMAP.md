@@ -16,89 +16,74 @@ the item is removed.
 
 ## Now
 
-- **Idle-fleet fix** [0779]. Three changes, one item; re-run
-  `just bench idle-fleet-160 1 2m 1 3` and `idle-fleet-1600` afterwards
-  and read them against the 2026-09-12 cells (0.6 cores idle at 990 rows
-  on one replica; 92% of statement time in the losing claim's row lock at
-  three; 9,630 rows never finish registering).
-  - Rung 2, idle backoff in the instance tick runner: a tick that made
-    no progress backs off toward ten times the row's `poll_rate`; any
-    progress snaps back. A manager tick's progress is a reconcile change
-    or a swept row. Divides the CPU tax by about ten.
-  - A lock-free losing claim: read `target_instances` and the live
-    instance count first, take `FOR UPDATE` only when there is room; a
-    stale "full" costs one tick. Removes the lock convoy at every scale.
-  - The group manager's chain drops the three system-scoped rows
-    (consumer group janitor, schedule producer, metrics collector); the
-    system manager, one winner per deployment, is the one that reconciles
-    them. Removes the shared rows the convoy formed on. Settle what a
-    consumer-only process with `DisableManager` keeps alive before
-    building.
+- **Release pipeline, dependency scanning, and package managers** -- active;
+  execution checklist in TODO.md. Prove the no-secret CLI prerelease before
+  enabling package-manager publication.
+  - Audit 2026-09-12: remote main is `e2d0e6f5`, with the SQLStreams source
+    published. GitHub's canonical repository is `allegedlyreliable/sqlstreams`;
+    `agentstax/sqlstreams` redirects there. The user chose
+    `allegedlyreliable` throughout [0785]; current local module paths, imports,
+    repository links, and GoReleaser release/tap ownership now use it. This
+    source preparation still needs user commit and push before the first tag.
+  - GitHub still has no releases or tags. Actions is enabled, and repository
+    Actions secrets are empty. Local GoReleaser 2.18.1 configuration validation, six snapshot
+    archives/checksums, generated cask, and extracted macOS arm64 --version
+    pass after the ownership rename; the binary embeds the canonical CLI
+    module and cask URLs use allegedlyreliable. The local snapshot version
+    is phase-14a-SNAPSHOT-e2d0e6f5; a real prerelease tag remains untested. The workflow generates go.work and pins GORELEASER_CURRENT_TAG;
+    Homebrew skips an empty token, and the workflow skips Chocolatey for an
+    empty API key. Windows packaging and a downloaded Release archive remain
+    unproved.
+  - Dependabot version updates are already running. All three ecosystem jobs
+    succeeded on 2026-09-12 at 17:41 UTC: gomod
+    [34708970924](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34708970924),
+    npm [34708970961](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34708970961),
+    and Actions [34708971370](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34708971370).
+    Open grouped PRs are Go [#4](https://github.com/allegedlyreliable/sqlstreams/pull/4),
+    website [#5](https://github.com/allegedlyreliable/sqlstreams/pull/5), and
+    Actions [#1](https://github.com/allegedlyreliable/sqlstreams/pull/1).
+    The config is already committed; no second setup push is needed to prove
+    these runs. Monthly groups and seven-day cooldown remain the intended
+    schedule; manual checks and security updates can exceed three PRs/month.
+  - Dependabot alerts were already enabled. Automatic security updates were
+    disabled; enabled in this session and read back enabled=true, paused=false.
+    Grouped-security setting is unverified. The alerts API returns no open
+    alerts, GraphQL returns no dependency manifests, and the SBOM endpoint
+    returns 404: nested cmd/sqlstreams and otel coverage is NOT proved.
+    Verify coverage in Dependency graph, not by expecting an alert for a
+    manifest with no known vulnerability.
+  - CI on pull requests runs. The latest failure
+    [34709201642](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34709201642)
+    is the existing static-error convention test at
+    cmd/sqlstreams/internal/cli/stream_maintenance.go. The local preparation
+    fixes that raise without changing the test and restores the push branch
+    from main-fake to main; both await user commit and push. CLI build, vet,
+    go fmt, and CLI race tests pass; the unchanged convention test fails
+    before the fix and passes after it. CI YAML parsing and diff checks pass.
+  - The nested CLI and OTel modules still lack a root require. Publish the
+    canonical root's real version first, pin it in both nested go.mod files,
+    then publish cmd/sqlstreams/vX.Y.Z and otel/vX.Y.Z. No placeholder root
+    version or local replace belongs in a published nested module. Add nested
+    and dev modules to Dependabot version updates once they resolve remotely.
+  - The first prerelease proves packaging. There is no prior supported release
+    for a compatibility verdict yet. At a release compatibility checkpoint,
+    retain the actual prior API in .tools/compat, run the fresh-DB suite and
+    compatibility check, update the site's migration table, and cite outcomes
+    in HISTORY. The dormant Vulkan harness cannot use the renamed replacement.
+  - The documentation origin is live at sqlstreams.io [0782] [0784]. The new
+    owner's homebrew-tap returns 404. The 2026-09-09 audit found no Chocolatey
+    listing; its current state and account ownership still need checking.
+    Homebrew needs a tap and write token; Chocolatey needs an account/API key,
+    Windows packaging verification, and first-package moderation.
+  - Signing remains deferred. The cask currently removes Homebrew's quarantine
+    attribute; package-manager installation is not a general guarantee of no
+    quarantine. Notarization and Authenticode remain later work. Before adding
+    package-manager secrets, decide whether prereleases may update their
+    listings: the current Homebrew token gate permits them. winget and scoop
+    remain optional later additions.
 
 ## Next
 
-- **Release pipeline, dependency scanning, and package managers** -- prove
-  the CLI release path and Dependabot end to end, then turn on the package
-  managers. `.goreleaser.yaml`, `.github/workflows/release.yml`,
-  `.github/workflows/ci.yml`, and `.github/dependabot.yml` (all drafted
-  2026-09-08). Two tests, each a repo-settings step plus a
-  push that proves it:
-  1. Release: push a prerelease tag (`v0.1.0-rc.1`) and confirm the
-     release job is green with no secrets set -- the Homebrew and
-     Chocolatey steps skip themselves while `HOMEBREW_TAP_TOKEN` /
-     `CHOCOLATEY_API_KEY` are unset. Download one archive from the
-     Release and check `sqlstreams --version` prints the tag.
-  2. Dependabot: under Settings > Code security, turn on Dependabot
-     alerts, security updates, and grouped security updates, then commit
-     the config. Verify three things: Insights > Dependency graph >
-     Dependabot lists all three ecosystems with no parse error and a
-     "last checked" time; "Check for updates" on the gomod entry opens
-     nothing or exactly one grouped PR; the alerts tab shows the nested
-     modules' manifests (cmd/sqlstreams, otel) even though only the root is
-     in the config. Record the outcome here before trimming the item.
-  - SQLStreams identity is locked and the GitHub repository is renamed.
-    The permanent documentation origin is live at sqlstreams.io [0782] [0784].
-  - Source-publication audit 2026-09-09: remote main at `9538b149` still
-    declares `github.com/agentstax/vulkan`. Publish the reviewed SQLStreams
-    source before expecting its import/install paths to resolve remotely;
-    the repository rename alone does not publish the local source changes.
-  - Distribution audit 2026-09-09: GitHub reports no releases or root/CLI/OTel
-    version tags. The configured `agentstax/homebrew-tap` is not accessible
-    (404), and the SQLStreams Chocolatey page returns 404. No public listing
-    was found to migrate. READMEs now describe installation from the local
-    workspace until versioned distribution is available.
-  - The nested cmd/sqlstreams module has no `require` on the root, so
-    `go install ...@version` still needs the three-module tag story its
-    go.mod comment describes; the workflow builds through a generated
-    go.work instead and pins `GORELEASER_CURRENT_TAG` so a nested-module
-    tag on the same commit is never picked.
-  - At publication, pin the root's real version in CLI and OTel go.mod,
-    then publish `cmd/sqlstreams/vX.Y.Z` and `otel/vX.Y.Z`. No placeholder
-    root version or local replace belongs in a published nested module.
-  - At a release compatibility checkpoint, pin `.tools/compat` to the prior
-    supported tag and verify the declared verdict. Its existing Vulkan API
-    cannot use the renamed working-tree replacement: retain the actual old
-    API when testing an old build. The rename itself is a disposable pre-v1
-    reset. Update the site's migration compatibility table and cite fresh-DB
-    e2e and compatibility outcomes in HISTORY for the release.
-  - CI push runs still target `main-fake`; restore `main` when enabling CI.
-    GoReleaser configuration, six unpublished platform archives/checksums,
-    native version output and Homebrew cask generation passed on 2026-09-09.
-    Chocolatey packaging remains a Windows-runner check.
-  - Signing is deferred: package-manager installs never carry the browser
-    quarantine mark, and the cask strips it post-install. Notarization
-    (Developer ID + goreleaser's `notarize.macos`) and Authenticode
-    (SignPath OSS or Azure Trusted Signing) land only when raw GitHub
-    Release downloads matter.
-  - Dependabot volume: monthly grouped version updates per ecosystem with
-    a seven-day cooldown, so the steady state is at most three PRs a
-    month; security updates ignore both. Only the root gomod is listed;
-    cmd/sqlstreams, otel, and the dev modules join once the root is published
-    and their go.mod carries a real require on it.
-  - Homebrew needs an `agentstax/homebrew-tap` repo and a PAT with write
-    access to it; Chocolatey needs an account and API key, and its first
-    push goes through human moderation. winget and scoop are manifest-only
-    additions to the same config if wanted later.
 
 - **Search-engine submission** -- after the doc-site sitemap is deployed,
   verify the canonical site property in Google Search Console and Bing
@@ -108,6 +93,17 @@ the item is removed.
 
 ## Later
 
+- **Attribute the idle fleet's remaining Postgres CPU** [0779] [0781] [0783].
+  After the idle-fleet fix, 990 rows on one replica still idle at 0.66
+  cores with only 0.25 cores in statement execution, and 9,630 rows
+  saturate eight cores with under 2 in statements and never finish
+  registering. The observer sees statement execution only; teach it plan
+  time (`pg_stat_statements.track_planning`), pg_stat_statements'
+  deallocations (42k+ entries at 1,600 streams, 100 ms per lab read), and
+  background process CPU before choosing a rung for 10k rows. The
+  largest remaining statement term is the consumers' 500 ms claim poll,
+  not the fleet's upkeep. The stream janitor's sweeps return no counts,
+  so it can log nothing either.
 - **Automatic-batching capacity comparison** — measure the ordinary automatic
   batching path before making a capacity claim about it. The published explicit
   batch workload is not a substitute; the retired 30-second probe was not a

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
 )
 
 // A fix is one string for every raise site of its code, so a placeholder only

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/sqlstreams/.bench/scenario"
-	"github.com/agentstax/sqlstreams/pkg/stream"
+	"github.com/allegedlyreliable/sqlstreams/.bench/scenario"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
 )
 
 // The multistream family: one deployment shape over one, four, and sixteen

@@ -6,8 +6,8 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/agentstax/sqlstreams/pkg/produce/controller/datastore"
-	"github.com/agentstax/sqlstreams/pkg/stream"
+	"github.com/allegedlyreliable/sqlstreams/pkg/produce/controller/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
 )
 
 // batchAttemptTimeout bounds one batch attempt; nothing here waits on it.

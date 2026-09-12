@@ -7,9 +7,9 @@ import (
 	"math/rand/v2"
 	"time"
 
-	"github.com/agentstax/sqlstreams/.bench/common"
-	"github.com/agentstax/sqlstreams/.bench/record"
-	"github.com/agentstax/sqlstreams/client"
+	"github.com/allegedlyreliable/sqlstreams/.bench/common"
+	"github.com/allegedlyreliable/sqlstreams/.bench/record"
+	"github.com/allegedlyreliable/sqlstreams/client"
 )
 
 // errInjectedFailure is the handler's own failure under the scenario's fail

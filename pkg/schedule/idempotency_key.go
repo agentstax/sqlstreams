@@ -4,7 +4,7 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
 )
 
 // ScheduleStreamName is __system.schedules -- the target stream of the system-owned

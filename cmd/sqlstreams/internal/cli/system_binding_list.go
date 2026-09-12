@@ -7,7 +7,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/agentstax/sqlstreams/pkg/consume"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume"
 	"github.com/spf13/cobra"
 )
 

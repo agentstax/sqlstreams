@@ -1,6 +1,6 @@
 package metric
 
-import "github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+import "github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
 
 // Consumer-session flows are per-instance monotonic totals, one series per
 // session. They report what one instance did.

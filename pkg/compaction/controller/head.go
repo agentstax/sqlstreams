@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	iDatastore "github.com/allegedlyreliable/sqlstreams/pkg/datastore"
 )
 
 // LockHead ensures messageKey has a compaction-head row, locks that row until

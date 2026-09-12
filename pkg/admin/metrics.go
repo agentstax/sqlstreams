@@ -3,10 +3,10 @@ package admin
 import (
 	"context"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/metric"
-	"github.com/agentstax/sqlstreams/pkg/migrate"
-	"github.com/agentstax/sqlstreams/pkg/stream"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/metric"
+	"github.com/allegedlyreliable/sqlstreams/pkg/migrate"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
 )
 
 // StreamMetrics returns the named stream's live snapshot.

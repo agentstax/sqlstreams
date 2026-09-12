@@ -16,7 +16,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/agentstax/sqlstreams/client"
+	"github.com/allegedlyreliable/sqlstreams/client"
 )
 
 var (

@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 

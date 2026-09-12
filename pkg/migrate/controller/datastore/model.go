@@ -3,7 +3,7 @@ package datastore
 import (
 	"context"
 
-	"github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/datastore"
 )
 
 type StepType string

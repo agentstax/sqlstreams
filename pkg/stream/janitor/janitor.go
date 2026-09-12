@@ -3,13 +3,13 @@ package janitor
 import (
 	"errors"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/common/logging"
-	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
-	streamcontroller "github.com/agentstax/sqlstreams/pkg/stream/controller"
-	janitorcontroller "github.com/agentstax/sqlstreams/pkg/stream/janitor/controller"
-	"github.com/agentstax/sqlstreams/pkg/worker"
-	"github.com/agentstax/sqlstreams/pkg/worker/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/logging"
+	iDatastore "github.com/allegedlyreliable/sqlstreams/pkg/datastore"
+	streamcontroller "github.com/allegedlyreliable/sqlstreams/pkg/stream/controller"
+	janitorcontroller "github.com/allegedlyreliable/sqlstreams/pkg/stream/janitor/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/worker"
+	"github.com/allegedlyreliable/sqlstreams/pkg/worker/controller"
 )
 
 const WorkerStreamJanitor = "stream_janitor"

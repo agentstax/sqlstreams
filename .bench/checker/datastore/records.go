@@ -11,7 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/agentstax/sqlstreams/.bench/record"
+	"github.com/allegedlyreliable/sqlstreams/.bench/record"
 )
 
 // labSchema is the Postgres namespace the checker loads the records into, on

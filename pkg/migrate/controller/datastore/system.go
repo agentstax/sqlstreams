@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/datastore"
 )
 
 // SystemOwner resolves the singleton system row to its owner, read on the

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/stream"
-	"github.com/agentstax/sqlstreams/pkg/stream/controller/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream/controller/datastore"
 )
 
 func toStream(data *datastore.StreamConfigRow) (*stream.Stream, error) {

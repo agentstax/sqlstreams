@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/migrate"
-	"github.com/agentstax/sqlstreams/pkg/migrate/controller/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/migrate"
+	"github.com/allegedlyreliable/sqlstreams/pkg/migrate/controller/datastore"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 

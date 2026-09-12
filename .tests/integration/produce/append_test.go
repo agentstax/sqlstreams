@@ -7,8 +7,8 @@ import (
 	"testing"
 	"uuid"
 
-	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
-	"github.com/agentstax/sqlstreams/pkg/stream"
+	iDatastore "github.com/allegedlyreliable/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
 	"golang.org/x/sync/errgroup"
 )
 

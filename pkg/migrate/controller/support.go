@@ -5,12 +5,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
-	"github.com/agentstax/sqlstreams/pkg/migrate"
-	"github.com/agentstax/sqlstreams/pkg/migrate/controller/datastore"
-	streamMigrations "github.com/agentstax/sqlstreams/pkg/stream/migrations"
-	systemMigrations "github.com/agentstax/sqlstreams/pkg/system/migrations"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	iDatastore "github.com/allegedlyreliable/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/migrate"
+	"github.com/allegedlyreliable/sqlstreams/pkg/migrate/controller/datastore"
+	streamMigrations "github.com/allegedlyreliable/sqlstreams/pkg/stream/migrations"
+	systemMigrations "github.com/allegedlyreliable/sqlstreams/pkg/system/migrations"
 )
 
 // AssertSystemSchemaSupported gates startup for a system-owned caller against

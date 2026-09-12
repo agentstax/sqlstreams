@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
 )
 
 // MessageConsumerMetadata is the group config stored on the message consumer

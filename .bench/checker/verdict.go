@@ -3,9 +3,9 @@ package checker
 import (
 	"time"
 
-	"github.com/agentstax/sqlstreams/.bench/checker/datastore"
-	"github.com/agentstax/sqlstreams/.bench/record"
-	"github.com/agentstax/sqlstreams/.bench/scenario"
+	"github.com/allegedlyreliable/sqlstreams/.bench/checker/datastore"
+	"github.com/allegedlyreliable/sqlstreams/.bench/record"
+	"github.com/allegedlyreliable/sqlstreams/.bench/scenario"
 )
 
 // VerdictStatus is the run's one-word outcome. Unknown means the checks

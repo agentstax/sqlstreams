@@ -7,9 +7,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
-	"github.com/agentstax/sqlstreams/pkg/metric"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
+	"github.com/allegedlyreliable/sqlstreams/pkg/metric"
 	"github.com/prometheus/otlptranslator"
 )
 

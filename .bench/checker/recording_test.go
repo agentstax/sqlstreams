@@ -3,7 +3,7 @@ package checker
 import (
 	"testing"
 
-	"github.com/agentstax/sqlstreams/.bench/scenario"
+	"github.com/allegedlyreliable/sqlstreams/.bench/scenario"
 )
 
 func TestDisabledRecordingDoesNotPassIdentityChecks(t *testing.T) {

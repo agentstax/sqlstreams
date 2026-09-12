@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/worker"
+	"github.com/allegedlyreliable/sqlstreams/pkg/worker"
 )
 
 // GetInstanceHistory includes intervals crossing the window start, as of database time.

@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/common/logging"
-	"github.com/agentstax/sqlstreams/pkg/worker"
-	"github.com/agentstax/sqlstreams/pkg/worker/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/logging"
+	"github.com/allegedlyreliable/sqlstreams/pkg/worker"
+	"github.com/allegedlyreliable/sqlstreams/pkg/worker/controller"
 	"golang.org/x/sync/errgroup"
 )
 

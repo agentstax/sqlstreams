@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/agentstax/sqlstreams/pkg/alert"
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/migrate"
-	"github.com/agentstax/sqlstreams/pkg/schedule"
-	"github.com/agentstax/sqlstreams/pkg/stream"
+	"github.com/allegedlyreliable/sqlstreams/pkg/alert"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/migrate"
+	"github.com/allegedlyreliable/sqlstreams/pkg/schedule"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
 )
 
 // GetAlertSnapshot evaluates a built-in using its current schedule declaration.

@@ -3,13 +3,13 @@ package consumer
 import (
 	"context"
 
-	"github.com/agentstax/sqlstreams/pkg/consume/cursoradvancer"
-	"github.com/agentstax/sqlstreams/pkg/consume/exceptionconsumer"
-	"github.com/agentstax/sqlstreams/pkg/consume/messageconsumer"
-	streamjanitor "github.com/agentstax/sqlstreams/pkg/stream/janitor"
-	"github.com/agentstax/sqlstreams/pkg/stream/vacuum"
-	"github.com/agentstax/sqlstreams/pkg/worker"
-	"github.com/agentstax/sqlstreams/pkg/worker/manager"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume/cursoradvancer"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume/exceptionconsumer"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume/messageconsumer"
+	streamjanitor "github.com/allegedlyreliable/sqlstreams/pkg/stream/janitor"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream/vacuum"
+	"github.com/allegedlyreliable/sqlstreams/pkg/worker"
+	"github.com/allegedlyreliable/sqlstreams/pkg/worker/manager"
 )
 
 func (i *ConsumerInstance[Message]) newManagerRunner(ctx context.Context, consumerFunc ConsumerFunc[Message], options *ConsumeOptions) (*manager.Runner, error) {

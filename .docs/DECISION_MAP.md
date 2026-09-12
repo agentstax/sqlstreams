@@ -28,4 +28,4 @@ are in `.docs/DECISIONS.md`. A new record adds its number to its line.
 - playground, examples, e2e, handler placement, handle and instance names: 0674 0718-0720 0737
 - tests: unit/integration/e2e kinds, .tests module, testcontainers, when a test earns its place, no fake datastore, schema per test, setup/test/verify, SQLSTREAMS_TEST_DATABASE_URL, e2e conversion: 0328 0719 0730 0731 0736 0737
 - rule files, record-keeping surface, citations, (checked) markers, repository cleanup, tracked binaries, link audit: 0681 0721-0723 0761
-- project name, SQLStreams, Vulkan rename, topic to stream, brand, logo, disposable database cutover, temporary docs origin, local proposal review, SQL diagnostic prefix: 0725 0726 0727 0728 0729 0732 0782 0784
+- project name, SQLStreams, module owner, release distribution, allegedlyreliable, Vulkan rename, topic to stream, brand, logo, disposable database cutover, temporary docs origin, local proposal review, SQL diagnostic prefix: 0725 0726 0727 0728 0729 0732 0782 0784 0785

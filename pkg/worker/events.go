@@ -1,7 +1,7 @@
 package worker
 
 import (
-	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
 )
 
 // EventInstanceLost means this instance's worker_instance row was claimed by

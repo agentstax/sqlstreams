@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/sqlstreams/.bench/checker"
+	"github.com/allegedlyreliable/sqlstreams/.bench/checker"
 )
 
 // RunChecker judges the run from the record files the other roles left and

@@ -1,7 +1,7 @@
 package metric
 
 import (
-	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
 )
 
 var EventMeasurementsCannotBeExported = diagnostic.NewDiagnosticEvent("SQL0104",

@@ -17,7 +17,7 @@ import (
 	"testing"
 )
 
-const modulePath = "github.com/agentstax/sqlstreams"
+const modulePath = "github.com/allegedlyreliable/sqlstreams"
 
 // aliasFile is the one file allowed to declare type aliases.
 const aliasFile = "client/alias.go"

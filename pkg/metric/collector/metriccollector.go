@@ -3,15 +3,15 @@ package collector
 import (
 	"errors"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/common/logging"
-	compactioncontroller "github.com/agentstax/sqlstreams/pkg/compaction/controller"
-	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
-	metricscontroller "github.com/agentstax/sqlstreams/pkg/metric/controller"
-	"github.com/agentstax/sqlstreams/pkg/producer"
-	streamcontroller "github.com/agentstax/sqlstreams/pkg/stream/controller"
-	"github.com/agentstax/sqlstreams/pkg/worker"
-	"github.com/agentstax/sqlstreams/pkg/worker/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/logging"
+	compactioncontroller "github.com/allegedlyreliable/sqlstreams/pkg/compaction/controller"
+	iDatastore "github.com/allegedlyreliable/sqlstreams/pkg/datastore"
+	metricscontroller "github.com/allegedlyreliable/sqlstreams/pkg/metric/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/producer"
+	streamcontroller "github.com/allegedlyreliable/sqlstreams/pkg/stream/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/worker"
+	"github.com/allegedlyreliable/sqlstreams/pkg/worker/controller"
 )
 
 const WorkerMetricsCollector = "metrics_collector"

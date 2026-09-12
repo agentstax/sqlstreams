@@ -4,7 +4,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/agentstax/sqlstreams/cmd/sqlstreams/internal/cli"
+	"github.com/allegedlyreliable/sqlstreams/cmd/sqlstreams/internal/cli"
 )
 
 // version is set at build time via -ldflags "-X main.version=...".

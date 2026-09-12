@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/agentstax/sqlstreams/pkg/consume"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume"
 )
 
 // GetBinding reads the group's effective binding declaration --

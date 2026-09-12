@@ -3,8 +3,8 @@ package admin
 import (
 	"context"
 
-	"github.com/agentstax/sqlstreams/pkg/metric"
-	"github.com/agentstax/sqlstreams/pkg/worker"
+	"github.com/allegedlyreliable/sqlstreams/pkg/metric"
+	"github.com/allegedlyreliable/sqlstreams/pkg/worker"
 )
 
 func (a *MessageAdmin) SetWorkerTarget(ctx context.Context, streamName string, workerName string, target worker.InstanceTarget) error {

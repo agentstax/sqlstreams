@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/consumer"
-	"github.com/agentstax/sqlstreams/pkg/stream"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consumer"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
 )
 
 // StreamDeclaration is one stream under test and the consumer groups on it.

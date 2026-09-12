@@ -1,7 +1,7 @@
 package produce
 
 import (
-	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
 )
 
 // EventPartitionNotCreatedAhead means the create-ahead pass gave up on the

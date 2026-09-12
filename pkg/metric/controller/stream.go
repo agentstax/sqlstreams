@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/agentstax/sqlstreams/pkg/metric"
+	"github.com/allegedlyreliable/sqlstreams/pkg/metric"
 )
 
 func (c *MetricController) StreamSnapshot(ctx context.Context, streamId int64) (*metric.StreamSnapshot, error) {

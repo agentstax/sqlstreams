@@ -3,9 +3,9 @@ package runner
 import (
 	"context"
 
-	"github.com/agentstax/sqlstreams/.bench/common"
-	"github.com/agentstax/sqlstreams/.bench/scenario"
-	"github.com/agentstax/sqlstreams/client"
+	"github.com/allegedlyreliable/sqlstreams/.bench/common"
+	"github.com/allegedlyreliable/sqlstreams/.bench/scenario"
+	"github.com/allegedlyreliable/sqlstreams/client"
 )
 
 // The scenario's [input] section, translated into the library's own

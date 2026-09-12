@@ -3,10 +3,10 @@ package controller
 import (
 	"errors"
 
-	"github.com/agentstax/sqlstreams/pkg/common/logging"
-	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
-	migratecontroller "github.com/agentstax/sqlstreams/pkg/migrate/controller"
-	"github.com/agentstax/sqlstreams/pkg/worker/controller/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/logging"
+	iDatastore "github.com/allegedlyreliable/sqlstreams/pkg/datastore"
+	migratecontroller "github.com/allegedlyreliable/sqlstreams/pkg/migrate/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/worker/controller/datastore"
 )
 
 type WorkerController struct {

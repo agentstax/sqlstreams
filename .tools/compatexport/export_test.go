@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/agentstax/sqlstreams/pkg/migrate"
+	"github.com/allegedlyreliable/sqlstreams/pkg/migrate"
 )
 
 // Both shipped registries are empty, so the real export is a single cell.

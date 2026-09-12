@@ -1,4 +1,4 @@
-module github.com/agentstax/sqlstreams
+module github.com/allegedlyreliable/sqlstreams
 
 go 1.27.0
 

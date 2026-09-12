@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/schedule/controller/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/schedule/controller/datastore"
 )
 
 // behavior: a status lists every group that receives the schedule's messages

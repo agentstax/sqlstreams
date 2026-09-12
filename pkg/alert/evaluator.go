@@ -3,7 +3,7 @@ package alert
 import (
 	"context"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
 )
 
 // Evaluator validates its owner scope and evaluates retained evidence.

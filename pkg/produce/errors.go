@@ -1,7 +1,7 @@
 package produce
 
 import (
-	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
 )
 
 // ErrPartitionLockTimeout reclassifies a lock_timeout expiry (55P03) on the

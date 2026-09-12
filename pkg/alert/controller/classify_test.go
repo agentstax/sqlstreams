@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/alert"
-	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/alert"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
 )
 
 // closed set: what a run publishes against the head it last published --

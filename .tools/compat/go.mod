@@ -1,4 +1,4 @@
-module github.com/agentstax/sqlstreams/.tools/compat
+module github.com/allegedlyreliable/sqlstreams/.tools/compat
 
 go 1.27.0
 

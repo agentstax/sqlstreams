@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/alert"
-	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/alert"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
 )
 
 // closed set: the pending/active/insufficient outcome for each shape of

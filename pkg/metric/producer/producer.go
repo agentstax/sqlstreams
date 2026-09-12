@@ -8,12 +8,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
-	"github.com/agentstax/sqlstreams/pkg/common/logging"
-	"github.com/agentstax/sqlstreams/pkg/datastore"
-	"github.com/agentstax/sqlstreams/pkg/metric"
-	"github.com/agentstax/sqlstreams/pkg/produce"
-	iProducer "github.com/agentstax/sqlstreams/pkg/producer"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/logging"
+	"github.com/allegedlyreliable/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/metric"
+	"github.com/allegedlyreliable/sqlstreams/pkg/produce"
+	iProducer "github.com/allegedlyreliable/sqlstreams/pkg/producer"
 )
 
 const pendingGoRoutineEventsLimit = 256

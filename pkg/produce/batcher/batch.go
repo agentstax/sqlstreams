@@ -4,7 +4,7 @@ import (
 	"cmp"
 	"slices"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
 )
 
 // batch is the operations dequeued together and resolved in one transaction.

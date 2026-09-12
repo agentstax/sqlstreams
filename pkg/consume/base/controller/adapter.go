@@ -3,7 +3,7 @@ package controller
 import (
 	"uuid"
 
-	"github.com/agentstax/sqlstreams/pkg/consume/base/controller/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume/base/controller/datastore"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 

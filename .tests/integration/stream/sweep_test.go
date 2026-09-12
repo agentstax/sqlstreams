@@ -1,7 +1,7 @@
 package stream
 
 import (
-	"github.com/agentstax/sqlstreams/pkg/stream"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
 	"slices"
 	"testing"
 	"time"

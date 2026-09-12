@@ -1,8 +1,8 @@
 package controller
 
 import (
-	"github.com/agentstax/sqlstreams/pkg/system"
-	"github.com/agentstax/sqlstreams/pkg/system/controller/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/system"
+	"github.com/allegedlyreliable/sqlstreams/pkg/system/controller/datastore"
 )
 
 func toSystem(data *datastore.SystemConfigRow) *system.System {

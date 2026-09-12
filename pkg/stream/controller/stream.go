@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
-	"github.com/agentstax/sqlstreams/pkg/stream"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	iDatastore "github.com/allegedlyreliable/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
 )
 
 // Get resolves a stream by name. Returns (nil, nil) if name is not found.

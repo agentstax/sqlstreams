@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/alert"
-	"github.com/agentstax/sqlstreams/pkg/common/logging"
-	compactioncontroller "github.com/agentstax/sqlstreams/pkg/compaction/controller"
-	"github.com/agentstax/sqlstreams/pkg/datastore"
-	"github.com/agentstax/sqlstreams/pkg/producer"
+	"github.com/allegedlyreliable/sqlstreams/pkg/alert"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/logging"
+	compactioncontroller "github.com/allegedlyreliable/sqlstreams/pkg/compaction/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/producer"
 )
 
 // AlertController is the alert domain's write path: it records what a run

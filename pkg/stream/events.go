@@ -1,7 +1,7 @@
 package stream
 
 import (
-	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
 )
 
 // EventStreamConfigReplaced means a declaration overwrote a stream row's

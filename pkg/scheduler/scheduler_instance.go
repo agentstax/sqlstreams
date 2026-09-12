@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/datastore"
-	"github.com/agentstax/sqlstreams/pkg/schedule"
-	"github.com/agentstax/sqlstreams/pkg/systemmanager"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/schedule"
+	"github.com/allegedlyreliable/sqlstreams/pkg/systemmanager"
 )
 
 // SchedulerInstance is a registered schedule: Schedule keeps the system producing it.

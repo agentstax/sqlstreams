@@ -1,7 +1,7 @@
 package controller
 
 import (
-	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
 )
 
 // Appended is one append's outcome.

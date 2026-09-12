@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
 )
 
 // The real registry is what ships, so the export is asserted against it

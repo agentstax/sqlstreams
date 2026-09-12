@@ -4,16 +4,16 @@ import (
 	"context"
 	"errors"
 
-	"github.com/agentstax/sqlstreams/pkg/alert"
-	compactionreadcostcontroller "github.com/agentstax/sqlstreams/pkg/alert/compactionreadcost/controller"
-	partitioncountcontroller "github.com/agentstax/sqlstreams/pkg/alert/partitioncount/controller"
-	workerlivenesscontroller "github.com/agentstax/sqlstreams/pkg/alert/workerliveness/controller"
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/common/logging"
-	"github.com/agentstax/sqlstreams/pkg/datastore"
-	"github.com/agentstax/sqlstreams/pkg/produce/controller"
-	"github.com/agentstax/sqlstreams/pkg/stream"
-	streamcontroller "github.com/agentstax/sqlstreams/pkg/stream/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/alert"
+	compactionreadcostcontroller "github.com/allegedlyreliable/sqlstreams/pkg/alert/compactionreadcost/controller"
+	partitioncountcontroller "github.com/allegedlyreliable/sqlstreams/pkg/alert/partitioncount/controller"
+	workerlivenesscontroller "github.com/allegedlyreliable/sqlstreams/pkg/alert/workerliveness/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/logging"
+	"github.com/allegedlyreliable/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/produce/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
+	streamcontroller "github.com/allegedlyreliable/sqlstreams/pkg/stream/controller"
 )
 
 type Producer struct {

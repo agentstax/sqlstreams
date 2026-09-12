@@ -1,8 +1,8 @@
 package controller
 
 import (
-	"github.com/agentstax/sqlstreams/pkg/consume"
-	"github.com/agentstax/sqlstreams/pkg/consume/controller/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume/controller/datastore"
 )
 
 func toConsumer(data *datastore.ConsumerGroupConfigRow) *consume.Consumer {

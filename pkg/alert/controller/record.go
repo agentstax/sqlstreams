@@ -5,10 +5,10 @@ import (
 	"errors"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/alert"
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/datastore"
-	"github.com/agentstax/sqlstreams/pkg/produce"
+	"github.com/allegedlyreliable/sqlstreams/pkg/alert"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/produce"
 )
 
 // Record serializes classification and production on the owner's alert head.

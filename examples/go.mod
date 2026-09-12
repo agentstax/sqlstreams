@@ -1,10 +1,10 @@
-module github.com/agentstax/sqlstreams/examples
+module github.com/allegedlyreliable/sqlstreams/examples
 
 go 1.27.0
 
 // Dev-only module: keeps runnable examples out of the root library module's
 // published zip and its `go test ./...` surface. The parent module
-// github.com/agentstax/sqlstreams is resolved locally via the repo-root go.work
+// github.com/allegedlyreliable/sqlstreams is resolved locally via the repo-root go.work
 // (use ./examples) and deliberately has NO require line here: it's
 // unpublished, so any placeholder version poisons the whole workspace graph.
 // Unlike cmd/sqlstreams and otel, this module is never tagged or published,

@@ -1,11 +1,11 @@
-module github.com/agentstax/sqlstreams/.tests
+module github.com/allegedlyreliable/sqlstreams/.tests
 
 go 1.27.0
 
 // Dev-only module holding both test trees: integration/ (datastore tests
 // over testcontainers) and e2e/ (end-to-end programs). It keeps the Docker
 // dependency out of the root library module's graph, published zip, and
-// `go test ./...` surface. The parent module github.com/agentstax/sqlstreams
+// `go test ./...` surface. The parent module github.com/allegedlyreliable/sqlstreams
 // is resolved locally via the repo-root go.work (use ./.tests) and
 // deliberately has NO require line here: it's unpublished, so any
 // placeholder version poisons the whole workspace graph. Never tagged or

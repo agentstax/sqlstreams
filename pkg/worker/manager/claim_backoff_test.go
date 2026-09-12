@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
 )
 
 func TestDeclinesClimbThePolicyAndClearRestartsTheStreak(t *testing.T) {

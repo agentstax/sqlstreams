@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/sqlstreams/.bench/common"
-	"github.com/agentstax/sqlstreams/.bench/record"
-	"github.com/agentstax/sqlstreams/.bench/runner/datastore"
-	"github.com/agentstax/sqlstreams/.bench/scenario"
+	"github.com/allegedlyreliable/sqlstreams/.bench/common"
+	"github.com/allegedlyreliable/sqlstreams/.bench/record"
+	"github.com/allegedlyreliable/sqlstreams/.bench/runner/datastore"
+	"github.com/allegedlyreliable/sqlstreams/.bench/scenario"
 )
 
 // Runner runs one role of one scenario: it registers what the scenario

@@ -5,13 +5,13 @@ import (
 	"errors"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/produce"
-	"github.com/agentstax/sqlstreams/pkg/producer"
-	"github.com/agentstax/sqlstreams/pkg/schedule"
-	schedulecontroller "github.com/agentstax/sqlstreams/pkg/schedule/controller"
-	"github.com/agentstax/sqlstreams/pkg/stream"
-	streamcontroller "github.com/agentstax/sqlstreams/pkg/stream/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/produce"
+	"github.com/allegedlyreliable/sqlstreams/pkg/producer"
+	"github.com/allegedlyreliable/sqlstreams/pkg/schedule"
+	schedulecontroller "github.com/allegedlyreliable/sqlstreams/pkg/schedule/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
+	streamcontroller "github.com/allegedlyreliable/sqlstreams/pkg/stream/controller"
 )
 
 // RunSchedule produces the named schedule's stored message immediately,

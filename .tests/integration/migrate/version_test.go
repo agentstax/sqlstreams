@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/agentstax/sqlstreams/pkg/migrate"
-	"github.com/agentstax/sqlstreams/pkg/migrate/controller/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/migrate"
+	"github.com/allegedlyreliable/sqlstreams/pkg/migrate/controller/datastore"
 )
 
 // Invariant: an owner's version is its latest-by-id success row, never the

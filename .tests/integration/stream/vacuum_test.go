@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/stream"
-	vacuumdatastore "github.com/agentstax/sqlstreams/pkg/stream/vacuum/controller/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
+	vacuumdatastore "github.com/allegedlyreliable/sqlstreams/pkg/stream/vacuum/controller/datastore"
 )
 
 func TestVacuumRefreshesKeyStatisticsWithoutDeletingRetainedKeys(t *testing.T) {

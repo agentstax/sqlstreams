@@ -1,6 +1,6 @@
 package common
 
-import "github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+import "github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
 
 // ErrAlreadyConsuming means Consume ran twice at once on one instance -- an
 // instance runs one Consume at a time.

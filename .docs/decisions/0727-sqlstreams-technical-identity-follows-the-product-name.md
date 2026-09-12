@@ -32,6 +32,9 @@ The current delivery, ordering and routing semantics remain unchanged.
 
 ## Consequences
 
+Repository and module ownership is superseded by [0785]: use
+github.com/allegedlyreliable/sqlstreams for the current source and distribution.
+
 The diagnostic-prefix choice is superseded by [0732]: use SQL and preserve
 the numeric serial. Other technical identities remain accepted.
 

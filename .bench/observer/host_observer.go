@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/agentstax/sqlstreams/.bench/record"
+	"github.com/allegedlyreliable/sqlstreams/.bench/record"
 )
 
 // HostObserver samples local role CPU; it requires no access to the database host.

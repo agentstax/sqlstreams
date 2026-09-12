@@ -3,7 +3,7 @@ package metric
 import (
 	"errors"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
 )
 
 // PartitionMeasurementMetadata records applicability alongside the partition count.

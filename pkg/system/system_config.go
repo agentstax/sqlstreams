@@ -3,8 +3,8 @@ package system
 import (
 	"fmt"
 
-	"github.com/agentstax/sqlstreams/pkg/alert"
-	"github.com/agentstax/sqlstreams/pkg/metric"
+	"github.com/allegedlyreliable/sqlstreams/pkg/alert"
+	"github.com/allegedlyreliable/sqlstreams/pkg/metric"
 )
 
 // SystemConfig declares the built-in alert settings and metrics collector's

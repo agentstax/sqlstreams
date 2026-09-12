@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 
-	"github.com/agentstax/sqlstreams/pkg/consume"
-	"github.com/agentstax/sqlstreams/pkg/stream"
-	"github.com/agentstax/sqlstreams/pkg/worker"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
+	"github.com/allegedlyreliable/sqlstreams/pkg/worker"
 )
 
 // GetConsumer reads the consumer's registration. Returns (nil, nil), not an error, when

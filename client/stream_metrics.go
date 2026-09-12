@@ -3,8 +3,8 @@ package sqlstreams
 import (
 	"context"
 
-	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
-	"github.com/agentstax/sqlstreams/pkg/metric"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
+	"github.com/allegedlyreliable/sqlstreams/pkg/metric"
 )
 
 // StreamMetricsHandle names one stream's metrics resource, holding no database

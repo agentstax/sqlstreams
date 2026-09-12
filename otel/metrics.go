@@ -9,16 +9,16 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/common/logging"
-	"github.com/agentstax/sqlstreams/pkg/datastore"
-	"github.com/agentstax/sqlstreams/pkg/metric"
-	metricscontroller "github.com/agentstax/sqlstreams/pkg/metric/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/logging"
+	"github.com/allegedlyreliable/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/metric"
+	metricscontroller "github.com/allegedlyreliable/sqlstreams/pkg/metric/controller"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 )
 
-const meterScopeName = "github.com/agentstax/sqlstreams/otel"
+const meterScopeName = "github.com/allegedlyreliable/sqlstreams/otel"
 
 // Metrics is an external SDK producer of the newest retained measurements.
 // Attach it to a reader with sdkmetric.WithProducer; no registration pass is needed.

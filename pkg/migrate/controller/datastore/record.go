@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/datastore"
 )
 
 func (d *MigrateDatastore) recordSuccess(ctx context.Context, q datastore.Querier, owner *common.Owner, version int64, minCompatibleVersion int64) error {

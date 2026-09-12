@@ -4,7 +4,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/datastore"
 	"github.com/charmbracelet/fang"
 	"github.com/spf13/cobra"
 )

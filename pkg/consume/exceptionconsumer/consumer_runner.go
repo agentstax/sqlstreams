@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/consume"
-	consumebase "github.com/agentstax/sqlstreams/pkg/consume/base"
-	keyleasecontroller "github.com/agentstax/sqlstreams/pkg/consume/base/controller"
-	"github.com/agentstax/sqlstreams/pkg/consume/exceptionconsumer/controller"
-	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume"
+	consumebase "github.com/allegedlyreliable/sqlstreams/pkg/consume/base"
+	keyleasecontroller "github.com/allegedlyreliable/sqlstreams/pkg/consume/base/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume/exceptionconsumer/controller"
+	workercontroller "github.com/allegedlyreliable/sqlstreams/pkg/worker/controller"
 	"golang.org/x/sync/errgroup"
 )
 

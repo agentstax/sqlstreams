@@ -4,15 +4,15 @@ package sqlstreams
 // holds whether a caller spells the root or this package.
 
 import (
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/compaction"
-	"github.com/agentstax/sqlstreams/pkg/consume"
-	"github.com/agentstax/sqlstreams/pkg/migrate"
-	"github.com/agentstax/sqlstreams/pkg/produce"
-	"github.com/agentstax/sqlstreams/pkg/schedule"
-	"github.com/agentstax/sqlstreams/pkg/stream"
-	"github.com/agentstax/sqlstreams/pkg/system"
-	"github.com/agentstax/sqlstreams/pkg/worker"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/compaction"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume"
+	"github.com/allegedlyreliable/sqlstreams/pkg/migrate"
+	"github.com/allegedlyreliable/sqlstreams/pkg/produce"
+	"github.com/allegedlyreliable/sqlstreams/pkg/schedule"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
+	"github.com/allegedlyreliable/sqlstreams/pkg/system"
+	"github.com/allegedlyreliable/sqlstreams/pkg/worker"
 )
 
 var (

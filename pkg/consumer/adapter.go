@@ -1,9 +1,9 @@
 package consumer
 
 import (
-	"github.com/agentstax/sqlstreams/pkg/consume/exceptionconsumer"
-	"github.com/agentstax/sqlstreams/pkg/consume/messageconsumer"
-	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume/exceptionconsumer"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume/messageconsumer"
+	workercontroller "github.com/allegedlyreliable/sqlstreams/pkg/worker/controller"
 )
 
 func toMessageConsumerWorkerConfig(declared *ConsumerConfig) *workercontroller.WorkerConfig {

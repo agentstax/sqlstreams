@@ -28,7 +28,7 @@
 		header: {
 			kind: 'posted',
 			postedDate: '2026-08-22',
-			reportHref: 'https://github.com/agentstax/sqlstreams/issues/new',
+			reportHref: 'https://github.com/allegedlyreliable/sqlstreams/issues/new',
 		},
 		postCount: 74,
 	}}

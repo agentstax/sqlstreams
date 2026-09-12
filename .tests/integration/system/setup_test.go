@@ -3,8 +3,8 @@ package system
 import (
 	"testing"
 
-	"github.com/agentstax/sqlstreams/.tests/integration/postgres"
-	"github.com/agentstax/sqlstreams/pkg/system/controller/datastore"
+	"github.com/allegedlyreliable/sqlstreams/.tests/integration/postgres"
+	"github.com/allegedlyreliable/sqlstreams/pkg/system/controller/datastore"
 )
 
 // controlPlaneTables are the shared tables Register creates and Delete

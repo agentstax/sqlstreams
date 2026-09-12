@@ -3,7 +3,7 @@ package datastore
 import (
 	"encoding/json"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
 )
 
 // DeliveryStatus is the exception_queue_<stream_id>.status column's value set. The

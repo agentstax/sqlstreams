@@ -3,7 +3,7 @@ package migrations
 import (
 	"testing"
 
-	"github.com/agentstax/sqlstreams/pkg/migrate"
+	"github.com/allegedlyreliable/sqlstreams/pkg/migrate"
 )
 
 // invariant: the shipped system registry passes Validate, so a gapped or

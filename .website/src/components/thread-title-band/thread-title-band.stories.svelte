@@ -10,7 +10,7 @@
 			code: null,
 			solved: false,
 			editHref:
-				'https://github.com/agentstax/sqlstreams/edit/main/.website/src/content/docs/concepts/ordering.mdx',
+				'https://github.com/allegedlyreliable/sqlstreams/edit/main/.website/src/content/docs/concepts/ordering.mdx',
 		},
 	});
 </script>

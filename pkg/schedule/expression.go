@@ -6,7 +6,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/schedule/internal/robfig"
+	"github.com/allegedlyreliable/sqlstreams/pkg/schedule/internal/robfig"
 )
 
 const (

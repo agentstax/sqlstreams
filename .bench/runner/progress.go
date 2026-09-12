@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/agentstax/sqlstreams/.bench/record"
+	"github.com/allegedlyreliable/sqlstreams/.bench/record"
 )
 
 // runProgress writes cumulative counters once a second and once more at shutdown.

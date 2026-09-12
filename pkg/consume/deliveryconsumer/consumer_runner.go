@@ -6,9 +6,9 @@ import (
 	"errors"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	consumebase "github.com/agentstax/sqlstreams/pkg/consume/base"
-	"github.com/agentstax/sqlstreams/pkg/consume/deliveryconsumer/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	consumebase "github.com/allegedlyreliable/sqlstreams/pkg/consume/base"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume/deliveryconsumer/controller"
 	"golang.org/x/sync/errgroup"
 )
 

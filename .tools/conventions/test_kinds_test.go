@@ -20,10 +20,10 @@ var unitTestRoots = []string{"client", "pkg", "otel", "cmd"}
 // path. NewPostgresPool is also matched as a bare call inside its own
 // package.
 var connectVerbs = map[string][]string{
-	"github.com/jackc/pgx/v5":                {"Connect", "ConnectConfig", "ConnectWithOptions"},
-	"github.com/jackc/pgx/v5/pgconn":         {"Connect", "ConnectConfig", "ConnectWithOptions"},
-	"github.com/jackc/pgx/v5/pgxpool":        {"New", "NewWithConfig"},
-	"github.com/agentstax/sqlstreams/client": {"NewPostgresPool"},
+	"github.com/jackc/pgx/v5":                        {"Connect", "ConnectConfig", "ConnectWithOptions"},
+	"github.com/jackc/pgx/v5/pgconn":                 {"Connect", "ConnectConfig", "ConnectWithOptions"},
+	"github.com/jackc/pgx/v5/pgxpool":                {"New", "NewWithConfig"},
+	"github.com/allegedlyreliable/sqlstreams/client": {"NewPostgresPool"},
 }
 
 // testDatabaseSeam is the one reader of the SQLSTREAMS_TEST_* variables.
@@ -242,7 +242,7 @@ func calledFunction(call *ast.CallExpr, imports map[string]string) (string, stri
 		}
 	case *ast.Ident:
 		if function.Name == "NewPostgresPool" {
-			return "github.com/agentstax/sqlstreams/client", function.Name
+			return "github.com/allegedlyreliable/sqlstreams/client", function.Name
 		}
 	}
 	return "", ""

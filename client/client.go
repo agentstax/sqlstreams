@@ -8,12 +8,12 @@ import (
 	"context"
 	"errors"
 
-	"github.com/agentstax/sqlstreams/pkg/admin"
-	"github.com/agentstax/sqlstreams/pkg/consumer"
-	"github.com/agentstax/sqlstreams/pkg/datastore"
-	"github.com/agentstax/sqlstreams/pkg/producer"
-	"github.com/agentstax/sqlstreams/pkg/scheduler"
-	"github.com/agentstax/sqlstreams/pkg/systemmanager"
+	"github.com/allegedlyreliable/sqlstreams/pkg/admin"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consumer"
+	"github.com/allegedlyreliable/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/producer"
+	"github.com/allegedlyreliable/sqlstreams/pkg/scheduler"
+	"github.com/allegedlyreliable/sqlstreams/pkg/systemmanager"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 

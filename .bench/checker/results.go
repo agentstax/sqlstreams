@@ -9,8 +9,8 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/agentstax/sqlstreams/.bench/checker/datastore"
-	"github.com/agentstax/sqlstreams/.bench/scenario"
+	"github.com/allegedlyreliable/sqlstreams/.bench/checker/datastore"
+	"github.com/allegedlyreliable/sqlstreams/.bench/scenario"
 )
 
 // Files written into the run directory supplied by Manager.

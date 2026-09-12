@@ -1,9 +1,9 @@
 package batcher
 
 import (
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/produce"
-	"github.com/agentstax/sqlstreams/pkg/produce/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/produce"
+	"github.com/allegedlyreliable/sqlstreams/pkg/produce/controller"
 )
 
 // batchOperation is one produce in flight: what to write, and how the

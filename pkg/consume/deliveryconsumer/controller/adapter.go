@@ -1,7 +1,7 @@
 package controller
 
 import (
-	"github.com/agentstax/sqlstreams/pkg/consume/deliveryconsumer/controller/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume/deliveryconsumer/controller/datastore"
 )
 
 func toDelivery(data datastore.ExceptionQueueRow) Delivery {

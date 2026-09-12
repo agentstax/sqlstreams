@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
 )
 
 // Export is every SQL-coded declaration keyed by its code. One document, so a

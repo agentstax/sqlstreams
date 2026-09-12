@@ -4,16 +4,16 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/datastore"
 	"log/slog"
 	"os"
 	"strings"
 
-	"github.com/agentstax/sqlstreams/client"
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/common/logging"
-	metricscontroller "github.com/agentstax/sqlstreams/pkg/metric/controller"
-	"github.com/agentstax/sqlstreams/pkg/system"
+	"github.com/allegedlyreliable/sqlstreams/client"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/logging"
+	metricscontroller "github.com/allegedlyreliable/sqlstreams/pkg/metric/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/system"
 	"github.com/spf13/cobra"
 )
 

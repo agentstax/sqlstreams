@@ -3,8 +3,8 @@ package metric
 import (
 	"testing"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/metric/controller/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/metric/controller/datastore"
 )
 
 // behavior: a worker snapshot resolves each worker's system, stream, and

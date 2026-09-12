@@ -3,7 +3,7 @@ package datastore
 import (
 	"uuid"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
 )
 
 // Append is one message append's inputs, insert-arg exact.

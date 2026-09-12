@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/agentstax/sqlstreams/client"
+	"github.com/allegedlyreliable/sqlstreams/client"
 )
 
 type VideoProcessingStateV1 struct {

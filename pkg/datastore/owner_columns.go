@@ -1,6 +1,6 @@
 package datastore
 
-import "github.com/agentstax/sqlstreams/pkg/common"
+import "github.com/allegedlyreliable/sqlstreams/pkg/common"
 
 // OwnerColumns selects the owning resource's ID; ancestors are NULL in SQL.
 type OwnerColumns struct {

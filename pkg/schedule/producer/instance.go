@@ -4,15 +4,15 @@ import (
 	"context"
 	"errors"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/common/logging"
-	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
-	"github.com/agentstax/sqlstreams/pkg/produce"
-	"github.com/agentstax/sqlstreams/pkg/producer"
-	"github.com/agentstax/sqlstreams/pkg/schedule"
-	scheduleproducercontroller "github.com/agentstax/sqlstreams/pkg/schedule/producer/controller"
-	"github.com/agentstax/sqlstreams/pkg/worker"
-	"github.com/agentstax/sqlstreams/pkg/worker/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/logging"
+	iDatastore "github.com/allegedlyreliable/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/produce"
+	"github.com/allegedlyreliable/sqlstreams/pkg/producer"
+	"github.com/allegedlyreliable/sqlstreams/pkg/schedule"
+	scheduleproducercontroller "github.com/allegedlyreliable/sqlstreams/pkg/schedule/producer/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/worker"
+	"github.com/allegedlyreliable/sqlstreams/pkg/worker/controller"
 )
 
 // scans schedule_config for due rows at the row's poll_rate while a heartbeat

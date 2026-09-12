@@ -4,16 +4,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agentstax/sqlstreams/.tests/integration/postgres"
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/consume"
-	consumecontroller "github.com/agentstax/sqlstreams/pkg/consume/controller"
-	"github.com/agentstax/sqlstreams/pkg/metric"
-	"github.com/agentstax/sqlstreams/pkg/metric/controller/datastore"
-	"github.com/agentstax/sqlstreams/pkg/stream"
-	streamcontroller "github.com/agentstax/sqlstreams/pkg/stream/controller"
-	systemcontroller "github.com/agentstax/sqlstreams/pkg/system/controller"
-	workerdatastore "github.com/agentstax/sqlstreams/pkg/worker/controller/datastore"
+	"github.com/allegedlyreliable/sqlstreams/.tests/integration/postgres"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume"
+	consumecontroller "github.com/allegedlyreliable/sqlstreams/pkg/consume/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/metric"
+	"github.com/allegedlyreliable/sqlstreams/pkg/metric/controller/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
+	streamcontroller "github.com/allegedlyreliable/sqlstreams/pkg/stream/controller"
+	systemcontroller "github.com/allegedlyreliable/sqlstreams/pkg/system/controller"
+	workerdatastore "github.com/allegedlyreliable/sqlstreams/pkg/worker/controller/datastore"
 )
 
 // newMetricDatastore registers a system and the "orders" stream every read

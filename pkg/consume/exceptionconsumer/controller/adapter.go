@@ -3,8 +3,8 @@ package controller
 import (
 	"uuid"
 
-	keyleasecontroller "github.com/agentstax/sqlstreams/pkg/consume/base/controller"
-	"github.com/agentstax/sqlstreams/pkg/consume/exceptionconsumer/controller/datastore"
+	keyleasecontroller "github.com/allegedlyreliable/sqlstreams/pkg/consume/base/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume/exceptionconsumer/controller/datastore"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 

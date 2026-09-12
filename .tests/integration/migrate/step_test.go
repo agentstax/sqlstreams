@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/agentstax/sqlstreams/pkg/migrate/controller/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/migrate/controller/datastore"
 )
 
 // Invariant: the migration lock is a session lock -- it survives the

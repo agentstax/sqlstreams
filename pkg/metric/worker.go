@@ -3,7 +3,7 @@ package metric
 import (
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
 )
 
 // WorkerStatus describes suspension, live claims, and recorded failures.

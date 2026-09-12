@@ -4,12 +4,12 @@ import (
 	"context"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/consume"
-	"github.com/agentstax/sqlstreams/pkg/migrate"
-	"github.com/agentstax/sqlstreams/pkg/schedule"
-	"github.com/agentstax/sqlstreams/pkg/worker"
-	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume"
+	"github.com/allegedlyreliable/sqlstreams/pkg/migrate"
+	"github.com/allegedlyreliable/sqlstreams/pkg/schedule"
+	"github.com/allegedlyreliable/sqlstreams/pkg/worker"
+	workercontroller "github.com/allegedlyreliable/sqlstreams/pkg/worker/controller"
 )
 
 // Declare creates the alert's consumer group on the schedules stream and its

@@ -3,7 +3,7 @@ package producer
 import (
 	"errors"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
 )
 
 // ProduceResult is one produce call's outcome.

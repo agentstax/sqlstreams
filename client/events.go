@@ -4,14 +4,14 @@ package sqlstreams
 // on a code.
 
 import (
-	"github.com/agentstax/sqlstreams/pkg/alert"
-	"github.com/agentstax/sqlstreams/pkg/consume"
-	"github.com/agentstax/sqlstreams/pkg/metric"
-	"github.com/agentstax/sqlstreams/pkg/produce"
-	"github.com/agentstax/sqlstreams/pkg/schedule"
-	"github.com/agentstax/sqlstreams/pkg/stream"
-	"github.com/agentstax/sqlstreams/pkg/system"
-	"github.com/agentstax/sqlstreams/pkg/worker"
+	"github.com/allegedlyreliable/sqlstreams/pkg/alert"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume"
+	"github.com/allegedlyreliable/sqlstreams/pkg/metric"
+	"github.com/allegedlyreliable/sqlstreams/pkg/produce"
+	"github.com/allegedlyreliable/sqlstreams/pkg/schedule"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
+	"github.com/allegedlyreliable/sqlstreams/pkg/system"
+	"github.com/allegedlyreliable/sqlstreams/pkg/worker"
 )
 
 var (

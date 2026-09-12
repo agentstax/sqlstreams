@@ -1,8 +1,8 @@
 package workerliveness
 
 import (
-	"github.com/agentstax/sqlstreams/pkg/alert"
-	alertcontroller "github.com/agentstax/sqlstreams/pkg/alert/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/alert"
+	alertcontroller "github.com/allegedlyreliable/sqlstreams/pkg/alert/controller"
 )
 
 var JobName = "alert." + alert.AlertWorkerLiveness.Name

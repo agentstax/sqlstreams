@@ -4,14 +4,14 @@ import (
 	"context"
 	"errors"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/datastore"
-	"github.com/agentstax/sqlstreams/pkg/migrate"
-	"github.com/agentstax/sqlstreams/pkg/schedule"
-	schedulecontroller "github.com/agentstax/sqlstreams/pkg/schedule/controller"
-	"github.com/agentstax/sqlstreams/pkg/stream"
-	streamcontroller "github.com/agentstax/sqlstreams/pkg/stream/controller"
-	systemcontroller "github.com/agentstax/sqlstreams/pkg/system/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/migrate"
+	"github.com/allegedlyreliable/sqlstreams/pkg/schedule"
+	schedulecontroller "github.com/allegedlyreliable/sqlstreams/pkg/schedule/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
+	streamcontroller "github.com/allegedlyreliable/sqlstreams/pkg/stream/controller"
+	systemcontroller "github.com/allegedlyreliable/sqlstreams/pkg/system/controller"
 )
 
 // Scheduler declares schedules; the system's schedule producer worker is what produces them.

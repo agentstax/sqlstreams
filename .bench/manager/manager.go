@@ -12,10 +12,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/agentstax/sqlstreams/.bench/common"
-	"github.com/agentstax/sqlstreams/.bench/observer"
-	runnerdatastore "github.com/agentstax/sqlstreams/.bench/runner/datastore"
-	"github.com/agentstax/sqlstreams/.bench/scenario"
+	"github.com/allegedlyreliable/sqlstreams/.bench/common"
+	"github.com/allegedlyreliable/sqlstreams/.bench/observer"
+	runnerdatastore "github.com/allegedlyreliable/sqlstreams/.bench/runner/datastore"
+	"github.com/allegedlyreliable/sqlstreams/.bench/scenario"
 )
 
 // Manager owns complete runs; each child continues to execute one Runner role.

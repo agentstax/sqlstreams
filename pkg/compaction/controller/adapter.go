@@ -3,8 +3,8 @@ package controller
 import (
 	"encoding/json"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/compaction/controller/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/compaction/controller/datastore"
 )
 
 func toStoredMessage[Message common.Versioned](data *datastore.MessageLogRow) (*common.StoredMessage[Message], error) {

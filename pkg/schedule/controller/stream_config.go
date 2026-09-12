@@ -3,7 +3,7 @@ package controller
 import (
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/stream"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
 )
 
 // StreamConfig - RetentionTTL is the schedule-request-history horizon; it must

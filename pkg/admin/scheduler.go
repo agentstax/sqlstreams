@@ -3,10 +3,10 @@ package admin
 import (
 	"context"
 
-	"github.com/agentstax/sqlstreams/pkg/producer"
-	"github.com/agentstax/sqlstreams/pkg/schedule"
-	"github.com/agentstax/sqlstreams/pkg/scheduler"
-	"github.com/agentstax/sqlstreams/pkg/stream"
+	"github.com/allegedlyreliable/sqlstreams/pkg/producer"
+	"github.com/allegedlyreliable/sqlstreams/pkg/schedule"
+	"github.com/allegedlyreliable/sqlstreams/pkg/scheduler"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
 )
 
 // GetSchedule returns (nil, nil), not an error, if name isn't registered.

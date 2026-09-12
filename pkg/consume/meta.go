@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
 )
 
 // MessageMeta is everything about a delivered message besides its payload,

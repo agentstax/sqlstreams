@@ -3,7 +3,7 @@ package cli
 import (
 	"log/slog"
 
-	"github.com/agentstax/sqlstreams/pkg/schedule"
+	"github.com/allegedlyreliable/sqlstreams/pkg/schedule"
 	"github.com/spf13/cobra"
 )
 

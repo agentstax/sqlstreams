@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/agentstax/sqlstreams/pkg/schedule"
+	"github.com/allegedlyreliable/sqlstreams/pkg/schedule"
 	"github.com/spf13/cobra"
 )
 

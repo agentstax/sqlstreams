@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/sqlstreams/.bench/checker/datastore"
-	"github.com/agentstax/sqlstreams/.bench/common"
+	"github.com/allegedlyreliable/sqlstreams/.bench/checker/datastore"
+	"github.com/allegedlyreliable/sqlstreams/.bench/common"
 )
 
 const drainPoll = 500 * time.Millisecond

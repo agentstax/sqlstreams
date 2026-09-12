@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	sqlstreamsdatastore "github.com/agentstax/sqlstreams/pkg/datastore"
-	"github.com/agentstax/sqlstreams/pkg/stream"
+	sqlstreamsdatastore "github.com/allegedlyreliable/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
 )
 
 // sqlstreamsSchema is where the roles' client put sqlstreams's tables: they run with

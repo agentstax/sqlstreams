@@ -11,8 +11,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/agentstax/sqlstreams/.bench/observer/datastore"
-	"github.com/agentstax/sqlstreams/.bench/record"
+	"github.com/allegedlyreliable/sqlstreams/.bench/observer/datastore"
+	"github.com/allegedlyreliable/sqlstreams/.bench/record"
 )
 
 const samplePeriod = time.Second

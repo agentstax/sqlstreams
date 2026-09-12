@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/metric/controller/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/metric/controller/datastore"
 )
 
 // behavior: a group's lag at a payload version counts the rows at that

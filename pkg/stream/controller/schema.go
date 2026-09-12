@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	iDatastore "github.com/allegedlyreliable/sqlstreams/pkg/datastore"
 )
 
 func (c *StreamController) AssertSchemaSupported(ctx context.Context, systemId int64, streamId int64) error {

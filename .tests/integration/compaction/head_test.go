@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/compaction/controller/datastore"
-	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/compaction/controller/datastore"
+	iDatastore "github.com/allegedlyreliable/sqlstreams/pkg/datastore"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 

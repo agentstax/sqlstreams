@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/agentstax/sqlstreams/pkg/metric"
+	"github.com/allegedlyreliable/sqlstreams/pkg/metric"
 )
 
 // AbandonedRoutineSnapshot pairs the abandoned/cleared events for (streamId,

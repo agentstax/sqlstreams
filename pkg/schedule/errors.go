@@ -1,7 +1,7 @@
 package schedule
 
 import (
-	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
 )
 
 // ErrScheduleNotFound means the named schedule has no row.

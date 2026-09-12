@@ -3,13 +3,13 @@ package vacuum
 import (
 	"errors"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/common/logging"
-	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
-	streamcontroller "github.com/agentstax/sqlstreams/pkg/stream/controller"
-	vacuumcontroller "github.com/agentstax/sqlstreams/pkg/stream/vacuum/controller"
-	"github.com/agentstax/sqlstreams/pkg/worker"
-	"github.com/agentstax/sqlstreams/pkg/worker/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/logging"
+	iDatastore "github.com/allegedlyreliable/sqlstreams/pkg/datastore"
+	streamcontroller "github.com/allegedlyreliable/sqlstreams/pkg/stream/controller"
+	vacuumcontroller "github.com/allegedlyreliable/sqlstreams/pkg/stream/vacuum/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/worker"
+	"github.com/allegedlyreliable/sqlstreams/pkg/worker/controller"
 )
 
 const WorkerStreamVacuum = "stream_vacuum"

@@ -3,7 +3,7 @@ package worker
 import (
 	"fmt"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
 )
 
 // InstanceTarget is how many live instances of one worker row may run at once

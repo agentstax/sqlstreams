@@ -3,9 +3,9 @@ package exceptionconsumer
 import (
 	"context"
 
-	consumebase "github.com/agentstax/sqlstreams/pkg/consume/base"
-	"github.com/agentstax/sqlstreams/pkg/worker"
-	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
+	consumebase "github.com/allegedlyreliable/sqlstreams/pkg/consume/base"
+	"github.com/allegedlyreliable/sqlstreams/pkg/worker"
+	workercontroller "github.com/allegedlyreliable/sqlstreams/pkg/worker/controller"
 )
 
 // a nil Execution is a declined claim, not an error -- try again later.

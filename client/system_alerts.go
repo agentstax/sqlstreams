@@ -3,7 +3,7 @@ package sqlstreams
 import (
 	"context"
 
-	"github.com/agentstax/sqlstreams/pkg/alert"
+	"github.com/allegedlyreliable/sqlstreams/pkg/alert"
 )
 
 // SystemAlertsHandle names the installation-wide alerts resource, holding no

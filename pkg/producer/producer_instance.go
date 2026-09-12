@@ -7,13 +7,13 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/common/logging"
-	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
-	"github.com/agentstax/sqlstreams/pkg/produce"
-	"github.com/agentstax/sqlstreams/pkg/produce/batcher"
-	"github.com/agentstax/sqlstreams/pkg/produce/controller"
-	"github.com/agentstax/sqlstreams/pkg/stream"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/logging"
+	iDatastore "github.com/allegedlyreliable/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/produce"
+	"github.com/allegedlyreliable/sqlstreams/pkg/produce/batcher"
+	"github.com/allegedlyreliable/sqlstreams/pkg/produce/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
 )
 
 // ProducerInstance is a registered producer: it appends messages to the stream

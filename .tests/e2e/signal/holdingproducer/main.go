@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/agentstax/sqlstreams/.tests/e2e/common"
-	"github.com/agentstax/sqlstreams/client"
+	"github.com/allegedlyreliable/sqlstreams/.tests/e2e/common"
+	"github.com/allegedlyreliable/sqlstreams/client"
 )
 
 var streamName = flag.String("stream", "", "the stream to produce on")

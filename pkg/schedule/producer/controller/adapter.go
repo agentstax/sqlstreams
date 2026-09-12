@@ -1,7 +1,7 @@
 package controller
 
 import (
-	"github.com/agentstax/sqlstreams/pkg/schedule/producer/controller/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/schedule/producer/controller/datastore"
 )
 
 func toDueSchedule(data *datastore.DueScheduleRow) *DueSchedule {

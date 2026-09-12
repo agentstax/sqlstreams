@@ -1,7 +1,7 @@
 package alert
 
 import (
-	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
 )
 
 // EventAlertConditionHolds means a Register-time pass measured the stream

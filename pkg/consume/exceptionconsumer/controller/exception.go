@@ -8,9 +8,9 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	keyleasecontroller "github.com/agentstax/sqlstreams/pkg/consume/base/controller"
-	"github.com/agentstax/sqlstreams/pkg/stream"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	keyleasecontroller "github.com/allegedlyreliable/sqlstreams/pkg/consume/base/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
 )
 
 // one exception claimed off the exception window for (re)processing -- the

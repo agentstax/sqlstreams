@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
-	"github.com/agentstax/sqlstreams/pkg/migrate"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
+	"github.com/allegedlyreliable/sqlstreams/pkg/migrate"
 )
 
 var errTestBroker = diagnostic.NewDiagnosticError("SQL9801", diagnostic.RecoveryTransient,

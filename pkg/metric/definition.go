@@ -3,7 +3,7 @@ package metric
 import (
 	"slices"
 
-	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
 )
 
 // MetricDefinition is one SQLStreams built-in metric's identity and metadata.

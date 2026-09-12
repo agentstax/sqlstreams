@@ -3,8 +3,8 @@ package base
 import (
 	"errors"
 
-	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
-	"github.com/agentstax/sqlstreams/pkg/consume"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume"
 )
 
 // HandlerOutcome is what a consumerFunc's returned error asks for.

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/agentstax/sqlstreams/.bench/record"
+	"github.com/allegedlyreliable/sqlstreams/.bench/record"
 )
 
 // ReadPhases returns the run_phase rows in time order.

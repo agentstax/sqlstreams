@@ -1,5 +1,5 @@
 // site-wide constant facts, importable by any component or page
-export const repositoryUrl = 'https://github.com/agentstax/sqlstreams';
+export const repositoryUrl = 'https://github.com/allegedlyreliable/sqlstreams';
 
 // the origin the live site serves from; astro.config reads it too, and
 // frozen version deployments fetch /versions.json from it at read time

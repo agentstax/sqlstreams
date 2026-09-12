@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/datastore"
 )
 
 func (d *WorkerDatastore) ListInstanceSnapshots(ctx context.Context, workerId int64, start time.Time, end time.Time) ([]WorkerInstanceSnapshotRow, error) {

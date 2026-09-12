@@ -1,7 +1,7 @@
 package migrate
 
 import (
-	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
 )
 
 // ErrNotRegistered means the queried owner has no baseline record -- the system

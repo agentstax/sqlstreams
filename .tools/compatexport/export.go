@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/agentstax/sqlstreams/pkg/migrate"
+	"github.com/allegedlyreliable/sqlstreams/pkg/migrate"
 )
 
 // Export is the build-time artifact the doc site's compatibility matrix

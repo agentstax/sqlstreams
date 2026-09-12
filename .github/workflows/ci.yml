@@ -3,7 +3,7 @@ name: ci
 on:
   push:
     branches:
-      - main-fake # change back to 'main' when ready
+      - main
   pull_request:
 
 permissions:

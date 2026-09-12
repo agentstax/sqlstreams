@@ -7,10 +7,10 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
-	"github.com/agentstax/sqlstreams/pkg/produce"
-	"github.com/agentstax/sqlstreams/pkg/produce/controller/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	iDatastore "github.com/allegedlyreliable/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/produce"
+	"github.com/allegedlyreliable/sqlstreams/pkg/produce/controller/datastore"
 )
 
 // idempotencyKeyNamespace is the UUIDv5 namespace a non-UUID IdempotencyKey

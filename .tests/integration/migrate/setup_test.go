@@ -5,14 +5,14 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/agentstax/sqlstreams/.tests/integration/postgres"
-	"github.com/agentstax/sqlstreams/pkg/common"
-	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
-	"github.com/agentstax/sqlstreams/pkg/migrate/controller/datastore"
-	"github.com/agentstax/sqlstreams/pkg/stream"
-	streamcontroller "github.com/agentstax/sqlstreams/pkg/stream/controller"
-	"github.com/agentstax/sqlstreams/pkg/system"
-	systemcontroller "github.com/agentstax/sqlstreams/pkg/system/controller"
+	"github.com/allegedlyreliable/sqlstreams/.tests/integration/postgres"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	iDatastore "github.com/allegedlyreliable/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/migrate/controller/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
+	streamcontroller "github.com/allegedlyreliable/sqlstreams/pkg/stream/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/system"
+	systemcontroller "github.com/allegedlyreliable/sqlstreams/pkg/system/controller"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 

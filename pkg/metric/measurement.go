@@ -9,7 +9,7 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
 )
 
 // MetricNameReservedPrefix marks SQLStreams's own metrics -- user producers

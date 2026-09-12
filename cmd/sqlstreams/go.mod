@@ -1,8 +1,8 @@
-module github.com/agentstax/sqlstreams/cmd/sqlstreams
+module github.com/allegedlyreliable/sqlstreams/cmd/sqlstreams
 
 go 1.27.0
 
-// The parent module github.com/agentstax/sqlstreams is resolved locally via the
+// The parent module github.com/allegedlyreliable/sqlstreams is resolved locally via the
 // repo-root go.work (use .) and deliberately has NO require line here: it's
 // unpublished, so any placeholder version poisons the whole workspace graph.
 // Release is a three-module story: the root module tags first, then each

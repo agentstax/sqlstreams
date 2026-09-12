@@ -7,7 +7,7 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/agentstax/sqlstreams/pkg/worker"
+	"github.com/allegedlyreliable/sqlstreams/pkg/worker"
 )
 
 func TestOperationalTargetSurvivesRegistrationAndIsAudited(t *testing.T) {

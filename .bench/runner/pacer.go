@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/agentstax/sqlstreams/.bench/common"
+	"github.com/allegedlyreliable/sqlstreams/.bench/common"
 )
 
 // Pacer runs an open loop: call i is due at start + i/rate whether or not

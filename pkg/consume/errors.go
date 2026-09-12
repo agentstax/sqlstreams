@@ -1,7 +1,7 @@
 package consume
 
 import (
-	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
 )
 
 // ErrConsumerNotFound means the named group has no row on that stream.

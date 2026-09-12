@@ -55,7 +55,7 @@ changelog:
 
 release:
   github:
-    owner: agentstax
+    owner: allegedlyreliable
     name: sqlstreams
   prerelease: auto
 
@@ -71,7 +71,7 @@ homebrew_casks:
     description: CLI for SQLStreams, the Postgres-backed message log
     license: Apache-2.0
     repository:
-      owner: agentstax
+      owner: allegedlyreliable
       name: homebrew-tap
       branch: main
       token: '{{ envOrDefault "HOMEBREW_TAP_TOKEN" "" }}'
@@ -88,21 +88,21 @@ chocolateys:
   - name: sqlstreams
     ids:
       - sqlstreams
-    package_source_url: https://github.com/agentstax/sqlstreams
-    owners: agentstax
+    package_source_url: https://github.com/allegedlyreliable/sqlstreams
+    owners: allegedlyreliable
     title: SQLStreams
-    authors: agentstax
+    authors: allegedlyreliable
     project_url: https://sqlstreams.io
-    license_url: https://github.com/agentstax/sqlstreams/blob/main/LICENSE
+    license_url: https://github.com/allegedlyreliable/sqlstreams/blob/main/LICENSE
     require_license_acceptance: false
-    project_source_url: https://github.com/agentstax/sqlstreams
+    project_source_url: https://github.com/allegedlyreliable/sqlstreams
     docs_url: https://sqlstreams.io
-    bug_tracker_url: https://github.com/agentstax/sqlstreams/issues
+    bug_tracker_url: https://github.com/allegedlyreliable/sqlstreams/issues
     tags: "sqlstreams postgres messaging cli"
     summary: CLI for SQLStreams, the Postgres-backed message log
     description: |
       {{ .ProjectName }} installer package.
       CLI for SQLStreams, the Postgres-backed message log.
-    release_notes: "https://github.com/agentstax/sqlstreams/releases/tag/{{ .Tag }}"
+    release_notes: "https://github.com/allegedlyreliable/sqlstreams/releases/tag/{{ .Tag }}"
     api_key: '{{ envOrDefault "CHOCOLATEY_API_KEY" "" }}'
     source_repo: "https://push.chocolatey.org/"

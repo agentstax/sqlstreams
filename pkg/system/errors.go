@@ -1,7 +1,7 @@
 package system
 
 import (
-	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
 )
 
 // ErrSystemLive means DestroySystem was refused because a worker instance is

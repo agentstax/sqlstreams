@@ -1,7 +1,7 @@
 package system
 
 import (
-	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
 )
 
 // EventSystemManagerStopped is a Run life ending on its own -- a spawned

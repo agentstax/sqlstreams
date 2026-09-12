@@ -7,8 +7,8 @@ import (
 	"math/rand/v2"
 	"os"
 
-	"github.com/agentstax/sqlstreams/.tests/e2e/common"
-	"github.com/agentstax/sqlstreams/client"
+	"github.com/allegedlyreliable/sqlstreams/.tests/e2e/common"
+	"github.com/allegedlyreliable/sqlstreams/client"
 )
 
 func main() {

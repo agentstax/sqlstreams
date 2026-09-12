@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/agentstax/sqlstreams/.bench/scenario"
-	"github.com/agentstax/sqlstreams/pkg/stream"
+	"github.com/allegedlyreliable/sqlstreams/.bench/scenario"
+	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
 )
 
 // The idle-fleet family: a deployment with nothing to do over 16, 160, and

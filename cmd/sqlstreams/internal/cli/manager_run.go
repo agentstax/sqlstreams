@@ -10,9 +10,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/agentstax/sqlstreams/otel"
-	"github.com/agentstax/sqlstreams/pkg/common/logging"
-	"github.com/agentstax/sqlstreams/pkg/migrate"
+	"github.com/allegedlyreliable/sqlstreams/otel"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/logging"
+	"github.com/allegedlyreliable/sqlstreams/pkg/migrate"
 	"github.com/spf13/cobra"
 )
 

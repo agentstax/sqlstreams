@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/agentstax/sqlstreams/.bench/observer"
-	"github.com/agentstax/sqlstreams/.bench/observer/datastore"
-	"github.com/agentstax/sqlstreams/.bench/record"
+	"github.com/allegedlyreliable/sqlstreams/.bench/observer"
+	"github.com/allegedlyreliable/sqlstreams/.bench/observer/datastore"
+	"github.com/allegedlyreliable/sqlstreams/.bench/record"
 )
 
 // RunObserver samples the server and the scenario's consumer group once a

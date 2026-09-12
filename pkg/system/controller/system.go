@@ -3,7 +3,7 @@ package controller
 import (
 	"context"
 
-	"github.com/agentstax/sqlstreams/pkg/system"
+	"github.com/allegedlyreliable/sqlstreams/pkg/system"
 )
 
 // Register creates the shared control-plane tables and resolves the

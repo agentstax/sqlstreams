@@ -1,7 +1,7 @@
 package alert
 
 import (
-	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
 )
 
 // Built-in alert names are wire values and the message key's first segment.

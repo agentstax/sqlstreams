@@ -11,21 +11,21 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
 
 	// declaring packages, linked so the registry this binary sees is
 	// complete. .tools/conventions holds the walk that proves it.
-	_ "github.com/agentstax/sqlstreams/pkg/alert"
-	_ "github.com/agentstax/sqlstreams/pkg/common"
-	_ "github.com/agentstax/sqlstreams/pkg/compaction"
-	_ "github.com/agentstax/sqlstreams/pkg/consume"
-	_ "github.com/agentstax/sqlstreams/pkg/metric"
-	_ "github.com/agentstax/sqlstreams/pkg/migrate"
-	_ "github.com/agentstax/sqlstreams/pkg/produce"
-	_ "github.com/agentstax/sqlstreams/pkg/schedule"
-	_ "github.com/agentstax/sqlstreams/pkg/stream"
-	_ "github.com/agentstax/sqlstreams/pkg/system"
-	_ "github.com/agentstax/sqlstreams/pkg/worker"
+	_ "github.com/allegedlyreliable/sqlstreams/pkg/alert"
+	_ "github.com/allegedlyreliable/sqlstreams/pkg/common"
+	_ "github.com/allegedlyreliable/sqlstreams/pkg/compaction"
+	_ "github.com/allegedlyreliable/sqlstreams/pkg/consume"
+	_ "github.com/allegedlyreliable/sqlstreams/pkg/metric"
+	_ "github.com/allegedlyreliable/sqlstreams/pkg/migrate"
+	_ "github.com/allegedlyreliable/sqlstreams/pkg/produce"
+	_ "github.com/allegedlyreliable/sqlstreams/pkg/schedule"
+	_ "github.com/allegedlyreliable/sqlstreams/pkg/stream"
+	_ "github.com/allegedlyreliable/sqlstreams/pkg/system"
+	_ "github.com/allegedlyreliable/sqlstreams/pkg/worker"
 )
 
 func main() {

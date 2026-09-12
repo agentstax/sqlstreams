@@ -7,13 +7,13 @@ import (
 	"math"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/alert"
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/metric"
-	"github.com/agentstax/sqlstreams/pkg/metric/collector"
-	"github.com/agentstax/sqlstreams/pkg/worker"
-	workercontroller "github.com/agentstax/sqlstreams/pkg/worker/controller"
-	"github.com/agentstax/sqlstreams/pkg/worker/manager"
+	"github.com/allegedlyreliable/sqlstreams/pkg/alert"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/metric"
+	"github.com/allegedlyreliable/sqlstreams/pkg/metric/collector"
+	"github.com/allegedlyreliable/sqlstreams/pkg/worker"
+	workercontroller "github.com/allegedlyreliable/sqlstreams/pkg/worker/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/worker/manager"
 )
 
 // Evaluate compares the latest completion with continuous system-manager lease coverage.

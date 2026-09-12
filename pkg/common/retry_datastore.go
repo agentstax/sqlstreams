@@ -6,8 +6,8 @@ import (
 	"net"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
-	"github.com/agentstax/sqlstreams/pkg/common/logging"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/logging"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 

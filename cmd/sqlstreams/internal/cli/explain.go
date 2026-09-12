@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
 	"github.com/spf13/cobra"
 )
 

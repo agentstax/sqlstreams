@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/agentstax/sqlstreams/pkg/producer"
+	"github.com/allegedlyreliable/sqlstreams/pkg/producer"
 )
 
 // ProducerInstance is a registered producer: it appends messages to the

@@ -3,7 +3,7 @@ package common
 import (
 	"context"
 
-	"github.com/agentstax/sqlstreams/client"
+	"github.com/allegedlyreliable/sqlstreams/client"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 

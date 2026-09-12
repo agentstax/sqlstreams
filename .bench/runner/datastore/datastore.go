@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	sqlstreamsdatastore "github.com/agentstax/sqlstreams/pkg/datastore"
+	sqlstreamsdatastore "github.com/allegedlyreliable/sqlstreams/pkg/datastore"
 )
 
 type RunnerDatastore struct{ pool *pgxpool.Pool }

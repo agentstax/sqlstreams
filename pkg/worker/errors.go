@@ -1,7 +1,7 @@
 package worker
 
 import (
-	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
 )
 
 // ErrInstanceLost means the instance row expired or was removed mid-work:

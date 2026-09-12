@@ -3,8 +3,8 @@ package controller
 import (
 	"errors"
 
-	"github.com/agentstax/sqlstreams/pkg/alert"
-	"github.com/agentstax/sqlstreams/pkg/schedule"
+	"github.com/allegedlyreliable/sqlstreams/pkg/alert"
+	"github.com/allegedlyreliable/sqlstreams/pkg/schedule"
 )
 
 // Job is one built-in alert's schedule, as RegisterSystem declares it.

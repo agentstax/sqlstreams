@@ -1,7 +1,7 @@
 package compaction
 
 import (
-	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
 )
 
 // ErrCompactionHeadNotFound means no message produced under the key is its

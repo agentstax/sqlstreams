@@ -3,11 +3,11 @@ package controller
 import (
 	"errors"
 
-	"github.com/agentstax/sqlstreams/pkg/common/logging"
-	compactioncontroller "github.com/agentstax/sqlstreams/pkg/compaction/controller"
-	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
-	"github.com/agentstax/sqlstreams/pkg/metric/controller/datastore"
-	streamcontroller "github.com/agentstax/sqlstreams/pkg/stream/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/logging"
+	compactioncontroller "github.com/allegedlyreliable/sqlstreams/pkg/compaction/controller"
+	iDatastore "github.com/allegedlyreliable/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/metric/controller/datastore"
+	streamcontroller "github.com/allegedlyreliable/sqlstreams/pkg/stream/controller"
 )
 
 // MetricController owns live snapshots and retained measurement reads.

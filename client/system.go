@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/agentstax/sqlstreams/pkg/migrate"
+	"github.com/allegedlyreliable/sqlstreams/pkg/migrate"
 )
 
 // SystemHandle is a handle on the singleton system, holding no row. Get is the

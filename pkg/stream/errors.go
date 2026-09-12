@@ -1,7 +1,7 @@
 package stream
 
 import (
-	"github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
 )
 
 // ErrStreamConfigMismatch means Register was called with a PartitionSize the stream wasn't created with.

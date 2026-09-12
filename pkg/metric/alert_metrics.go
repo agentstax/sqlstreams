@@ -1,6 +1,6 @@
 package metric
 
-import "github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+import "github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
 
 var MetricActiveAlerts = diagnostic.NewDiagnosticMetric(
 	"SQL0073",

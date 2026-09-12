@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
 )
 
 // AssertSchemaSupported gates a worker's Register: the schemas the owner

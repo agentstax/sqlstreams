@@ -1,6 +1,6 @@
 package metric
 
-import "github.com/agentstax/sqlstreams/pkg/common/diagnostic"
+import "github.com/allegedlyreliable/sqlstreams/pkg/common/diagnostic"
 
 // These gauges describe an adapter collection, never retained core measurements.
 var MetricOTelSourceReadSuccess = diagnostic.NewDiagnosticMetric("SQL0102",

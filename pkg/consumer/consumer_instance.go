@@ -7,13 +7,13 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/common/concurrency"
-	"github.com/agentstax/sqlstreams/pkg/common/logging"
-	"github.com/agentstax/sqlstreams/pkg/consume"
-	consumecontroller "github.com/agentstax/sqlstreams/pkg/consume/controller"
-	"github.com/agentstax/sqlstreams/pkg/datastore"
-	metricsproducer "github.com/agentstax/sqlstreams/pkg/metric/producer"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/concurrency"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/logging"
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume"
+	consumecontroller "github.com/allegedlyreliable/sqlstreams/pkg/consume/controller"
+	"github.com/allegedlyreliable/sqlstreams/pkg/datastore"
+	metricsproducer "github.com/allegedlyreliable/sqlstreams/pkg/metric/producer"
 	"golang.org/x/sync/errgroup"
 )
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/agentstax/sqlstreams/pkg/scheduler"
+	"github.com/allegedlyreliable/sqlstreams/pkg/scheduler"
 )
 
 // SchedulerInstance is a registered schedule. Schedule runs the system

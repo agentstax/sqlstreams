@@ -3,7 +3,7 @@ package metric
 import (
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
 )
 
 // MetricStreamName is __system.metrics

@@ -3,8 +3,8 @@ package produce
 import (
 	"context"
 
-	"github.com/agentstax/sqlstreams/pkg/common"
-	"github.com/agentstax/sqlstreams/pkg/datastore"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common"
+	"github.com/allegedlyreliable/sqlstreams/pkg/datastore"
 )
 
 // ProducerFunc runs inside the append's transaction and returns the payload to
