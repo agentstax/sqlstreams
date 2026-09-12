@@ -69,7 +69,7 @@ func printSchedulesTable(w io.Writer, schedules []*schedule.Schedule) {
 	}
 
 	tw := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(tw, "NAME\tSCHEDULE\tCONCURRENCY\tTIMEOUT\tSUSPENDED\tNEXT\tLAST")
+	fmt.Fprintln(tw, "NAME\tEXPRESSION\tCONCURRENCY\tTIMEOUT\tSUSPENDED\tNEXT\tLAST")
 	for _, row := range schedules {
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%t\t%s\t%s\n",
 			row.Name, row.Expression, row.Concurrency, row.Timeout, row.Suspended,

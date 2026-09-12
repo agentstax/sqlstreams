@@ -52,7 +52,11 @@ func newStreamMaintenanceCmd(g *globalFlags, name string) *cobra.Command {
 						return translateAdminError(err)
 					}
 					if g.jsonOutput() {
-						writeJSON(cmd.OutOrStdout(), snapshot)
+						document, err := newMaintenanceStatusDocument(snapshot)
+						if err != nil {
+							return err
+						}
+						writeJSON(cmd.OutOrStdout(), document)
 						return nil
 					}
 					out := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
@@ -80,6 +84,22 @@ func newStreamMaintenanceCmd(g *globalFlags, name string) *cobra.Command {
 		})
 	}
 	return cmd
+}
+
+type maintenanceStatusDocument struct {
+	*sqlstreams.WorkerSnapshot
+	UnclaimedFor string `json:"unclaimed_for"`
+}
+
+func newMaintenanceStatusDocument(snapshot *sqlstreams.WorkerSnapshot) (*maintenanceStatusDocument, error) {
+	if snapshot == nil {
+		return nil, fmt.Errorf("snapshot must not be nil")
+	}
+
+	return &maintenanceStatusDocument{
+		WorkerSnapshot: snapshot,
+		UnclaimedFor:   snapshot.UnclaimedFor.String(),
+	}, nil
 }
 
 // Suspended reports the applied target; live instances may still be stopping.

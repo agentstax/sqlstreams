@@ -128,7 +128,7 @@ func printScheduleStatuses(w io.Writer, statuses []*schedule.ScheduleConsumerGro
 	}
 
 	tw := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(tw, "  GROUP\tRAN\tSUCCEEDED\tFAILED\tSUPERSEDED")
+	fmt.Fprintln(tw, "  CONSUMER_GROUP\tRAN\tSUCCEEDED\tFAILED\tSUPERSEDED")
 	for _, status := range statuses {
 		fmt.Fprintf(tw, "  %s\t%d\t%d\t%d\t%d\n", status.ConsumerGroup, status.Ran, status.Succeeded, status.Failed, status.Superseded)
 	}
@@ -145,7 +145,7 @@ func printScheduleMessages(w io.Writer, statuses []*schedule.ScheduleMessageStat
 	}
 
 	tw := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(tw, "  MESSAGE\tSCHEDULED\tPRODUCED\tGROUP\tOUTCOME")
+	fmt.Fprintln(tw, "  MESSAGE\tSCHEDULED\tPRODUCED\tCONSUMER_GROUP\tOUTCOME")
 	for _, status := range statuses {
 		// ScheduledAt is stored in UTC -- render it in the driver's zone like
 		// the columns beside it

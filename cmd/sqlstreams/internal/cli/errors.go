@@ -144,7 +144,7 @@ func translateAdminError(err error) error {
 
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "42P01" {
-		return failOp("system not initialized -- run `sqlstreams system register` first")
+		return failOp("system not registered -- run `sqlstreams system register` first")
 	}
 	return failOp("%s", err.Error())
 }

@@ -73,10 +73,16 @@ owner nothing was published for prints "no alert published".`,
 			}
 
 			if g.jsonOutput() {
-				if alerts == nil {
-					alerts = make([]*sqlstreams.Alert, 0)
+				if verb == "history" {
+					if alerts == nil {
+						alerts = make([]*sqlstreams.Alert, 0)
+					}
+					writeJSON(out, alerts)
+				} else if len(alerts) == 0 {
+					writeJSON(out, nil)
+				} else {
+					writeJSON(out, alerts[0])
 				}
-				writeJSON(out, alertReadDocument{Name: name, Exists: len(alerts) > 0, Alerts: alerts})
 				if len(alerts) == 0 {
 					return failPrinted()
 				}
@@ -104,13 +110,6 @@ owner nothing was published for prints "no alert published".`,
 		f.IntVar(&limit, "limit", 10, "how many of the newest retained alerts to list")
 	}
 	return cmd
-}
-
-// Missing retained alerts produce an empty list and exit status 1.
-type alertReadDocument struct {
-	Name   string              `json:"name"`
-	Exists bool                `json:"exists"`
-	Alerts []*sqlstreams.Alert `json:"alerts"`
 }
 
 // alertHandle picks the scope the flags address: none is the system, a

@@ -206,6 +206,10 @@ collections use `list`; reads with distinct meanings keep distinct verbs:
 the operation. Metric reads accept repeatable `--attribute key=value` filters
 and `--series-limit` (default 10) to bound the number of attribute sets.
 Alert reads accept `--stream` and `--consumer`; the latter requires `--stream`.
+With `--output json`, alert latest returns the alert object or `null`, and
+alert history returns an array or `[]`. Both exit 1 when no alert is retained.
+Stream janitor and vacuum status return the worker snapshot in JSON, with
+`unclaimed_for` as a duration string such as `"15s"` or `"0s"`.
 Metric list accepts `--builtin` for names starting with `sqlstreams.` across
 all scopes, or `--user` for user-produced measurements. The flags are mutually
 exclusive; omit both to list both. Scheduler run supports `--concurrency parallel`
