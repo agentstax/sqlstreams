@@ -22,16 +22,16 @@ export type MemePlacement = {
 };
 
 const krabs: MemeImage = {
-	source: '/i-like-money.gif',
+	source: '/i-like-money.webp',
 	naturalWidth: 480,
 	naturalHeight: 390,
 	framed: true,
 };
 
 const laughingPointing: MemeImage = {
-	source: '/laughing-pointing.png',
-	naturalWidth: 835,
-	naturalHeight: 543,
+	source: '/laughing-pointing.webp',
+	naturalWidth: 360,
+	naturalHeight: 234,
 	framed: false,
 };
 
