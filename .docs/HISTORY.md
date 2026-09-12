@@ -5,6 +5,33 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-12 — Stable CLI and Homebrew installation verified [0788] [0789]
+
+[v0.1.1](https://github.com/allegedlyreliable/sqlstreams/releases/tag/v0.1.1)
+names e4a768ba65d9a4dd211cdfe4939d798cf637f00e. Windows
+[release run 34722343301](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34722343301)
+passes, publishes six archives and checksums, and writes the stable cask to
+allegedlyreliable/homebrew-tap in
+[commit 44e16a1d](https://github.com/allegedlyreliable/homebrew-tap/commit/44e16a1d8707821673e4a372ac709b89ce60389a).
+All four cask hashes match their corresponding release asset digests.
+
+The existing local Homebrew installation is verified on macOS arm64.
+Its receipt names allegedlyreliable/tap, tap commit 44e16a1d, and version
+0.1.1. /opt/homebrew/bin/sqlstreams links to that Caskroom binary and
+--version prints sqlstreams version 0.1.1. Binary metadata identifies
+release commit e4a768ba with vcs.modified=false. This proves tap write
+access, cask publication, and an installed native binary.
+
+The earlier v0.1.0 run published its GitHub assets before failing on the
+Homebrew token template. The fix uses the restricted evaluator's direct
+.Env.HOMEBREW_TAP_TOKEN reference; the published v0.1.0 tag is preserved.
+Library, CLI, and OTel source are unchanged from checkpoint b5bcded6, whose
+fresh-DB signal suite, full just verify, and prior-RC compatibility
+round-trip passed (entry below). Those suites were not repeated for the
+credential-template correction. The migration table now lists both stable
+releases. Chocolatey remains skipped, and stable nested Go module tags
+remain unpublished. No site deployment was performed.
+
 ## 2026-09-12 — v0.1.0 release checkpoint verified (release unpublished) [0789]
 
 Source 65efd3a1964cddee5ef3b4a915f5e12c0651b442 passes the fresh-database
@@ -39,6 +66,28 @@ verified pair and labels v0.1.0 as an unreleased proposal. This proves the
 unchanged v1 baseline; no upgrade DDL or general pre-v1 compatibility promise
 is claimed. No stable tag, package-manager publication, or site deployment
 was performed at this checkpoint.
+
+## 2026-09-12 — Dependency remediation and graph refresh verified [0787]
+
+Published commit 06012764 applies the reviewed Go group plus the
+moby/go-archive v0.3.0 fix, Astro 7.3.2, Sharp 0.35.4, and npm transitive
+fixes. All 21 previously observed security alerts are closed; a fresh API
+read reports zero open alerts. Dependabot PRs #7–10 are closed.
+[CI 34720013444](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34720013444)
+and [graph refresh 34720015382](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34720015382)
+both succeed, superseding the earlier failed .tools snapshot submission.
+Routine version-update PRs #1 (Actions) and #11 (website) remain open.
+
+The dependency change passed just verify and standalone module checks.
+Website build, type checks, ESLint, remark, Vale, edited-manifest
+formatting, and Wrangler startup passed; npm audit reported zero
+vulnerabilities. Existing failures reproduced against the original npm
+lockfile: five formatting failures, board-banner.css:26's token violation,
+the SQL-comment drift assertion (131/132 unit tests pass), and 12
+member-profile animation failures (33/45 browser flows pass). No tests or
+unrelated source were changed. Evidence remains in
+/private/tmp/sqlstreams-dependency-*.log and
+/private/tmp/sqlstreams-site-before-*.log. No site deployment was performed.
 
 ## 2026-09-12 — Seven-module Dependabot version updates verified [0787]
 

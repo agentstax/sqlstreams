@@ -16,102 +16,36 @@ the item is removed.
 
 ## Now
 
-- **Release pipeline, dependency scanning, and package managers** -- active;
-  execution checklist in TODO.md. The no-secret CLI prerelease and grouped
-  version updates are proved; finish graph refresh/security review and
-  enable package-manager publication.
-  - Root publication verified 2026-09-12: v0.1.0-rc.1 names
-    `9772deee2dd6a49bf343e24b409cd86461b01dba`. The canonical SQLStreams source
-    is published under allegedlyreliable [0785]. A fresh, workspace-disabled
-    Go module download resolves github.com/allegedlyreliable/sqlstreams at
-    v0.1.0-rc.1 through the public module path.
-  - Hosted release proof passed:
-    [release run 34716684337](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34716684337)
-    succeeds on Windows with GoReleaser 2.18.1. Both package-manager secrets
-    are empty in the run; Chocolatey is skipped and Homebrew reports
-    brew.skip_upload is set. The
-    [prerelease](https://github.com/allegedlyreliable/sqlstreams/releases/tag/v0.1.0-rc.1)
-    has all six platform archives plus checksums.txt. All manifest hashes
-    match GitHub's asset digests. The downloaded macOS arm64 archive hashes
-    to 72d27022be1c96df96760c101aba74eca9e5131a304c974f339610b30451de10;
-    its extracted binary prints sqlstreams version 0.1.0-rc.1 and embeds
-    the canonical CLI module, tagged commit, and vcs.modified=false.
-    Chocolatey package creation/publication remains untested.
-  - All three Dependabot version-update jobs succeed on pushed commit
-    5e6ae93c on 2026-09-12: Go
-    [34718872371](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34718872371)
-    finishes at 21:10 UTC; npm
-    [34718872604](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34718872604)
-    and Actions
-    [34718872733](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34718872733)
-    finish at 21:09 UTC. The Go check opens exactly one group,
-    [#10](https://github.com/allegedlyreliable/sqlstreams/pull/10), and closes
-    the former root-only #4. Monthly groups and seven-day cooldown remain;
-    manual checks and security updates can exceed three PRs/month.
-  - Dependabot alerts and automatic security updates are enabled; API
-    readback confirms enabled=true, paused=false. At this checkpoint there
-    are 21 open alerts: 20 website alerts (one critical) and one high alert
-    on .tests/go.mod's transitive moby/go-archive, fixed in 0.3.0.
-    Local remediation is prepared: PR #10's reviewed Go updates plus
-    moby/go-archive v0.3.0, Astro 7.3.2, Sharp 0.35.4, and npm transitive
-    fixes. npm audit reports zero vulnerabilities. Go checks pass; website
-    build/type checks pass, with existing lint/unit/browser failures reproduced
-    against the original lockfile. Details and publication follow-up are in TODO.
-    The user confirmed grouped security updates enabled on 2026-09-12.
-    Manifest coverage is now proved: Dependency graph marks root go.mod,
-    cmd/sqlstreams/go.mod, and otel/go.mod parseable and exposes 6, 52, and
-    28 dependencies respectively. All eight Go manifests are indexed.
-    [Graph run 34718871790](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34718871790)
-    parses all four dev manifests but fails with HTTP 500 submitting .tools'
-    snapshot. GitHub refuses a rerun; its old six-dependency graph entry
-    still lacks the root requirement. A later graph refresh remains to prove.
-  - Main-push CI is proved. The expanded module/configuration commit passes
-    [34718870119](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34718870119).
-    The earlier
-    [34716240955](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34716240955)
-    passes just verify on the tagged commit, including the Docker integration
-    tests and conventions checks. The earlier static-error failure is fixed.
-  - Nested publication and standalone use are proved [0786]. OTel
-    otel/v0.1.0-rc.1 names c99bd5e8; CLI cmd/sqlstreams/v0.1.0-rc.1 names
-    06dc9b6f1e86bab71e52f190ffaf39a954ce9daf. OTel requires the published
-    root, and CLI requires published root/OTel v0.1.0-rc.1. Both passed
-    standalone tidy/fmt/build/vet/race tests. A fresh OTel consumer runs
-    outside the repo; GOWORK=off go install of the CLI succeeds outside the
-    workspace, and --version prints sqlstreams version v0.1.0-rc.1.
-    Installed build metadata identifies the CLI version and both published
-    dependencies with no replacements. GoReleaser's injected archive version
-    remains 0.1.0-rc.1 (without the Go module version's leading v).
-    READMEs now show the verified versioned install command.
-  - Seven-module Dependabot version-update coverage is proved [0787]: explicit directories
-    for root, CLI, OTel, .bench, .tests, .tools, and examples share the monthly
-    Go group and seven-day cooldown. The four dev modules pin real root
-    v0.1.0-rc.1; standalone tidy/fmt/build/vet and .bench/.tools race checks
-    pass. The standalone Docker integration suite also passes with -race.
-    Resolution checks confirm published root with GOWORK=off and local root
-    through go.work. The hosted updater processes all seven directories
-    with no reported dependency-resolution errors. PR #10 changes go.mod
-    and go.sum in all seven modules, despite its generated title counting
-    six directories. The separately pinned .tools/compat stays excluded.
-  - The v0.1.0 release checkpoint passed locally on 2026-09-12 [0789]:
-    fresh-DB signal-e2e, full just verify, and the race-enabled compatibility
-    round-trip. The driver pins published v0.1.0-rc.1 without replacements
-    and requires current-build system/stream tables before registration.
-    Both schemas remain v1 with no migration steps; the library source is
-    unchanged from the RC. HISTORY and the site's migration table record
-    the exact pair. Commit/push the checkpoint changes before publication.
-  - The documentation origin is live at sqlstreams.io [0782] [0784]. Public
-    allegedlyreliable/homebrew-tap now exists on main, and the SQLStreams
-    Actions secret HOMEBREW_TAP_TOKEN is configured. Stable-only cask
-    publication is prepared [0788]; a stable release still needs to prove
-    token write access and installation. The 2026-09-09 audit found no
-    Chocolatey listing; its current state and account ownership still need
-    checking, followed by API-key setup, Windows packaging verification,
-    and first-package moderation.
-  - Signing remains deferred. The cask currently removes Homebrew's quarantine
-    attribute; package-manager installation is not a general guarantee of no
-    quarantine. Notarization and Authenticode remain later work. Homebrew
-    prereleases skip publication [0788]; Chocolatey's prerelease policy
-    remains open. winget and scoop remain optional later additions.
+- **Release pipeline, dependency scanning, and package managers** -- finish
+  stable nested Go module publication and Chocolatey; execution in TODO.
+  - Root and CLI archive v0.1.1 are public at e4a768ba. Release run
+    34722343301 passes, publishes all six archives/checksums, and writes
+    the Homebrew cask. Tap commit 44e16a1d and the installed macOS arm64
+    binary prove installation and version 0.1.1 [0788]. HISTORY holds the
+    earlier no-secret prerelease proof and the v0.1.0 template failure.
+  - Stable OTel/CLI Go tags remain to publish in dependency order [0786].
+    All six active nested modules now have prepared root v0.1.1 pins and
+    pass standalone checks. OTel must publish before CLI can require it.
+    The existing published nested tags are v0.1.0-rc.1.
+  - Dependabot version updates cover all seven active Go modules in one
+    monthly group with a seven-day cooldown, plus npm and Actions [0787].
+    All three ecosystem jobs passed; Go opened one grouped PR. Alerts,
+    automatic security updates, and grouped security updates are enabled.
+    Commit 06012764 resolved all 21 observed alerts; current open count is
+    zero. CI 34720013444 and graph refresh 34720015382 pass. PRs #7–10
+    are closed. Routine version-update PRs #1 and #11 remain open.
+  - The fresh-DB signal suite, full just verify, and published-RC
+    compatibility round-trip passed at the v0.1.0 checkpoint [0789]. Both
+    schemas remain v1; v0.1.1 changes credential templates only. The
+    separately pinned compatibility driver retains the RC. HISTORY and
+    the migration table record the tested pair and limits of that proof.
+  - The documentation origin is sqlstreams.io [0782] [0784]. Homebrew
+    publishes stable releases only [0788]. Chocolatey still needs account
+    setup, an API key, a prerelease policy, Windows packaging/install
+    verification, and first-package moderation.
+  - Signing remains deferred. The cask strips Homebrew's quarantine
+    attribute; notarization and Authenticode remain later work. winget
+    and scoop are optional later additions.
 
 ## Next
 

@@ -61,7 +61,7 @@ I'd love to use Kafka for my [billion dollar, AI powered TODO app](https://githu
 Add it to your module. You need a Postgres.
 
 ```sh
-go get github.com/allegedlyreliable/sqlstreams
+go get github.com/allegedlyreliable/sqlstreams@v0.1.1
 ```
 
 Import the client from the same module:
@@ -130,8 +130,15 @@ Retries, dead letters, transactional produce, idempotent produce, keyed ordering
 
 ### CLI
 
-Download a platform archive from [GitHub Releases](https://github.com/allegedlyreliable/sqlstreams/releases/tag/v0.1.0-rc.1),
-or install the prerelease with Go:
+Install the stable CLI on macOS with Homebrew:
+
+```sh
+brew install --cask allegedlyreliable/tap/sqlstreams
+sqlstreams --version
+```
+
+Platform archives are available from [GitHub Releases](https://github.com/allegedlyreliable/sqlstreams/releases/tag/v0.1.1).
+The separately versioned Go CLI module currently has a verified prerelease:
 
 ```sh
 go install github.com/allegedlyreliable/sqlstreams/cmd/sqlstreams@v0.1.0-rc.1

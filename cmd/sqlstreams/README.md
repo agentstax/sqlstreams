@@ -5,6 +5,16 @@ against the control-plane Postgres.
 
 ## Install
 
+On macOS, install the stable CLI with Homebrew:
+
+```sh
+brew install --cask allegedlyreliable/tap/sqlstreams
+sqlstreams --version
+```
+
+Download other platform archives from [GitHub Releases](https://github.com/allegedlyreliable/sqlstreams/releases/tag/v0.1.1).
+The separately versioned Go CLI module currently has a verified prerelease:
+
 ```sh
 go install github.com/allegedlyreliable/sqlstreams/cmd/sqlstreams@v0.1.0-rc.1
 ```

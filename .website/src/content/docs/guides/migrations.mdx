@@ -118,7 +118,8 @@ does not promise compatibility across pre-v1 releases.
 | Release | System schema | Stream schema | Verified prior client | Notes |
 | ------- | ------------- | ------------- | --------------------- | ----- |
 | v0.1.0-rc.1 | v1 | v1 | — | First published SQLStreams baseline. |
-| v0.1.0 (Proposed, unreleased) | v1 | v1 | v0.1.0-rc.1 | Round-trip passed on 2026-09-12 at source 65efd3a1; library and schema unchanged from the RC. |
+| v0.1.0 | v1 | v1 | v0.1.0-rc.1 | Round-trip passed on 2026-09-12 at source 65efd3a1; library and schema unchanged from the RC. |
+| v0.1.1 | v1 | v1 | v0.1.0-rc.1 | Credential-template fix only; retains the v0.1.0 checkpoint result with unchanged library and schema. |
 
 The checkpoint used a fresh database prepared by the current build and the
 published RC client with workspace replacement disabled. That client produced

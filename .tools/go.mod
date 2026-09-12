@@ -5,7 +5,7 @@ go 1.27.0
 // Dev-only tooling is never imported by production code or published.
 // go.work uses local source; the version pin allows standalone tooling.
 
-require github.com/allegedlyreliable/sqlstreams v0.1.0-rc.1
+require github.com/allegedlyreliable/sqlstreams v0.1.1
 
 require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect

@@ -1,7 +1,7 @@
 charm.land/lipgloss/v2 v2.0.6 h1:EaGKeuA8FvF+v2BT5VmZd2LoYLaMZJXA5n34th8nCIQ=
 charm.land/lipgloss/v2 v2.0.6/go.mod h1:ipDDJNSGa1hlwDtSfW1s2/xR8Vdhbut4PXh2zEKZd0Q=
-github.com/allegedlyreliable/sqlstreams v0.1.0-rc.1 h1:/6dQQQxvKhzsgcQbjEi2fyWI3OcwgPk9F9PInOeC30M=
-github.com/allegedlyreliable/sqlstreams v0.1.0-rc.1/go.mod h1:RpZzj4+ZeRYTXOODj8wEmrzgbZFdahk9rX+kOBCcec4=
+github.com/allegedlyreliable/sqlstreams v0.1.1 h1:WWk/q7OICScczuv9QF9sS2OdHaidePNTtozsyosmgEQ=
+github.com/allegedlyreliable/sqlstreams v0.1.1/go.mod h1:VLfHx2OFpTPRMx9sn7D8JMEC8nQK8howQ1vbxcM2u5c=
 github.com/allegedlyreliable/sqlstreams/otel v0.1.0-rc.1 h1:ElSuxkG8kUZqCZ/bIb2dedB1aEuME8wRmcGExuL8YbQ=
 github.com/allegedlyreliable/sqlstreams/otel v0.1.0-rc.1/go.mod h1:EH5mii+ev7jRPGbR0dN1nwnrbqr16lSeF5Vhm3CPQ9E=
 github.com/aymanbagabas/go-udiff v0.4.1 h1:OEIrQ8maEeDBXQDoGCbbTTXYJMYRCRO1fnodZ12Gv5o=
