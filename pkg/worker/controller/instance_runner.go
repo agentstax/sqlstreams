@@ -3,10 +3,11 @@ package controller
 import (
 	"context"
 	"errors"
+	"math/rand/v2"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/common/logging"
-	"github.com/agentstax/sqlstreams/pkg/worker"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/logging"
+	"github.com/allegedlyreliable/sqlstreams/pkg/worker"
 )
 
 // releaseWindow caps the instance release on shutdown.
@@ -87,7 +88,9 @@ func (r *InstanceRunner) Run(ctx context.Context, work func(context.Context) err
 	}
 }
 
-// startRenewalHeartbeat renews the claimed instance every InstanceTTL/2.
+// startRenewalHeartbeat renews the claimed instance about every
+// InstanceTTL/2, re-jittered every beat so instances claimed together drift
+// apart instead of renewing in step.
 // ErrInstanceLost cancels the work: the row expired or was removed, a
 // replacement may already be running. ErrWorkerSuspended requests a normal stop.
 // The returned channel closes when the heartbeat is fully stopped.
@@ -96,15 +99,16 @@ func (r *InstanceRunner) startRenewalHeartbeat(workCtx context.Context, stopWork
 
 	go func() {
 		defer close(done)
-		ticker := time.NewTicker(r.Config.InstanceTTL / 2)
-		defer ticker.Stop()
+		timer := time.NewTimer(renewalDelay(r.Config.InstanceTTL, r.Config.JitterFraction))
+		defer timer.Stop()
 
 		for {
 			select {
 			case <-workCtx.Done():
 				return
-			case <-ticker.C:
+			case <-timer.C:
 				err := r.workers.RenewInstance(workCtx, r.claimed.Id, r.claimed.Token, r.Config.InstanceTTL)
+				timer.Reset(renewalDelay(r.Config.InstanceTTL, r.Config.JitterFraction))
 				if err == nil {
 					continue
 				}
@@ -132,4 +136,14 @@ func (r *InstanceRunner) releaseInstance(ctx context.Context) {
 	if err := r.workers.ReleaseInstance(releaseCtx, r.claimed.Id, r.claimed.Token); err != nil && !errors.Is(err, worker.ErrInstanceLost) {
 		r.Logger.WarnContext(releaseCtx, "could not release worker instance -- a replacement waits out expires_at", "error", err)
 	}
+}
+
+// ***************
+// *** HELPERS ***
+// ***************
+
+// renewalDelay is the wait before the next renewal: half the ttl, jittered.
+func renewalDelay(ttl time.Duration, jitterFraction float64) time.Duration {
+	jitter := 1 + jitterFraction*(2*rand.Float64()-1)
+	return time.Duration(float64(ttl/2) * jitter)
 }

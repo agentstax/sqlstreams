@@ -7,8 +7,8 @@ import (
 	"math/rand/v2"
 	"time"
 
-	"github.com/agentstax/sqlstreams/pkg/common/logging"
-	"github.com/agentstax/sqlstreams/pkg/worker"
+	"github.com/allegedlyreliable/sqlstreams/pkg/common/logging"
+	"github.com/allegedlyreliable/sqlstreams/pkg/worker"
 )
 
 // paces a worker's pass at the row's poll_rate while an InstanceRunner holds
@@ -42,7 +42,8 @@ func NewInstanceTickRunner(workers *WorkerController, claimed *worker.WorkerInst
 	}
 
 	runner, err := NewInstanceRunner(workers, claimed, &InstanceRunnerConfig{
-		InstanceTTL: cfg.InstanceTTL,
+		InstanceTTL:    cfg.InstanceTTL,
+		JitterFraction: cfg.JitterFraction,
 	}, logger)
 	if err != nil {
 		return nil, err
