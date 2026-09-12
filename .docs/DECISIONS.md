@@ -538,3 +538,5 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 - 0758 2026-09-11 accepted (pre-v1) — The debug buffer stays always-on at its measured cost
 
 - 0759 2026-09-11 accepted (pre-v1) — Partition creation runs in an explicit transaction
+
+- 0760 2026-09-12 accepted (pre-v1) — Client package lives at the module root

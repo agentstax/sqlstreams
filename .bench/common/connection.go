@@ -9,7 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	sqlstreams "github.com/agentstax/sqlstreams/client"
 )
 
 // Connection is the pool and client a role runs on, built from the

@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"os"
 
-	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	sqlstreams "github.com/agentstax/sqlstreams/client"
 )
 
 type VideoUploadedV1 struct {

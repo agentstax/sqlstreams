@@ -8,7 +8,7 @@ import (
 
 	"github.com/agentstax/sqlstreams/.bench/common"
 	"github.com/agentstax/sqlstreams/.bench/record"
-	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	sqlstreams "github.com/agentstax/sqlstreams/client"
 )
 
 // Instances is the consumer instances one process runs on one group,

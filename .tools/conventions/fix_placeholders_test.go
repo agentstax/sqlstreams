@@ -57,8 +57,8 @@ type declaredRaise struct {
 	where    string // file:line
 }
 
-// declaredRaiseSites keys every `return <declared Err>` under pkg/ by the code
-// the returned variable declares. A use that is not returned -- an errors.Is
+// declaredRaiseSites keys every `return <declared Err>` under client/ and
+// pkg/ by the code the returned variable declares. A use that is not returned -- an errors.Is
 // comparison -- is not a raise and never reaches the map.
 func declaredRaiseSites(t *testing.T) map[string][]declaredRaise {
 	t.Helper()
@@ -67,42 +67,44 @@ func declaredRaiseSites(t *testing.T) map[string][]declaredRaise {
 	fileSet := token.NewFileSet()
 
 	sites := map[string][]declaredRaise{}
-	err := filepath.WalkDir(filepath.Join(repoRoot(t), "pkg"), func(path string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
-			return nil
-		}
-
-		parsed, err := parser.ParseFile(fileSet, path, nil, 0)
-		if err != nil {
-			return err
-		}
-		ast.Inspect(parsed, func(node ast.Node) bool {
-			returned, ok := node.(*ast.ReturnStmt)
-			if !ok {
-				return true
+	for _, tree := range []string{"client", "pkg"} {
+		err := filepath.WalkDir(filepath.Join(repoRoot(t), tree), func(path string, entry fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+				return nil
 			}
 
-			for _, result := range returned.Results {
-				variable, attached := unwindRaise(result)
-				code, declared := codes[variable]
-				if !declared {
-					continue
+			parsed, err := parser.ParseFile(fileSet, path, nil, 0)
+			if err != nil {
+				return err
+			}
+			ast.Inspect(parsed, func(node ast.Node) bool {
+				returned, ok := node.(*ast.ReturnStmt)
+				if !ok {
+					return true
 				}
-				where := fileSet.Position(result.Pos())
-				sites[code] = append(sites[code], declaredRaise{
-					attached: attached,
-					where:    filepath.Base(where.Filename) + ":" + strconv.Itoa(where.Line),
-				})
-			}
-			return true
+
+				for _, result := range returned.Results {
+					variable, attached := unwindRaise(result)
+					code, declared := codes[variable]
+					if !declared {
+						continue
+					}
+					where := fileSet.Position(result.Pos())
+					sites[code] = append(sites[code], declaredRaise{
+						attached: attached,
+						where:    filepath.Base(where.Filename) + ":" + strconv.Itoa(where.Line),
+					})
+				}
+				return true
+			})
+			return nil
 		})
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 	return sites
 }
@@ -160,37 +162,39 @@ func declaredErrorVariables(t *testing.T) map[string]string {
 
 	fileSet := token.NewFileSet()
 	codes := map[string]string{}
-	err := filepath.WalkDir(filepath.Join(repoRoot(t), "pkg"), func(path string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
-			return nil
-		}
-
-		parsed, err := parser.ParseFile(fileSet, path, nil, 0)
-		if err != nil {
-			return err
-		}
-		for _, declaration := range parsed.Decls {
-			general, ok := declaration.(*ast.GenDecl)
-			if !ok || general.Tok != token.VAR {
-				continue
+	for _, tree := range []string{"client", "pkg"} {
+		err := filepath.WalkDir(filepath.Join(repoRoot(t), tree), func(path string, entry fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
 			}
-			for _, spec := range general.Specs {
-				value, ok := spec.(*ast.ValueSpec)
-				if !ok || len(value.Names) != 1 || len(value.Values) != 1 {
+			if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+				return nil
+			}
+
+			parsed, err := parser.ParseFile(fileSet, path, nil, 0)
+			if err != nil {
+				return err
+			}
+			for _, declaration := range parsed.Decls {
+				general, ok := declaration.(*ast.GenDecl)
+				if !ok || general.Tok != token.VAR {
 					continue
 				}
-				if code := declaredErrorCode(value.Values[0]); code != "" {
-					codes[value.Names[0].Name] = code
+				for _, spec := range general.Specs {
+					value, ok := spec.(*ast.ValueSpec)
+					if !ok || len(value.Names) != 1 || len(value.Values) != 1 {
+						continue
+					}
+					if code := declaredErrorCode(value.Values[0]); code != "" {
+						codes[value.Names[0].Name] = code
+					}
 				}
 			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
 		}
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
 	}
 	return codes
 }

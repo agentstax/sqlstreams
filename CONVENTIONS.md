@@ -59,7 +59,7 @@ Every package is exactly one of three kinds:
   assembles domains and workers. An activity domain's assembler is its
   agent noun (produce -> producer, consume -> consumer, schedule ->
   scheduler). Declares no codes, owns no SQL, holds no vocabulary.
-  `sqlstreams` is the client plus aliases: it declares Client, ClientConfig,
+  `sqlstreams` (in root `client/`) is the client plus aliases: it declares Client, ClientConfig,
   the pool and its config, the handles, and the three instance wrappers;
   every other exported name is an alias or var into the declaring package,
   and the client holds assemblers only.
@@ -98,10 +98,10 @@ once, in the lowest package that reads it, with a floor:
 - A resource declaration stays with its domain even when an assembler
   applies it across several domains; the orchestration's location does
   not determine the declaration's owner.
-- The only `type X = pkg.X` lines in the repo are pkg/sqlstreams/alias.go,
+- The only `type X = pkg.X` lines in the repo are client/alias.go,
   an alias keeps its declaration's name, and the alias set is computed
-  by the closure test, never hand-kept: whatever pkg/sqlstreams's exported
-  surface reaches must be spelled there. pkg/sqlstreams imports no
+  by the closure test, never hand-kept: whatever the client's exported
+  surface reaches must be spelled there. The client imports no
   machinery. (checked)
 - A root type whose bare name is a generic noun (Kind, Status, Severity,
   Unit, Error, Expression) takes the root's noun as its prefix --
@@ -137,7 +137,7 @@ once, in the lowest package that reads it, with a floor:
 
 ## Supported public API
 
-- `pkg/sqlstreams` is the supported public entry point. Its exported names and
+- `client` is the supported public entry point. Its exported names and
   all exported fields and methods reachable through its types, aliases,
   parameters, and results belong to that contract. Moving the entry package
   later does not change this boundary.
@@ -148,7 +148,7 @@ once, in the lowest package that reads it, with a floor:
   commitment or guides presenting them as alternative public entry points.
   Do not move them to `internal/` solely to reduce the supported surface.
 - Review exposure at its source. An alias exposes its exported methods as
-  well as its fields; a declaration below `pkg/sqlstreams` is not exempt from
+  well as its fields; a declaration below `client` is not exempt from
   review when reachable. The alias-closure tests verify that reachable
   library types can be named through `sqlstreams`; deleting an alias while
   leaving its type reachable is not a surface trim. Third-party types keep

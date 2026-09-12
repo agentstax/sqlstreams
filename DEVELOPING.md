@@ -49,10 +49,10 @@ Inside the module you changed:
 go fmt ./...
 go build ./...
 go vet ./...
-go test -race ./pkg/sqlstreams
+go test -race ./client
 ```
 
-Replace `./pkg/sqlstreams` with the packages you touched. Database tests
+Replace `./client` with the packages you touched. Database tests
 run only with `SQLSTREAMS_TEST_DATABASE_URL` set (the `.env.example` value
 points at the dev database); unset, they skip. Nested modules have
 their own `go.mod`; root `./...` does not include them.

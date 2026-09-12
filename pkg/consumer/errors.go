@@ -7,7 +7,7 @@ shutdown, and context.Background/TODO can never be cancelled.
 
 Pass your application's shutdown context:
 
-    ctx, stop := sqlstreams.LifecycleContext(nil) // github.com/agentstax/sqlstreams/pkg/sqlstreams
+    ctx, stop := sqlstreams.LifecycleContext(nil) // github.com/agentstax/sqlstreams/client
     defer stop()
 
 Or run a session that only stops with the process:

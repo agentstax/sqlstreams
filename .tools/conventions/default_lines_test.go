@@ -20,53 +20,55 @@ import (
 func TestReachableConfigFieldsStateTheirDefault(t *testing.T) {
 	root := repoRoot(t)
 	reachable := map[string]bool{}
-	for _, reached := range sqlstreamsClosure(t).reachable() {
+	for _, reached := range clientClosure(t).reachable() {
 		reachable[reached.Pkg().Path()+"."+reached.Name()] = true
 	}
 
-	err := filepath.WalkDir(filepath.Join(root, "pkg"), func(path string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
-			return nil
-		}
-		relative, err := filepath.Rel(root, path)
-		if err != nil {
-			return err
-		}
-		packagePath := modulePath + "/" + filepath.ToSlash(filepath.Dir(relative))
+	for _, tree := range []string{"client", "pkg"} {
+		err := filepath.WalkDir(filepath.Join(root, tree), func(path string, entry fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+				return nil
+			}
+			relative, err := filepath.Rel(root, path)
+			if err != nil {
+				return err
+			}
+			packagePath := modulePath + "/" + filepath.ToSlash(filepath.Dir(relative))
 
-		fileSet := token.NewFileSet()
-		parsed, err := parser.ParseFile(fileSet, path, nil, parser.ParseComments)
-		if err != nil {
-			return err
-		}
-		structs := structTypes(parsed)
-		for _, declaration := range parsed.Decls {
-			function, ok := declaration.(*ast.FuncDecl)
-			if !ok || function.Name.Name != "WithDefaults" || function.Recv == nil || function.Body == nil {
-				continue
+			fileSet := token.NewFileSet()
+			parsed, err := parser.ParseFile(fileSet, path, nil, parser.ParseComments)
+			if err != nil {
+				return err
 			}
-			receiverType, receiverName := receiverOf(function)
-			structType, ok := structs[receiverType]
-			if !ok || !reachable[packagePath+"."+receiverType] {
-				continue
-			}
-			for _, field := range structType.Fields.List {
-				for _, name := range field.Names {
-					if !filledFields(function.Body, receiverName)[name.Name] || hasDefaultLine(field) {
-						continue
+			structs := structTypes(parsed)
+			for _, declaration := range parsed.Decls {
+				function, ok := declaration.(*ast.FuncDecl)
+				if !ok || function.Name.Name != "WithDefaults" || function.Recv == nil || function.Body == nil {
+					continue
+				}
+				receiverType, receiverName := receiverOf(function)
+				structType, ok := structs[receiverType]
+				if !ok || !reachable[packagePath+"."+receiverType] {
+					continue
+				}
+				for _, field := range structType.Fields.List {
+					for _, name := range field.Names {
+						if !filledFields(function.Body, receiverName)[name.Name] || hasDefaultLine(field) {
+							continue
+						}
+						position := relative + ":" + strconv.Itoa(fileSet.Position(name.Pos()).Line)
+						t.Errorf("%s: %s.%s is filled by WithDefaults but its comment has no Default: line -- state the resolved value", position, receiverType, name.Name)
 					}
-					position := relative + ":" + strconv.Itoa(fileSet.Position(name.Pos()).Line)
-					t.Errorf("%s: %s.%s is filled by WithDefaults but its comment has no Default: line -- state the resolved value", position, receiverType, name.Name)
 				}
 			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
 		}
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
 	}
 }
 

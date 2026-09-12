@@ -1,7 +1,7 @@
 package conventions
 
 // Walks every plain raise string (errors.New / fmt.Errorf string literals)
-// under pkg/, otel/, and cmd/sqlstreams/ and enforces the mechanical half
+// under client/, pkg/, otel/, and cmd/sqlstreams/ and enforces the mechanical half
 // of CONVENTIONS.md "When writing a plain error". Judgment rules (tense,
 // name spelling, fix quality) stay review-time. A legitimate exception gets
 // an explicit file:line entry here with a reason, never a marker in the code.
@@ -89,7 +89,7 @@ func plainRaiseSites(t *testing.T) []raiseSite {
 	root := repoRoot(t)
 
 	var sites []raiseSite
-	for _, tree := range []string{"pkg", "otel", "cmd/sqlstreams"} {
+	for _, tree := range []string{"client", "pkg", "otel", "cmd/sqlstreams"} {
 		err := filepath.WalkDir(filepath.Join(root, tree), func(path string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				return walkErr

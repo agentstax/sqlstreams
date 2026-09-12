@@ -147,78 +147,80 @@ func TestCodesDeclaredAtRoots(t *testing.T) {
 	linked := moduleImports(t, filepath.Join(root, ".tools", "conventions", "conventions.go"))
 	walked := 0
 
-	err := filepath.WalkDir(filepath.Join(root, "pkg"), func(path string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
-			return nil
-		}
-		relative, err := filepath.Rel(root, path)
-		if err != nil {
-			return err
-		}
-		relative = filepath.ToSlash(relative)
-
-		fileSet := token.NewFileSet()
-		parsed, err := parser.ParseFile(fileSet, path, nil, 0)
-		if err != nil {
-			return err
-		}
-		held := map[*ast.CallExpr]bool{}
-		for _, declaration := range parsed.Decls {
-			generic, ok := declaration.(*ast.GenDecl)
-			if !ok || generic.Tok != token.VAR {
-				continue
+	for _, tree := range []string{"client", "pkg"} {
+		err := filepath.WalkDir(filepath.Join(root, tree), func(path string, entry fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
 			}
-			for _, spec := range generic.Specs {
-				value := spec.(*ast.ValueSpec)
-				for i, name := range value.Names {
-					if i >= len(value.Values) {
-						break
-					}
-					code, declares := declaredCode(value.Values[i])
-					if !declares {
-						continue
-					}
-					walked++
-					ast.Inspect(value.Values[i], func(node ast.Node) bool {
-						if call, ok := node.(*ast.CallExpr); ok && declaresCode(call) {
-							held[call] = true
+			if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+				return nil
+			}
+			relative, err := filepath.Rel(root, path)
+			if err != nil {
+				return err
+			}
+			relative = filepath.ToSlash(relative)
+
+			fileSet := token.NewFileSet()
+			parsed, err := parser.ParseFile(fileSet, path, nil, 0)
+			if err != nil {
+				return err
+			}
+			held := map[*ast.CallExpr]bool{}
+			for _, declaration := range parsed.Decls {
+				generic, ok := declaration.(*ast.GenDecl)
+				if !ok || generic.Tok != token.VAR {
+					continue
+				}
+				for _, spec := range generic.Specs {
+					value := spec.(*ast.ValueSpec)
+					for i, name := range value.Names {
+						if i >= len(value.Values) {
+							break
 						}
-						return true
-					})
-					position := relative + ":" + strconv.Itoa(fileSet.Position(value.Pos()).Line)
-					switch {
-					case !isCodeHome(relative):
-						t.Errorf("%s declares %s outside a root's errors.go, events.go, metrics.go, alerts.go, or *_metrics.go", position, code)
-					case !ast.IsExported(name.Name):
-						t.Errorf("%s declares %s under unexported name %s", position, code, name.Name)
-					}
-					if !registered[code] {
-						t.Errorf("%s declares %s but the registry misses it -- add its package to conventions.go", position, code)
-					}
-					importPath := modulePath + "/" + filepath.ToSlash(filepath.Dir(relative))
-					if !exported[importPath] {
-						t.Errorf("%s declares %s but .tools/codeexport/main.go does not link %s", position, code, importPath)
-					}
-					if !linked[importPath] {
-						t.Errorf("%s declares %s but .tools/conventions/conventions.go does not link %s", position, code, importPath)
+						code, declares := declaredCode(value.Values[i])
+						if !declares {
+							continue
+						}
+						walked++
+						ast.Inspect(value.Values[i], func(node ast.Node) bool {
+							if call, ok := node.(*ast.CallExpr); ok && declaresCode(call) {
+								held[call] = true
+							}
+							return true
+						})
+						position := relative + ":" + strconv.Itoa(fileSet.Position(value.Pos()).Line)
+						switch {
+						case !isCodeHome(relative):
+							t.Errorf("%s declares %s outside a root's errors.go, events.go, metrics.go, alerts.go, or *_metrics.go", position, code)
+						case !ast.IsExported(name.Name):
+							t.Errorf("%s declares %s under unexported name %s", position, code, name.Name)
+						}
+						if !registered[code] {
+							t.Errorf("%s declares %s but the registry misses it -- add its package to conventions.go", position, code)
+						}
+						importPath := modulePath + "/" + filepath.ToSlash(filepath.Dir(relative))
+						if !exported[importPath] {
+							t.Errorf("%s declares %s but .tools/codeexport/main.go does not link %s", position, code, importPath)
+						}
+						if !linked[importPath] {
+							t.Errorf("%s declares %s but .tools/conventions/conventions.go does not link %s", position, code, importPath)
+						}
 					}
 				}
 			}
-		}
-		ast.Inspect(parsed, func(node ast.Node) bool {
-			call, ok := node.(*ast.CallExpr)
-			if ok && declaresCode(call) && !held[call] {
-				t.Errorf("%s:%d declares a code that no package-level var holds", relative, fileSet.Position(call.Pos()).Line)
-			}
-			return true
+			ast.Inspect(parsed, func(node ast.Node) bool {
+				call, ok := node.(*ast.CallExpr)
+				if ok && declaresCode(call) && !held[call] {
+					t.Errorf("%s:%d declares a code that no package-level var holds", relative, fileSet.Position(call.Pos()).Line)
+				}
+				return true
+			})
+			return nil
 		})
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 	if walked == 0 {
 		t.Fatal("no code declaration reached the walk -- check declaredCode against the roots")

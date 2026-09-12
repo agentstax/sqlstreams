@@ -26,8 +26,8 @@ import (
 	"time"
 
 	"github.com/agentstax/sqlstreams/.tests/e2e/common"
+	sqlstreams "github.com/agentstax/sqlstreams/client"
 	iDatastore "github.com/agentstax/sqlstreams/pkg/datastore"
-	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 	"github.com/agentstax/sqlstreams/pkg/stream"
 )
 

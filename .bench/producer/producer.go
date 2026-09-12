@@ -11,7 +11,7 @@ import (
 
 	"github.com/agentstax/sqlstreams/.bench/common"
 	"github.com/agentstax/sqlstreams/.bench/record"
-	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	sqlstreams "github.com/agentstax/sqlstreams/client"
 )
 
 // Producer is the producer that writes a record per call: every Produce writes its attempt to

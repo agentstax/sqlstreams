@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"text/tabwriter"
 
-	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	sqlstreams "github.com/agentstax/sqlstreams/client"
 	"github.com/agentstax/sqlstreams/pkg/stream"
 	"github.com/spf13/cobra"
 )

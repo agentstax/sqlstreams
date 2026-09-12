@@ -9,8 +9,8 @@ import (
 	"os"
 	"strings"
 
+	sqlstreams "github.com/agentstax/sqlstreams/client"
 	"github.com/agentstax/sqlstreams/pkg/common/logging"
-	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
 	"github.com/agentstax/sqlstreams/pkg/stream"
 	streamcontroller "github.com/agentstax/sqlstreams/pkg/stream/controller"
 	"github.com/spf13/cobra"

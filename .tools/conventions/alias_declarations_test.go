@@ -2,7 +2,7 @@ package conventions
 
 // The one-declaration law (CONVENTIONS.md ## Package layout): every exported
 // type is declared once, and the only `type X = pkg.X` lines in the repo
-// are pkg/sqlstreams/alias.go. A second alias file is a second place a rename
+// are client/alias.go. A second alias file is a second place a rename
 // has to land; an alias into machinery is a click-through that lands in a
 // controller.
 
@@ -20,9 +20,9 @@ import (
 const modulePath = "github.com/agentstax/sqlstreams"
 
 // aliasFile is the one file allowed to declare type aliases.
-const aliasFile = "pkg/sqlstreams/alias.go"
+const aliasFile = "client/alias.go"
 
-func TestAliasesLiveOnlyInSQLStreams(t *testing.T) {
+func TestAliasesLiveOnlyInClient(t *testing.T) {
 	root := repoRoot(t)
 	walked := 0
 
@@ -69,19 +69,19 @@ func TestAliasesLiveOnlyInSQLStreams(t *testing.T) {
 	}
 }
 
-// pkg/sqlstreams imports the declaring packages only -- common, datastore, a
+// The client imports the declaring packages only -- common, datastore, a
 // root, or an assembler. An import of a controller or a datastore is the
 // tell that sqlstreams is composing what an assembler should, or aliasing a
 // type the machinery floor forbids it to declare. pkg/datastore is
 // infrastructure and is not the path this test names.
-func TestSQLStreamsImportsNoMachinery(t *testing.T) {
+func TestClientImportsNoMachinery(t *testing.T) {
 	root := repoRoot(t)
-	files, err := filepath.Glob(filepath.Join(root, "pkg", "sqlstreams", "*.go"))
+	files, err := filepath.Glob(filepath.Join(root, "client", "*.go"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(files) == 0 {
-		t.Fatal("no Go file under pkg/sqlstreams")
+		t.Fatal("no Go file under client")
 	}
 
 	for _, file := range files {

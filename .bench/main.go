@@ -25,7 +25,7 @@ import (
 	"github.com/agentstax/sqlstreams/.bench/runner"
 	"github.com/agentstax/sqlstreams/.bench/scenario"
 	"github.com/agentstax/sqlstreams/.bench/scenarios"
-	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	sqlstreams "github.com/agentstax/sqlstreams/client"
 )
 
 // exitLabFailure is the one exit code that is not a verdict: connection,

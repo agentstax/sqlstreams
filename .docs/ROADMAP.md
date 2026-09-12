@@ -25,19 +25,21 @@ the item is removed.
   contention is still open. Also measure the debug buffer's overhead here
   (WithLogBuffer + BufferLogger cost per operation, healthy path) — a
   published number is the adoption gate for always-on capture ([0559]).
-  - Remaining measurement: full-length multi-stream ladder phases spanning a
-    checkpoint, three repetitions, then paced runs at half the held maximum.
-    Recheck the earlier CountLost duplicate-key finding before extending full
-    recording: duplicate produces can report message id zero.
-  - Setup testing 2026-09-11: aggregate handler totals use progress loaded
-    before drain. A native run reported 19,184,500 handled while the retained
-    final counter and produced total both reached 19,230,000; reproduced in a
-    shorter run. Resolve the checker's snapshot timing before relying on final
-    aggregate totals. Also investigate PostgreSQL's `SET LOCAL can only be
-    used in transaction blocks` warning from `produce.ensureCoveringPartition`;
-    the warning's effect on the intended lock timeout is not yet established.
-  - Debug-buffer comparison: healthy-path NewPipelineLogger Buffer on/off,
-    ten repetitions and benchstat; record the result against [0559].
+  - Ladders run 2026-09-12: multistream-1, -4, and -16, three full-length
+    repetitions each, every run passing with two checkpoints inside it.
+    Every stream count holds the 4,000/s total rung and tops out between
+    4,300 and 4,700/s total; Postgres never passes 1.6 of its 8 cores.
+    The ceiling does not move with stream count, so the ladder as declared
+    measures the producer's default pool (10 connections shared by 16 batch
+    workers per stream), not stream contention or the database. Open fork:
+    raise the family's MaxConns so the rungs reach the database, then rerun,
+    or run the paced holds at half the held rung (2,000/s total) as
+    declared. Evidence under .bench/results/multistream-*/.
+  - Done 2026-09-11: the checker reloads progress snapshots after the drain
+    on aggregate-recording runs, so handled totals match produced; CountLost
+    finds a duplicate produce's row by key since the library reports id 0
+    for it; the `SET LOCAL` warning was cosmetic and is gone [0759]; the
+    debug-buffer cost is measured and recorded [0758].
   - Active benchmarks are steady delivery, sustained capacity, and an
     experimental multi-stream deployment comparison. Completed investigations
     retain evidence rather than gaining permanent scenarios. New scenarios

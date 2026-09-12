@@ -5,6 +5,24 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-12 — Client package moves to the module root [0760]
+
+Moved `pkg/sqlstreams` to `client/` within the existing root module, keeping
+package name `sqlstreams` and all 29 files unchanged. Callers now import
+`github.com/agentstax/sqlstreams/client`. Updated maintained imports,
+documentation, and convention scans; no new go.mod or forwarding package.
+
+Verification: formatting, build, and vet passed in all six affected Go
+modules; client race tests and the convention suite passed. Deliberate
+violations confirmed that type-name and database-connection checks inspect
+`client/`; both passed again after removing the fixture. The website built.
+
+Follow-up sweep: corrected scan comments and architecture placement, named
+client convention tests for their subject, and added the README import.
+All 1,793 tracked text files were inspected for stale paths; remaining old
+paths describe history. Tooling formatting, build, vet, and race tests passed
+again, as did formatting of the updated site page.
+
 ## 2026-09-11 — Benchmark commands and runs use bench [0755]
 
 Renamed the commands to `just bench`, `just bench-smoke`, and

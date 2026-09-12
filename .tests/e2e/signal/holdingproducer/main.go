@@ -10,7 +10,7 @@ import (
 	"os"
 
 	"github.com/agentstax/sqlstreams/.tests/e2e/common"
-	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	sqlstreams "github.com/agentstax/sqlstreams/client"
 )
 
 var streamName = flag.String("stream", "", "the stream to produce on")

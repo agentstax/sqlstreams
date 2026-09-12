@@ -60,8 +60,8 @@ type declaration struct {
 }
 
 // declarationDocComments reads every diagnostic.NewDiagnosticError / NewEvent variable
-// under pkg/ with its doc comment, and whether the initializer chains a
-// Diagnose call.
+// under client/ and pkg/ with its doc comment, and whether the initializer
+// chains a Diagnose call.
 func declarationDocComments(t *testing.T) []declaration {
 	t.Helper()
 
@@ -69,47 +69,49 @@ func declarationDocComments(t *testing.T) []declaration {
 	fileSet := token.NewFileSet()
 
 	declarations := []declaration{}
-	err := filepath.WalkDir(filepath.Join(root, "pkg"), func(path string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+	for _, tree := range []string{"client", "pkg"} {
+		err := filepath.WalkDir(filepath.Join(root, tree), func(path string, entry fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+				return nil
+			}
+
+			parsed, err := parser.ParseFile(fileSet, path, nil, parser.ParseComments)
+			if err != nil {
+				return err
+			}
+			for _, node := range parsed.Decls {
+				general, ok := node.(*ast.GenDecl)
+				if !ok || general.Tok != token.VAR {
+					continue
+				}
+				for _, spec := range general.Specs {
+					value, ok := spec.(*ast.ValueSpec)
+					if !ok || len(value.Names) != 1 || len(value.Values) != 1 {
+						continue
+					}
+					code, declares := declaredCode(value.Values[0])
+					if !declares {
+						continue
+					}
+
+					where := fileSet.Position(value.Pos())
+					declarations = append(declarations, declaration{
+						name:       value.Names[0].Name,
+						code:       code,
+						doc:        general.Doc.Text() + value.Doc.Text(),
+						hasQueries: declaresQueries(value.Values[0]),
+						where:      filepath.Base(where.Filename) + ":" + strconv.Itoa(where.Line),
+					})
+				}
+			}
 			return nil
-		}
-
-		parsed, err := parser.ParseFile(fileSet, path, nil, parser.ParseComments)
+		})
 		if err != nil {
-			return err
+			t.Fatal(err)
 		}
-		for _, node := range parsed.Decls {
-			general, ok := node.(*ast.GenDecl)
-			if !ok || general.Tok != token.VAR {
-				continue
-			}
-			for _, spec := range general.Specs {
-				value, ok := spec.(*ast.ValueSpec)
-				if !ok || len(value.Names) != 1 || len(value.Values) != 1 {
-					continue
-				}
-				code, declares := declaredCode(value.Values[0])
-				if !declares {
-					continue
-				}
-
-				where := fileSet.Position(value.Pos())
-				declarations = append(declarations, declaration{
-					name:       value.Names[0].Name,
-					code:       code,
-					doc:        general.Doc.Text() + value.Doc.Text(),
-					hasQueries: declaresQueries(value.Values[0]),
-					where:      filepath.Base(where.Filename) + ":" + strconv.Itoa(where.Line),
-				})
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
 	}
 	return declarations
 }

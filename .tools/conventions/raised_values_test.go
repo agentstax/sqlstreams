@@ -40,8 +40,8 @@ type raisedValue struct {
 	where     string // file:line
 }
 
-// raisedValueNames reads every Err*.With(...) call under pkg/ and returns the
-// attribute name of each pair. A pair whose name is not a literal string is
+// raisedValueNames reads every Err*.With(...) call under client/ and pkg/
+// and returns the attribute name of each pair. A pair whose name is not a literal string is
 // skipped: nothing static can tell what it spells.
 func raisedValueNames(t *testing.T) []raisedValue {
 	t.Helper()
@@ -50,50 +50,52 @@ func raisedValueNames(t *testing.T) []raisedValue {
 	fileSet := token.NewFileSet()
 
 	names := []raisedValue{}
-	err := filepath.WalkDir(filepath.Join(root, "pkg"), func(path string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+	for _, tree := range []string{"client", "pkg"} {
+		err := filepath.WalkDir(filepath.Join(root, tree), func(path string, entry fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+				return nil
+			}
+
+			parsed, err := parser.ParseFile(fileSet, path, nil, 0)
+			if err != nil {
+				return err
+			}
+			ast.Inspect(parsed, func(node ast.Node) bool {
+				call, ok := node.(*ast.CallExpr)
+				if !ok {
+					return true
+				}
+				selector, ok := call.Fun.(*ast.SelectorExpr)
+				if !ok || selector.Sel.Name != "With" || !raisesDeclaredError(selector.X) {
+					return true
+				}
+
+				// pairs are name, value, name, value -- only the names are checked
+				for i := 0; i < len(call.Args); i += 2 {
+					literal, ok := call.Args[i].(*ast.BasicLit)
+					if !ok || literal.Kind != token.STRING {
+						continue
+					}
+					name, err := strconv.Unquote(literal.Value)
+					if err != nil {
+						continue
+					}
+					where := fileSet.Position(literal.Pos())
+					names = append(names, raisedValue{
+						attribute: name,
+						where:     filepath.Base(where.Filename) + ":" + strconv.Itoa(where.Line),
+					})
+				}
+				return true
+			})
 			return nil
-		}
-
-		parsed, err := parser.ParseFile(fileSet, path, nil, 0)
-		if err != nil {
-			return err
-		}
-		ast.Inspect(parsed, func(node ast.Node) bool {
-			call, ok := node.(*ast.CallExpr)
-			if !ok {
-				return true
-			}
-			selector, ok := call.Fun.(*ast.SelectorExpr)
-			if !ok || selector.Sel.Name != "With" || !raisesDeclaredError(selector.X) {
-				return true
-			}
-
-			// pairs are name, value, name, value -- only the names are checked
-			for i := 0; i < len(call.Args); i += 2 {
-				literal, ok := call.Args[i].(*ast.BasicLit)
-				if !ok || literal.Kind != token.STRING {
-					continue
-				}
-				name, err := strconv.Unquote(literal.Value)
-				if err != nil {
-					continue
-				}
-				where := fileSet.Position(literal.Pos())
-				names = append(names, raisedValue{
-					attribute: name,
-					where:     filepath.Base(where.Filename) + ":" + strconv.Itoa(where.Line),
-				})
-			}
-			return true
 		})
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 	return names
 }

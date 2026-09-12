@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	sqlstreams "github.com/agentstax/sqlstreams/client"
 	streamMigrations "github.com/agentstax/sqlstreams/pkg/stream/migrations"
 	systemMigrations "github.com/agentstax/sqlstreams/pkg/system/migrations"
 	"github.com/spf13/cobra"

@@ -32,7 +32,7 @@ flowchart LR
 
 ## Where to start reading the code
 
-- Client: [pkg/sqlstreams/client.go](pkg/sqlstreams/client.go).
+- Client: [client/client.go](client/client.go).
 - Producer: [pkg/producer/producer_instance.go](pkg/producer/producer_instance.go).
 - Consumer: [pkg/consumer/consumer_instance.go](pkg/consumer/consumer_instance.go).
 - System manager: [pkg/systemmanager/systemmanager.go](pkg/systemmanager/systemmanager.go).
@@ -40,7 +40,9 @@ flowchart LR
 
 ## Code map
 
-The root module is the library. Nested modules with their own `go.mod`:
+The root module holds `client/` (package `sqlstreams`) and the implementation
+under `pkg/`. The client shares the root module's dependencies and version.
+Nested modules with their own `go.mod`:
 
 | Module | Holds |
 | --- | --- |
@@ -51,13 +53,13 @@ The root module is the library. Nested modules with their own `go.mod`:
 | `.bench` | benchmark scenarios and their runner |
 | `.tools` | convention tests, compatibility checks, doc-site exports |
 
-Under `pkg/`, a package is one of three kinds:
+Library packages are one of three kinds; all except `client/` live under `pkg/`:
 
 | Kind | Packages |
 | --- | --- |
 | shared by everything | `common` (Owner, Message, RetryPolicy, errors, logging), `datastore` (pool, transactions) |
 | one per resource or activity | `stream`, `produce`, `consume`, `compaction`, `schedule`, `worker`, `metrics`, `alert`, `system`, `migrate` |
-| the three boxes on the left, no SQL of their own | `sqlstreams`, `producer`, `consumer`, `scheduler`, `systemmanager`, `admin` |
+| the three boxes on the left, no SQL of their own | `client/` (package `sqlstreams`), `producer`, `consumer`, `scheduler`, `systemmanager`, `admin` |
 
 The workers the system manager runs are under the package whose tables
 they maintain: `stream/janitor`, `consume/janitor`,

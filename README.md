@@ -62,6 +62,12 @@ Add it to your module. You need a Postgres.
 go get github.com/agentstax/sqlstreams
 ```
 
+Import the client from the same module:
+
+```go
+import sqlstreams "github.com/agentstax/sqlstreams/client"
+```
+
 A message is a struct with a schema version.
 
 ```go

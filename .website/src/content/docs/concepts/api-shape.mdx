@@ -9,7 +9,7 @@ One client wraps the pool and holds the ambient config. Every resource is
 named from it as a handle, `client.Stream[OrderPlaced]("orders")`,
 `client.Stream[OrderPlaced]("orders").Consumer("billing")`, and the verbs
 live on the thing they act on. Every type a program spells lives in
-`github.com/agentstax/sqlstreams/pkg/sqlstreams`; the per-handle lookup tables are
+`github.com/agentstax/sqlstreams/client`; the per-handle lookup tables are
 the [Reference board](/boards/reference/).
 
 ## Two grammars
@@ -116,7 +116,7 @@ not roles, so neither is a public suffix.
 
 ## The supported API
 
-`pkg/sqlstreams` is the supported public entry point: its exported names and
+`client/` (package `sqlstreams`) is the supported public entry point: its exported names and
 every exported field and method reachable through its types, aliases,
 parameters, and results. Before v1 this surface still changes as the API
 settles. Other packages remain importable for advanced use, without a

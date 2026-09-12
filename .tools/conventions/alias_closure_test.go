@@ -3,7 +3,7 @@ package conventions
 // sqlstreams is the client plus aliases (CONVENTIONS.md ## Package layout): one
 // import spells every type, const, declared error, and declared event a
 // user meets. The set is computed, never hand-kept -- a go/types walk over
-// pkg/sqlstreams's exported surface finds every declaration from this module a
+// the client's exported surface finds every declaration from this module a
 // caller can reach, and each one must have a sqlstreams alias or var whose
 // target is that very object, under the same name. Two roots declaring
 // `Kind` cannot both be spelled `sqlstreams.Kind`, so the check compares
@@ -27,10 +27,10 @@ import (
 	"testing"
 )
 
-const sqlstreamsPath = modulePath + "/pkg/sqlstreams"
+const clientPath = modulePath + "/client"
 
-func TestSQLStreamsCoversEveryReachableDeclaration(t *testing.T) {
-	closure := sqlstreamsClosure(t)
+func TestClientCoversEveryReachableDeclaration(t *testing.T) {
+	closure := clientClosure(t)
 
 	for _, reached := range closure.reachable() {
 		spelled, ok := closure.provided[reached]
@@ -50,7 +50,7 @@ func TestSQLStreamsCoversEveryReachableDeclaration(t *testing.T) {
 // closure: every reachable object declared below a root must carry one of
 // those suffixes.
 func TestMachineryDeclaresNothingUserSpelled(t *testing.T) {
-	closure := sqlstreamsClosure(t)
+	closure := clientClosure(t)
 
 	for _, reached := range closure.reachable() {
 		if !isMachinery(reached.Pkg().Path()) {
@@ -72,7 +72,7 @@ type exportListing struct {
 	Export     string
 }
 
-// closure is what one walk of pkg/sqlstreams found: every object from this
+// closure is what one walk of client found: every object from this
 // module a caller can reach through its exported surface, and the objects
 // sqlstreams's own aliases, consts, and vars point at.
 type closure struct {
@@ -82,15 +82,15 @@ type closure struct {
 	provided map[types.Object]string
 }
 
-// sqlstreamsClosure type-checks pkg/sqlstreams from source over the export data of
+// clientClosure type-checks client from source over the export data of
 // its dependencies, then walks its exported scope. A package reached only
 // through another's export data holds the objects that data references and
 // nothing more, so each one is imported directly before its consts are read.
-func sqlstreamsClosure(t *testing.T) *closure {
+func clientClosure(t *testing.T) *closure {
 	t.Helper()
 	root := repoRoot(t)
 
-	list := exec.Command("go", "list", "-export", "-deps", "-json", sqlstreamsPath)
+	list := exec.Command("go", "list", "-export", "-deps", "-json", clientPath)
 	list.Dir = root
 	list.Stderr = os.Stderr
 	listed, err := list.Output()
@@ -110,7 +110,7 @@ func sqlstreamsClosure(t *testing.T) *closure {
 		if entry.Export != "" {
 			exports[entry.ImportPath] = entry.Export
 		}
-		if strings.HasPrefix(entry.ImportPath, modulePath+"/") && entry.ImportPath != sqlstreamsPath {
+		if strings.HasPrefix(entry.ImportPath, modulePath+"/") && entry.ImportPath != clientPath {
 			dependencies = append(dependencies, entry.ImportPath)
 		}
 	}
@@ -124,7 +124,7 @@ func sqlstreamsClosure(t *testing.T) *closure {
 		return os.Open(file)
 	})
 
-	paths, err := filepath.Glob(filepath.Join(root, "pkg", "sqlstreams", "*.go"))
+	paths, err := filepath.Glob(filepath.Join(root, "client", "*.go"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +141,7 @@ func sqlstreamsClosure(t *testing.T) *closure {
 	}
 	info := &types.Info{Uses: map[*ast.Ident]types.Object{}}
 	config := types.Config{Importer: imp}
-	sqlstreams, err := config.Check(sqlstreamsPath, fileSet, files, info)
+	sqlstreams, err := config.Check(clientPath, fileSet, files, info)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -249,7 +249,7 @@ func (c *closure) walkNamed(t *types.Named) {
 	if object.Pkg() == nil || !strings.HasPrefix(object.Pkg().Path(), modulePath+"/") {
 		return
 	}
-	if object.Pkg().Path() != sqlstreamsPath && object.Exported() {
+	if object.Pkg().Path() != clientPath && object.Exported() {
 		c.reached[object] = true
 		c.reachConsts(object)
 	}

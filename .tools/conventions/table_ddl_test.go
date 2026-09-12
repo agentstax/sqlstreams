@@ -1,7 +1,7 @@
 package conventions
 
-// Walks every baseline CREATE TABLE literal under pkg/ plus the per-stream
-// table-name funcs in pkg/stream and enforces the mechanical half of
+// Walks every baseline CREATE TABLE literal under client/ and pkg/ plus
+// the per-stream table-name funcs in pkg/stream and enforces the mechanical half of
 // CONVENTIONS.md ## Tables naming rules [0611][0613]: table names end in a
 // known kind, TIMESTAMPTZ columns end _at/_after, duration columns are
 // BIGINT nanoseconds ending _ns, every _config table carries created_at and
@@ -181,59 +181,61 @@ func baselineTableStatements(t *testing.T) []tableStatement {
 	root := repoRoot(t)
 
 	var statements []tableStatement
-	err := filepath.WalkDir(filepath.Join(root, "pkg"), func(path string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
-			return nil
-		}
-
-		fileSet := token.NewFileSet()
-		parsed, err := parser.ParseFile(fileSet, path, nil, 0)
-		if err != nil {
-			return err
-		}
-		relative, err := filepath.Rel(root, path)
-		if err != nil {
-			relative = path
-		}
-		// a per-stream literal names its table only through the Sprintf's
-		// table-name call (stream.BindingConfigTable(id)), so the call is
-		// inspected first and the literal it holds is skipped on its own visit
-		parsedLiterals := make(map[token.Pos]bool)
-		ast.Inspect(parsed, func(node ast.Node) bool {
-			switch node := node.(type) {
-			case *ast.CallExpr:
-				literal, ok := sprintfCreateTableLiteral(node)
-				if !ok {
-					return true
-				}
-				parsedLiterals[literal.Pos()] = true
-				statement, ok := parseTableLiteral(fileSet, literal, relative)
-				if !ok {
-					return true
-				}
-				// a PARTITION OF statement parses no columns and takes no name:
-				// the kind check reads partition names through pkg/stream's funcs
-				if statement.Name == "" && len(statement.Columns) > 0 {
-					statement.Name = perStreamTableNameFromCall(node)
-				}
-				statements = append(statements, statement)
-			case *ast.BasicLit:
-				if parsedLiterals[node.Pos()] {
-					return true
-				}
-				if statement, ok := parseTableLiteral(fileSet, node, relative); ok {
-					statements = append(statements, statement)
-				}
+	for _, tree := range []string{"client", "pkg"} {
+		err := filepath.WalkDir(filepath.Join(root, tree), func(path string, entry fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
 			}
-			return true
+			if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+				return nil
+			}
+
+			fileSet := token.NewFileSet()
+			parsed, err := parser.ParseFile(fileSet, path, nil, 0)
+			if err != nil {
+				return err
+			}
+			relative, err := filepath.Rel(root, path)
+			if err != nil {
+				relative = path
+			}
+			// a per-stream literal names its table only through the Sprintf's
+			// table-name call (stream.BindingConfigTable(id)), so the call is
+			// inspected first and the literal it holds is skipped on its own visit
+			parsedLiterals := make(map[token.Pos]bool)
+			ast.Inspect(parsed, func(node ast.Node) bool {
+				switch node := node.(type) {
+				case *ast.CallExpr:
+					literal, ok := sprintfCreateTableLiteral(node)
+					if !ok {
+						return true
+					}
+					parsedLiterals[literal.Pos()] = true
+					statement, ok := parseTableLiteral(fileSet, literal, relative)
+					if !ok {
+						return true
+					}
+					// a PARTITION OF statement parses no columns and takes no name:
+					// the kind check reads partition names through pkg/stream's funcs
+					if statement.Name == "" && len(statement.Columns) > 0 {
+						statement.Name = perStreamTableNameFromCall(node)
+					}
+					statements = append(statements, statement)
+				case *ast.BasicLit:
+					if parsedLiterals[node.Pos()] {
+						return true
+					}
+					if statement, ok := parseTableLiteral(fileSet, node, relative); ok {
+						statements = append(statements, statement)
+					}
+				}
+				return true
+			})
+			return nil
 		})
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 	return statements
 }
@@ -308,43 +310,45 @@ func baselineIndexStatements(t *testing.T) []indexStatement {
 	root := repoRoot(t)
 
 	var indexes []indexStatement
-	err := filepath.WalkDir(filepath.Join(root, "pkg"), func(path string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
-			return nil
-		}
+	for _, tree := range []string{"client", "pkg"} {
+		err := filepath.WalkDir(filepath.Join(root, tree), func(path string, entry fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+				return nil
+			}
 
-		fileSet := token.NewFileSet()
-		parsed, err := parser.ParseFile(fileSet, path, nil, 0)
-		if err != nil {
-			return err
-		}
-		relative, err := filepath.Rel(root, path)
-		if err != nil {
-			relative = path
-		}
-		ast.Inspect(parsed, func(node ast.Node) bool {
-			literal, ok := node.(*ast.BasicLit)
-			if !ok || literal.Kind != token.STRING || !strings.Contains(literal.Value, "CREATE INDEX") && !strings.Contains(literal.Value, "CREATE UNIQUE INDEX") {
-				return true
-			}
-			text, err := strconv.Unquote(literal.Value)
+			fileSet := token.NewFileSet()
+			parsed, err := parser.ParseFile(fileSet, path, nil, 0)
 			if err != nil {
-				return true
+				return err
 			}
-			match := createIndexLine.FindStringSubmatch(text)
-			if match == nil {
-				return true
+			relative, err := filepath.Rel(root, path)
+			if err != nil {
+				relative = path
 			}
-			indexes = append(indexes, parseIndexLine(match, relative+":"+strconv.Itoa(fileSet.Position(literal.Pos()).Line)))
-			return true
+			ast.Inspect(parsed, func(node ast.Node) bool {
+				literal, ok := node.(*ast.BasicLit)
+				if !ok || literal.Kind != token.STRING || !strings.Contains(literal.Value, "CREATE INDEX") && !strings.Contains(literal.Value, "CREATE UNIQUE INDEX") {
+					return true
+				}
+				text, err := strconv.Unquote(literal.Value)
+				if err != nil {
+					return true
+				}
+				match := createIndexLine.FindStringSubmatch(text)
+				if match == nil {
+					return true
+				}
+				indexes = append(indexes, parseIndexLine(match, relative+":"+strconv.Itoa(fileSet.Position(literal.Pos()).Line)))
+				return true
+			})
+			return nil
 		})
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 	return indexes
 }

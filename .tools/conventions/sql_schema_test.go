@@ -101,7 +101,7 @@ func sqlLiterals(t *testing.T) []sqlLiteral {
 	root := repoRoot(t)
 
 	var literals []sqlLiteral
-	for _, tree := range []string{"pkg", "cmd"} {
+	for _, tree := range []string{"client", "pkg", "cmd"} {
 		err := filepath.WalkDir(filepath.Join(root, tree), func(path string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				return walkErr

@@ -5,7 +5,7 @@ import (
 
 	"github.com/agentstax/sqlstreams/.bench/common"
 	"github.com/agentstax/sqlstreams/.bench/scenario"
-	sqlstreams "github.com/agentstax/sqlstreams/pkg/sqlstreams"
+	sqlstreams "github.com/agentstax/sqlstreams/client"
 )
 
 // The scenario's [input] section, translated into the library's own
