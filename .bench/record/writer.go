@@ -21,6 +21,7 @@ const (
 	FileKindPhase     FileKind = "phase"
 	FileKindSample    FileKind = "sample"
 	FileKindBacklog   FileKind = "backlog"
+	FileKindStatement FileKind = "statement"
 )
 
 // Writer appends one JSON object per line to a role's record file and

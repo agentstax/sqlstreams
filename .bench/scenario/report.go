@@ -2,6 +2,8 @@ package scenario
 
 import (
 	"fmt"
+	"reflect"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 )
@@ -20,30 +22,22 @@ func (s *Scenario) Report(phaseColumns map[string]string, expectColumns map[Chec
 	return out.String()
 }
 
+// inputLines print every stream and its groups. Consecutive streams that
+// differ only by a numeric suffix print as one range, `orders-1..orders-16`,
+// so a family over a thousand streams reads, and ledgers, as one block.
 func (s *Scenario) inputLines() []string {
 	lines := []string{}
-	for _, declared := range s.Streams {
-		line := fmt.Sprintf("stream\t%s\tDeliveryLogMode %s", declared.Name, declared.DeliveryLogMode)
-		if declared.PartitionSize > 0 {
-			line += fmt.Sprintf(", partition size %d", declared.PartitionSize)
+	for i := 0; i < len(s.Streams); {
+		last := i
+		for last+1 < len(s.Streams) && consecutiveStreams(s.Streams[last], s.Streams[last+1]) {
+			last++
 		}
-		if declared.RetentionTTL > 0 || declared.IdempotencyKeyTTL > 0 {
-			line += fmt.Sprintf(", retention %s, key retention %s", declared.RetentionTTL, declared.IdempotencyKeyTTL)
+		name := s.Streams[i].Name
+		if last > i {
+			name += ".." + s.Streams[last].Name
 		}
-		lines = append(lines, line)
-		if declared.Janitor != nil {
-			lines = append(lines, fmt.Sprintf("janitor\t%s\tpoll %s, batch %d, grace %s, timeout %s", declared.Name, declared.Janitor.PollRate, declared.Janitor.SweepBatchSize, declared.Janitor.PartialSweepGracePeriod, declared.Janitor.CleanupTimeout))
-		}
-		if declared.Vacuum != nil || declared.VacuumEnabled {
-			line := fmt.Sprintf("vacuum\t%s\tenabled %t", declared.Name, declared.VacuumEnabled)
-			if declared.Vacuum != nil {
-				line += fmt.Sprintf(", poll %s, timeout %s", declared.Vacuum.PollRate, declared.Vacuum.VacuumTimeout)
-			}
-			lines = append(lines, line)
-		}
-		for _, group := range declared.Groups {
-			lines = append(lines, fmt.Sprintf("consumers\t%s\t%s", group.Name, group.String()))
-		}
+		lines = append(lines, streamLines(s.Streams[i], name)...)
+		i = last + 1
 	}
 	if s.ProducerBatchConcurrency > 0 {
 		lines = append(lines, fmt.Sprintf("producer\tbatch concurrency %d per stream", s.ProducerBatchConcurrency))
@@ -116,4 +110,60 @@ func writeSection(out *strings.Builder, header string, lines []string) {
 		fmt.Fprintln(table, line)
 	}
 	table.Flush()
+}
+
+// streamLines are one stream's [input] lines under name: the stream, its
+// janitor and vacuum when declared, then its groups.
+func streamLines(declared StreamDeclaration, name string) []string {
+	line := fmt.Sprintf("stream\t%s\tDeliveryLogMode %s", name, declared.DeliveryLogMode)
+	if declared.PartitionSize > 0 {
+		line += fmt.Sprintf(", partition size %d", declared.PartitionSize)
+	}
+	if declared.RetentionTTL > 0 || declared.IdempotencyKeyTTL > 0 {
+		line += fmt.Sprintf(", retention %s, key retention %s", declared.RetentionTTL, declared.IdempotencyKeyTTL)
+	}
+	lines := []string{line}
+	if declared.Janitor != nil {
+		lines = append(lines, fmt.Sprintf("janitor\t%s\tpoll %s, batch %d, grace %s, timeout %s", name, declared.Janitor.PollRate, declared.Janitor.SweepBatchSize, declared.Janitor.PartialSweepGracePeriod, declared.Janitor.CleanupTimeout))
+	}
+	if declared.Vacuum != nil || declared.VacuumEnabled {
+		line := fmt.Sprintf("vacuum\t%s\tenabled %t", name, declared.VacuumEnabled)
+		if declared.Vacuum != nil {
+			line += fmt.Sprintf(", poll %s, timeout %s", declared.Vacuum.PollRate, declared.Vacuum.VacuumTimeout)
+		}
+		lines = append(lines, line)
+	}
+	for _, group := range declared.Groups {
+		lines = append(lines, fmt.Sprintf("consumers\t%s\t%s", group.Name, group.String()))
+	}
+	return lines
+}
+
+// consecutiveStreams reports whether next is previous's declaration again
+// under the next numeric suffix: `orders-3` then `orders-4`.
+func consecutiveStreams(previous StreamDeclaration, next StreamDeclaration) bool {
+	previousPrefix, previousNumber, ok := splitCountedName(previous.Name)
+	if !ok {
+		return false
+	}
+	nextPrefix, nextNumber, ok := splitCountedName(next.Name)
+	if !ok || nextPrefix != previousPrefix || nextNumber != previousNumber+1 {
+		return false
+	}
+	previous.Name, next.Name = "", ""
+	return reflect.DeepEqual(previous, next)
+}
+
+// splitCountedName splits `orders-16` into `orders` and 16; false when the
+// name has no numeric suffix.
+func splitCountedName(name string) (string, int, bool) {
+	dash := strings.LastIndex(name, "-")
+	if dash < 0 {
+		return "", 0, false
+	}
+	number, err := strconv.Atoi(name[dash+1:])
+	if err != nil {
+		return "", 0, false
+	}
+	return name[:dash], number, true
 }

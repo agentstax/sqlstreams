@@ -30,9 +30,32 @@ type MeasureSummary struct {
 	Produce    datastore.LatencySummary     `json:"produce"`
 	EndToEnd   datastore.LatencySummary     `json:"end_to_end"`
 	Server     ServerSummary                `json:"server"`
+	Statements StatementSummary             `json:"statements"`
 	Phases     []PhaseSummary               `json:"phases"`
 	Throughput []datastore.ThroughputSample `json:"throughput"`
 }
+
+// StatementSummary is where the server's statement time went over the
+// measured phases -- warmup excluded -- read from the observer's
+// pg_stat_statements samples: the calls and execution time of every
+// statement shape, the statementCostLimit costliest kept, the totals over
+// all of them, and the worker_config rows the deployment held, so the
+// upkeep reads against the fleet's size. Unavailable when the observer
+// could not read pg_stat_statements.
+type StatementSummary struct {
+	Unavailable bool                      `json:"unavailable"`
+	From        time.Time                 `json:"from"`
+	To          time.Time                 `json:"to"`
+	WorkerRows  int64                     `json:"worker_rows"`
+	Shapes      int                       `json:"shapes"`
+	Calls       int64                     `json:"calls"`
+	ExecMs      float64                   `json:"exec_ms"`
+	Costs       []datastore.StatementCost `json:"costs"`
+}
+
+// statementCostLimit is how many statement shapes a verdict keeps; the
+// run line in runs.jsonl carries them all.
+const statementCostLimit = 40
 
 // ServerSummary is what the server paid for the run: the observer's counter
 // deltas over the producer window, and the WAL and transaction cost per
@@ -106,6 +129,14 @@ func (c *Checker) measure(ctx context.Context, targets []datastore.Target, phase
 	if err != nil {
 		return nil, err
 	}
+	measuredStart, measuredEnd, err := measuredWindow(phases, c.declared.Producer)
+	if err != nil {
+		return nil, err
+	}
+	summary.Statements, err = c.measureStatements(ctx, measuredStart, measuredEnd)
+	if err != nil {
+		return nil, err
+	}
 	return summary, nil
 }
 
@@ -150,6 +181,29 @@ func (c *Checker) measureServer(ctx context.Context, from time.Time, to time.Tim
 		WalFpiPerMessage:       float64(deltas.WalFpi) * perMessage,
 		TransactionsPerMessage: float64(deltas.XactCommit) * perMessage,
 	}, nil
+}
+
+// measureStatements is every statement shape's cost over the measured
+// window and the fleet it paid for.
+func (c *Checker) measureStatements(ctx context.Context, from time.Time, to time.Time) (StatementSummary, error) {
+	summary := StatementSummary{From: from, To: to, Costs: []datastore.StatementCost{}}
+	var err error
+	summary.WorkerRows, err = c.ds.ReadWorkerRows(ctx)
+	if err != nil {
+		return StatementSummary{}, err
+	}
+	costs, err := c.ds.ReadStatementDeltas(ctx, from, to)
+	if err != nil {
+		return StatementSummary{}, err
+	}
+	summary.Unavailable = len(costs) == 0
+	summary.Shapes = len(costs)
+	for _, cost := range costs {
+		summary.Calls += cost.Calls
+		summary.ExecMs += cost.ExecMs
+	}
+	summary.Costs = costs[:min(len(costs), statementCostLimit)]
+	return summary, nil
 }
 
 // countScheduleSlips is the schedule_kept check over the producer window.
@@ -338,6 +392,17 @@ func runWindow(phases []record.PhaseRecord, declared []scenario.ProducerPhase) (
 		}
 	}
 	return runStart, runEnd, nil
+}
+
+// measuredWindow is runWindow over the phases that are not warmup.
+func measuredWindow(phases []record.PhaseRecord, declared []scenario.ProducerPhase) (time.Time, time.Time, error) {
+	measured := []scenario.ProducerPhase{}
+	for _, phase := range declared {
+		if !phase.Warmup {
+			measured = append(measured, phase)
+		}
+	}
+	return runWindow(phases, measured)
 }
 
 // phaseWindow is [started, ended) of one producer phase from its run_phase

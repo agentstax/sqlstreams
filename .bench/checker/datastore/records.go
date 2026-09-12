@@ -26,17 +26,19 @@ const (
 	sampleTable    = "observer_sample"
 	backlogTable   = "observer_backlog"
 	containerTable = "container_sample"
+	statementTable = "observer_statement"
 )
 
 // the same tables, qualified for the check queries
 var (
-	messageProgress = labSchema + "." + progressTable
-	produceRecord   = labSchema + "." + produceTable
-	handlerRecord   = labSchema + "." + handlerTable
-	runPhase        = labSchema + "." + phaseTable
-	observerSample  = labSchema + "." + sampleTable
-	observerBacklog = labSchema + "." + backlogTable
-	containerSample = labSchema + "." + containerTable
+	messageProgress   = labSchema + "." + progressTable
+	produceRecord     = labSchema + "." + produceTable
+	handlerRecord     = labSchema + "." + handlerTable
+	runPhase          = labSchema + "." + phaseTable
+	observerSample    = labSchema + "." + sampleTable
+	observerBacklog   = labSchema + "." + backlogTable
+	containerSample   = labSchema + "." + containerTable
+	observerStatement = labSchema + "." + statementTable
 )
 
 // lineByteLimit bounds one record line; the longest field is an error text.
@@ -125,6 +127,19 @@ var backlogLayout = tableLayout{
 			return nil, err
 		}
 		return []any{row.At, row.Stream, row.Group, row.HighestMessage, row.Committed, row.HighestAllocated}, nil
+	},
+}
+
+var statementLayout = tableLayout{
+	kind:    record.FileKindStatement,
+	table:   statementTable,
+	columns: []string{"at", "query", "calls", "exec_ms", "rows"},
+	decode: func(line []byte) ([]any, error) {
+		var row record.StatementRecord
+		if err := json.Unmarshal(line, &row); err != nil {
+			return nil, err
+		}
+		return []any{row.At, row.Query, row.Calls, row.ExecMs, row.Rows}, nil
 	},
 }
 
@@ -268,7 +283,16 @@ func (d *CheckerDatastore) CreateTables(ctx context.Context) error {
 			cpu_percent DOUBLE PRECISION NOT NULL, -- of one core
 			cpus        DOUBLE PRECISION NOT NULL  -- the compose cap, 0 when uncapped
 		);
-	`, labSchema, produceTable, handlerTable, phaseTable, sampleTable, backlogTable, containerTable, progressTable)
+
+		CREATE TABLE %[1]s.%[9]s (
+			at      TIMESTAMPTZ NOT NULL,
+			query   TEXT NOT NULL,                -- the statement shape, or 'lab' for the observer's own reads
+			calls   BIGINT NOT NULL,              -- cumulative, as pg_stat_statements reports them
+			exec_ms DOUBLE PRECISION NOT NULL,
+			rows    BIGINT NOT NULL
+		);
+		CREATE INDEX %[9]s_query_at ON %[1]s.%[9]s (query, at);
+	`, labSchema, produceTable, handlerTable, phaseTable, sampleTable, backlogTable, containerTable, progressTable, statementTable)
 	_, err := d.pool.Exec(ctx, createSql)
 	return err
 }
@@ -294,6 +318,10 @@ func (d *CheckerDatastore) LoadSample(ctx context.Context, dir string) (int64, e
 
 func (d *CheckerDatastore) LoadBacklog(ctx context.Context, dir string) (int64, error) {
 	return d.load(ctx, dir, backlogLayout)
+}
+
+func (d *CheckerDatastore) LoadStatement(ctx context.Context, dir string) (int64, error) {
+	return d.load(ctx, dir, statementLayout)
 }
 
 // LoadContainer COPYs the one file stats.sh wrote at path.

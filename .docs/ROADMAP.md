@@ -16,22 +16,19 @@ the item is removed.
 
 ## Now
 
-- **Idle-fleet worker-load benchmark** (14c; measure BEFORE building any
-  fix). An idle deployment pays per worker row per poll: winner's claim
-  UPDATE + no-op work each tick, and — the growing term — every replica's
-  LOSING claim attempt (R replicas x W rows x 1/poll_rate no-op UPDATEs).
-  Bench an idle fleet at 100 / 1k / 10k worker rows x 1-3 replicas:
-  Postgres CPU, QPS, where the curve hurts. Result picks a rung on the
-  settled fix ladder (cheapest first, don't skip rungs): (1) per-row
-  poll_rate already exists in worker metadata — coarsen quiet streams' rows,
-  document; (2) idle backoff inside the instance tick runner only — no
-  progress backs off toward a cap (~10x poll_rate), any progress snaps
-  back; cost is a committed-staleness spike on wake, janitor side covered
-  by the producer's partition self-heal; (3) LISTEN/NOTIFY-woken workers —
-  real complexity, only if (2) measurably fails. Prior: rung 1 carries to
-  ~1k rows, rung 2 well past 10k, rung 3 never earns it.
-  - bench mark tests should be done on at least postgres 18 as there 
-    could be performance gains, specifically with uuidv7
+- **Idle-fleet fix: rung 2 plus a lock-free losing claim** [0779]. The
+  instance tick runner backs a no-progress tick off toward ten times the
+  row's `poll_rate` and snaps back on progress; a manager tick's progress
+  is a reconcile change or a swept row. The losing claim reads
+  `target_instances` and the live count before taking `FOR UPDATE`.
+  Re-run `just bench idle-fleet-160 1 2m 1 3` and `idle-fleet-1600` to
+  read the change against the 2026-09-12 cells.
+  - Open: whether the group manager's chain should carry the system rows
+    at all (the system manager already reconciles them); that removes the
+    convoy outright instead of moving its onset.
+  - Open: CONVENTIONS "The literal" says pg_stat_statements attributes
+    load to the owner comment; it cannot (the text starts at the first
+    token). An inline marker past the first token would carry the owner.
 
 - **Buy the SQLStreams domain before binary release** [0726]. No domain
   selected; `sqlstreams.io` is a candidate. Keep `vulkan-5ss.pages.dev` until

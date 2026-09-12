@@ -1,54 +1,9 @@
 # the ceiling over 16 streams: unpaced explicit batches from four callers per stream, two groups on every stream
 
 [input]
-stream        orders-1         DeliveryLogMode all
-consumers     fraud-scoring    handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-consumers     analytics        handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-stream        orders-2         DeliveryLogMode all
-consumers     fraud-scoring    handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-consumers     analytics        handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-stream        orders-3         DeliveryLogMode all
-consumers     fraud-scoring    handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-consumers     analytics        handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-stream        orders-4         DeliveryLogMode all
-consumers     fraud-scoring    handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-consumers     analytics        handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-stream        orders-5         DeliveryLogMode all
-consumers     fraud-scoring    handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-consumers     analytics        handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-stream        orders-6         DeliveryLogMode all
-consumers     fraud-scoring    handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-consumers     analytics        handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-stream        orders-7         DeliveryLogMode all
-consumers     fraud-scoring    handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-consumers     analytics        handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-stream        orders-8         DeliveryLogMode all
-consumers     fraud-scoring    handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-consumers     analytics        handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-stream        orders-9         DeliveryLogMode all
-consumers     fraud-scoring    handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-consumers     analytics        handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-stream        orders-10        DeliveryLogMode all
-consumers     fraud-scoring    handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-consumers     analytics        handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-stream        orders-11        DeliveryLogMode all
-consumers     fraud-scoring    handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-consumers     analytics        handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-stream        orders-12        DeliveryLogMode all
-consumers     fraud-scoring    handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-consumers     analytics        handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-stream        orders-13        DeliveryLogMode all
-consumers     fraud-scoring    handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-consumers     analytics        handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-stream        orders-14        DeliveryLogMode all
-consumers     fraud-scoring    handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-consumers     analytics        handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-stream        orders-15        DeliveryLogMode all
-consumers     fraud-scoring    handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-consumers     analytics        handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-stream        orders-16        DeliveryLogMode all
-consumers     fraud-scoring    handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-consumers     analytics        handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
+stream        orders-1..orders-16    DeliveryLogMode all
+consumers     fraud-scoring          handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
+consumers     analytics              handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
 producer      batch concurrency 4 per stream
 recording     per-message disabled; aggregate counters only
 exceptions    disabled

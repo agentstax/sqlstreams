@@ -5,6 +5,27 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-12 — Idle-fleet worker-load benchmark measured [0779]
+
+The `idle-fleet-16/160/1600` bench family declares one group per stream and
+produces nothing; every replica runs a session on every group. The observer
+now samples `pg_stat_statements` per statement shape once a second and the
+checker reports each shape's calls/s, share of statement time, and ms/call
+beside Postgres CPU, on every scenario. Printed scenarios collapse a run of
+identical counted streams to one range line. Six full-scale cells ran:
+one replica idles at 0.2 cores for 126 worker rows and 0.6 for 990; three
+replicas at 990 rows spend 92% of statement time waiting on the losing
+claim's row lock; 9,630 rows saturate eight cores and never finish
+registering (verdict unknown, retained). The cost is the group manager's
+one-second tick and its re-claims of the three shared system rows; rung 2
+(idle backoff in the tick runner) plus a lock-free losing claim is the pick.
+
+Verification: `.bench` go fmt, build, vet, and go test -race passed (40
+tests); scenario files regenerated and diffed by their test. Cells ran
+under `just bench idle-fleet-<n> 1 2m 1 <replicas>` on Postgres 18.4; the
+1,600 cells' numbers are hand-computed from their retained records over
+the last ten minutes because the checker could not resolve a group.
+
 ## 2026-09-12 — CLI migration naming aligns with the client [0777]
 
 Migration up/down uses --target-version and returns target_version in JSON.

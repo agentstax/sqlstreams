@@ -37,7 +37,11 @@ func WriteResults(runDir string, recordDir string, statsFile string, declared *s
 	if err != nil {
 		return err
 	}
-	for _, path := range append(append(samples, backlogs...), progress...) {
+	statements, err := filepath.Glob(filepath.Join(recordDir, "*.statement.jsonl"))
+	if err != nil {
+		return err
+	}
+	for _, path := range append(append(append(samples, backlogs...), progress...), statements...) {
 		if err := copyFile(path, filepath.Join(runDir, "records", filepath.Base(path))); err != nil {
 			return err
 		}
@@ -78,8 +82,8 @@ func Report(declared *scenario.Scenario, verdict *Verdict) string {
 	out.WriteString(declared.Report(phaseColumns, expectColumns))
 	out.WriteString("\n")
 	table := tabwriter.NewWriter(&out, 0, 0, 4, ' ', 0)
-	fmt.Fprintf(table, "records\t%d produce, %d handler, %d phase, %d sample, %d backlog, %d container rows, %d progress rows\n",
-		verdict.Records.Produce, verdict.Records.Handler, verdict.Records.Phase, verdict.Records.Sample, verdict.Records.Backlog, verdict.Records.Container, verdict.Records.Progress)
+	fmt.Fprintf(table, "records\t%d produce, %d handler, %d phase, %d sample, %d backlog, %d container rows, %d progress rows, %d statement rows\n",
+		verdict.Records.Produce, verdict.Records.Handler, verdict.Records.Phase, verdict.Records.Sample, verdict.Records.Backlog, verdict.Records.Container, verdict.Records.Progress, verdict.Records.Statement)
 	fmt.Fprintf(table, "produced\tattempted %d, committed %d, rejected %d, unknown %d\n",
 		verdict.Produced.Attempted, verdict.Produced.Committed, verdict.Produced.Rejected, verdict.Produced.Unknown)
 	if verdict.DisableMessageRecording {
@@ -90,6 +94,9 @@ func Report(declared *scenario.Scenario, verdict *Verdict) string {
 		fmt.Fprintf(table, "produce\t%s\n", latencyColumns(verdict.Measure.Produce))
 		fmt.Fprintf(table, "end-to-end\t%s\n", latencyColumns(verdict.Measure.EndToEnd))
 		fmt.Fprintf(table, "server\t%s\n", serverColumns(verdict.Measure.Server))
+		for _, line := range statementLines(verdict.Measure.Statements) {
+			fmt.Fprintln(table, line)
+		}
 	}
 	fmt.Fprintf(table, "environment\t%s\n", environmentLine(verdict.Fingerprint))
 	fmt.Fprintf(table, "verdict\t%s\t%s\n", verdict.Status, verdict.Reason)
@@ -178,6 +185,45 @@ func serverColumns(server ServerSummary) string {
 	return fmt.Sprintf("wal %.0f B/msg, %.2f records/msg, %.3f fpi/msg, %.2f transactions/msg, checkpoints %d, deadlocks %d",
 		server.WalBytesPerMessage, server.WalRecordsPerMessage, server.WalFpiPerMessage, server.TransactionsPerMessage,
 		server.Deltas.Checkpoints, server.Deltas.Deadlocks)
+}
+
+// statementLineLimit is how many statement shapes the report prints; the
+// verdict holds more.
+const statementLineLimit = 15
+
+// statementTextLimit cuts a printed statement shape so the columns before
+// it stay readable.
+const statementTextLimit = 110
+
+// statementLines are the fleet line and the statement cost lines: the
+// measured window's calls per second and cores spent inside statements
+// over every shape, then each shape's calls per second, share of statement
+// time, time per call, and its text, costliest first.
+func statementLines(statements StatementSummary) []string {
+	if statements.Unavailable {
+		return []string{"statements\tunavailable (no pg_stat_statements samples in the measured window)"}
+	}
+	seconds := statements.To.Sub(statements.From).Seconds()
+	lines := []string{
+		fmt.Sprintf("fleet\tworker rows %d", statements.WorkerRows),
+		fmt.Sprintf("statements\t%.0f/s over %.0fs, %.2f cores in statements, %d shapes", float64(statements.Calls)/seconds, seconds, statements.ExecMs/1000/seconds, statements.Shapes),
+	}
+	for i, cost := range statements.Costs {
+		if i == statementLineLimit {
+			lines = append(lines, fmt.Sprintf("statement\t%d more shapes in verdict.json", statements.Shapes-i))
+			break
+		}
+		text := cost.Query
+		if text == "lab" {
+			text = "lab (the observer's own reads)"
+		}
+		if len(text) > statementTextLimit {
+			text = text[:statementTextLimit] + "..."
+		}
+		lines = append(lines, fmt.Sprintf("statement\t%.1f/s\t%.1f%% of time\t%.2f ms/call\t%s",
+			float64(cost.Calls)/seconds, cost.ExecMs/statements.ExecMs*100, cost.ExecMs/float64(cost.Calls), text))
+	}
+	return lines
 }
 
 // copyFile copies src to dst whole; the raw sample files are small.

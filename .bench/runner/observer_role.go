@@ -2,6 +2,8 @@ package runner
 
 import (
 	"context"
+	"fmt"
+	"os"
 
 	"github.com/agentstax/sqlstreams/.bench/observer"
 	"github.com/agentstax/sqlstreams/.bench/observer/datastore"
@@ -21,6 +23,11 @@ func (r *Runner) RunObserver(ctx context.Context) error {
 		return err
 	}
 	defer sampleRecords.Close()
+	statementRecords, err := r.openWriter(record.FileKindStatement)
+	if err != nil {
+		return err
+	}
+	defer statementRecords.Close()
 	backlogRecords, err := r.openWriter(record.FileKindBacklog)
 	if err != nil {
 		return err
@@ -32,9 +39,14 @@ func (r *Runner) RunObserver(ctx context.Context) error {
 			groups = append(groups, observer.GroupName{Stream: declared.Name, Group: group.Name})
 		}
 	}
-	sampler, err := observer.NewObserver(ds, sampleRecords, backlogRecords, groups)
+	sampler, err := observer.NewObserver(ds, sampleRecords, statementRecords, backlogRecords, groups)
 	if err != nil {
 		return err
+	}
+	// a server started without the module cannot create the view; the
+	// statement records stay empty and the checker reports them unavailable
+	if err := ds.CreateStatementsExtension(ctx); err != nil {
+		fmt.Fprintln(os.Stderr, "statement attribution unavailable:", err)
 	}
 	return ignoreCancellation(sampler.Run(ctx))
 }

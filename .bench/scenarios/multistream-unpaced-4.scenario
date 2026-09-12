@@ -1,18 +1,9 @@
 # the ceiling over 4 streams: unpaced explicit batches from four callers per stream, two groups on every stream
 
 [input]
-stream        orders-1         DeliveryLogMode all
-consumers     fraud-scoring    handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-consumers     analytics        handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-stream        orders-2         DeliveryLogMode all
-consumers     fraud-scoring    handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-consumers     analytics        handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-stream        orders-3         DeliveryLogMode all
-consumers     fraud-scoring    handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-consumers     analytics        handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-stream        orders-4         DeliveryLogMode all
-consumers     fraud-scoring    handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
-consumers     analytics        handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
+stream        orders-1..orders-4    DeliveryLogMode all
+consumers     fraud-scoring         handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
+consumers     analytics             handler fail rate 0, 3 retries then dead, batch 2000, queue 8000, concurrency 4, idle poll 100ms
 producer      batch concurrency 4 per stream
 recording     per-message disabled; aggregate counters only
 exceptions    disabled

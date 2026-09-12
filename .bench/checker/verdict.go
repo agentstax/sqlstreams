@@ -48,6 +48,7 @@ type RecordSummary struct {
 	Sample    int64 `json:"sample"`
 	Backlog   int64 `json:"backlog"`
 	Container int64 `json:"container"`
+	Statement int64 `json:"statement"`
 }
 
 // ExitCode is the process exit code for the verdict: 0 pass, 1 fail,

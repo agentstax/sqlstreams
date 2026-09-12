@@ -127,6 +127,10 @@ func (c *Checker) judge(ctx context.Context, verdict *Verdict) error {
 	if err != nil {
 		return err
 	}
+	verdict.Records.Statement, err = c.ds.LoadStatement(ctx, c.recordDir)
+	if err != nil {
+		return err
+	}
 	verdict.Records.Container, err = c.ds.LoadContainer(ctx, c.statsFile)
 	if err != nil {
 		return err

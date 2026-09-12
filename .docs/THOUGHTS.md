@@ -4,9 +4,6 @@
 
 Should add a nerd 'But what about!' note or section in doc for when obvious point or counter argument pops up to address it
 
-the longer users stay on my user profile page (or if they don't move mouse) all other elements besides the scrolling text should start to fade to background or static
-and the scrolling text should slowly get larger and larger
-
 roadmap later item for review code for interesting design decisions to write articles on (big or small things)
 - diagnostic code system
 - suppression logger
@@ -63,5 +60,6 @@ review of most important website docs
 
 # Other
 
-Need new github org name "getstweamy"?
+Need new github org name "getstreamy"?
 
+Add issue 'money' - need more, please help
