@@ -6,7 +6,7 @@ stray). Bodies live at `.docs/decisions/NNNN-<slug>.md`; status and title
 are in `.docs/DECISIONS.md`. A new record adds its number to its line.
 
 - claim, lease, cursor, claimed/committed, reclaim, snapshot fence, FOR UPDATE SKIP LOCKED: 0001-0005 0041-0047 0061-0067 0101-0107 0141-0145 0161-0166 0387-0396 0616 0685 0710 0714 0715 0733
-- retry, backoff, dead-letter, exception path, work timeout, panic, abandoned goroutine: 0042-0043 0181-0192 0281-0294 0399-0400 0614-0615 0670
+- retry, backoff, dead-letter, exception path, work timeout, panic, abandoned goroutine: 0042-0043 0181-0192 0281-0294 0399-0400 0614-0615 0670 0781
 - routing key, bindings, fan-out, wildcard, binding_log TTL: 0201-0208 0242 0389-0393 0511 0573
 - partitions, retention, janitor, create-ahead, heal, drop floor: 0221-0227 0378-0384 0428 0512-0513 0620 0659-0660 0662-0663 0734 0735 0738 0739 0759
 - stream catalog, schema version, rename, alter, per-stream tables, table names, LIST/RANGE subpartitioning: 0241-0248 0348-0353 0401-0411 0570-0572 0611 0613 0618 0624 0628 0667 0668 0669 0757
@@ -15,13 +15,13 @@ are in `.docs/DECISIONS.md`. A new record adds its number to its line.
 - synchronous_commit, crash lab, bench method, benchmark runner, ledger and checker, scenario file, drain, safety checks: 0081-0086 0687 0696 0697 0711 0713 0723 0745 0746 0747 0748 0749 0750 0751 0753 0754 0755 0767 0779
 - errors (VK codes, fix, diagnose), logging (levels, buffer, suppression, stop line), metrics declarations, collector poll rate, export freshness, otel, Prometheus, payload never logged: 0302-0305 0326 0522-0524 0550-0554 0558-0569 0589-0590 0647-0648 0661 0666 0670 0678 0682-0684 0686 0688 0689 0705 0706 0707 0708 0717 0758
 - migrations, schema versioning, advisory lock, MinCompatibleVersion, Postgres schema/search_path: 0341-0347 0501 0526-0527 0579-0580 0588 0629-0632 0650
-- workers, worker_instance, system manager, liveness, instance target, Run loop, fatal consumption errors: 0421-0431 0537 0545-0549 0627 0635-0642 0671 0700 0701 0702 0740 0741 0742 0743 0744 0779
+- workers, worker_instance, system manager, liveness, instance target, Run loop, fatal consumption errors: 0421-0431 0537 0545-0549 0627 0635-0642 0671 0700 0701 0702 0740 0741 0742 0743 0744 0779 0780 0781
 - schedules, cron, missed runs, job status: 0461-0473 0621
 - alerts, checks, __system.alerts, repeat interval, history-derived pending, collector progress, restart gaps, bounded history, storage time, evaluation cadence: 0481-0490 0516 0520 0627 0649 0658 0683-0684 0686 0688 0689 0690 0692 0693 0694 0695 0698 0699 0700 0701 0702 0703 0704 0709
 - circuit breaker, error_class, reconciliation: 0502-0506
 - packages, layers, seams, naming, receivers, file layout, configs, constructors, admin, validation, consumer worker selection, health, developer tooling: 0441-0451 0507-0510 0528-0549 0555-0557 0643-0646 0657-0658 0670 0676 0677 0680 0716 0721-0723 0724 0744
 - declarations: newest-wins, CLI never writes config, worker metadata: 0515-0521 0626 0670 0741 0742 0743 0744
-- client shape, handles, Register, lifecycle ctx, shutdown, named return parameters: 0361-0377 0625 0633-0646 0657 0664-0665 0670 0672 0742 0743 0744 0760 0762
+- client shape, handles, Register, lifecycle ctx, shutdown, named return parameters: 0361-0377 0625 0633-0646 0657 0664-0665 0670 0672 0742 0743 0744 0760 0762 0780
 - CLI: nested module, flags, --output json, client verb alignment: 0354-0355 0576 0766 0768 0770 0771 0774 0777
 - doc site: board, sandbox, versioning, voice, cookie, errors, links, avatars, profile, idle fade, personal text, scrolling speed, viewport width, page size, reference board, proposed pages only for user-facing features: 0581-0610 0651 0677 0679 0712 0721 0752 0756 0763 0764 0765 0769 0772 0773 0775 0776 0778
 - rejected/reverted (do not re-suggest): 0270 latest_key backfill, 0379 PartitionsAhead, 0591 pglite prefetch, 0594 byte ceilings, 0672 mandatory named client results, 0673 0675 scheduled time as a message_log column / sent_at, 0323 a library retry inside InTransaction, 0536 a never-nil MessageOptions (NULLIF/COALESCE reshape), 0578 any fillfactor change without measured HOT-ratio degradation, 0626 strict declaration forms (RequireMatch, a stale-build gate)

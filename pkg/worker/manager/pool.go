@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/agentstax/sqlstreams/pkg/common/logging"
 	"github.com/agentstax/sqlstreams/pkg/worker"
@@ -16,15 +17,19 @@ type instancePool struct {
 	logger       logging.Logger
 	provisioners map[string]worker.Provisioner // keyed by Name, copied from the manager at construction
 	running      map[int64]*spawnedInstance    // keyed by worker row id
+	backoff      *claimBackoff                 // tracks workers who were declined a claim ie something else already claimed it
 	group        *errgroup.Group               // every spawned Run goroutine; its first fatal error cancels the manager's run
 }
 
-func newInstancePool(provisioners map[string]worker.Provisioner, group *errgroup.Group, log logging.Logger) (*instancePool, error) {
+func newInstancePool(provisioners map[string]worker.Provisioner, group *errgroup.Group, backoff *claimBackoff, log logging.Logger) (*instancePool, error) {
 	if provisioners == nil {
 		return nil, errors.New("provisioners must not be nil")
 	}
 	if group == nil {
 		return nil, errors.New("group must not be nil")
+	}
+	if backoff == nil {
+		return nil, errors.New("backoff must not be nil")
 	}
 	if log == nil {
 		return nil, errors.New("logger must not be nil")
@@ -34,6 +39,7 @@ func newInstancePool(provisioners map[string]worker.Provisioner, group *errgroup
 		logger:       log,
 		provisioners: provisioners,
 		running:      make(map[int64]*spawnedInstance),
+		backoff:      backoff,
 		group:        group,
 	}, nil
 }
@@ -120,11 +126,10 @@ func (p *instancePool) reconcile(ctx context.Context, desiredWorkers []*worker.W
 	return nil
 }
 
-// diff compares desired against running and returns what reconcile must act
-// on; workers running as desired produce no change.
 func (p *instancePool) diff(desiredWorkers []*worker.Worker) ([]workerChange, error) {
 	want := make(map[int64]bool, len(desiredWorkers))
 	var changes []workerChange
+	now := time.Now()
 
 	for _, desiredWorker := range desiredWorkers {
 		want[desiredWorker.Id] = true
@@ -133,6 +138,8 @@ func (p *instancePool) diff(desiredWorkers []*worker.Worker) ([]workerChange, er
 		var change workerChange
 		var err error
 		switch {
+		case !running && p.backoff.waiting(desiredWorker.Id, now):
+			continue
 		case !running:
 			change, err = newWorkerChange(workerAdded, desiredWorker.Id, desiredWorker)
 		case spawned.finished():
@@ -156,6 +163,8 @@ func (p *instancePool) diff(desiredWorkers []*worker.Worker) ([]workerChange, er
 		}
 	}
 
+	p.backoff.keep(want)
+
 	return changes, nil
 }
 
@@ -178,9 +187,8 @@ func (p *instancePool) start(ctx context.Context, desiredWorker *worker.Worker) 
 		return
 	}
 	if execution == nil {
-		// declined: target_instances is already filled, likely by another
-		// replica -- the next reconcile tries again
-		p.logger.DebugContext(ctx, "worker declined an instance", "worker", desiredWorker.Name, "owner", desiredWorker.Owner.Name)
+		delay := p.backoff.declined(desiredWorker.Id, time.Now())
+		p.logger.DebugContext(ctx, "worker declined an instance -- retrying the claim", "worker", desiredWorker.Name, "owner", desiredWorker.Owner.Name, "delay", delay)
 		return
 	}
 
@@ -208,6 +216,7 @@ func (p *instancePool) start(ctx context.Context, desiredWorker *worker.Worker) 
 	})
 
 	p.running[desiredWorker.Id] = spawned
+	p.backoff.clear(desiredWorker.Id)
 	p.logger.InfoContext(ctx, "manager spawned worker", "worker", desiredWorker.Name, "owner", desiredWorker.Owner.Name)
 }
 

@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -42,6 +43,27 @@ func TestConcurrentClaimsAtTargetOneYieldOneInstance(t *testing.T) {
 	}
 	if claimed != 1 {
 		t.Fatalf("rows claimed by 16 concurrent claimants = %d, want 1", claimed)
+	}
+}
+
+func TestDeclinedClaimDoesNotWaitOnTheWorkerRowLock(t *testing.T) {
+	// setup
+	workers, owner := newWorkerDatastore(t)
+	workerId := declareWorker(t, workers, owner, "collector", 1)
+	claimInstance(t, workers, workerId)
+	lockWorkerRow(t, workers, workerId)
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+
+	// test
+	instance, err := workers.ClaimInstance(ctx, workerId, time.Minute)
+
+	// verify
+	if err != nil {
+		t.Fatalf("ClaimInstance(%d) at a full target while the worker row is locked = %v, want declined", workerId, err)
+	}
+	if instance != nil {
+		t.Fatalf("ClaimInstance(%d) at a full target = %+v, want nil", workerId, instance)
 	}
 }
 

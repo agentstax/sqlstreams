@@ -40,10 +40,12 @@ window when the holder stops. That column takes effect with no deploy:
 
 ## Gotchas
 
-- `ClientConfig.DisableManager` is the per-process opt-out: consumer pods
-  beside a dedicated `sqlstreams manager run`, and consumers under a database
-  role with no DDL rights, since the stream janitor creates and drops
-  partitions.
+- `ClientConfig.DisableManager` is the per-process opt-out for consumer
+  pods beside a dedicated `sqlstreams manager run`. A consumer keeps running
+  its own group's consumers, its cursor advancer, and its stream's janitor
+  and vacuum either way; the opt-out only stops it from carrying the
+  deployment-wide rows. The stream janitor creates and drops partitions,
+  so a consumer's database role needs DDL rights on its stream's tables.
 - Admin verbs run nothing and the producer runs nothing. A deployment that
   only produces accumulates partitions; `ProducerHandle.Register` logs
   [SQL0063](/errors/SQL0063/) naming the unclaimed rows, and the one-minute

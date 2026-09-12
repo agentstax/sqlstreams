@@ -5,19 +5,13 @@ import (
 
 	"github.com/agentstax/sqlstreams/pkg/consume/cursoradvancer"
 	"github.com/agentstax/sqlstreams/pkg/consume/exceptionconsumer"
-	consumejanitor "github.com/agentstax/sqlstreams/pkg/consume/janitor"
 	"github.com/agentstax/sqlstreams/pkg/consume/messageconsumer"
-	"github.com/agentstax/sqlstreams/pkg/metric/collector"
-	scheduleproducer "github.com/agentstax/sqlstreams/pkg/schedule/producer"
 	streamjanitor "github.com/agentstax/sqlstreams/pkg/stream/janitor"
 	"github.com/agentstax/sqlstreams/pkg/stream/vacuum"
 	"github.com/agentstax/sqlstreams/pkg/worker"
 	"github.com/agentstax/sqlstreams/pkg/worker/manager"
 )
 
-// the group's consumer rows and their config document are declared by
-// Register; the upkeep rows below are declared here, so a second Consume
-// re-creates whatever a crash lost
 func (i *ConsumerInstance[Message]) newManagerRunner(ctx context.Context, consumerFunc ConsumerFunc[Message], options *ConsumeOptions) (*manager.Runner, error) {
 	groupProvisioners, err := i.newGroupProvisioners(ctx, consumerFunc, options)
 	if err != nil {
@@ -37,6 +31,7 @@ func (i *ConsumerInstance[Message]) newManagerRunner(ctx context.Context, consum
 		return nil, err
 	}
 
+	// Each Consume redeclares upkeep so missing worker rows are restored.
 	if err := managerProvisioner.Declare(ctx, i.Owner); err != nil {
 		return nil, err
 	}
@@ -79,20 +74,5 @@ func (i *ConsumerInstance[Message]) newStreamProvisioners() ([]worker.Provisione
 		return nil, err
 	}
 
-	consumerGroupJanitorProvisioner, err := consumejanitor.NewJanitorProvisioner(i.ds, nil, i.Logger)
-	if err != nil {
-		return nil, err
-	}
-
-	scheduleProducerProvisioner, err := scheduleproducer.NewScheduleProducerProvisioner(i.ds, nil, i.Logger)
-	if err != nil {
-		return nil, err
-	}
-
-	metricCollectorProvisioner, err := collector.NewMetricsCollectorProvisioner(i.ds, nil, i.Logger)
-	if err != nil {
-		return nil, err
-	}
-
-	return []worker.Provisioner{scheduleProducerProvisioner, metricCollectorProvisioner, streamJanitorProvisioner, streamVacuumProvisioner, consumerGroupJanitorProvisioner}, nil
+	return []worker.Provisioner{streamJanitorProvisioner, streamVacuumProvisioner}, nil
 }

@@ -63,7 +63,11 @@ func (i *ManagerInstance) Run(ctx context.Context) error {
 	// pool lines carry their own worker/owner pairs, so the pool gets the
 	// unenriched logger
 	group, runCtx := errgroup.WithContext(ctx)
-	pool, err := newInstancePool(i.provisioners, group, i.provisionerLogger)
+	backoff, err := newClaimBackoff(i.Config.ClaimRetry, i.Config.JitterFraction)
+	if err != nil {
+		return err
+	}
+	pool, err := newInstancePool(i.provisioners, group, backoff, i.provisionerLogger)
 	if err != nil {
 		return err
 	}

@@ -26,6 +26,29 @@ func (d *WorkerDatastore) ClaimInstance(ctx context.Context, workerId int64, ttl
 }
 
 func (d *WorkerDatastore) claimInstance(ctx context.Context, workerId int64, ttl time.Duration) (*WorkerInstanceRow, error) {
+	// The unlocked read avoids row-lock waits when the target is met or suspended.
+	// A stale count can decline a claim until the caller retries.
+	roomSql := fmt.Sprintf(`
+		-- sqlstreams: worker.claimInstance
+		SELECT
+			target_instances,
+			(SELECT count(*) FROM %[1]s.worker_instance WHERE worker_id = $1 AND expires_at > now())
+		FROM %[1]s.worker_config
+		WHERE id = $1;
+	`, d.Datastore.Schema)
+	var unlockedTarget worker.InstanceTarget
+	var live int
+	err := d.Datastore.Pool.QueryRow(ctx, roomSql, workerId).Scan(&unlockedTarget, &live)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if unlockedTarget.Suspended() || (unlockedTarget != worker.NoInstanceTarget && live >= int(unlockedTarget)) {
+		return nil, nil
+	}
+
 	tx, err := d.Datastore.Pool.Begin(ctx)
 	if err != nil {
 		return nil, err

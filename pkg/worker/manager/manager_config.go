@@ -18,12 +18,17 @@ type ManagerConfig struct {
 	// Default: 24h.
 	InstanceLogTTL time.Duration
 
-	// JitterFraction spreads discovery ticks out of phase across manager
-	// replicas: each tick's delay is the row's poll_rate * (1 ± JitterFraction).
-	// Default: 0.1. Must be < 1.
+	// JitterFraction scales discovery and declined-claim delays by 1 ± JitterFraction
+	// to spread retries across replicas. Must be in [0, 1).
+	// Default: 0.1.
 	JitterFraction float64
 
 	RefreshRetry *common.RetryPolicy // failed-refresh backoff curve. Default: common.NewDefaultRetryPolicy().
+
+	// ClaimRetry backs off declined claims until a later manager tick retries them.
+	// MaxRetries limits delay growth, not attempts; JitterFraction also applies.
+	// Default: BaseDelay 1s, MaxDelay 30s; other fields use common.NewDefaultRetryPolicy().
+	ClaimRetry *common.RetryPolicy
 }
 
 func (c *ManagerConfig) WithDefaults() *ManagerConfig {
@@ -37,6 +42,10 @@ func (c *ManagerConfig) WithDefaults() *ManagerConfig {
 		c.JitterFraction = 0.1
 	}
 	c.RefreshRetry = c.RefreshRetry.WithDefaults()
+	if c.ClaimRetry == nil {
+		c.ClaimRetry = &common.RetryPolicy{BaseDelay: time.Second, MaxDelay: 30 * time.Second}
+	}
+	c.ClaimRetry.WithDefaults()
 	return c
 }
 
@@ -52,6 +61,9 @@ func (c *ManagerConfig) Validate() error {
 	}
 	if err := c.RefreshRetry.Validate(); err != nil {
 		return fmt.Errorf("RefreshRetry: %w", err)
+	}
+	if err := c.ClaimRetry.Validate(); err != nil {
+		return fmt.Errorf("ClaimRetry: %w", err)
 	}
 	return nil
 }

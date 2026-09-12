@@ -16,19 +16,24 @@ the item is removed.
 
 ## Now
 
-- **Idle-fleet fix: rung 2 plus a lock-free losing claim** [0779]. The
-  instance tick runner backs a no-progress tick off toward ten times the
-  row's `poll_rate` and snaps back on progress; a manager tick's progress
-  is a reconcile change or a swept row. The losing claim reads
-  `target_instances` and the live count before taking `FOR UPDATE`.
-  Re-run `just bench idle-fleet-160 1 2m 1 3` and `idle-fleet-1600` to
-  read the change against the 2026-09-12 cells.
-  - Open: whether the group manager's chain should carry the system rows
-    at all (the system manager already reconciles them); that removes the
-    convoy outright instead of moving its onset.
-  - Open: CONVENTIONS "The literal" says pg_stat_statements attributes
-    load to the owner comment; it cannot (the text starts at the first
-    token). An inline marker past the first token would carry the owner.
+- **Idle-fleet fix** [0779]. Three changes, one item; re-run
+  `just bench idle-fleet-160 1 2m 1 3` and `idle-fleet-1600` afterwards
+  and read them against the 2026-09-12 cells (0.6 cores idle at 990 rows
+  on one replica; 92% of statement time in the losing claim's row lock at
+  three; 9,630 rows never finish registering).
+  - Rung 2, idle backoff in the instance tick runner: a tick that made
+    no progress backs off toward ten times the row's `poll_rate`; any
+    progress snaps back. A manager tick's progress is a reconcile change
+    or a swept row. Divides the CPU tax by about ten.
+  - A lock-free losing claim: read `target_instances` and the live
+    instance count first, take `FOR UPDATE` only when there is room; a
+    stale "full" costs one tick. Removes the lock convoy at every scale.
+  - The group manager's chain drops the three system-scoped rows
+    (consumer group janitor, schedule producer, metrics collector); the
+    system manager, one winner per deployment, is the one that reconciles
+    them. Removes the shared rows the convoy formed on. Settle what a
+    consumer-only process with `DisableManager` keeps alive before
+    building.
 
 - **Buy the SQLStreams domain before binary release** [0726]. No domain
   selected; `sqlstreams.io` is a candidate. Keep `vulkan-5ss.pages.dev` until

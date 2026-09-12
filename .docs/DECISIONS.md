@@ -576,4 +576,6 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 - 0778 2026-09-12 accepted (pre-v1) — The profile effect begins after four idle seconds
 
 - 0777 2026-09-12 accepted (pre-v1) — CLI migration names follow the client
-- 0779 2026-09-12 accepted (pre-v1) — The idle fleet's cost is the manager tick, and its losing claims convoy on the shared system rows
+- 0779 2026-09-12 superseded in part by 0781 (pre-v1) — The idle fleet's cost is the manager tick, and its losing claims convoy on the shared system rows
+- 0780 2026-09-12 accepted (pre-v1) — The group manager keeps its stream's upkeep and drops the system rows
+- 0781 2026-09-12 accepted (pre-v1) — A declined claim backs off in the pool, and live instances keep their poll rate

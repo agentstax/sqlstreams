@@ -91,5 +91,7 @@ placeholder for the same reason.
   are importable without a stability commitment
   ([the supported API](/concepts/api-shape/#the-supported-api)).
 - `DisableManager` is for consumer pods beside a dedicated
-  `sqlstreams manager run`, and for consumers under a database role with no DDL
-  rights, since the stream janitor creates and drops partitions.
+  `sqlstreams manager run`. It does not remove DDL from the process: the
+  consumer's own stream janitor still runs there and creates and drops
+  partitions, so its database role needs DDL rights on that stream's
+  tables.

@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -73,6 +74,19 @@ func expireInstance(t testing.TB, workers *datastore.WorkerDatastore, instanceId
 		t.Fatal(err)
 	}
 	if _, err := workers.Datastore.Pool.Exec(t.Context(), "UPDATE "+logs+" SET expires_at = now() - interval '1 second' WHERE worker_instance_id = $1", instanceId); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func lockWorkerRow(t testing.TB, workers *datastore.WorkerDatastore, workerId int64) {
+	t.Helper()
+	tx, err := workers.Datastore.Pool.Begin(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = tx.Rollback(context.Background()) })
+	config := workers.Datastore.Schema + ".worker_config"
+	if _, err := tx.Exec(t.Context(), "SELECT id FROM "+config+" WHERE id = $1 FOR UPDATE", workerId); err != nil {
 		t.Fatal(err)
 	}
 }

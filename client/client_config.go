@@ -23,13 +23,10 @@ type ClientConfig struct {
 	// create is recoverable, destroy is not.
 	AllowDestroy bool
 
-	// DisableManager - whether Consume skips running the system manager
-	// beside its session; explicit Manager().Run calls are unaffected.
+	// DisableManager makes Consume skip the system manager beside its session.
+	// Explicit Manager().Run calls are unaffected.
+	// The consumer's stream janitor still runs and requires DDL rights.
 	// Default: false.
-	//
-	// Set it where upkeep must not run in this process: a deployment with
-	// dedicated `sqlstreams manager run` processes, or consumers under a
-	// database role without DDL rights (the stream janitor runs DDL).
 	DisableManager bool
 
 	// Logger - your own *slog.Logger or anything satisfying logging.Logger.

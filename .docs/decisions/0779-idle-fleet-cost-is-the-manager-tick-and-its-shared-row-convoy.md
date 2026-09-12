@@ -12,8 +12,8 @@ ROADMAP asked for an idle-fleet benchmark before any fix, then a rung on
 the ladder: row `poll_rate`; idle backoff in the tick runner; LISTEN/NOTIFY.
 The `idle-fleet-16/160/1600` family under `.bench` declares one group per
 stream and produces nothing; the observer samples `pg_stat_statements` per
-statement shape (pg_stat_statements drops the leading owner comment) and
-the checker prints each shape's calls/s and share of statement time.
+statement shape (it drops the leading owner comment) and the checker
+prints each shape's calls/s and share of statement time.
 
 Read on 2026-09-12 (8-core Postgres 18.4, ten-minute holds):
 
@@ -43,18 +43,18 @@ three rows each second. Row `poll_rate` paces only a winner's work ticks.
   CPU term by about ten and moves the convoy's onset from about 480
   managers to about 4,800.
 - Beside rung 2, a losing claim stops taking the row lock: it reads
-  `target_instances` and the live count first and takes `FOR UPDATE`
-  only when there is room; a stale "full" costs one tick. A shorter chain
-  for the group manager (system rows left to the system manager) is the
-  deeper fix and stays open.
+  `target_instances` and the live count first, locks only with room.
+- The group manager's chain drops the three system-scoped rows; the
+  system manager, one winner per deployment, reconciles them. The shared
+  rows the convoy formed on are then claimed by R processes, not R times
+  the groups.
 - Rung 3 is not earned.
 
 ## Consequences
 
 - One replica with a thousand rows idles at 0.6 Postgres cores today; ten
-  thousand rows do not start. The fix ships as its own item.
-- The family and the statement column stay on every scenario's report.
-- CONVENTIONS "The literal" credits pg_stat_statements with attribution
-  it cannot do; an inline marker past the first token would. A rule-file
-  decision, not taken here.
+  thousand rows do not start. The three changes are one ROADMAP item.
+- CONVENTIONS "The literal" overstates pg_stat_statements; not corrected.
 - **Rejected:** rung 1; a knob on the manager row's `poll_rate`.
+
+**Amended.** [0781] supersedes the rung-2 clause: the claimant backs off in the manager's pool along `ManagerConfig.ClaimRetry`, and live instances keep their poll rate. The rest stands.

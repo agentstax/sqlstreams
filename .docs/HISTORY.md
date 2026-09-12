@@ -17,8 +17,9 @@ one replica idles at 0.2 cores for 126 worker rows and 0.6 for 990; three
 replicas at 990 rows spend 92% of statement time waiting on the losing
 claim's row lock; 9,630 rows saturate eight cores and never finish
 registering (verdict unknown, retained). The cost is the group manager's
-one-second tick and its re-claims of the three shared system rows; rung 2
-(idle backoff in the tick runner) plus a lock-free losing claim is the pick.
+one-second tick and its re-claims of the three shared system rows; the fix
+is rung 2 (idle backoff in the tick runner), a lock-free losing claim, and
+system rows off the group manager's chain, as one ROADMAP item.
 
 Verification: `.bench` go fmt, build, vet, and go test -race passed (40
 tests); scenario files regenerated and diffed by their test. Cells ran
