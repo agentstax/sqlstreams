@@ -4,13 +4,19 @@
 # PR per ecosystem when "grouped security updates" is on in the repo's
 # code-security settings.
 #
-# Only the root module is listed under gomod. The nested modules resolve the
-# root library through the gitignored go.work and carry no require on it, so
-# Dependabot cannot run their updates until the root is a published module.
+# Explicit directories keep the dormant prior-release compatibility module
+# out of routine updates.
 version: 2
 updates:
   - package-ecosystem: gomod
-    directory: /
+    directories:
+      - /
+      - /cmd/sqlstreams
+      - /otel
+      - /.bench
+      - /.tests
+      - /.tools
+      - /examples
     schedule:
       interval: monthly
     cooldown:

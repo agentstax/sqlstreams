@@ -2,16 +2,11 @@ module github.com/allegedlyreliable/sqlstreams/.tests
 
 go 1.27.0
 
-// Dev-only module holding both test trees: integration/ (datastore tests
-// over testcontainers) and e2e/ (end-to-end programs). It keeps the Docker
-// dependency out of the root library module's graph, published zip, and
-// `go test ./...` surface. The parent module github.com/allegedlyreliable/sqlstreams
-// is resolved locally via the repo-root go.work (use ./.tests) and
-// deliberately has NO require line here: it's unpublished, so any
-// placeholder version poisons the whole workspace graph. Never tagged or
-// published.
+// Dev-only integration/e2e tests keep Docker dependencies out of the library.
+// Never tagged or published; go.work uses local source during development.
 
 require (
+	github.com/allegedlyreliable/sqlstreams v0.1.0-rc.1
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.44.0
 	golang.org/x/sync v0.22.0

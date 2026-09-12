@@ -584,3 +584,4 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 - 0784 2026-09-12 accepted (pre-v1) — Pages project is recreated as sqlstreams
 - 0785 2026-09-12 accepted (pre-v1) — SQLStreams module and distribution owner is allegedlyreliable
 - 0786 2026-09-12 accepted (pre-v1) — Nested modules publish root, then OTel, then CLI
+- 0787 2026-09-12 accepted (pre-v1) — Dependabot covers all active Go modules in one group

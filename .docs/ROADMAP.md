@@ -49,7 +49,7 @@ the item is removed.
     schedule; manual checks and security updates can exceed three PRs/month.
   - Dependabot alerts and automatic security updates are enabled; API
     readback confirms enabled=true, paused=false, with no open alerts.
-    Grouped-security setting remains unverified through the available API.
+    The user confirmed grouped security updates enabled on 2026-09-12.
     Manifest coverage is now proved: Dependency graph marks root go.mod,
     cmd/sqlstreams/go.mod, and otel/go.mod parseable and exposes 6, 33, and
     27 dependencies respectively. All eight Go manifests are indexed. The
@@ -68,8 +68,15 @@ the item is removed.
     Installed build metadata identifies the CLI version and both published
     dependencies with no replacements. GoReleaser's injected archive version
     remains 0.1.0-rc.1 (without the Go module version's leading v).
-    READMEs now show the verified versioned install command. Nested and dev
-    modules still need adding to Dependabot version updates once resolvable.
+    READMEs now show the verified versioned install command.
+  - Seven-module Dependabot coverage is prepared [0787]: explicit directories
+    for root, CLI, OTel, .bench, .tests, .tools, and examples share the monthly
+    Go group and seven-day cooldown. The four dev modules pin real root
+    v0.1.0-rc.1; standalone tidy/fmt/build/vet and .bench/.tools race checks
+    pass. The standalone Docker integration suite also passes with -race.
+    Resolution checks confirm published root with GOWORK=off and local root
+    through go.work. The dormant .tools/compat stays excluded. User
+    commit/push and a hosted update check remain before coverage is proved.
   - The first prerelease proves packaging. There is no prior supported release
     for a compatibility verdict yet. At a release compatibility checkpoint,
     retain the actual prior API in .tools/compat, run the fresh-DB suite and
