@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newConsumerBindingListCmd(g *globalFlags) *cobra.Command {
+func newSystemBindingListCmd(g *globalFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List every consumer's declared binding set",

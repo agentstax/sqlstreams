@@ -39,32 +39,23 @@ func newStreamGetCmd(g *globalFlags) *cobra.Command {
 				return translateAdminError(err)
 			}
 
-			if g.jsonOutput() && found == nil {
-				writeJSON(out, toStreamGetDocument(name, nil))
-				return failPrinted()
-			}
-
-			// -q is the scriptable form: no output at all, the exit code IS the
-			// answer (`if sqlstreams stream get -q X; then ...`).
-			if quiet {
-				if found == nil {
-					return failPrinted()
-				}
-				return nil
-			}
-
-			if found == nil {
-				fmt.Fprintf(out, "%s stream %q does not exist\n", glyphNo(), name)
-				return failPrinted()
-			}
-
 			if g.jsonOutput() {
-				writeJSON(out, toStreamGetDocument(name, found))
-				return nil
+				if found == nil {
+					writeJSON(out, nil)
+				} else {
+					writeJSON(out, toStreamDocument(found))
+				}
+			} else if !quiet {
+				if found == nil {
+					fmt.Fprintf(out, "%s stream %q does not exist\n", glyphNo(), name)
+				} else {
+					fmt.Fprintf(out, "%s stream %q (id=%d)\n", glyphOK(), name, found.Id)
+					printStreamDetail(out, found)
+				}
 			}
-
-			fmt.Fprintf(out, "%s stream %q (id=%d)\n", glyphOK(), name, found.Id)
-			printStreamDetail(out, found)
+			if found == nil {
+				return failPrinted()
+			}
 			return nil
 		},
 	}
@@ -88,14 +79,6 @@ type streamDocument struct {
 	DeliveryLogMode        string `json:"delivery_log_mode"`
 }
 
-// streamGetDocument is stream get's json result; the not-found case is data
-// (exists false, config null), the exit code stays 1.
-type streamGetDocument struct {
-	Stream string          `json:"stream"`
-	Exists bool            `json:"exists"`
-	Config *streamDocument `json:"config"`
-}
-
 func toStreamDocument(found *stream.Stream) streamDocument {
 	return streamDocument{
 		StreamId:               found.Id,
@@ -116,15 +99,6 @@ func toStreamDocuments(streams []*stream.Stream) []streamDocument {
 		documents = append(documents, toStreamDocument(found))
 	}
 	return documents
-}
-
-func toStreamGetDocument(name string, found *stream.Stream) streamGetDocument {
-	document := streamGetDocument{Stream: name, Exists: found != nil}
-	if found != nil {
-		config := toStreamDocument(found)
-		document.Config = &config
-	}
-	return document
 }
 
 func printStreamDetail(w io.Writer, t *stream.Stream) {

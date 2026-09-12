@@ -143,3 +143,50 @@ func TestConsumerListRejectsQuietJSONBeforeConnecting(t *testing.T) {
 		t.Errorf("Execute(consumer list orders --quiet --output json) = %v, want usage error with exit 2", err)
 	}
 }
+
+func TestConsumerBindingListIsRejected(t *testing.T) {
+	// setup
+	root, _ := newRootCmd()
+
+	// test
+	command, args, err := root.Find([]string{"consumer", "binding", "list"})
+	if err == nil {
+		err = command.ValidateArgs(args)
+	}
+
+	// verify
+	if err == nil || exitCode(err) != 2 {
+		t.Errorf("ValidateArgs(consumer binding list) = %v, want usage error with exit 2", err)
+	}
+}
+
+func TestMetricListRejectsSystemFlag(t *testing.T) {
+	// setup
+	_, globals := newRootCmd()
+	list := newMetricListCmd(globals)
+
+	// test
+	err := list.ParseFlags([]string{"--system"})
+
+	// verify
+	if err == nil || exitCode(err) != 2 {
+		t.Errorf("ParseFlags(metric list --system) = %v, want usage error with exit 2", err)
+	}
+}
+
+func TestMetricListRejectsBuiltinAndUserBeforeConnecting(t *testing.T) {
+	// setup
+	_, globals := newRootCmd()
+	list := newMetricListCmd(globals)
+	if err := list.ParseFlags([]string{"--builtin", "--user"}); err != nil {
+		t.Fatal(err)
+	}
+
+	// test
+	err := list.RunE(list, nil)
+
+	// verify
+	if err == nil || exitCode(err) != 2 {
+		t.Errorf("Execute(metric list --builtin --user) = %v, want usage error with exit 2", err)
+	}
+}

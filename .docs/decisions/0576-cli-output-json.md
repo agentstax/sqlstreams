@@ -1,10 +1,12 @@
 ---
-status: accepted
+status: superseded
 date: 2026-08-22
 phase: pre-v1
 ---
 
 # CLI --output json
+
+Superseded by [0770] for missing-get envelopes; the other output rules remain.
 
 ## Context
 

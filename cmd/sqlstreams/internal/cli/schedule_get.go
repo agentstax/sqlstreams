@@ -37,7 +37,11 @@ func newScheduleGetCmd(g *globalFlags) *cobra.Command {
 			}
 
 			if g.jsonOutput() {
-				writeJSON(out, toScheduleGetDocument(name, row))
+				if row == nil {
+					writeJSON(out, nil)
+				} else {
+					writeJSON(out, toScheduleDocument(row))
+				}
 			} else if !quiet {
 				if row == nil {
 					fmt.Fprintf(out, "%s schedule %q does not exist\n", glyphNo(), name)
@@ -64,6 +68,7 @@ type scheduleDocument struct {
 	StreamId        int64           `json:"stream_id"`
 	Schedule        string          `json:"schedule"`
 	Expression      string          `json:"expression"`
+	SchemaVersion   int             `json:"schema_version"`
 	Concurrency     string          `json:"concurrency"`
 	Timeout         string          `json:"timeout"`
 	Suspended       bool            `json:"suspended"`
@@ -73,13 +78,6 @@ type scheduleDocument struct {
 	LastScheduledAt *time.Time      `json:"last_scheduled_at"` // null until the scheduler first produces the schedule
 }
 
-// A missing schedule produces row null and exit status 1.
-type scheduleGetDocument struct {
-	Schedule string            `json:"schedule"`
-	Exists   bool              `json:"exists"`
-	Row      *scheduleDocument `json:"row"`
-}
-
 func toScheduleDocument(row *schedule.Schedule) scheduleDocument {
 	return scheduleDocument{
 		ScheduleId:      row.Id,
@@ -87,6 +85,7 @@ func toScheduleDocument(row *schedule.Schedule) scheduleDocument {
 		StreamId:        row.StreamId,
 		Schedule:        row.Name,
 		Expression:      row.Expression,
+		SchemaVersion:   row.SchemaVersion,
 		Concurrency:     string(row.Concurrency),
 		Timeout:         row.Timeout.String(),
 		Suspended:       row.Suspended,
@@ -103,15 +102,6 @@ func toScheduleDocuments(schedules []*schedule.Schedule) []scheduleDocument {
 		documents = append(documents, toScheduleDocument(row))
 	}
 	return documents
-}
-
-func toScheduleGetDocument(name string, row *schedule.Schedule) scheduleGetDocument {
-	document := scheduleGetDocument{Schedule: name, Exists: row != nil}
-	if row != nil {
-		rowDocument := toScheduleDocument(row)
-		document.Row = &rowDocument
-	}
-	return document
 }
 
 func printScheduleDetail(w io.Writer, row *schedule.Schedule) {

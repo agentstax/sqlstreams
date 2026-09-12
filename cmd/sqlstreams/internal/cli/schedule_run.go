@@ -22,7 +22,8 @@ func newScheduleRunCmd(g *globalFlags) *cobra.Command {
 			"The request runs with concurrency 'parallel' regardless of the row's own\n" +
 			"policy -- it runs even while a previous request is still being worked. Pass\n" +
 			"--concurrency exclusive to run early without overlapping one. A pending row\n" +
-			"request no consumer has claimed yet is superseded by it.",
+			"request no consumer has claimed yet is superseded by it.\n\n" +
+			"Schedules compact their messages, so ordered concurrency is not supported.",
 		Args: requireScheduleName("run"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -68,7 +69,7 @@ func newScheduleRunCmd(g *globalFlags) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&concurrency, "concurrency", "", "whether the request runs while a previous one is still running, overriding the row's own policy: parallel or exclusive (default parallel)")
+	cmd.Flags().StringVar(&concurrency, "concurrency", "", "the produced message's concurrency policy, overriding the schedule's: parallel or exclusive (default parallel)")
 
 	return cmd
 }

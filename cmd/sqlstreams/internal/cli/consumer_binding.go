@@ -15,7 +15,6 @@ these commands only read.
 A consumer that never declared a set receives every message on its stream.`,
 	}
 
-	cmd.AddCommand(newConsumerBindingListCmd(g))
 	cmd.AddCommand(newConsumerBindingGetCmd(g))
 
 	return cmd

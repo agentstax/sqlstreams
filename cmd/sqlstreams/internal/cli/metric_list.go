@@ -13,9 +13,9 @@ import (
 
 func newMetricListCmd(g *globalFlags) *cobra.Command {
 	var (
-		quiet  bool
-		system bool
-		user   bool
+		quiet   bool
+		builtin bool
+		user    bool
 	)
 
 	cmd := &cobra.Command{
@@ -26,8 +26,8 @@ func newMetricListCmd(g *globalFlags) *cobra.Command {
 			ctx := cmd.Context()
 			out := cmd.OutOrStdout()
 
-			if system && user {
-				return failUsage("--system and --user exclude everything together; pass one or neither")
+			if builtin && user {
+				return failUsage("--builtin and --user exclude everything together; pass one or neither")
 			}
 			if quiet && g.jsonOutput() {
 				return failUsage("--quiet and --output json cannot be combined")
@@ -47,11 +47,11 @@ func newMetricListCmd(g *globalFlags) *cobra.Command {
 
 			filtered := make([]*metric.Measurement, 0, len(measurements))
 			for _, measurement := range measurements {
-				fromCollector := strings.HasPrefix(measurement.Name, metric.MetricNameReservedPrefix)
-				if system && !fromCollector {
+				isBuiltin := strings.HasPrefix(measurement.Name, metric.MetricNameReservedPrefix)
+				if builtin && !isBuiltin {
 					continue
 				}
-				if user && fromCollector {
+				if user && isBuiltin {
 					continue
 				}
 				filtered = append(filtered, measurement)
@@ -73,7 +73,7 @@ func newMetricListCmd(g *globalFlags) *cobra.Command {
 
 	f := cmd.Flags()
 	f.BoolVarP(&quiet, "quiet", "q", false, "series keys only, one per line (for scripts)")
-	f.BoolVar(&system, "system", false, "only SQLStreams's own metrics (names starting sqlstreams.)")
+	f.BoolVar(&builtin, "builtin", false, "only SQLStreams's built-in metrics (names starting sqlstreams.)")
 	f.BoolVar(&user, "user", false, "only user-produced measurements")
 	return cmd
 }

@@ -6,11 +6,11 @@ import (
 	"testing"
 )
 
-func TestConsumerCommandPaths(t *testing.T) {
+func TestResourceCommandPaths(t *testing.T) {
 	for _, path := range [][]string{
 		{"consumer", "worker", "list"},
 		{"consumer", "binding", "get"},
-		{"consumer", "binding", "list"},
+		{"system", "binding", "list"},
 		{"consumer", "destroy"},
 	} {
 		t.Run(strings.Join(path, "/"), func(t *testing.T) {
@@ -35,7 +35,7 @@ func TestAlertConsumerSelectorRequiresStream(t *testing.T) {
 			root.SetErr(&output)
 			args := []string{"alert", verb}
 			if verb != "list" {
-				args = append(args, "disk_pressure")
+				args = append(args, "partition_count")
 			}
 			root.SetArgs(append(args, "--consumer", "billing"))
 			err := root.Execute()

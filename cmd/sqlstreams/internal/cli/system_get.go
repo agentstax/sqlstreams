@@ -35,6 +35,13 @@ func newSystemGetCmd(g *globalFlags) *cobra.Command {
 			if err != nil {
 				return translateAdminError(err)
 			}
+			if g.jsonOutput() {
+				writeJSON(out, sys)
+				if sys == nil {
+					return failPrinted()
+				}
+				return nil
+			}
 			if quiet {
 				if sys == nil {
 					return failPrinted()
@@ -43,11 +50,6 @@ func newSystemGetCmd(g *globalFlags) *cobra.Command {
 			}
 			if sys == nil {
 				return failOp("system not registered -- run `sqlstreams system register` first")
-			}
-
-			if g.jsonOutput() {
-				writeJSON(out, sys)
-				return nil
 			}
 
 			fmt.Fprintf(out, "%s system config\n", glyphOK())

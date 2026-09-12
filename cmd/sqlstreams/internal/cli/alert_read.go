@@ -28,7 +28,7 @@ An owner that is not registered exits non-zero with its not-found code; an
 owner nothing was published for prints "no alert published".`,
 		Example: `  sqlstreams alert latest partition_count --stream orders.created
   sqlstreams alert history worker_liveness --stream orders.created --limit 5
-  sqlstreams alert latest disk_pressure --stream orders.created --consumer billing`,
+  sqlstreams alert latest metrics_collector_progress`,
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				return failUsage("%s requires an alert name\nusage: sqlstreams alert %s <name> [flags]", verb, verb)

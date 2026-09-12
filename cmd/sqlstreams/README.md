@@ -78,8 +78,9 @@ sqlstreams stream health orders.created
 sqlstreams stream health orders.created --output json
 ```
 
-Health returns an array of version verdicts in JSON. Stream get returns
-`stream`, `exists`, and `config`.
+Health returns an array of version verdicts in JSON. Stream get returns the
+stream object directly, or `null` with exit 1 when absent. Durations keep
+their units, such as `"1h0m0s"`.
 
 ### Read consumers
 
@@ -98,6 +99,10 @@ stored worker config.
 Consumer list supports `--quiet` for names only. Consumer get and system get
 support `--quiet` for a silent existence check. Consumer list JSON is the
 consumer array; consumer get JSON is the row, or `null` with exit 1 when absent.
+
+Read every consumer's binding declaration with `sqlstreams system binding list`,
+which calls `System().Bindings`. Read one consumer's declaration with
+`sqlstreams consumer binding get orders.created billing`.
 
 ### Read a message key
 
@@ -165,6 +170,10 @@ sqlstreams stream destroy orders.created --force --yes
 
 - `-q` / `--quiet` — `list` prints names only; `get` prints nothing (the exit
   code is the answer).
+- `--output json` — stream, scheduler, consumer, and system `get` return the
+  resource object directly, or `null` with exit 1 when absent. Stream and
+  scheduler durations are strings with units; list returns an array of the
+  same resource objects. Operational errors are JSON on stderr.
 - Exit codes: `0` success · `1` operation failed (not found, not empty, config
   mismatch, aborted) · `2` usage error.
 
@@ -180,6 +189,8 @@ collections use `list`; reads with distinct meanings keep distinct verbs:
 | `consumer list <stream>` | `Stream(name).Consumers` |
 | `consumer get <stream> <consumer>` | `Consumer(name).Get` |
 | `consumer worker list <stream> <consumer> [key]` | `Consumer(name).Workers`, displaying stored config keys |
+| `system binding list` | `System().Bindings` |
+| `consumer binding get <stream> <consumer>` | `Consumer(name).Binding().Get` |
 | `system get --quiet` | `System().Get`, silent existence check |
 | `scheduler get <name>` | `Scheduler(name).Get` |
 | `scheduler status <name>` | `Scheduler(name).Status` |
@@ -195,4 +206,9 @@ collections use `list`; reads with distinct meanings keep distinct verbs:
 the operation. Metric reads accept repeatable `--attribute key=value` filters
 and `--series-limit` (default 10) to bound the number of attribute sets.
 Alert reads accept `--stream` and `--consumer`; the latter requires `--stream`.
+Metric list accepts `--builtin` for names starting with `sqlstreams.` across
+all scopes, or `--user` for user-produced measurements. The flags are mutually
+exclusive; omit both to list both. Scheduler run supports `--concurrency parallel`
+or `exclusive`, defaulting to `parallel`. Schedules compact their messages,
+so `ordered` concurrency is rejected.
 `--metrics-address` on `manager run` names the Prometheus endpoint address.
