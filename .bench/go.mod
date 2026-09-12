@@ -8,7 +8,7 @@ go 1.27.0
 require (
 	github.com/allegedlyreliable/sqlstreams v0.1.0-rc.1
 	github.com/jackc/pgx/v5 v5.10.0
-	golang.org/x/sync v0.20.0
+	golang.org/x/sync v0.23.0
 )
 
 require (
