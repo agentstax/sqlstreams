@@ -15,6 +15,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/agentstax/sqlstreams/.bench/checker/datastore"
 	"github.com/agentstax/sqlstreams/.bench/scenario"
 )
 
@@ -196,23 +197,40 @@ func writeGroupTable(out *strings.Builder, group []*Verdict) {
 			phase.Name, phase.DeclaredRate,
 			medianOf(measured, func(run *Verdict) float64 { return run.Measure.Phases[i].AchievedRate }),
 			medianOf(measured, func(run *Verdict) float64 { return run.Measure.Phases[i].ConsumedRate }),
-			formatLatency(medianDuration(measured, func(run *Verdict) time.Duration { return run.Measure.Phases[i].Produce.P50 })),
-			formatLatency(medianDuration(measured, func(run *Verdict) time.Duration { return run.Measure.Phases[i].Produce.P99 })),
-			formatLatency(medianDuration(measured, func(run *Verdict) time.Duration { return run.Measure.Phases[i].EndToEnd.P50 })),
-			formatLatency(medianDuration(measured, func(run *Verdict) time.Duration { return run.Measure.Phases[i].EndToEnd.P99 })))
+			medianLatency(measured, func(run *Verdict) datastore.LatencySummary { return run.Measure.Phases[i].Produce }, p50),
+			medianLatency(measured, func(run *Verdict) datastore.LatencySummary { return run.Measure.Phases[i].Produce }, p99),
+			medianLatency(measured, func(run *Verdict) datastore.LatencySummary { return run.Measure.Phases[i].EndToEnd }, p50),
+			medianLatency(measured, func(run *Verdict) datastore.LatencySummary { return run.Measure.Phases[i].EndToEnd }, p99))
 	}
 	fmt.Fprintf(table, "  run\t\t\t%s\t%s\t%s\t%s\twal %.0f B/msg, %.2f transactions/msg\n",
-		formatLatency(medianDuration(measured, func(run *Verdict) time.Duration { return run.Measure.Produce.P50 })),
-		formatLatency(medianDuration(measured, func(run *Verdict) time.Duration { return run.Measure.Produce.P99 })),
-		formatLatency(medianDuration(measured, func(run *Verdict) time.Duration { return run.Measure.EndToEnd.P50 })),
-		formatLatency(medianDuration(measured, func(run *Verdict) time.Duration { return run.Measure.EndToEnd.P99 })),
+		medianLatency(measured, func(run *Verdict) datastore.LatencySummary { return run.Measure.Produce }, p50),
+		medianLatency(measured, func(run *Verdict) datastore.LatencySummary { return run.Measure.Produce }, p99),
+		medianLatency(measured, func(run *Verdict) datastore.LatencySummary { return run.Measure.EndToEnd }, p50),
+		medianLatency(measured, func(run *Verdict) datastore.LatencySummary { return run.Measure.EndToEnd }, p99),
 		medianOf(measured, func(run *Verdict) float64 { return run.Measure.Server.WalBytesPerMessage }),
 		medianOf(measured, func(run *Verdict) float64 { return run.Measure.Server.TransactionsPerMessage }))
 	table.Flush()
 }
 
-func medianDuration(runs []*Verdict, read func(run *Verdict) time.Duration) time.Duration {
-	return time.Duration(medianOf(runs, func(run *Verdict) float64 { return float64(read(run)) }))
+// medianLatency is one latency cell: the median of a percentile over the
+// runs, or "unavailable" when any run measured no latency -- an
+// aggregate-recording run has no per-message times, and a zero is never
+// printed as a measurement.
+func medianLatency(runs []*Verdict, read func(run *Verdict) datastore.LatencySummary, percentile func(summary datastore.LatencySummary) time.Duration) string {
+	for _, run := range runs {
+		if read(run).Unavailable {
+			return "unavailable"
+		}
+	}
+	return formatLatency(time.Duration(medianOf(runs, func(run *Verdict) float64 { return float64(percentile(read(run))) })))
+}
+
+func p50(summary datastore.LatencySummary) time.Duration {
+	return summary.P50
+}
+
+func p99(summary datastore.LatencySummary) time.Duration {
+	return summary.P99
 }
 
 // medianOf is the true median: the middle value, or the mean of the two
