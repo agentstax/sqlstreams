@@ -27,7 +27,7 @@
 				{/each}
 			</span>
 			<span class="member-role">{role}</span>
-			<span class="avatar"><img src="/cat.png" width="88" height="88" alt="" /></span>
+			<span class="avatar"><img src="/cat-176.webp" width="88" height="88" alt="" /></span>
 		</div>
 		<dl class="facts">
 			<dt>Joined</dt>
