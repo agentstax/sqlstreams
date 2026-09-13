@@ -16,6 +16,10 @@ the item is removed.
 
 ## Now
 
+- **manual review of cli**
+
+- **manual review of docs**
+
 - **Search-engine submission** -- after the doc-site sitemap is deployed,
   verify the canonical site property in Google Search Console and Bing
   Webmaster Tools, submit the sitemap in each service (or import the verified
@@ -51,6 +55,19 @@ the item is removed.
 
 ## Later
 
+- **Repeatable release assurance** — tie publication to successful verification
+  of the tagged revision, including applicable compatibility checks, and retain
+  installation results for supported distribution paths. Start with the existing
+  verification, signal, and compatibility recipes and recorded release evidence.
+  At pickup, settle how publication requires that evidence and which installation
+  checks run for each release; add automation only where the existing workflow
+  leaves a concrete gap.
+
+- **Independent user walkthrough** -- have a developer unfamiliar with
+  SQLStreams install it, diagnose a failure, upgrade, and submit a small fix
+  using only public instructions. Record where they get stuck and use those
+  observations to improve the docs, diagnostics, API, and contributor workflow.
+
 - **Upgrade evidence for the next real schema change** [0794] -- when a real
   migration is selected, extend the existing compatibility and integration
   recipes to verify old/new binary behavior against its declared compatibility
@@ -80,6 +97,9 @@ the item is removed.
   batching path before making a capacity claim about it. The published explicit
   batch workload is not a substitute; the retired 30-second probe was not a
   capacity measurement.
+  - Run sustained traffic through several cleanup cycles and report latency,
+    database CPU, WAL, and storage growth alongside throughput. Pair this with
+    the idle-fleet investigation above to cover both active and quiet workloads.
 - **Recovery under load** — choose a fault and recovery objective before adding
   a scenario. Measure recovery time, backlog drain, and replay with durable
   identity evidence; graceful instance-count changes do not simulate crashes.
@@ -435,14 +455,6 @@ prerequisite if quorum-as-a-fraction wins.
   let an instance run more than one claim loop and overlap more claim
   round trips at the high end. Pick up only if a measured workload shows
   the single prefetcher as the ceiling.
-
-- **Repeatable release assurance** — tie publication to successful verification
-  of the tagged revision, including applicable compatibility checks, and retain
-  installation results for supported distribution paths. Start with the existing
-  verification, signal, and compatibility recipes and recorded release evidence.
-  At pickup, settle how publication requires that evidence and which installation
-  checks run for each release; add automation only where the existing workflow
-  leaves a concrete gap.
 
 - **Two idempotency claim horizons** -- every produce writes an
   idempotency_key row, minted key or not, so `IdempotencyKeyTTL` is the
