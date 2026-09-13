@@ -16,14 +16,14 @@ body:
     id: line
     attributes:
       label: Error or log line
-      description: The rendered line with its SSnnnn code and attributes.
+      description: The rendered line with its SQLnnnn code and attributes.
       render: text
     validations:
       required: true
   - type: textarea
     id: explain
     attributes:
-      label: Output of `sqlstreams explain SSnnnn`
+      label: Output of `sqlstreams explain SQLnnnn`
       description: Including what its diagnose queries returned.
       render: text
   - type: textarea

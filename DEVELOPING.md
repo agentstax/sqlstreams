@@ -52,10 +52,14 @@ go vet ./...
 go test -race ./client
 ```
 
-Replace `./client` with the packages you touched. Database tests
-run only with `SQLSTREAMS_TEST_DATABASE_URL` set (the `.env.example` value
-points at the dev database); unset, they skip. Nested modules have
+Replace `./client` with the packages you touched. Nested modules have
 their own `go.mod`; root `./...` does not include them.
+
+Run database integration tests from the repo root:
+
+```sh
+just test-integration
+```
 
 Before opening a pull request:
 
@@ -65,4 +69,5 @@ just verify
 
 This checks every development workspace module. It builds e2e programs but
 does not run them. Use `just --list` to find the affected `*-e2e` tests;
-run them against the development database, for example `just reclaim-e2e`.
+run them against the development database, for example `just signal-e2e`
+when checking shutdown or signal behavior.
