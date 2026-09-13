@@ -15,7 +15,7 @@ import (
 // so crashed ranges drain first.
 func (d *MessageConsumerGroupDatastore) ClaimMessagesWithCursor(ctx context.Context, streamId int64, groupId int64, schemaVersion int64, limit int, maxRangeReclaims int, leaseDuration time.Duration, deliveryLogMode stream.DeliveryLogMode) (*ClaimedRange, error) {
 	var claimed *ClaimedRange
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapNonIdempotent(ctx, func() error {
 		var err error
 		claimed, err = d.claimMessagesWithCursor(ctx, streamId, groupId, schemaVersion, limit, maxRangeReclaims, leaseDuration, deliveryLogMode)
 		return err

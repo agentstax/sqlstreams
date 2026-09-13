@@ -14,7 +14,7 @@ import (
 // Get returns (nil, nil) if not found.
 func (d *ScheduleDatastore) Get(ctx context.Context, name string) (*ScheduleConfigRow, error) {
 	var found *ScheduleConfigRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		found, err = d.get(ctx, d.Datastore.Pool, name)
 		return err
@@ -48,7 +48,7 @@ func (d *ScheduleDatastore) get(ctx context.Context, q datastore.Querier, name s
 
 func (d *ScheduleDatastore) List(ctx context.Context) ([]ScheduleConfigRow, error) {
 	var schedules []ScheduleConfigRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		schedules, err = d.list(ctx)
 		return err
@@ -98,7 +98,7 @@ func (d *ScheduleDatastore) list(ctx context.Context) ([]ScheduleConfigRow, erro
 }
 
 func (d *ScheduleDatastore) Suspend(ctx context.Context, name string) error {
-	return d.DatastoreRetry.Wrap(ctx, func() error {
+	return d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		return d.suspend(ctx, name)
 	})
 }
@@ -122,7 +122,7 @@ func (d *ScheduleDatastore) suspend(ctx context.Context, name string) error {
 // Unsuspend resumes at Next(now()) -- a scheduled time that came due while
 // suspended is dropped, not produced late.
 func (d *ScheduleDatastore) Unsuspend(ctx context.Context, name string) error {
-	return d.DatastoreRetry.Wrap(ctx, func() error {
+	return d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		return d.unsuspend(ctx, name)
 	})
 }
@@ -206,7 +206,7 @@ func (d *ScheduleDatastore) nextScheduledTime(ctx context.Context, q datastore.Q
 }
 
 func (d *ScheduleDatastore) Delete(ctx context.Context, name string) error {
-	return d.DatastoreRetry.Wrap(ctx, func() error {
+	return d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		return d.delete(ctx, name)
 	})
 }

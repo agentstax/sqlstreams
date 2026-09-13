@@ -32,7 +32,7 @@ func (d *ProduceDatastore) AppendMessageBatch[Message common.Versioned](ctx cont
 // policy; the last attempt wins failedIndex.
 func (d *ProduceDatastore) appendMessageBatch[Message common.Versioned](ctx context.Context, streamId int64, partitionSize int64, attemptTimeout time.Duration, appends []*Append[Message]) (appended []Appended[Message], failedIndex int, err error) {
 	failedIndex = -1
-	err = d.DatastoreRetry.Wrap(ctx, func() error {
+	err = d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		// bound each attempt -- a hung database must not hold the batch forever
 		attemptCtx, cancel := context.WithTimeoutCause(ctx, attemptTimeout,
 			fmt.Errorf("batch attempt exceeded Batch.AttemptTimeout (%s) for stream %d", attemptTimeout, streamId))

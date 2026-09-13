@@ -16,7 +16,7 @@ import (
 // singleton system row, returning it.
 func (d *SystemDatastore) Register(ctx context.Context) (*SystemConfigRow, error) {
 	var registered *SystemConfigRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		registered, err = d.register(ctx)
 		return err
@@ -131,7 +131,7 @@ func (d *SystemDatastore) recordBaseline(ctx context.Context, tx pgx.Tx, systemI
 // hasn't been registered.
 func (d *SystemDatastore) Get(ctx context.Context) (*SystemConfigRow, error) {
 	var systemConfigRow *SystemConfigRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		systemConfigRow, err = d.get(ctx, d.Datastore.Pool)
 		return err

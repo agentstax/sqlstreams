@@ -13,7 +13,7 @@ const locksPerPartition = 5
 // "out of shared memory".
 func (d *PartitionCountDatastore) PartitionLockCeiling(ctx context.Context) (int64, error) {
 	var ceiling int64
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		ceiling, err = d.partitionLockCeiling(ctx)
 		return err

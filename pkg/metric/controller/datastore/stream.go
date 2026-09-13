@@ -11,7 +11,7 @@ import (
 // StreamSnapshot returns the partition count and compaction-head state together.
 func (d *MetricDatastore) StreamSnapshot(ctx context.Context, streamId int64) (*StreamSnapshotRow, error) {
 	var snapshot *StreamSnapshotRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		snapshot, err = d.streamSnapshot(ctx, streamId)
 		return err
@@ -47,7 +47,7 @@ func (d *MetricDatastore) streamSnapshot(ctx context.Context, streamId int64) (*
 // with its row count and how many compaction heads point at it.
 func (d *MetricDatastore) SchemaVersionCounts(ctx context.Context, streamId int64) ([]SchemaVersionCountRow, error) {
 	var counts []SchemaVersionCountRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		counts, err = d.schemaVersionCounts(ctx, streamId)
 		return err
@@ -79,7 +79,7 @@ func (d *MetricDatastore) schemaVersionCounts(ctx context.Context, streamId int6
 // exception rows at that version are unresolved.
 func (d *MetricDatastore) ConsumerGroupSchemaVersionLag(ctx context.Context, streamId int64, schemaVersion int64) ([]ConsumerGroupSchemaVersionLagRow, error) {
 	var lags []ConsumerGroupSchemaVersionLagRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		lags, err = d.groupSchemaVersionLag(ctx, streamId, schemaVersion)
 		return err

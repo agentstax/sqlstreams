@@ -20,7 +20,7 @@ const ddlLockTimeout = 2 * time.Second
 // track that through cursor.committed. deliveryLogMode off skips the
 // delivery_log_<stream_id> half of each drop's orphan cleanup.
 func (d *JanitorDatastore) DropExpiredPartitions(ctx context.Context, streamId int64, partitionSize int64, ttl time.Duration, allowDropPastCommitted bool, deliveryLogMode stream.DeliveryLogMode) error {
-	return d.DatastoreRetry.Wrap(ctx, func() error {
+	return d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		return d.dropExpiredPartitions(ctx, streamId, partitionSize, ttl, allowDropPastCommitted, deliveryLogMode)
 	})
 }

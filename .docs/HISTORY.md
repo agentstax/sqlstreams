@@ -13,6 +13,22 @@ override, and uses the current signal-e2e recipe for shutdown checks.
 The bug issue template requests SQLnnnn diagnostic codes. Checked against
 the integration test setup, recipe definitions, and error declarations.
 
+## 2026-09-12 — Ambiguous-outcome retries are opted into per datastore write [0793]
+
+`DatastoreRetry.Wrap` retried every transient SQLSTATE, including the
+ones under which a statement may have committed before the connection
+died, and a comment claimed every call site had been audited. The
+wrapper is now two verbs with no bare default: `WrapNonIdempotent`
+retries only what the server rolled back or never received,
+`WrapIdempotent` also retries a lost connection after a statement
+shipped and is the verb for reads and guarded writes. Ten unguarded
+writes use `WrapNonIdempotent`, named in the record with what their
+callers do with the returned error; the other 81 use `WrapIdempotent`
+unchanged in behavior. A ledger-plus-conventions-test
+built first was rejected as a presence check and removed. Verified by
+build, vet, `go test -race` on the touched packages, the closed-set
+wrapper tests, and the conventions checks.
+
 ## 2026-09-12 — Unit tests pin the consumer's in-process range bookkeeping
 
 `pkg/consume` carried no unit test; the integration suite pinned the SQL

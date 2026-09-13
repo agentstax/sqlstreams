@@ -12,7 +12,7 @@ import (
 // nothing else resolves them. Returns how many rows it marked.
 func (d *ExceptionConsumerGroupDatastore) Kill(ctx context.Context, streamId int64, groupId int64, maxRetries int, deliveryLogMode stream.DeliveryLogMode) (int64, error) {
 	var killed int64
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		killed, err = d.kill(ctx, streamId, groupId, maxRetries, deliveryLogMode)
 		return err

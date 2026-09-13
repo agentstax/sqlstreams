@@ -15,7 +15,7 @@ import (
 // Get resolves a stream by name. Returns (nil, nil) if name is not found.
 func (d *StreamDatastore) Get(ctx context.Context, name string) (*StreamConfigRow, error) {
 	var streamConfigRow *StreamConfigRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		streamConfigRow, err = d.get(ctx, d.Datastore.Pool, name)
 		return err
@@ -53,7 +53,7 @@ func (d *StreamDatastore) get(ctx context.Context, q datastore.Querier, name str
 // GetById resolves a stream by its id. Returns (nil, nil) if no stream has it.
 func (d *StreamDatastore) GetById(ctx context.Context, id int64) (*StreamConfigRow, error) {
 	var streamConfigRow *StreamConfigRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		streamConfigRow, err = d.getById(ctx, id)
 		return err
@@ -84,7 +84,7 @@ func (d *StreamDatastore) getById(ctx context.Context, id int64) (*StreamConfigR
 
 func (d *StreamDatastore) List(ctx context.Context) ([]StreamConfigRow, error) {
 	var streams []StreamConfigRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		streams, err = d.list(ctx)
 		return err
@@ -141,7 +141,7 @@ func (d *StreamDatastore) list(ctx context.Context) ([]StreamConfigRow, error) {
 // declared's mutable config; its partition_size must match.
 func (d *StreamDatastore) Register(ctx context.Context, declared *StreamConfigRow, declaredBy string) (*StreamConfigRow, error) {
 	var registered *StreamConfigRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		registered, err = d.register(ctx, declared, declaredBy)
 		return err
@@ -233,7 +233,7 @@ func (d *StreamDatastore) register(ctx context.Context, declared *StreamConfigRo
 // ErrStreamNameTaken if newName is already registered.
 func (d *StreamDatastore) Rename(ctx context.Context, oldName string, newName string, declaredBy string) (*StreamConfigRow, error) {
 	var renamed *StreamConfigRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		renamed, err = d.rename(ctx, oldName, newName, declaredBy)
 		return err

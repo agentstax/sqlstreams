@@ -10,7 +10,7 @@ import (
 
 func (d *WorkerDatastore) ListInstanceSnapshots(ctx context.Context, workerId int64, start time.Time, end time.Time) ([]WorkerInstanceSnapshotRow, error) {
 	var snapshots []WorkerInstanceSnapshotRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		snapshots, err = d.listInstanceSnapshots(ctx, workerId, start, end)
 		return err
@@ -48,7 +48,7 @@ func (d *WorkerDatastore) listInstanceSnapshots(ctx context.Context, workerId in
 
 func (d *WorkerDatastore) SweepExpiredInstanceLogs(ctx context.Context, ttl time.Duration) (int64, error) {
 	var removed int64
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		removed, err = d.sweepExpiredInstanceLogs(ctx, ttl)
 		return err

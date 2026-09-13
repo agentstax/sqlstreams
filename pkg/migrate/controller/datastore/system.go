@@ -13,7 +13,7 @@ import (
 // isn't there.
 func (d *MigrateDatastore) SystemOwner(ctx context.Context) (*common.Owner, error) {
 	var owner *common.Owner
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		owner, err = d.systemOwner(ctx)
 		return err

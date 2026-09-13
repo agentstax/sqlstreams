@@ -17,7 +17,7 @@ import (
 // Returns (nil, nil) if the group is not registered on that stream.
 func (d *ConsumeDatastore) GetGroup(ctx context.Context, streamId int64, name string) (*ConsumerGroupConfigRow, error) {
 	var group *ConsumerGroupConfigRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		group, err = d.getGroup(ctx, d.Datastore.Pool, streamId, name)
 		return err
@@ -46,7 +46,7 @@ func (d *ConsumeDatastore) getGroup(ctx context.Context, q datastore.Querier, st
 // ListGroups lists the stream's consumer groups, ordered by name.
 func (d *ConsumeDatastore) ListGroups(ctx context.Context, streamId int64) ([]ConsumerGroupConfigRow, error) {
 	var groups []ConsumerGroupConfigRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		groups, err = d.listGroups(ctx, streamId)
 		return err
@@ -73,7 +73,7 @@ func (d *ConsumeDatastore) listGroups(ctx context.Context, streamId int64) ([]Co
 // places the cursor only when this call creates the row.
 func (d *ConsumeDatastore) RegisterGroup(ctx context.Context, streamId int64, name string, start consume.CursorPosition) (*ConsumerGroupConfigRow, error) {
 	var group *ConsumerGroupConfigRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		group, err = d.registerGroup(ctx, streamId, name, start)
 		return err
@@ -182,7 +182,7 @@ func (d *ConsumeDatastore) insertCursor(ctx context.Context, q datastore.Querier
 
 // DeleteGroup deletes the group and every row it owns in one transaction.
 func (d *ConsumeDatastore) DeleteGroup(ctx context.Context, streamId int64, groupId int64, name string) error {
-	return d.DatastoreRetry.Wrap(ctx, func() error {
+	return d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		return d.deleteGroup(ctx, streamId, groupId, name)
 	})
 }

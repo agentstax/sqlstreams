@@ -176,7 +176,7 @@ func (d *MessageConsumerGroupDatastore) quarantine(ctx context.Context, tx pgx.T
 // PartialCommit this expires the WHOLE lease immediately so the next
 // reclaim can pick it straight back up.
 func (d *MessageConsumerGroupDatastore) ForceReclaimRange(ctx context.Context, streamId int64, groupId int64, token pgtype.UUID) error {
-	return d.DatastoreRetry.Wrap(ctx, func() error {
+	return d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		return d.forceReclaimRange(ctx, streamId, groupId, token)
 	})
 }

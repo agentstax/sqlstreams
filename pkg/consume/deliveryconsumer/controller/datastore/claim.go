@@ -10,7 +10,7 @@ import (
 
 func (d *DeliveryConsumerGroupDatastore) ClaimMessagesWithLifecycle(ctx context.Context, streamId int64, groupId int64, limit int) ([]ExceptionQueueRow, error) {
 	var deliveries []ExceptionQueueRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapNonIdempotent(ctx, func() error {
 		var err error
 		deliveries, err = d.claimMessagesWithLifecycle(ctx, streamId, groupId, limit)
 		return err

@@ -496,12 +496,24 @@ reaches through `sqlstreams` (the alias closure) states its contract.
 
 ## Datastores
 
-- Every public datastore method is EXACTLY a `DatastoreRetry.Wrap` around a
-  same-named private method -- all SQL, scanning, and result shaping live in
-  the private, even for one-query reads. A method that runs inside a caller's
-  transaction cannot Wrap, and still keeps the pair: its public is a bare
-  pass-through (`return d.claimDueSchedule(ctx, q, id)`). Never collapse a
-  pair. File order is pair-by-pair per ## File layout.
+- Every public datastore method is EXACTLY a `DatastoreRetry.WrapIdempotent`
+  or `WrapNonIdempotent` around a same-named private method -- all SQL,
+  scanning, and result shaping live in the private, even for one-query
+  reads. A method that runs inside a caller's transaction cannot wrap, and
+  still keeps the pair: its public is a bare pass-through
+  (`return d.claimDueSchedule(ctx, q, id)`). Never collapse a pair. File
+  order is pair-by-pair per ## File layout.
+- The two verbs name the closure's property and differ in one class of
+  error: a connection lost after a statement shipped, whose commit is
+  unknown. `WrapIdempotent` retries it and is the verb for a read and for
+  a write the SQL guards against a second run -- a token match, ON
+  CONFLICT, IF NOT EXISTS, a predicate the first run emptied.
+  `WrapNonIdempotent` returns it to the caller and is the verb for a write
+  with no such guard (a fresh claim, an instance claim, a counter
+  increment, an outcome keyed without a token). The caller of a
+  non-idempotent write already owns the ambiguity: a claim loop claims
+  again, a producer resolves its idempotency key, a shutdown path rides
+  out lease expiry. There is no bare verb: every site states which.
 - Every scan-destination row struct tags each field `db:"column"` with the
   column or alias its query returns -- the tag is the field's column
   contract regardless of scan style. Write shapes, derived outcomes, and

@@ -9,7 +9,7 @@ import (
 
 // VacuumIdempotencyKeys makes deleted key storage reusable and refreshes planner statistics.
 func (d *VacuumDatastore) VacuumIdempotencyKeys(ctx context.Context, streamId int64) error {
-	return d.DatastoreRetry.Wrap(ctx, func() error {
+	return d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		return d.vacuumIdempotencyKeys(ctx, streamId)
 	})
 }

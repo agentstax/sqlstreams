@@ -17,7 +17,7 @@ import (
 // worker row is gone).
 func (d *WorkerDatastore) ClaimInstance(ctx context.Context, workerId int64, ttl time.Duration) (*WorkerInstanceRow, error) {
 	var claimed *WorkerInstanceRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapNonIdempotent(ctx, func() error {
 		var err error
 		claimed, err = d.claimInstance(ctx, workerId, ttl)
 		return err
@@ -100,7 +100,7 @@ func (d *WorkerDatastore) claimInstance(ctx context.Context, workerId int64, ttl
 
 // RenewInstance extends an instance the caller already holds.
 func (d *WorkerDatastore) RenewInstance(ctx context.Context, instanceId int64, token uuid.UUID, ttl time.Duration) error {
-	return d.DatastoreRetry.Wrap(ctx, func() error {
+	return d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		return d.renewInstance(ctx, instanceId, token, ttl)
 	})
 }
@@ -157,7 +157,7 @@ func (d *WorkerDatastore) renewInstance(ctx context.Context, instanceId int64, t
 
 // RecordInstanceSuccess resets the instance's consecutive-failure count.
 func (d *WorkerDatastore) RecordInstanceSuccess(ctx context.Context, instanceId int64, token uuid.UUID) error {
-	return d.DatastoreRetry.Wrap(ctx, func() error {
+	return d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		return d.recordInstanceSuccess(ctx, instanceId, token)
 	})
 }
@@ -184,7 +184,7 @@ func (d *WorkerDatastore) recordInstanceSuccess(ctx context.Context, instanceId 
 // returning the new count.
 func (d *WorkerDatastore) RecordInstanceFailure(ctx context.Context, instanceId int64, token uuid.UUID) (int, error) {
 	var attempts int
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapNonIdempotent(ctx, func() error {
 		var err error
 		attempts, err = d.recordInstanceFailure(ctx, instanceId, token)
 		return err
@@ -215,7 +215,7 @@ func (d *WorkerDatastore) recordInstanceFailure(ctx context.Context, instanceId 
 // ReleaseInstance removes the instance row immediately, so on a graceful
 // shutdown a replacement claims right away instead of waiting out expires_at.
 func (d *WorkerDatastore) ReleaseInstance(ctx context.Context, instanceId int64, token uuid.UUID) error {
-	return d.DatastoreRetry.Wrap(ctx, func() error {
+	return d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		return d.releaseInstance(ctx, instanceId, token)
 	})
 }
@@ -241,7 +241,7 @@ func (d *WorkerDatastore) releaseInstance(ctx context.Context, instanceId int64,
 // removed.
 func (d *WorkerDatastore) SweepExpiredInstances(ctx context.Context) (int64, error) {
 	var removed int64
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		removed, err = d.sweepExpiredInstances(ctx)
 		return err

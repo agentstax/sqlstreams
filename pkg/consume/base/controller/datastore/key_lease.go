@@ -21,7 +21,7 @@ import (
 // over, and the two runs can overlap until the old one returns.
 func (d *KeyLeaseDatastore) Claim(ctx context.Context, streamId int64, groupId int64, key string, messageId int64, compacted bool, policy common.ConcurrencyPolicy, ownLow int64, ownHigh int64, duration time.Duration, token pgtype.UUID) (*KeyLease, error) {
 	var claim *KeyLease
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		claim, err = d.claim(ctx, streamId, groupId, key, messageId, compacted, policy, ownLow, ownHigh, duration, token)
 		return err
@@ -215,7 +215,7 @@ func (d *KeyLeaseDatastore) claimOrdered(ctx context.Context, streamId int64, gr
 // row was taken over or deleted by the janitor.
 func (d *KeyLeaseDatastore) Release(ctx context.Context, claim *KeyLease) (bool, error) {
 	var released bool
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		released, err = d.release(ctx, d.Datastore.Pool, claim)
 		return err

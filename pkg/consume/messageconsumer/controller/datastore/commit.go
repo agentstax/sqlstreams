@@ -20,7 +20,7 @@ import (
 // The lease is freed FIRST, token-guarded -- so a reclaimed worker's stale
 // commit bails before writing any phantom exception rows.
 func (d *MessageConsumerGroupDatastore) Commit(ctx context.Context, streamId int64, groupId int64, token pgtype.UUID, outcomes []Outcome, initialBackoff time.Duration, deliveryLogMode stream.DeliveryLogMode) error {
-	return d.DatastoreRetry.Wrap(ctx, func() error {
+	return d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		return d.commit(ctx, streamId, groupId, token, outcomes, initialBackoff, deliveryLogMode)
 	})
 }
@@ -69,7 +69,7 @@ func (d *MessageConsumerGroupDatastore) commit(ctx context.Context, streamId int
 // resolved before an interruption. The lease token isn't freed, it
 // naturally expires and gets reclaimed.
 func (d *MessageConsumerGroupDatastore) PartialCommit(ctx context.Context, streamId int64, groupId int64, token pgtype.UUID, lastProcessed int64, outcomes []Outcome, initialBackoff time.Duration, deliveryLogMode stream.DeliveryLogMode) error {
-	return d.DatastoreRetry.Wrap(ctx, func() error {
+	return d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		return d.partialCommit(ctx, streamId, groupId, token, lastProcessed, outcomes, initialBackoff, deliveryLogMode)
 	})
 }

@@ -130,7 +130,7 @@ func (d *ProduceDatastore) createPartitionAhead(streamId int64, partitionSize in
 		ctx, cancel := context.WithTimeout(context.Background(), d.createAheadTimeout)
 		defer cancel()
 
-		err := d.DatastoreRetry.Wrap(ctx, func() error {
+		err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 			err := d.ensureCoveringPartition(ctx, streamId, partitionSize, next)
 			if isLockNotAvailable(err) {
 				return produce.ErrPartitionLockTimeout.Wrap(err)

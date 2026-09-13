@@ -13,7 +13,7 @@ import (
 // most batchSize rows each -- and returns how many were deleted in total.
 func (d *JanitorDatastore) SweepExpiredWaitingDeclarations(ctx context.Context, ttl time.Duration, batchSize int) (int64, error) {
 	var swept int64
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		swept, err = d.sweepExpiredWaitingDeclarations(ctx, ttl, batchSize)
 		return err

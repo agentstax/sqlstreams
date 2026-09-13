@@ -13,7 +13,7 @@ import (
 // receive. Scans only above the group's mark (cursor.committed), so
 // steady-state cost is O(new messages) per tick, not O(whole log).
 func (d *DeliveryConsumerGroupDatastore) FanOut(ctx context.Context, streamId int64, groupId int64, schemaVersion int64, limit int) error {
-	return d.DatastoreRetry.Wrap(ctx, func() error {
+	return d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		return d.fanOut(ctx, streamId, groupId, schemaVersion, limit)
 	})
 }

@@ -17,7 +17,7 @@ import (
 // snapshot in the same transaction. targetInstances is set at creation
 // only: 0 is how a worker is suspended, and a redeclaration would resume it.
 func (d *WorkerDatastore) RegisterWorker(ctx context.Context, name string, owner *common.Owner, metadata any, targetInstances int, declaredBy string) error {
-	return d.DatastoreRetry.Wrap(ctx, func() error {
+	return d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		return d.registerWorker(ctx, name, owner, metadata, targetInstances, declaredBy)
 	})
 }
@@ -136,7 +136,7 @@ func (d *WorkerDatastore) appendWorkerConfigLog(ctx context.Context, q datastore
 // system owner also reaches every row below it.
 func (d *WorkerDatastore) ListWorkers(ctx context.Context, owner *common.Owner) ([]ListWorkersRow, error) {
 	var workers []ListWorkersRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		workers, err = d.listWorkers(ctx, owner)
 		return err
@@ -190,7 +190,7 @@ func (d *WorkerDatastore) listWorkers(ctx context.Context, owner *common.Owner) 
 
 func (d *WorkerDatastore) ListConsumerGroupWorkers(ctx context.Context, consumerGroupId int64) ([]ListWorkersRow, error) {
 	var workers []ListWorkersRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		workers, err = d.listConsumerGroupWorkers(ctx, consumerGroupId)
 		return err
@@ -240,7 +240,7 @@ func (d *WorkerDatastore) listConsumerGroupWorkers(ctx context.Context, consumer
 // declared.
 func (d *WorkerDatastore) GetWorker(ctx context.Context, name string, owner *common.Owner) (*WorkerConfigRow, error) {
 	var workerConfigRow *WorkerConfigRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		workerConfigRow, err = d.getWorker(ctx, name, owner)
 		return err

@@ -14,7 +14,7 @@ import (
 // excludes its rows.
 func (d *ExceptionConsumerGroupDatastore) Claim(ctx context.Context, streamId int64, groupId int64, schemaVersion int64, limit int, maxRetries int, leaseDuration time.Duration, deliveryLogMode stream.DeliveryLogMode) ([]ExceptionQueueRow, error) {
 	var claimed []ExceptionQueueRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapNonIdempotent(ctx, func() error {
 		var err error
 		claimed, err = d.claim(ctx, streamId, groupId, schemaVersion, limit, maxRetries, leaseDuration, deliveryLogMode)
 		return err
@@ -195,7 +195,7 @@ func (d *ExceptionConsumerGroupDatastore) claim(ctx context.Context, streamId in
 // false -> the lease was taken over by another claim.
 func (d *ExceptionConsumerGroupDatastore) RenewLease(ctx context.Context, exception *ExceptionQueueRow, duration time.Duration) (bool, error) {
 	var renewed bool
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		renewed, err = d.renewLease(ctx, exception, duration)
 		return err

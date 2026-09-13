@@ -16,7 +16,7 @@ import (
 // step at or below it.
 func (d *MigrateDatastore) SystemSchemaState(ctx context.Context, systemId int64) (*SchemaStateRow, error) {
 	var state *SchemaStateRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		state, err = d.systemSchemaState(ctx, d.Datastore.Pool, systemId)
 		return err
@@ -68,7 +68,7 @@ func (d *MigrateDatastore) systemSchemaState(ctx context.Context, q datastore.Qu
 // or below it.
 func (d *MigrateDatastore) StreamSchemaState(ctx context.Context, streamId int64) (*SchemaStateRow, error) {
 	var state *SchemaStateRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		state, err = d.streamSchemaState(ctx, d.Datastore.Pool, streamId)
 		return err

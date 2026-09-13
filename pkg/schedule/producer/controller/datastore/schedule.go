@@ -14,7 +14,7 @@ import (
 // row is rechecked under its own lock before its JobRequest is produced.
 func (d *ScheduleProducerDatastore) ListDue(ctx context.Context) ([]int64, error) {
 	var ids []int64
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		ids, err = d.listDue(ctx)
 		return err

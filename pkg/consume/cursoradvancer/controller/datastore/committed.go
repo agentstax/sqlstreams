@@ -22,7 +22,7 @@ import (
 //	began -- so cursor comes back fresh, lease stale.
 func (d *CursorAdvancerDatastore) AdvanceCommitted(ctx context.Context, streamId int64, groupId int64) (int64, error) {
 	var committed int64
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		committed, err = d.advanceCommitted(ctx, streamId, groupId)
 		return err

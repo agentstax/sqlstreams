@@ -12,7 +12,7 @@ import (
 //   - the key gets another message -> that claim takes the row over
 //   - the key never does -> the row sits forever, only this sweep removes it
 func (d *JanitorDatastore) SweepExpiredKeyLeases(ctx context.Context, streamId int64, batchSize int) error {
-	return d.DatastoreRetry.Wrap(ctx, func() error {
+	return d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		return d.sweepExpiredKeyLeases(ctx, streamId, batchSize)
 	})
 }

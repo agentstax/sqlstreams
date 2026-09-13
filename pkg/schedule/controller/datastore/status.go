@@ -13,7 +13,7 @@ import (
 // schedule's messages. Counts cover the stream's retention window.
 func (d *ScheduleDatastore) Status(ctx context.Context, streamId int64, name string) ([]ScheduleConsumerGroupSummaryRow, error) {
 	var statuses []ScheduleConsumerGroupSummaryRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		statuses, err = d.status(ctx, streamId, name)
 		return err

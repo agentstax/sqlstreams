@@ -12,7 +12,7 @@ import (
 // (message, consumer group that receives it), newest message first.
 func (d *ScheduleDatastore) ListMessages(ctx context.Context, streamId int64, name string, limit int) ([]ScheduleMessageStatusRow, error) {
 	var requests []ScheduleMessageStatusRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		requests, err = d.listMessages(ctx, streamId, name, limit)
 		return err

@@ -7,7 +7,7 @@ import (
 
 func (d *WorkerDatastore) CurrentTime(ctx context.Context) (time.Time, error) {
 	var current time.Time
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		current, err = d.currentTime(ctx)
 		return err

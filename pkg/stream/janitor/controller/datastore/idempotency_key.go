@@ -10,7 +10,7 @@ import (
 
 // SweepExpiredIdempotencyKeys drains idempotency_key rows older than ttl for this stream.
 func (d *JanitorDatastore) SweepExpiredIdempotencyKeys(ctx context.Context, streamId int64, ttl time.Duration, batchSize int) error {
-	return d.DatastoreRetry.Wrap(ctx, func() error {
+	return d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		return d.sweepExpiredIdempotencyKeys(ctx, streamId, ttl, batchSize)
 	})
 }

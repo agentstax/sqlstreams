@@ -13,7 +13,7 @@ import (
 // (group, message); the message row is untouched and other groups are
 // unaffected.
 func (d *DeliveryConsumerGroupDatastore) RecordSuccess(ctx context.Context, delivery *ExceptionQueueRow, deliveryLogMode stream.DeliveryLogMode) error {
-	return d.DatastoreRetry.Wrap(ctx, func() error {
+	return d.DatastoreRetry.WrapNonIdempotent(ctx, func() error {
 		return d.recordSuccess(ctx, delivery, deliveryLogMode)
 	})
 }
@@ -62,7 +62,7 @@ func (d *DeliveryConsumerGroupDatastore) recordSuccess(ctx context.Context, deli
 // No retry backoff (the exception_queue table carries no can_run_after) -- a
 // 'ready' row is simply re-claimed on the next poll.
 func (d *DeliveryConsumerGroupDatastore) RecordFailure(ctx context.Context, maxAttempts int, delivery *ExceptionQueueRow, failureErr error, deliveryLogMode stream.DeliveryLogMode) error {
-	return d.DatastoreRetry.Wrap(ctx, func() error {
+	return d.DatastoreRetry.WrapNonIdempotent(ctx, func() error {
 		return d.recordFailure(ctx, maxAttempts, delivery, failureErr, deliveryLogMode)
 	})
 }
@@ -116,7 +116,7 @@ func (d *DeliveryConsumerGroupDatastore) recordFailure(ctx context.Context, maxA
 // just `WHERE consumer_group_id = $1 AND status = 'dead'`; one group can dead-letter a
 // message while another processes the same offset fine.
 func (d *DeliveryConsumerGroupDatastore) RecordTerminal(ctx context.Context, delivery *ExceptionQueueRow, terminalErr error, deliveryLogMode stream.DeliveryLogMode) error {
-	return d.DatastoreRetry.Wrap(ctx, func() error {
+	return d.DatastoreRetry.WrapNonIdempotent(ctx, func() error {
 		return d.recordTerminal(ctx, delivery, terminalErr, deliveryLogMode)
 	})
 }

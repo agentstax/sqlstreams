@@ -11,7 +11,7 @@ import (
 // SweepExpiredEmptyCompactionHeads drains idle compaction-head rows that do
 // not point at a message.
 func (d *JanitorDatastore) SweepExpiredEmptyCompactionHeads(ctx context.Context, streamId int64, ttl time.Duration, batchSize int) error {
-	return d.DatastoreRetry.Wrap(ctx, func() error {
+	return d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		return d.sweepExpiredEmptyCompactionHeads(ctx, streamId, ttl, batchSize)
 	})
 }

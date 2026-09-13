@@ -12,7 +12,7 @@ import (
 // ListKeyMessages reads messageKey's retained messages, newest first.
 func (d *CompactionDatastore) ListKeyMessages(ctx context.Context, streamId int64, messageKey string, limit int) ([]MessageLogRow, error) {
 	var messages []MessageLogRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		messages, err = d.listKeyMessages(ctx, streamId, messageKey, limit)
 		return err
@@ -48,7 +48,7 @@ func (d *CompactionDatastore) listKeyMessages(ctx context.Context, streamId int6
 // a row limit, ordered by created_at then id descending.
 func (d *CompactionDatastore) ListKeyMessagesByCreatedAt(ctx context.Context, streamId int64, messageKey string, start time.Time, end time.Time) ([]MessageLogRow, error) {
 	var messages []MessageLogRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		messages, err = d.listKeyMessagesByCreatedAt(ctx, streamId, messageKey, start, end)
 		return err

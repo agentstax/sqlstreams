@@ -8,7 +8,7 @@ import (
 )
 
 func (d *SystemDatastore) Delete(ctx context.Context) error {
-	return d.DatastoreRetry.Wrap(ctx, func() error {
+	return d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		return d.delete(ctx)
 	})
 }

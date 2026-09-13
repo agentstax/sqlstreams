@@ -12,7 +12,7 @@ import (
 // the lock in the gap between this check and a subsequent AcquireLock.
 func (d *MigrateDatastore) IsLocked(ctx context.Context) (bool, error) {
 	var locked bool
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		locked, err = d.isLocked(ctx)
 		return err

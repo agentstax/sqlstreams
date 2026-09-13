@@ -9,7 +9,7 @@ import (
 // worker_instance liveness.
 func (d *MetricDatastore) WorkerSnapshots(ctx context.Context) ([]WorkerSnapshotRow, error) {
 	var workers []WorkerSnapshotRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		workers, err = d.workerSnapshots(ctx)
 		return err

@@ -27,7 +27,7 @@ func (d *MigrateDatastore) TryRecordFailure(ctx context.Context, q datastore.Que
 	columns := datastore.NewOwnerColumns(*owner)
 
 	ctx = context.WithoutCancel(ctx)
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapNonIdempotent(ctx, func() error {
 		sql := fmt.Sprintf(`
 			-- sqlstreams: migrate.TryRecordFailure
 			INSERT INTO %[1]s.migration_log (system_id, stream_id, consumer_group_id, version, status, error) VALUES ($1, $2, $3, $4, 'failure', $5);

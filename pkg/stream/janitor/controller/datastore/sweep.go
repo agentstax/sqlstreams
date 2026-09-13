@@ -16,7 +16,7 @@ import (
 // enough to earn a whole-partition drop. Each batch requires its oldest row
 // to exceed ttl plus gracePeriod, then deletes rows using the ttl cutoff.
 func (d *JanitorDatastore) SweepExpiredPartitions(ctx context.Context, streamId int64, partitionSize int64, ttl time.Duration, gracePeriod time.Duration, allowDropPastCommitted bool, batchSize int, deliveryLogMode stream.DeliveryLogMode) error {
-	return d.DatastoreRetry.Wrap(ctx, func() error {
+	return d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		return d.sweepExpiredPartitions(ctx, streamId, partitionSize, ttl, gracePeriod, allowDropPastCommitted, batchSize, deliveryLogMode)
 	})
 }

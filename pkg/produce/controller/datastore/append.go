@@ -14,7 +14,7 @@ import (
 // attempt safe after an ambiguous commit instead of a double-publish.
 func (d *ProduceDatastore) AppendMessage[Message common.Versioned](ctx context.Context, streamId int64, partitionSize int64, produceFunc produce.ProducerFunc[Message], data *Append[Message]) (*Appended[Message], error) {
 	var appended *Appended[Message]
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		appended, err = d.appendMessage(ctx, streamId, partitionSize, produceFunc, data)
 		return err

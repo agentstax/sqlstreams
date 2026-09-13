@@ -99,7 +99,7 @@ func (d *CompactionDatastore) getHeadMessage(ctx context.Context, q iDatastore.Q
 // nil if the key has no head.
 func (d *CompactionDatastore) GetHead(ctx context.Context, streamId int64, messageKey string) (*MessageLogRow, error) {
 	var head *MessageLogRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		head, err = d.getHead(ctx, streamId, messageKey)
 		return err
@@ -144,7 +144,7 @@ func (d *CompactionDatastore) getHead(ctx context.Context, streamId int64, messa
 // message key.
 func (d *CompactionDatastore) ListHeads(ctx context.Context, streamId int64) ([]MessageLogRow, error) {
 	var heads []MessageLogRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		heads, err = d.listHeads(ctx, streamId)
 		return err

@@ -9,7 +9,7 @@ import (
 // its target stream and schedule state.
 func (d *MetricDatastore) ScheduleSnapshots(ctx context.Context) ([]ScheduleSnapshotRow, error) {
 	var schedules []ScheduleSnapshotRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		schedules, err = d.scheduleSnapshots(ctx)
 		return err

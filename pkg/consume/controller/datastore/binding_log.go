@@ -19,7 +19,7 @@ import (
 // sorted and deduplicated -- sets are compared element-wise.
 func (d *ConsumeDatastore) DeclareBindings(ctx context.Context, streamId int64, groupId int64, patterns []string, declaredBy string, declaredAt time.Time) (consume.BindingOutcome, error) {
 	var outcome consume.BindingOutcome
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		outcome, err = d.declareBindings(ctx, streamId, groupId, patterns, declaredBy, declaredAt)
 		return err
@@ -152,7 +152,7 @@ func (d *ConsumeDatastore) replaceBindings(ctx context.Context, tx pgx.Tx, strea
 // binding_config_log table.
 func (d *ConsumeDatastore) ListBindingConfigLog(ctx context.Context) ([]BindingConfigLogRow, error) {
 	var declarations []BindingConfigLogRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		declarations, err = d.listBindingConfigLog(ctx)
 		return err
@@ -181,7 +181,7 @@ func (d *ConsumeDatastore) listBindingConfigLog(ctx context.Context) ([]BindingC
 // and status.
 func (d *ConsumeDatastore) ListGroupBindingConfigLog(ctx context.Context, streamId int64, groupId int64) ([]BindingConfigLogRow, error) {
 	var declarations []BindingConfigLogRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		declarations, err = d.listGroupBindingConfigLog(ctx, streamId, groupId)
 		return err

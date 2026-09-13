@@ -24,6 +24,20 @@ the item is removed.
 
 ## Next
 
+- **PostgreSQL 15–18 compatibility matrix** -- complete further testing on
+  PostgreSQL 15 and 16, then publish the supported-version matrix with the
+  tested minor versions, verification evidence, and scope of the guarantee.
+  - Initial investigation: 102 integration tests across nine packages passed
+    with the race detector on 15.19, 16.15, 17.11, and 18.6. These results cover
+    a frozen source snapshot, not subsequent retry changes.
+  - Verify the settled revision, extending 15/16 coverage through the existing
+    signal E2E and applicable compatibility recipes. Keep databases isolated;
+    the shared-server integration override requires serialized packages
+    (`-p 1`) to avoid schema collisions and transaction-snapshot interference.
+  - Establish repeatable verification for 15–18 before publishing the matrix;
+    CI currently exercises only 18. Distinguish server-version compatibility
+    from PostgreSQL major upgrades and application schema-upgrade guarantees.
+
 - **Chocolatey approval and public-feed validation** [0791] -- sqlstreams
   0.1.2 was submitted successfully; last verified status on 2026-09-12 was
   Submitted/Pending, IsApproved=false. Address any moderator feedback.
@@ -405,6 +419,14 @@ Post-v1, unordered. Pick up only if a real workload demands it. Known
 dependencies: pgx-vs-database/sql should weigh LISTEN/NOTIFY's outcome if
 both are in play; presence heartbeat rows are the circuit breaker's
 prerequisite if quorum-as-a-fraction wins.
+
+- **Repeatable release assurance** — tie publication to successful verification
+  of the tagged revision, including applicable compatibility checks, and retain
+  installation results for supported distribution paths. Start with the existing
+  verification, signal, and compatibility recipes and recorded release evidence.
+  At pickup, settle how publication requires that evidence and which installation
+  checks run for each release; add automation only where the existing workflow
+  leaves a concrete gap.
 
 - **Two idempotency claim horizons** -- every produce writes an
   idempotency_key row, minted key or not, so `IdempotencyKeyTTL` is the

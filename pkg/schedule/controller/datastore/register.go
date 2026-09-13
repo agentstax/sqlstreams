@@ -14,7 +14,7 @@ import (
 // existing row takes the supplied config values.
 func (d *ScheduleDatastore) Register(ctx context.Context, systemId int64, streamId int64, name string, expression *schedule.ScheduleExpression, concurrency common.ConcurrencyPolicy, timeout time.Duration, payload any, schemaVersion int, metadata any) (*ScheduleConfigRow, error) {
 	var found *ScheduleConfigRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		found, err = d.register(ctx, systemId, streamId, name, expression, concurrency, timeout, payload, schemaVersion, metadata)
 		return err

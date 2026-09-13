@@ -10,7 +10,7 @@ import (
 // IsEmpty reports whether the stream's log holds any row at all.
 func (d *StreamDatastore) IsEmpty(ctx context.Context, streamId int64) (bool, error) {
 	var empty bool
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		empty, err = d.isEmpty(ctx, streamId)
 		return err
@@ -32,7 +32,7 @@ func (d *StreamDatastore) isEmpty(ctx context.Context, streamId int64) (bool, er
 }
 
 func (d *StreamDatastore) Delete(ctx context.Context, streamId int64, name string) error {
-	return d.DatastoreRetry.Wrap(ctx, func() error {
+	return d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		return d.delete(ctx, streamId, name)
 	})
 }

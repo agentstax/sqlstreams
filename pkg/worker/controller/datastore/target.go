@@ -11,7 +11,7 @@ import (
 )
 
 func (d *WorkerDatastore) UpdateTargetInstances(ctx context.Context, workerId int64, target int) error {
-	return d.DatastoreRetry.Wrap(ctx, func() error {
+	return d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		return d.updateTargetInstances(ctx, workerId, target)
 	})
 }

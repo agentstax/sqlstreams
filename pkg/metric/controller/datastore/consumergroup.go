@@ -13,7 +13,7 @@ import (
 // (streamId, consumerGroupId).
 func (d *MetricDatastore) ConsumerGroupSnapshot(ctx context.Context, streamId int64, consumerGroupId int64) (*ConsumerGroupSnapshotRow, error) {
 	var snapshot *ConsumerGroupSnapshotRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		snapshot, err = d.consumerGroupSnapshot(ctx, streamId, consumerGroupId)
 		return err
@@ -90,7 +90,7 @@ func (d *MetricDatastore) consumerGroupSnapshot(ctx context.Context, streamId in
 // ListConsumerGroups is every group's id and name on streamId, ordered by name.
 func (d *MetricDatastore) ListConsumerGroups(ctx context.Context, streamId int64) ([]ConsumerGroupIdentityRow, error) {
 	var groups []ConsumerGroupIdentityRow
-	err := d.DatastoreRetry.Wrap(ctx, func() error {
+	err := d.DatastoreRetry.WrapIdempotent(ctx, func() error {
 		var err error
 		groups, err = d.listConsumerGroups(ctx, streamId)
 		return err
