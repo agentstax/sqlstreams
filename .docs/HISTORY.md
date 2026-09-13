@@ -13,6 +13,17 @@ override, and uses the current signal-e2e recipe for shutdown checks.
 The bug issue template requests SQLnnnn diagnostic codes. Checked against
 the integration test setup, recipe definitions, and error declarations.
 
+## 2026-09-12 — The message consumer's permit pool is the weighted semaphore
+
+`WorkerPoolLimiter` appended each permit's owner to a slice under a mutex
+and deleted it on release, and nothing read the slice; its `PoolLimiter`
+interface had one implementation and no seam. The type and its owner
+parameter are deleted and the runner holds `semaphore.Weighted` directly,
+sized by the config's already-validated `MessageConcurrency`. The queue's
+broadcast-signal idea left the code for the ROADMAP parking lot.
+Verified by build, vet, `go test -race` on the touched packages, and the
+conventions checks.
+
 ## 2026-09-12 — Ambiguous-outcome retries are opted into per datastore write [0793]
 
 `DatastoreRetry.Wrap` retried every transient SQLSTATE, including the

@@ -420,6 +420,13 @@ dependencies: pgx-vs-database/sql should weigh LISTEN/NOTIFY's outcome if
 both are in play; presence heartbeat rows are the circuit breaker's
 prerequisite if quorum-as-a-fraction wins.
 
+- **Several prefetchers per consumer instance** -- the pressure queue's
+  dequeued signal is a one-slot channel built for a single prefetcher; a
+  broadcast signal (one dequeue waking every waiting prefetcher) would
+  let an instance run more than one claim loop and overlap more claim
+  round trips at the high end. Pick up only if a measured workload shows
+  the single prefetcher as the ceiling.
+
 - **Repeatable release assurance** — tie publication to successful verification
   of the tagged revision, including applicable compatibility checks, and retain
   installation results for supported distribution paths. Start with the existing

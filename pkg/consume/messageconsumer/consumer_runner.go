@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"sync"
 	"time"
-	"uuid"
 
 	"github.com/allegedlyreliable/sqlstreams/pkg/common"
 	"github.com/allegedlyreliable/sqlstreams/pkg/common/concurrency"
@@ -18,13 +17,14 @@ import (
 	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
 	workercontroller "github.com/allegedlyreliable/sqlstreams/pkg/worker/controller"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
 )
 
 type messageRunner[Message common.Versioned] struct {
 	*consumebase.BaseConsumer[Message]
 
 	consumers   *controller.MessageConsumerGroupController
-	poolLimiter concurrency.PoolLimiter
+	permits     *semaphore.Weighted // one permit per in-flight message
 	buffer      *claimBuffer
 	groupConfig *configState
 }
@@ -44,11 +44,6 @@ func newMessageRunner[Message common.Versioned](base *consumebase.BaseConsumer[M
 	if err != nil {
 		return nil, err
 	}
-	poolLimiter, err := concurrency.NewWorkerPoolLimiter(cfg.MessageConcurrency)
-	if err != nil {
-		return nil, err
-	}
-
 	// only DeliveryLogModeAll wants success outcomes collected at commit
 	buffer, err := newClaimBuffer(queue, base.Stream.DeliveryLogMode == stream.DeliveryLogModeAll)
 	if err != nil {
@@ -63,7 +58,7 @@ func newMessageRunner[Message common.Versioned](base *consumebase.BaseConsumer[M
 	return &messageRunner[Message]{
 		BaseConsumer: base,
 		consumers:    consumers,
-		poolLimiter:  poolLimiter,
+		permits:      semaphore.NewWeighted(int64(cfg.MessageConcurrency)),
 		buffer:       buffer,
 		groupConfig:  groupConfig,
 	}, nil
@@ -261,19 +256,18 @@ func (r *messageRunner[Message]) refreshConfig(ctx context.Context) error {
 
 func (r *messageRunner[Message]) dispatch(ctx context.Context, wg *sync.WaitGroup) error {
 	for {
-		permitOwner := uuid.NewV7()
-		if err := r.poolLimiter.WaitForPermit(ctx, permitOwner.String()); err != nil {
+		if err := r.permits.Acquire(ctx, 1); err != nil {
 			return err // ctx cancelled -- shutdown
 		}
 
 		item, err := r.buffer.waitForNext(ctx)
 		if err != nil {
-			r.poolLimiter.ReleasePermit(ctx, permitOwner.String()) // best effort
-			return err                                             // ctx cancelled -- shutdown
+			r.permits.Release(1)
+			return err // ctx cancelled -- shutdown
 		}
 
 		wg.Go(func() {
-			defer r.poolLimiter.ReleasePermit(ctx, permitOwner.String())
+			defer r.permits.Release(1)
 			r.processChain(ctx, item)
 		})
 	}

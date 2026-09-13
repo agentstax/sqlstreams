@@ -13,7 +13,6 @@ type Queue[WorkType any] interface {
 	DeQueue(ctx context.Context) (*WorkType, error)
 }
 
-// TODO - might want to play around with the idea of a 'broadcast' signal (ie one signal many listeners) to allow many prefetchers, might improve throughput at high ends
 type PressureQueue[WorkType any] struct {
 	queue          chan *WorkType
 	dequeuedSignal chan *WorkType // dequeuedSignal design assumes a singleton with prefetcher
