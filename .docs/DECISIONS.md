@@ -589,3 +589,4 @@ in `.docs/DECISION_MAP.md` routes a question to its records.
 - 0789 2026-09-12 accepted (pre-v1) — Compatibility checkpoints use the published prior client on current tables
 - 0790 2026-09-12 superseded (pre-v1) — Chocolatey publishes stable tags and checks snapshot installation on Windows
 - 0791 2026-09-12 accepted (pre-v1) — Chocolatey tests the generated package before submission
+- 0792 2026-09-12 accepted (pre-v1) — A consumer claim loop warns on a transient fault and ends on a permanent one

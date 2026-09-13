@@ -219,3 +219,9 @@ var EventConsumerStopped = diagnostic.NewDiagnosticEvent("SQL0041",
 var EventQueuedRangeStale = diagnostic.NewDiagnosticEvent("SQL0105",
 	"queued message has insufficient lease time",
 	"range waits for reclaim; successful handlers in the range can repeat")
+
+// EventMessagesNotClaimed means a claim did not land for a reason an
+// unchanged retry can fix; a permanent cause ends Consume instead.
+var EventMessagesNotClaimed = diagnostic.NewDiagnosticEvent("SQL0108",
+	"could not claim messages",
+	"the next claim waits one poll rate")

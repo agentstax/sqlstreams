@@ -23,6 +23,7 @@ var (
 	EventLeaseReclaimed               = consume.EventLeaseReclaimed
 	EventMessageDeadLettered          = consume.EventMessageDeadLettered
 	EventMessagesDeadLettered         = consume.EventMessagesDeadLettered
+	EventMessagesNotClaimed           = consume.EventMessagesNotClaimed
 	EventRangeQuarantined             = consume.EventRangeQuarantined
 	EventSlowDispatch                 = consume.EventSlowDispatch
 	EventQueuedRangeStale             = consume.EventQueuedRangeStale

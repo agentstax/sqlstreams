@@ -1312,6 +1312,11 @@
       "problem": "worker is suspended",
       "recovery": "permanent",
       "fix": "stop this execution; unsuspend the worker to allow a new claim"
+    },
+    "SQL0108": {
+      "code": "SQL0108",
+      "kind": "event",
+      "message": "could not claim messages -- the next claim waits one poll rate"
     }
   }
 }

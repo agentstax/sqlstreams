@@ -172,7 +172,13 @@ func (r *messageRunner[Message]) prefetch(ctx context.Context) error {
 				return err
 			}
 
-			// potential db blip -- back off instead of hot-looping the claim
+			// an unchanged retry cannot succeed -> the session ends with the cause
+			if !common.IsTransientDatastoreError(err) {
+				return err
+			}
+
+			// the retry curve is spent -- back off one poll rate instead of hot-looping the claim
+			r.Logger.WarnContext(ctx, consume.EventMessagesNotClaimed.Message(), "code", consume.EventMessagesNotClaimed.GetCode(), "group", r.Owner.Name, "stream_id", r.Stream.Id, "worker", WorkerMessageConsumer, "delay", cfg.ClaimPollRate, "error", err)
 			if err := sleepWithContext(ctx, cfg.ClaimPollRate); err != nil {
 				return err
 			}

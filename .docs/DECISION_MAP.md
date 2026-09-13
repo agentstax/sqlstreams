@@ -6,7 +6,7 @@ stray). Bodies live at `.docs/decisions/NNNN-<slug>.md`; status and title
 are in `.docs/DECISIONS.md`. A new record adds its number to its line.
 
 - claim, lease, cursor, claimed/committed, reclaim, snapshot fence, FOR UPDATE SKIP LOCKED: 0001-0005 0041-0047 0061-0067 0101-0107 0141-0145 0161-0166 0387-0396 0616 0685 0710 0714 0715 0733
-- retry, backoff, dead-letter, exception path, work timeout, panic, abandoned goroutine: 0042-0043 0181-0192 0281-0294 0399-0400 0614-0615 0670 0781
+- retry, backoff, dead-letter, exception path, work timeout, panic, abandoned goroutine: 0042-0043 0181-0192 0281-0294 0399-0400 0614-0615 0670 0781 0792
 - routing key, bindings, fan-out, wildcard, binding_log TTL: 0201-0208 0242 0389-0393 0511 0573
 - partitions, retention, janitor, create-ahead, heal, drop floor: 0221-0227 0378-0384 0428 0512-0513 0620 0659-0660 0662-0663 0734 0735 0738 0739 0759
 - stream catalog, schema version, rename, alter, per-stream tables, table names, LIST/RANGE subpartitioning: 0241-0248 0348-0353 0401-0411 0570-0572 0611 0613 0618 0624 0628 0667 0668 0669 0757
@@ -15,7 +15,7 @@ are in `.docs/DECISIONS.md`. A new record adds its number to its line.
 - synchronous_commit, crash lab, bench method, benchmark runner, ledger and checker, scenario file, drain, safety checks: 0081-0086 0687 0696 0697 0711 0713 0723 0745 0746 0747 0748 0749 0750 0751 0753 0754 0755 0767 0779
 - errors (VK codes, fix, diagnose), logging (levels, buffer, suppression, stop line), metrics declarations, collector poll rate, export freshness, otel, Prometheus, payload never logged: 0302-0305 0326 0522-0524 0550-0554 0558-0569 0589-0590 0647-0648 0661 0666 0670 0678 0682-0684 0686 0688 0689 0705 0706 0707 0708 0717 0758
 - migrations, schema versioning, advisory lock, MinCompatibleVersion, Postgres schema/search_path, prior-release compatibility lab: 0341-0347 0501 0526-0527 0579-0580 0588 0629-0632 0650 0789
-- workers, worker_instance, system manager, liveness, instance target, Run loop, fatal consumption errors: 0421-0431 0537 0545-0549 0627 0635-0642 0671 0700 0701 0702 0740 0741 0742 0743 0744 0779 0780 0781 0783
+- workers, worker_instance, system manager, liveness, instance target, Run loop, fatal consumption errors: 0421-0431 0537 0545-0549 0627 0635-0642 0671 0700 0701 0702 0740 0741 0742 0743 0744 0779 0780 0781 0783 0792
 - schedules, cron, missed runs, job status: 0461-0473 0621
 - alerts, checks, __system.alerts, repeat interval, history-derived pending, collector progress, restart gaps, bounded history, storage time, evaluation cadence: 0481-0490 0516 0520 0627 0649 0658 0683-0684 0686 0688 0689 0690 0692 0693 0694 0695 0698 0699 0700 0701 0702 0703 0704 0709
 - circuit breaker, error_class, reconciliation: 0502-0506
