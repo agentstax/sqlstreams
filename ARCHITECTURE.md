@@ -58,12 +58,12 @@ Library packages are one of three kinds; all except `client/` live under `pkg/`:
 | Kind | Packages |
 | --- | --- |
 | shared by everything | `common` (Owner, Message, RetryPolicy, errors, logging), `datastore` (pool, transactions) |
-| one per resource or activity | `stream`, `produce`, `consume`, `compaction`, `schedule`, `worker`, `metrics`, `alert`, `system`, `migrate` |
+| one per resource or activity | `stream`, `produce`, `consume`, `compaction`, `schedule`, `worker`, `metric`, `alert`, `system`, `migrate` |
 | the three boxes on the left, no SQL of their own | `client/` (package `sqlstreams`), `producer`, `consumer`, `scheduler`, `systemmanager`, `admin` |
 
 The workers the system manager runs are under the package whose tables
 they maintain: `stream/janitor`, `consume/janitor`,
-`consume/cursoradvancer`, `schedule/producer`, `metrics/collector`, and
+`consume/cursoradvancer`, `schedule/producer`, `metric/collector`, and
 the checks under `alert`.
 
 ## Invariants
