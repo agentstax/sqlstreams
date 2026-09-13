@@ -10,7 +10,7 @@ ledger was created; dates come from the phase git tags.
 The upgrade guide and contributor rules maintain the latest stable release
 only and retain deprecated public APIs through at least one subsequent minor
 release, with announced replacements and explicit urgent security exceptions.
-.github/SECURITY.md directs private reports to GitHub and sets a seven-day
+SECURITY.md directs private reports to GitHub and sets a seven-day
 acknowledgment target. GitHub's reporting setting was verified already enabled;
 README and CONTRIBUTING link the policy. Further PostgreSQL verification stays
 in Next, and evidence for the next real schema migration is recorded in Later.

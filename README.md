@@ -166,7 +166,7 @@ Read ideally in this order.
 - [Architecture](ARCHITECTURE.md)
 - [Developing](DEVELOPING.md)
 - [Contributing](CONTRIBUTING.md)
-- [Security policy](.github/SECURITY.md)
+- [Security policy](SECURITY.md)
 - [Conventions](CONVENTIONS.md)
 
 ## License

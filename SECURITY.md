@@ -19,4 +19,4 @@ receive fixes. Stable means a release without a prerelease suffix, including
 stable v0.x releases.
 
 For ordinary bugs, use the public issue process in
-[CONTRIBUTING.md](../CONTRIBUTING.md).
+[CONTRIBUTING.md](CONTRIBUTING.md).

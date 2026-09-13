@@ -7,7 +7,7 @@ including during v0.x development.
 ## Bugs
 
 Report suspected vulnerabilities privately using the
-[security policy](.github/SECURITY.md).
+[security policy](SECURITY.md).
 
 Open an issue with the SQLStreams and Postgres versions and the error or log
 line.
