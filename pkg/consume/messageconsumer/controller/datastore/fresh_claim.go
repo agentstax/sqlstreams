@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume"
 	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
 	"github.com/jackc/pgx/v5"
 )
@@ -106,7 +107,7 @@ func (d *MessageConsumerGroupDatastore) freshClaimMessagesWithCursor(ctx context
 		if errors.Is(err, pgx.ErrNoRows) {
 			// if we didnt error a consumer with no cursor row would otherwise
 			// poll forever looking caught up while messages accumulate
-			return nil, fmt.Errorf("no cursor for group %d on stream %d -- was Register called?", groupId, streamId)
+			return nil, consume.ErrConsumerNotFound.With("group_id", groupId, "stream_id", streamId)
 		}
 
 		return nil, err

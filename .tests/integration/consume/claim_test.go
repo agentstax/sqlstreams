@@ -1,9 +1,11 @@
 package consume
 
 import (
+	"errors"
 	"testing"
 	"time"
 
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume"
 	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
 )
 
@@ -142,5 +144,25 @@ func TestCaughtUpClaimsDoNotAllocateTransactionIds(t *testing.T) {
 	}
 	if after != before+1 {
 		t.Fatalf("transaction ids allocated by three caught-up claims = %d, want 0", after-before-1)
+	}
+}
+
+func TestClaimForUnregisteredGroupReturnsConsumerNotFound(t *testing.T) {
+	// setup: a group id no Register created, so the stream holds no cursor row for it
+	groups, consumer := newMessageConsumerDatastore(t)
+	deliveries := newDeliveryConsumerDatastore(t, groups)
+	ctx := t.Context()
+	unregistered := consumer.Id + 1000
+
+	// test
+	_, claimErr := groups.ClaimMessagesWithCursor(ctx, consumer.StreamId, unregistered, 1, 100, 3, time.Minute, stream.DeliveryLogModeFailures)
+	fanOutErr := deliveries.FanOut(ctx, consumer.StreamId, unregistered, 1, 100)
+
+	// verify
+	if !errors.Is(claimErr, consume.ErrConsumerNotFound) {
+		t.Errorf("ClaimMessagesWithCursor(group %d) = %v, want ErrConsumerNotFound", unregistered, claimErr)
+	}
+	if !errors.Is(fanOutErr, consume.ErrConsumerNotFound) {
+		t.Errorf("FanOut(group %d) = %v, want ErrConsumerNotFound", unregistered, fanOutErr)
 	}
 }

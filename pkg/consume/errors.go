@@ -28,6 +28,15 @@ SELECT
 	created_at
 FROM {schema}.consumer_group_config
 WHERE id = {group_id};`),
+	diagnostic.NewDiagnosticQuery("the group's cursor row on this stream, which every claim reads", `
+SELECT
+	id,
+	consumer_group_id,
+	claimed,
+	committed,
+	settled_head
+FROM {schema}.consumer_group_cursor_{stream_id}
+WHERE consumer_group_id = {group_id};`),
 )
 
 // ErrConsumerGroupLive means Destroy was called while a worker instance still runs

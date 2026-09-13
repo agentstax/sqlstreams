@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume"
 	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
 	"github.com/jackc/pgx/v5"
 )
@@ -36,7 +37,7 @@ func (d *DeliveryConsumerGroupDatastore) fanOut(ctx context.Context, streamId in
 	var snapshotXmax string
 	if err := d.Datastore.Pool.QueryRow(ctx, snapshotSql, groupId).Scan(&snapshotHead, &snapshotXmax, &committed, &pendingHead); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return fmt.Errorf("no cursor for group %d on stream %d -- was Register called?", groupId, streamId)
+			return consume.ErrConsumerNotFound.With("group_id", groupId, "stream_id", streamId)
 		}
 		return err
 	}
@@ -173,7 +174,7 @@ func (d *DeliveryConsumerGroupDatastore) fanOut(ctx context.Context, streamId in
 	}
 	if tag.RowsAffected() == 0 {
 		// cursor row deleted between the two statements
-		return fmt.Errorf("no cursor for group %d on stream %d -- was Register called?", groupId, streamId)
+		return consume.ErrConsumerNotFound.With("group_id", groupId, "stream_id", streamId)
 	}
 
 	return nil

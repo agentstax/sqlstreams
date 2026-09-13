@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/allegedlyreliable/sqlstreams/pkg/consume"
 	"github.com/allegedlyreliable/sqlstreams/pkg/stream"
 	"github.com/jackc/pgx/v5"
 )
@@ -86,7 +87,7 @@ func (d *MessageConsumerGroupDatastore) readClaimSnapshot(ctx context.Context, s
 		if errors.Is(err, pgx.ErrNoRows) {
 			// a consumer with no cursor row would otherwise poll forever
 			// looking caught up while messages accumulate
-			return ClaimSnapshotRow{}, fmt.Errorf("no cursor for group %d on stream %d -- was Register called?", groupId, streamId)
+			return ClaimSnapshotRow{}, consume.ErrConsumerNotFound.With("group_id", groupId, "stream_id", streamId)
 		}
 		return ClaimSnapshotRow{}, err
 	}
