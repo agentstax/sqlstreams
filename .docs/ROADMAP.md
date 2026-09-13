@@ -51,6 +51,15 @@ the item is removed.
 
 ## Later
 
+- **Upgrade evidence for the next real schema change** [0794] -- when a real
+  migration is selected, extend the existing compatibility and integration
+  recipes to verify old/new binary behavior against its declared compatibility
+  floor, preservation of existing messages and consumer progress, and recovery
+  after interrupting and restarting the migration. Retain the results with the
+  release and update the upgrade guide's compatibility table. Do not add a
+  synthetic migration solely to demonstrate this; the current registries have
+  no migration steps.
+
 - **Distribution follow-ups** -- notarization and Authenticode remain
   deferred until raw release downloads need signing; the Homebrew cask
   currently strips its quarantine attribute. winget and scoop remain

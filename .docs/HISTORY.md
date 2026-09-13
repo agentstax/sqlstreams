@@ -5,6 +5,18 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-12 — Release maintenance and private security reporting documented [0794]
+
+The upgrade guide and contributor rules maintain the latest stable release
+only and retain deprecated public APIs through at least one subsequent minor
+release, with announced replacements and explicit urgent security exceptions.
+.github/SECURITY.md directs private reports to GitHub and sets a seven-day
+acknowledgment target. GitHub's reporting setting was verified already enabled;
+README and CONTRIBUTING link the policy. Further PostgreSQL verification stays
+in Next, and evidence for the next real schema migration is recorded in Later.
+Verified by the site build, targeted Prettier, remark, and Vale checks, and
+git diff --check. Documentation remains in the working tree pending release.
+
 ## 2026-09-12 — Contributor testing instructions and diagnostic codes corrected
 
 DEVELOPING.md now directs database tests through just test-integration,

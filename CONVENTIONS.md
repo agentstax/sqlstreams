@@ -156,6 +156,17 @@ once, in the lowest package that reads it, with a floor:
 - Every reachable declaration states its contract in its comment; the
   rules are under ## Comments.
 
+## Release maintenance and deprecation
+
+- Maintain only the latest stable release; deliver bug and security fixes
+  in a new release, with no promised backports to older lines.
+- Before removing or incompatibly changing a supported public API, announce
+  its deprecation in release notes, mark affected Go declarations with
+  `Deprecated:`, and document the replacement and migration steps. Keep it
+  working through at least one subsequent minor release, including during
+  v0.x development. An urgent security exception states its reason and
+  migration steps in the release notes.
+
 ## Structure
 
 - Extend existing machinery, never build a parallel mechanism beside it.

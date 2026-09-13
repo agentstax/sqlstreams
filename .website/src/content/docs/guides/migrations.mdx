@@ -11,6 +11,30 @@ migrating schema. This page is the contract for how that works: what a
 version is, which upgrades are safe to roll, and how a binary refuses —
 early and legibly — when it can't run against what it finds.
 
+## Release maintenance and deprecation
+
+SQLStreams maintains the latest stable release only. Bug and security fixes
+arrive in a new release; older releases have no promised backports. Upgrade
+to receive fixes. Stable means a release without a prerelease suffix,
+including stable v0.x releases.
+
+The supported Go API is `client` and the exported fields and methods reachable
+through its types, parameters, and results. Other packages remain importable
+for advanced use without a stability commitment.
+
+For future releases, removing or incompatibly changing a supported public API
+requires a deprecation notice in the release notes, affected Go declarations
+marked with `Deprecated:`, and a replacement with migration steps. The
+deprecated API keeps working through at least one subsequent minor release.
+For example, an API deprecated in v0.2.0 stays available throughout v0.3.x;
+v0.4.0 is the earliest removal under this policy. These version numbers
+illustrate the notice period, not scheduled releases.
+
+An urgent security fix may shorten that notice period. Its release notes
+explain the exception and the migration users need to make.
+Report suspected vulnerabilities through the
+[security policy](https://github.com/allegedlyreliable/sqlstreams/blob/main/.github/SECURITY.md).
+
 ## Two version counters
 
 The schema versions in two independent scopes, both starting at v1:

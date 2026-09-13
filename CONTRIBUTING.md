@@ -1,9 +1,13 @@
 # Contributing
 
-Setup is in [DEVELOPING.md](DEVELOPING.md). SQLStreams is
-pre-v1, so the public API can change between releases.
+Setup is in [DEVELOPING.md](DEVELOPING.md). Release maintenance and public API
+deprecation follow the [upgrade policy](.website/src/content/docs/guides/migrations.mdx#release-maintenance-and-deprecation),
+including during v0.x development.
 
 ## Bugs
+
+Report suspected vulnerabilities privately using the
+[security policy](.github/SECURITY.md).
 
 Open an issue with the SQLStreams and Postgres versions and the error or log
 line.
