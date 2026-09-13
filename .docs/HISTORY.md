@@ -5,6 +5,29 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-12 — Contributor testing instructions and diagnostic codes corrected
+
+DEVELOPING.md now directs database tests through just test-integration,
+explains automatic Postgres containers and the optional existing-server
+override, and uses the current signal-e2e recipe for shutdown checks.
+The bug issue template requests SQLnnnn diagnostic codes. Checked against
+the integration test setup, recipe definitions, and error declarations.
+
+## 2026-09-12 — Unit tests pin the consumer's in-process range bookkeeping
+
+`pkg/consume` carried no unit test; the integration suite pinned the SQL
+promises and nothing pinned the in-memory ones beside them. Nine tests now
+sit beside `range_state.go` and `claim_buffer.go`: the contiguous partial
+commit stops at the lowest unresolved row, the snapshot goes to exactly
+one caller without a premature call spending it, success outcomes are
+collected only under DeliveryLogModeAll, an ordered key queues one chain
+head and defers the rest behind a failure, removeAll fences late
+resolvers, neverDispatched flips on the first dequeue, and markStale
+records once. One synctest test beside `queue.go` pins WaitForRoom's
+debounce and dequeue wake. Sabotaged (the contiguous walk's break turned
+into continue) before trusted. Verified by vet, `go test -race`, and the
+conventions checks.
+
 ## 2026-09-12 — Consumer claim loops end on a permanent fault, warn on a transient one [0792]
 
 The message consumer's prefetch loop swallowed every non-cancel claim
