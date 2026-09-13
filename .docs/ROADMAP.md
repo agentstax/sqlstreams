@@ -16,51 +16,31 @@ the item is removed.
 
 ## Now
 
-- **Release pipeline, dependency scanning, and package managers** -- finish
-  Chocolatey; release, Homebrew, Go modules, and dependency-scanning proofs
-  are recorded in HISTORY. Remaining execution is in TODO.
-  - Root and CLI archive v0.1.1 are public at e4a768ba. Release run
-    34722343301 passes, publishes all six archives/checksums, and writes
-    the Homebrew cask. Tap commit 44e16a1d and the installed macOS arm64
-    binary prove installation and version 0.1.1 [0788]. HISTORY holds the
-    earlier no-secret prerelease proof and the v0.1.0 template failure.
-  - OTel v0.1.1 is published at fe29a31f and CLI v0.1.1 at 9b575408 [0786].
-    A fresh external OTel/root consumer and versioned CLI go install pass;
-    the installed CLI reports v0.1.1 and stable root/OTel without replaces.
-    All six active nested modules pin root v0.1.1; CLI also pins stable
-    OTel. Standalone checks pass and READMEs show the verified install paths.
-  - Dependabot version updates cover all seven active Go modules in one
-    monthly group with a seven-day cooldown, plus npm and Actions [0787].
-    All three ecosystem jobs passed; Go opened one grouped PR. Alerts,
-    automatic security updates, and grouped security updates are enabled.
-    Commit 06012764 resolved all 21 observed alerts; current open count is
-    zero. CI 34720013444 and graph refresh 34720015382 pass. PRs #7–10
-    are closed. Routine version-update PRs #1 and #11 remain open.
-  - The fresh-DB signal suite, full just verify, and published-RC
-    compatibility round-trip passed at the v0.1.0 checkpoint [0789]. Both
-    schemas remain v1; v0.1.1 changes credential templates only. The
-    separately pinned compatibility driver retains the RC. HISTORY and
-    the migration table record the tested pair and limits of that proof.
-  - The documentation origin is sqlstreams.io [0782] [0784]. Homebrew
-    publishes stable releases only [0788]. The Chocolatey account and key
-    are configured. Stable-only package generation and install/test/push
-    are prepared [0791]: the Windows runner tests against published GitHub
-    archives before submitting the same nupkg. The next stable release
-    must prove that sequence, followed by first-package moderation.
-  - Signing remains deferred. The cask strips Homebrew's quarantine
-    attribute; notarization and Authenticode remain later work. winget
-    and scoop are optional later additions.
-
-## Next
-
-
 - **Search-engine submission** -- after the doc-site sitemap is deployed,
   verify the canonical site property in Google Search Console and Bing
   Webmaster Tools, submit the sitemap in each service (or import the verified
   Google property into Bing), and record the exact operator steps and initial
   indexing result so a future domain move or deployment can repeat them.
 
+## Next
+
+- **Chocolatey approval and public-feed validation** [0791] -- sqlstreams
+  0.1.2 was submitted successfully; last verified status on 2026-09-12 was
+  Submitted/Pending, IsApproved=false. Address any moderator feedback.
+  After approval, use a clean Windows runner to install from the public
+  feed with `choco install sqlstreams --version=0.1.2 --yes`, verify
+  `sqlstreams --version` reports 0.1.2, and verify uninstall. Then add the
+  Chocolatey install command to READMEs/docs and record the final proof in
+  HISTORY. Packaging, checksum-backed installation from the generated
+  nupkg, version output, uninstall, and submission already pass in
+  [release run 34724932748](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34724932748).
+
 ## Later
+
+- **Distribution follow-ups** -- notarization and Authenticode remain
+  deferred until raw release downloads need signing; the Homebrew cask
+  currently strips its quarantine attribute. winget and scoop remain
+  optional package-manager additions.
 
 - **Attribute the idle fleet's remaining Postgres CPU** [0779] [0781] [0783].
   After the idle-fleet fix, 990 rows on one replica still idle at 0.66

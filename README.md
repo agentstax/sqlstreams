@@ -137,7 +137,7 @@ brew install --cask allegedlyreliable/tap/sqlstreams
 sqlstreams --version
 ```
 
-Platform archives are available from [GitHub Releases](https://github.com/allegedlyreliable/sqlstreams/releases/tag/v0.1.1).
+Platform archives are available from [GitHub Releases](https://github.com/allegedlyreliable/sqlstreams/releases/tag/v0.1.2).
 Or install the CLI with Go:
 
 ```sh

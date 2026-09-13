@@ -5,6 +5,48 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
+## 2026-09-12 — Release pipeline task closed [0785] [0786] [0787] [0788] [0789] [0791]
+
+The original release-pipeline, dependency-scanning, and package-manager
+roadmap item is complete: CLI releases, stable Go module publication,
+Dependabot coverage/security remediation, Homebrew installation, release
+compatibility checks, and Chocolatey installation/submission are proved
+in the entries below. Its active TODO and Now roadmap item are removed.
+Chocolatey moderator approval and subsequent public-feed validation move
+to a focused Next item, including the final installation documentation.
+Optional signing and additional package managers remain Later work.
+
+## 2026-09-12 — Chocolatey installation and submission verified [0791]
+
+[v0.1.2](https://github.com/allegedlyreliable/sqlstreams/releases/tag/v0.1.2)
+names 3fbfbe3e6cc5bee8698af217bd401829aa9a5755. Main-push
+[CI 34724910513](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34724910513)
+and Windows [release run 34724932748](https://github.com/allegedlyreliable/sqlstreams/actions/runs/34724932748)
+both pass. GoReleaser 2.18.1 publishes all six archives and checksums and
+updates the Homebrew cask in tap commit 98c18c22 to version 0.1.2.
+
+The Windows x64 runner installs sqlstreams.0.1.2.nupkg from .dist. Its
+generated installer downloads the real GitHub Windows amd64 archive and
+checks its SHA-256, 50b5bc5496da127e224f2558b677bf6626a6993b222e6ba871cb8a1736764e91.
+Chocolatey creates the CLI shim; it prints sqlstreams version 0.1.2.
+Installation and uninstall both succeed, then choco push submits that
+same package to https://push.chocolatey.org/ at 23:20:52 UTC.
+This proves packaging, download/checksum, shim/version, uninstall, and
+account/API-key submission without the discarded snapshot-server approach.
+
+Chocolatey's public package metadata reports version 0.1.2,
+PackageStatus=Submitted, PackageSubmittedStatus=Pending, IsApproved=false.
+Moderation and subsequent public-feed installation are a Next roadmap item; the
+README does not yet advertise Chocolatey as available. Archive links now
+point to v0.1.2; the separately published OTel and CLI Go modules remain
+v0.1.1 with their existing stable pins.
+
+Application/module source is unchanged from the verified CLI publication
+9b575408. The fresh-DB signal and RC compatibility results cited in the
+v0.1.0 checkpoint remain the source/schema evidence; no migration steps or
+application changes landed in this packaging release. The migration table
+records v0.1.2 as retaining that checkpoint. No site deployment was performed.
+
 ## 2026-09-12 — Stable CLI Go module publication verified [0786]
 
 [cmd/sqlstreams/v0.1.1](https://github.com/allegedlyreliable/sqlstreams/tree/cmd/sqlstreams/v0.1.1/cmd/sqlstreams)
