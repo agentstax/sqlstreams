@@ -5,16 +5,18 @@ Dated ledger of what shipped, newest first — one entry per milestone.
 Entries before 2026-08-13 were reconstructed from the phase notes when this
 ledger was created; dates come from the phase git tags.
 
-## 2026-09-12 — Message consumer claim loop ends on a permanent fault, warns on a transient one [0792]
+## 2026-09-12 — Consumer claim loops end on a permanent fault, warn on a transient one [0792]
 
-The prefetch loop swallowed every non-cancel claim error as a blip and
-polled forever, so a deleted cursor row or revoked grant left a consumer
-looking alive with a growing backlog. It now classifies the error the
-way `RetryDatastore.Wrap` does: a transient cause logs the new Warn event
-SQL0108 "could not claim messages" and waits one poll rate; a permanent
-cause returns and ends `Consume` with it. Docs page and client alias
-added; codes export regenerated. Verified by build, vet, `go test -race`
-on pkg/consume and pkg/common, and the conventions checks.
+The message consumer's prefetch loop swallowed every non-cancel claim
+error as a blip and polled forever, so a deleted cursor row or revoked
+grant left a consumer looking alive with a growing backlog; the exception
+consumer's claim loop ended `Consume` on any error, a spent transient
+curve included. Both now classify the error the way `RetryDatastore.Wrap`
+does: a transient cause logs the new Warn event SQL0108 "could not claim
+messages" and waits one poll rate; a permanent cause returns and ends
+`Consume` with it. Docs page and client alias added; codes export
+regenerated. Verified by build, vet, `go test -race` on pkg/consume and
+pkg/common, and the conventions checks.
 
 ## 2026-09-12 — Release pipeline task closed [0785] [0786] [0787] [0788] [0789] [0791]
 

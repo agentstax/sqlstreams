@@ -61,8 +61,20 @@ func (r *exceptionRunner[Message]) claimLoop(ctx context.Context) error {
 		case <-ticker.C:
 			// one copy per tick, otherwise refresh mid claim
 			// could lead to unstable behavior
-			if err := r.exceptionClaim(ctx, r.groupConfig.current()); err != nil {
-				return err
+			cfg := r.groupConfig.current()
+			if err := r.exceptionClaim(ctx, cfg); err != nil {
+				// ctx cancellation is a real shutdown -> propagate and stop
+				if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+					return err
+				}
+
+				// an unchanged retry cannot succeed -> the session ends with the cause
+				if !common.IsTransientDatastoreError(err) {
+					return err
+				}
+
+				// the retry curve is spent -- the next tick is the backoff
+				r.Logger.WarnContext(ctx, consume.EventMessagesNotClaimed.Message(), "code", consume.EventMessagesNotClaimed.GetCode(), "group", r.Owner.Name, "stream_id", r.Stream.Id, "worker", WorkerExceptionConsumer, "delay", cfg.ClaimPollRate, "error", err)
 			}
 		}
 	}
